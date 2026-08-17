@@ -82,7 +82,9 @@ que ocurra. Ninguno está reservado ni prejuzgado.
   decisión más cara de revertir del proyecto.
 - **Participantes sin cuenta: invitación, reclamación y fusión** — la de mayor
   riesgo de seguridad.
-- Representación del dinero y escala por moneda.
+- **Representación del dinero** y escala por moneda: unidad mínima entera,
+  `numeric`, librería decimal u otra representación exacta, con verificación de
+  cómo sobrevive cada tipo al transporte hasta el cliente.
 - Idempotencia y cola offline para la entrada rápida.
 - React Native + Expo con CNG como plataforma.
 - Supabase como backend y RLS como capa de autorización.

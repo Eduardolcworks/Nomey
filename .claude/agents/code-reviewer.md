@@ -25,7 +25,10 @@ leaks, not style.
 
 **1. Money correctness — highest priority**
 
-- Any `float` arithmetic on money is a defect.
+- A value of accounting record derived through inexact arithmetic is a defect.
+  Approximate float maths is fine for chart geometry, forecasts, ratios and
+  animation — the defect is when such a value **feeds back** into something
+  persisted, into a balance or debt, or into a displayed accounting figure.
 - An amount without its currency is a defect.
 - Code assuming 2 decimal places is a defect (currency scale varies).
 - Does the remainder split reconcile exactly? 100 between 3 must sum back to 100.

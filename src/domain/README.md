@@ -28,15 +28,24 @@ influencia son los argumentos que recibe.
 
 ## Invariantes
 
-- Los importes son **enteros en la unidad mínima** de su moneda, nunca `float`.
-  La escala decimal depende de la moneda (EUR 2, JPY 0), así que ningún módulo
-  debe asumir 2 decimales.
+- Los valores monetarios que son **fuente de verdad contable se representan de
+  forma exacta**, nunca mediante coma flotante binaria susceptible de error de
+  precisión. La escala decimal depende de la moneda (EUR 2, JPY 0), así que
+  ningún módulo debe asumir 2 decimales.
 - Todo importe viaja **siempre acompañado de su moneda**. No existe un importe
   sin moneda.
-- El reparto del resto (100 € entre 3) sigue una **regla determinista y
-  documentada**. Si no cuadra al céntimo, es un bug.
+- El redondeo y el reparto del resto (100 € entre 3) siguen una **regla
+  determinista y documentada**. Si no cuadra al céntimo, es un bug.
+- **Frontera:** los cálculos aproximados (previsiones, ratios, geometría de
+  gráficas) pueden usar float, pero **no pueden realimentar** un valor de
+  registro.
 - El **formateo no pertenece a esta capa**: depende del locale y vive en
   `src/lib/format`. Aquí solo hay aritmética.
+
+> La **representación concreta** (unidad mínima entera, `numeric`, librería
+> decimal…) está pendiente del ADR de dinero. Ojo: en TypeScript un `number` es
+> un double IEEE-754, exacto solo para enteros hasta 2^53 — "usar un entero"
+> también es una elección con límites, no una salida de la pregunta.
 
 ## Tests
 

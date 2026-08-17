@@ -37,9 +37,12 @@ so and stop. The rules below constrain any design; they do not describe one.
    a public table. Never defer it to a follow-up migration.
 2. **Never write a policy that queries the table it protects** — that recurses.
    Use a `SECURITY DEFINER` helper with an explicit `search_path`.
-3. **Money is stored as integer minor units alongside an explicit ISO 4217
-   currency.** Never `float`. Never assume 2 decimal places — currency scale
-   varies by currency.
+3. **Monetary values of record are stored exactly**, never in a representation
+   that can introduce binary floating-point error, and always alongside an
+   explicit ISO 4217 currency. Never assume 2 decimal places — scale varies by
+   currency. **Which exact representation** (integer minor units, `numeric`,
+   something else) is a money-ADR decision with real trade-offs; choosing it is
+   part of your job, asserting it before the ADR is not.
 4. **Every write that records money carries a device-generated idempotency
    key, enforced unique at the database level.** Offline writes get retried;
    without this you get duplicates. Name and placement are for the ADR; the

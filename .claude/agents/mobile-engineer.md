@@ -42,8 +42,10 @@ Read the `README.md` in a directory before adding files to it.
 
 - **Never hardcode a currency symbol or a Spanish date format.** Spanish and
   English are both first-class. Keep user-facing strings extractable.
-- **Amounts are integer minor units + currency.** Format via `lib/format`,
-  never inline.
+- **Amounts always travel with their currency, and accounting figures come from
+  the exact representation**, never from approximate maths. Format via
+  `lib/format`, never inline. The concrete representation is a pending ADR — do
+  not assume one.
 - **Never show a figure derived from summing raw cash movements as if it were
   spending.** Cash movement, economic expense and debt are three different
   numbers that answer three different questions. A settlement cancels a debt

@@ -68,19 +68,47 @@ produces a bug that is silent, expensive, or both.
 > If you find yourself needing a concrete table name to proceed, that is a
 > signal the ADR is missing, not a licence to invent one.
 
+**Before writing any strong rule here — MUST, NEVER, ALWAYS — apply this
+test.** Is it a _statement about the world_ (then it needs evidence and
+qualification) or a _constraint we choose to impose_ (then an imperative is
+fine)? And crucially: **is the imperative smuggling in a decision that belongs
+to an ADR?** Grammatical force does not turn a pending implementation choice
+into an invariant.
+
+Strong rules are welcome. A strong rule earns its place when it states a
+decided invariant, states a sufficiently justified security principle, or is
+backed by an accepted ADR. Otherwise it belongs in an ADR, not here.
+
 ### 1. Money
 
-- **Never use `float` for money.** Amounts are integers in the currency's
-  minor unit.
+- **Monetary values that are a source of accounting truth are represented
+  exactly**, never through binary floating point that can introduce precision
+  error.
 - **Every amount carries its currency** (ISO 4217). There is no such thing as a
   bare amount. Nomey is multi-currency by design even while the UI shows one.
 - **Decimal scale depends on the currency.** EUR has 2, JPY has 0. Never
   hardcode 2 decimals.
-- **Remainder splitting is deterministic.** 100 between 3 is 33.33 / 33.33 /
-  33.34, and which participant absorbs the extra minor unit follows a
-  documented rule. If balances do not reconcile exactly, it is a bug.
-- **Formatting is not domain logic.** `domain/` does arithmetic on
-  `{ amountMinor, currency }`; `lib/format` turns that into a locale string.
+- **Rounding and remainder allocation are deterministic and documented.** 100
+  between 3 is 33.33 / 33.33 / 33.34, and which participant absorbs the extra
+  minor unit follows a written rule. If balances do not reconcile exactly, it
+  is a bug.
+- **Formatting is not domain logic.** `domain/` does the arithmetic; `lib/format`
+  turns the result into a locale string.
+
+**The boundary rule** — this is the one to apply mechanically:
+
+> Any value that gets persisted, that enters a balance or a debt, or that is
+> displayed as an accounting figure, comes from the exact representation.
+> Approximate computation (chart geometry, forecasts, budget-consumption
+> ratios, animated counters) may use floating point, but must never feed back
+> into a value of record.
+
+**Open (money ADR):** the exact representation — integer minor units,
+PostgreSQL `numeric`, a decimal library, or something else. Note that in
+TypeScript a plain `number` _is_ an IEEE-754 double, exact only for integers up
+to 2^53, so "use an integer" is itself a choice with limits rather than an
+escape from the question. The ADR must also verify empirically how each numeric
+type survives the trip through PostgREST to the client.
 
 ### 2. Cash flow is not economic expense is not debt
 

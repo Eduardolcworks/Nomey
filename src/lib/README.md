@@ -21,7 +21,8 @@ compartida. No contiene reglas de negocio.
 ## Nota sobre `format`
 
 El formateo monetario depende del locale y por eso vive aquí, no en `domain/`.
-`domain` opera con `{ amountMinor, currency }`; `lib/format` lo convierte en
-`"1.234,56 €"` o `"$1,234.56"` según el idioma activo.
+`domain` opera con el valor exacto y su moneda; `lib/format` lo convierte en
+`"1.234,56 €"` o `"$1,234.56"` según el idioma activo. La representación
+concreta del importe está pendiente del ADR de dinero.
 
 Nada implementado todavía.
