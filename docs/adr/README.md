@@ -55,7 +55,7 @@ Dos reglas de calidad:
 - **Las consecuencias incluyen las malas.** Si no hay contrapartidas, o la
   decisión es trivial o el análisis está incompleto.
 
-Usa el comando `/adr` para redactar uno.
+Usa la skill `adr` (`.claude/skills/adr/`) para redactar uno.
 
 ## Numeración
 

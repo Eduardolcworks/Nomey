@@ -228,7 +228,7 @@ Architectural decisions are recorded in `docs/adr/` and are **immutable once
 accepted**: superseding one means writing a new ADR, not editing the old.
 
 Any change that contradicts an accepted ADR updates it **in the same PR**. Use
-the `/adr` command to draft one.
+the `adr` skill to draft one.
 
 ---
 
