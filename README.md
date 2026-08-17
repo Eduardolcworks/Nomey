@@ -1,56 +1,128 @@
-# Welcome to your Expo app 👋
+# Nomey
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicación móvil de finanzas personales y gastos compartidos, para iOS y
+Android.
 
-## Get started
+**Software propietario.** Ver [`NOTICE.md`](NOTICE.md) y
+[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## Qué es
 
-2. Start the app
+Tres pilares:
 
-   ```bash
-   npx expo start
-   ```
+1. **Finanzas personales** — ingresos, gastos, categorías, presupuestos, gastos
+   recurrentes, objetivos de ahorro, previsión y dinero disponible real.
+2. **Gastos compartidos** — grupos, viajes, parejas y pisos compartidos: quién
+   pagó, cómo se reparte, deudas y liquidaciones.
+3. **Entrada en ~5 segundos** — registrar un gasto corriente debe ser casi
+   instantáneo, primero desde la app y después desde widgets, Siri y el Botón
+   de Acción.
 
-In the output, you'll find options to open the app in a
+### La idea que lo distingue
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Un gasto compartido son **tres hechos distintos**, no uno. Si alguien paga 120 €
+de una cena entre cuatro:
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+| Hecho                     | Importe |
+| ------------------------- | ------- |
+| Salió de su cuenta        | −120 €  |
+| Lo que realmente consumió | −30 €   |
+| Lo que le deben           | +90 €   |
 
-## Get a fresh project
+Cuando recibe esos 90 €, **no es un ingreso**: cancela una deuda. Modelar esto
+correctamente es la decisión central del proyecto.
 
-When you're ready, run:
+---
+
+## Estado
+
+**Fase 0 — cimientos del repositorio.**
+
+Todavía no hay base de datos, ni autenticación, ni funcionalidad. La pantalla
+en blanco es intencionada. Ver el [roadmap por fases](docs/README.md).
+
+---
+
+## Stack
+
+React Native · Expo SDK 57 · expo-router · TypeScript · Supabase (Postgres,
+Auth, RLS) · Swift para integraciones nativas de iOS más adelante.
+
+Web **no** es plataforma objetivo.
+
+---
+
+## Puesta en marcha
+
+Requiere Node >= 20.
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+```bash
+npm start
+```
 
-### Other setup steps
+Después, `i` para iOS o `a` para Android. También `npm run ios` / `npm run android`.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Copia `.env.example` a `.env` cuando haya credenciales que configurar. **`.env`
+nunca se commitea.**
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
+## Comandos
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+| Comando             | Qué hace                        |
+| ------------------- | ------------------------------- |
+| `npm start`         | Servidor de desarrollo          |
+| `npm run ios`       | Servidor + iOS                  |
+| `npm run android`   | Servidor + Android              |
+| `npm run typecheck` | `tsc --noEmit`                  |
+| `npm run lint`      | ESLint                          |
+| `npm run format`    | Prettier                        |
+| `npm run verify`    | typecheck + lint + format check |
 
-## Join the community
+Ejecuta `npm run verify` después de cada unidad de trabajo. CI lo comprueba en
+cada PR.
 
-Join our community of developers creating universal apps.
+---
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Estructura
+
+```
+src/
+├── app/        # rutas de expo-router. Archivos finos, solo composición.
+├── features/   # dominios funcionales autónomos
+├── domain/     # reglas de negocio puras. Sin React, Expo, Supabase ni red.
+├── lib/        # infraestructura: supabase, query, offline, format, env
+├── ui/         # design system
+└── types/
+```
+
+Las dependencias van en una sola dirección:
+`app/ → features/ → domain/ + lib/ + ui/`. Nunca al revés, nunca entre
+features. Lo impone ESLint, no es una convención opcional.
+
+Cada carpeta tiene un `README.md` con sus restricciones.
+
+---
+
+## Documentación
+
+- [`docs/`](docs/README.md) — wiki técnica y de producto (español)
+- [`docs/adr/`](docs/adr/README.md) — decisiones arquitectónicas
+- [`AGENTS.md`](AGENTS.md) — reglas operativas para personas y agentes de IA
+
+---
+
+## Contribuir
+
+Ramas `feature/*`, `fix/*`, `chore/*` desde `main`. Commits en inglés siguiendo
+Conventional Commits. Nunca commits directos a `main`.
+
+Todo lo que toque dinero o RLS necesita revisión reforzada: son los dos sitios
+donde un fallo produce números erróneos silenciosos o fuga de datos entre
+usuarios.
