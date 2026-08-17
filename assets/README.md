@@ -2,9 +2,8 @@
 
 ```
 assets/
-├── icons/        # app icon + Android adaptive icon layers
-├── splash/       # splash screen artwork
-└── nomey.icon/   # iOS 26 .icon bundle (INACTIVE - see below)
+├── icons/    # app icon + Android adaptive icon layers
+└── splash/   # splash screen artwork
 ```
 
 ## Estado actual
@@ -18,17 +17,20 @@ Pendiente de recibir:
 - icono de app (`icons/icon.png`)
 - capas del icono adaptativo de Android (foreground / background / monochrome)
 - arte del splash (`splash/splash-icon.png`)
-- contenido del bundle `nomey.icon`
 
-## Sobre `nomey.icon/`
+## Sobre el icono de iOS 26 (`.icon`)
 
-Es el formato de icono de iOS 26. La carpeta conserva la estructura y el
-`icon.json` del template como andamiaje, pero **sus capas (`Assets/`) se
-eliminaron por ser marca de Expo**, de modo que el bundle está incompleto.
+El template traía un bundle `expo.icon/` con un `icon.json` que referenciaba
+capas de marca de Expo. Al eliminar esas capas, el `icon.json` quedó apuntando
+a archivos inexistentes, así que **se ha eliminado**: un manifiesto roto no es
+andamiaje útil, es una trampa para quien lo encuentre.
 
-Por eso `app.config.ts` **no** lo referencia todavía: usa `icons/icon.png`. Al
-incorporar el icono de Nomey, hay que añadir las capas a `nomey.icon/Assets/`,
-actualizar `icon.json` y entonces apuntar `ios.icon` a `./assets/nomey.icon`.
+`app.config.ts` usa `icons/icon.png` y **no declara `ios.icon`**.
+
+Cuando llegue la identidad visual de Nomey, si se quiere el formato `.icon` de
+iOS 26 hay que crear `assets/nomey.icon/` con sus capas y su `icon.json`, y
+entonces apuntar `ios.icon` a `./assets/nomey.icon`. Lo genera Icon Composer
+(Xcode); no debe escribirse a mano.
 
 ## Presupuesto de peso
 
