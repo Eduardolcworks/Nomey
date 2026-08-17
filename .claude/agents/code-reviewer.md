@@ -19,11 +19,13 @@ leaks, not style.
 - An amount without its currency is a defect.
 - Code assuming 2 decimal places is a defect (currency scale varies).
 - Does the remainder split reconcile exactly? 100 between 3 must sum back to 100.
-- **Is a spending figure being computed from raw cash movements instead of
-  expense splits?** This is the highest-value bug to catch: it produces
-  plausible, wrong numbers and throws no error.
+- **Is a cash movement being reported as economic expense, or vice versa?**
+  They answer different questions. This is the highest-value bug to catch: it
+  produces plausible, wrong numbers and throws no error.
 - Is a settlement being counted as income? It cancels a debt; it is not
   revenue.
+- Does the change quietly assume a data model that no accepted ADR has
+  established? Inventing schema is itself a finding at this stage.
 
 **2. Security and isolation**
 
@@ -38,7 +40,8 @@ leaks, not style.
 
 **3. Idempotency and offline**
 
-- Missing or non-unique `client_id` on a write path.
+- A money-recording write path with no device-generated idempotency key, or one
+  whose uniqueness is not enforced by the database.
 - Retry logic that can duplicate a transaction.
 
 **4. Architecture**

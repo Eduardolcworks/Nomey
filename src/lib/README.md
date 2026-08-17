@@ -14,7 +14,7 @@ compartida. No contiene reglas de negocio.
 | ---------- | --------------------------------------------------------------- |
 | `supabase` | Cliente, tipos generados, adaptador de sesión sobre SecureStore |
 | `query`    | Configuración de react-query                                    |
-| `offline`  | Cola de escritura e idempotencia por `client_id`                |
+| `offline`  | Cola de escritura e idempotencia por clave de cliente           |
 | `format`   | Formateo dependiente de locale: moneda, fechas, números         |
 | `env`      | Variables de entorno validadas con Zod                          |
 

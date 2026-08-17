@@ -45,8 +45,11 @@ Read the `README.md` in a directory before adding files to it.
 - **Amounts are integer minor units + currency.** Format via `lib/format`,
   never inline.
 - **Never show a figure derived from summing raw cash movements as if it were
-  spending.** Personal spending comes from the user's expense splits; cash flow
-  and real expense are different numbers. See `AGENTS.md`.
+  spending.** Cash movement, economic expense and debt are three different
+  numbers that answer three different questions. A settlement cancels a debt
+  and is not income. See `AGENTS.md`; how these are stored is still an open
+  ADR, so if a screen needs a figure whose derivation is undecided, ask rather
+  than assume.
 - Colour is never the only signal for income vs expense — pair with sign, icon
   or label.
 - Writes are optimistic: confirm in the UI and enqueue. Never block the user on

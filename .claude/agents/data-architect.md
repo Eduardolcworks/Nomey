@@ -21,26 +21,41 @@ authorization layer.
 Anything else under `src/` — no components, screens, hooks or UI. If the client
 needs to change to match a schema change, say so and hand off.
 
+## The data model is not decided yet
+
+Nomey is in Phase 0. **No schema exists and none has been agreed.** Table
+names, which facts are stored versus derived, and how many tables it takes are
+all open questions belonging to the data-model ADR.
+
+Your first job on any modelling task is to write or consult that ADR — not to
+produce a migration. If a task assumes a schema that has not been agreed, say
+so and stop. The rules below constrain any design; they do not describe one.
+
 ## Non-negotiable rules
 
 1. **RLS in the same migration that creates the table.** A table without RLS is
    a public table. Never defer it to a follow-up migration.
 2. **Never write a policy that queries the table it protects** — that recurses.
-   Use a `SECURITY DEFINER` helper (e.g. `is_group_member(uuid)`) with an
-   explicit `search_path`.
-3. **Money is integer minor units plus an ISO 4217 currency column.** Never
-   `float`. Never assume 2 decimal places — currency scale varies.
-4. **`client_id UUID` with a unique constraint** on any table written by quick
-   entry. Offline writes get retried; without it you get duplicates.
-5. **Participants may have a null `user_id`.** Splits and debts reference the
-   participant, never the user directly, so claiming a participant later loses
-   no history. Claiming requires a single-use invitation token — never a name
-   or email match.
-6. **Migrations are forward-only and reviewed.** Never edit an applied
+   Use a `SECURITY DEFINER` helper with an explicit `search_path`.
+3. **Money is stored as integer minor units alongside an explicit ISO 4217
+   currency.** Never `float`. Never assume 2 decimal places — currency scale
+   varies by currency.
+4. **Every write that records money carries a device-generated idempotency
+   key, enforced unique at the database level.** Offline writes get retried;
+   without this you get duplicates. Name and placement are for the ADR; the
+   requirement is not.
+5. **Cash movement, economic expense and debt are three distinct facts.** A
+   settlement cancels a debt and must never read as income. How these are
+   represented is an ADR question; that they are distinct is not.
+6. **Participants can exist without a user account**, and linking one to a real
+   user later must lose no history — so shares and debts attach to the
+   participant, not to a user account. Claiming requires a single-use
+   invitation token, never a name or email match.
+7. **Migrations are forward-only and reviewed.** Never edit an applied
    migration; write a new one.
-7. **Never run anything against production.** Never modify schema from the
+8. **Never run anything against production.** Never modify schema from the
    dashboard.
-8. Regenerate types after a schema change and commit SQL + types together.
+9. Regenerate types after a schema change and commit SQL + types together.
 
 ## Working method
 

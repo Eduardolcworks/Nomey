@@ -28,6 +28,14 @@ Web is deliberately **not** a target platform.
 These are the rules most likely to be violated by default. Breaking one of them
 produces a bug that is silent, expensive, or both.
 
+> **Invariants vs open decisions.** Everything in this section is a **decided
+> product invariant**: it constrains any design, and no implementation may
+> contradict it. It is deliberately expressed in domain terms, not schema
+> terms. Table names, column layout and which facts are stored versus derived
+> are **not settled** — they belong to the data-model ADR written in Phase 1.
+> If you find yourself needing a concrete table name to proceed, that is a
+> signal the ADR is missing, not a licence to invent one.
+
 ### 1. Money
 
 - **Never use `float` for money.** Amounts are integers in the currency's
@@ -42,32 +50,40 @@ produces a bug that is silent, expensive, or both.
 - **Formatting is not domain logic.** `domain/` does arithmetic on
   `{ amountMinor, currency }`; `lib/format` turns that into a locale string.
 
-### 2. Cash flow is not expense is not debt
+### 2. Cash flow is not economic expense is not debt
 
-A shared expense is **three distinct facts**, not one. If one person pays 120
-for a dinner split 4 ways:
+A shared expense is **three distinct facts**, not one. If someone pays 120 for a
+dinner split 4 ways:
 
-| Fact                     | Amount | Lives in                      |
-| ------------------------ | ------ | ----------------------------- |
-| Cash left their account  | −120   | `transactions`                |
-| What they actually spent | −30    | their row in `expense_splits` |
-| What they are owed       | +90    | derived from the other splits |
+| Fact                                     | Amount |
+| ---------------------------------------- | ------ |
+| Cash movement — money left their account | −120   |
+| Economic expense — what they consumed    | −30    |
+| Claim — what the others owe them         | +90    |
 
-When the 90 comes back it is a `settlement`, **not income**: it cancels a debt.
+Two consequences that hold regardless of how any of this is stored:
 
-> **Account balances are computed from `transactions`. Spending and income
-> statistics are computed from `expense_splits`. Never the other way round.**
+- **A settlement is not income.** When the 90 comes back it cancels a debt; it
+  must never inflate income or count as new earnings.
+- **Cash movements and economic expense answer different questions and must not
+  be substituted for one another.** Reporting "you spent 480 this month" from
+  cash movements makes whoever pays for dinners look reckless and whoever never
+  pays look frugal. Both figures are wrong and neither throws an error.
 
-Summing `transactions` to report "you spent 480 this month" makes whoever pays
-for dinners look reckless and whoever never pays look frugal. Both numbers are
-wrong, neither throws an error.
+**Open (data-model ADR, Phase 1):** how these facts are represented — one table
+or several, which are stored and which derived, and what any of them are
+called. Do not treat any particular schema as settled, and do not invent one.
 
 ### 3. Idempotency
 
-Every transaction write carries a `client_id` (UUID) generated **on the
-device**. Quick entry can fire from a widget with no network and be retried.
-Without `client_id` the result is duplicate expenses in production with no
+Every write that records money carries an **idempotency key generated on the
+device** (working name `client_id`), and replaying the same key must never
+produce a second record. Quick entry can fire from a widget with no network and
+be retried. Without this the result is duplicate expenses in production with no
 clean way to deduplicate afterwards.
+
+**Open (ADR):** the key's exact name, type and where the uniqueness constraint
+lives. The requirement itself is not open.
 
 ### 4. Row Level Security
 
@@ -78,10 +94,15 @@ clean way to deduplicate afterwards.
 - Group membership checks must go through a `SECURITY DEFINER` function with a
   fixed `search_path`, never a policy that queries the same table it protects
   (infinite recursion).
-- Participants can exist **without a user account**. Splits and debts point at
-  a participant, never directly at a user, so a later claim loses no history.
-  Claiming a participant requires a **single-use invitation token** — never a
+- **Participants can exist without a user account.** A group member may be
+  added and take part in expenses before ever installing Nomey, and if they
+  later join, linking them must lose no expense, share, debt or history.
+  Shares and debts therefore attach to the participant, not to a user account.
+- **Claiming a participant requires a single-use invitation token** — never a
   name or email match, which is trivially exploitable.
+
+**Open (ADR):** how participants and their claim flow are modelled, including
+token storage and lifetime. The two rules above are not open.
 
 ### 5. Internationalisation
 

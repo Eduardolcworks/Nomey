@@ -24,7 +24,7 @@ Casos que deben estar cubiertos desde el primer día:
 - monedas con escala distinta de 2 decimales
 - balances netos con pagos cruzados
 - minimización del número de pagos de una liquidación
-- idempotencia: el mismo `client_id` no produce dos movimientos
+- idempotencia: repetir la misma clave no produce dos movimientos
 
 ## Tests de RLS
 
