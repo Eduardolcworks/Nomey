@@ -161,7 +161,7 @@ The layers that together make up database authorization:
 - **RLS** — which rows, for a role that already has the grant.
 - **Functions** — `EXECUTE` granted narrowly; every `SECURITY DEFINER` function
   reviewed as a privilege boundary, because it bypasses RLS by design.
-- **Key separation** — client versus backend credentials (see §6).
+- **Key separation** — client versus backend credentials (see §7).
 
 Rules:
 
@@ -186,17 +186,32 @@ removing someone from a group does not take effect until their token refreshes,
 which is a product decision wearing technical clothes. Also open: whether to
 expose a dedicated API schema instead of `public`.
 
-- **Participants can exist without a user account.** A group member may be
-  added and take part in expenses before ever installing Nomey, and if they
-  later join, linking them must lose no expense, share, debt or history.
-  Shares and debts therefore attach to the participant, not to a user account.
-- **Claiming a participant requires a single-use invitation token** — never a
-  name or email match, which is trivially exploitable.
+### 5. Participants without an account
 
-**Open (ADR):** how participants and their claim flow are modelled, including
-token storage and lifetime. The two rules above are not open.
+Three invariants, all decided:
 
-### 5. Internationalisation
+- **A participant can exist without a user account.** Someone may be added to a
+  group and take part in expenses before ever installing Nomey.
+- **Linking a participant to a real user later loses no history** — no expense,
+  share, debt or record of what happened before the link.
+- **Claiming a participant requires proof of authorization.** A name match, or
+  an unverified email match, is **not** proof.
+
+**Open (ADR):** every mechanism.
+
+- Whether the link is a nullable user reference on the participant, a separate
+  link table, or something else. A nullable reference is the obvious shape, not
+  the only one; a link table carries the history of the link itself, which
+  matters for merges.
+- Whether shares and debts reference the participant directly. That is the
+  natural way to satisfy invariant 2 and a **strong candidate**, but stability
+  across the link event can be achieved in more than one way.
+- What constitutes proof: a single-use invitation token, a verified email
+  invitation issued by an existing member, explicit approval by a member, or a
+  combination. The invariant is the proof requirement, not the mechanism.
+- Duplicate handling and participant-to-participant merges.
+
+### 6. Internationalisation
 
 Spanish and English from the start. Even before an i18n library exists:
 
@@ -206,7 +221,7 @@ Spanish and English from the start. Even before an i18n library exists:
   extractable.
 - Separate the monetary **value** from its **formatting**.
 
-### 6. Secrets and API keys
+### 7. Secrets and API keys
 
 **The invariant:** a backend credential with elevated privileges is never
 present in the client bundle. No exception, no variant, no "just for testing".
@@ -231,7 +246,7 @@ key's authentication behaviour, verify it against the current official docs
 before implementing it.** How each future Edge Function authenticates is not
 decided here.
 
-### 7. Logging
+### 8. Logging
 
 Never log full transaction objects — amounts and descriptions end up in Sentry
 and platform logs. Log IDs only.

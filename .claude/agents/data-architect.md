@@ -70,10 +70,13 @@ so and stop. The rules below constrain any design; they do not describe one.
 6. **Cash movement, economic expense and debt are three distinct facts.** A
    settlement cancels a debt and must never read as income. How these are
    represented is an ADR question; that they are distinct is not.
-7. **Participants can exist without a user account**, and linking one to a real
-   user later must lose no history — so shares and debts attach to the
-   participant, not to a user account. Claiming requires a single-use
-   invitation token, never a name or email match.
+7. **Participants can exist without a user account**, linking one to a real user
+   later must lose no history, and claiming a participant requires **proof of
+   authorization** — a name or unverified email match is not proof. Those three
+   are invariants. The mechanisms are not: how the link is represented, whether
+   shares reference the participant directly, and what counts as proof are ADR
+   decisions. Attaching shares to the participant is a strong candidate, not a
+   given.
 8. **Migrations are forward-only and reviewed.** Never edit an applied
    migration; write a new one.
 9. **Never run anything against production.** Never modify schema from the
