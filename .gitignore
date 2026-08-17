@@ -30,13 +30,30 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# Windows
+Thumbs.db
+desktop.ini
+
+# environment variables
+# NOTE: .env may contain Supabase keys. Never commit it.
+.env
+.env.*
+!.env.example
+
+# Supabase CLI
+supabase/.temp/
+supabase/.branches/
+
+# Claude Code (personal settings; .claude/settings.json IS versioned)
+.claude/settings.local.json
 
 # typescript
 *.tsbuildinfo
 
-example
+# tests
+coverage/
+
+/example
 
 # generated native folders
 /ios
