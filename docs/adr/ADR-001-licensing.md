@@ -47,8 +47,10 @@ Los tres casos no plenamente permisivos:
 - **`node-forge`** (BSD-3-Clause **OR** GPL-2.0). Licencia dual: se puede
   acoger a BSD-3-Clause.
 
-**No hay AGPL, SSPL ni GPL puro.** Nada impide distribuir Nomey como software
-propietario.
+**No hay AGPL, SSPL ni GPL puro.** En el recuento no se ha identificado ninguna
+licencia que obstaculice distribuir Nomey como software propietario. Es una
+lectura del árbol de dependencias hecha con herramientas, no un dictamen legal:
+la conclusión queda sujeta a la revisión profesional pendiente.
 
 ### Obligación que sí existe
 

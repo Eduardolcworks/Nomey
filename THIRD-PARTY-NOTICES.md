@@ -54,8 +54,9 @@ Auditoría del árbol instalado (515 paquetes, Fase 0):
 | MPL-2.0                   | 2        |
 | Otras permisivas y duales | 10       |
 
-**Sin AGPL, SSPL ni GPL puro.** Nada impide distribuir Nomey como software
-propietario.
+**Sin AGPL, SSPL ni GPL puro.** No se ha identificado ninguna licencia que
+obstaculice distribuir Nomey como software propietario. Lectura automatizada
+del árbol, no dictamen legal. Ver ADR-001.
 
 Casos que merecen nota:
 

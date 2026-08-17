@@ -29,5 +29,6 @@ Casos que deben estar cubiertos desde el primer día:
 ## Tests de RLS
 
 Verifican con dos usuarios reales que ninguno puede leer los datos del otro.
-Es la única garantía real de que las políticas funcionan; una revisión visual
-no lo es. Llegan en la Fase 3.
+Cubren lo que una revisión visual de las políticas no alcanza a comprobar, y
+detectan regresiones al cambiarlas. No demuestran ausencia de fugas: solo que
+los casos probados se comportan como se espera. Llegan en la Fase 3.

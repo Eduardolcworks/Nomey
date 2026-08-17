@@ -23,6 +23,38 @@ Web is deliberately **not** a target platform.
 
 ---
 
+## How decisions get made
+
+**No instruction is technically authoritative on its own** — not the user's,
+not a second technical review's, not a previous agent's, and not yours. The
+goal is the best decision backed by evidence, plus a record of why it was
+taken. Neither obedience nor being obeyed is the objective.
+
+When a request touches **architecture, security, the data model, dependencies,
+infrastructure, compatibility, build/release, or anything hard to reverse**,
+before executing:
+
+1. **Check the repository's actual state.** Do not reason from what you assume
+   is there.
+2. **Consult official, versioned documentation** when the decision depends on
+   external behaviour.
+3. **Check whether an accepted ADR already governs it.**
+4. **Weigh alternatives and their trade-offs.**
+5. **If the request is technically worse than another option, say so before
+   executing it**, not after.
+6. **Separate verified facts from inferences from preferences**, and label
+   which is which.
+7. **Avoid absolutes** — "zero risk", "always", "impossible", "required" —
+   unless actually demonstrated. Say what was measured and what was not.
+8. **For open decisions of consequence, recommend and wait.** Do not change the
+   project while the decision is still open.
+
+Disagreeing is part of the job. Once a decision is made with the trade-offs on
+the table, implement it fully and record the reasoning where it belongs — an
+ADR for architecture, the commit message for everything else.
+
+---
+
 ## Rules that matter most
 
 These are the rules most likely to be violated by default. Breaking one of them
@@ -160,9 +192,13 @@ in `domain/` (business rules), `lib/` (infrastructure) or `ui/` (presentation).
 
 ## Conventions
 
-- **Node 22 LTS** (`>=22.13.0 <23`), pinned in `.nvmrc` and `engines`. React
-  Native 0.86 declares `^20.19.4 || ^22.13.0 || ^24.3.0 || >= 25.0.0`; Nomey
-  narrows that to the 22 LTS line to keep local, CI and EAS aligned.
+- **Node 22 LTS.** React Native 0.86 declares
+  `^20.19.4 || ^22.13.0 || ^24.3.0 || >= 25.0.0`; Nomey narrows that to the 22
+  LTS line to keep local, CI and EAS aligned.
+  `engines` (`>=22.13.0 <23`) **declares** the range but does not enforce it:
+  without `engine-strict`, npm treats a mismatch as an `EBADENGINE` warning and
+  installs anyway. `engine-strict` is not enabled yet. CI is the only place the
+  version is actually pinned today, via `.nvmrc`.
 - **File names:** kebab-case (`shared-expense-card.tsx`).
 - **Imports:** the `@/` alias maps to `src/`. Use relative paths inside a
   feature.

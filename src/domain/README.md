@@ -13,7 +13,9 @@ Solo funciones puras y deterministas. La regla está impuesta por ESLint
 
 Aquí vive el cálculo que, si falla, le dice a una persona real que debe una
 cantidad equivocada. Aislado de React y de la red, se puede testear de forma
-exhaustiva en milisegundos, y ningún cambio de UI puede romperlo.
+exhaustiva en milisegundos, y un cambio de UI no puede alterar su
+comportamiento: al no importar nada de las capas superiores, la única vía de
+influencia son los argumentos que recibe.
 
 ## Contenido previsto
 

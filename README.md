@@ -56,8 +56,21 @@ Web **no** es plataforma objetivo.
 
 ## Puesta en marcha
 
-Requiere **Node 22 LTS** (`>=22.13.0 <23`). La versión está declarada en
-[`.nvmrc`](.nvmrc) y en el campo `engines` de `package.json`.
+Node objetivo: **22 LTS**. La versión está **declarada** en [`.nvmrc`](.nvmrc) y
+en el campo `engines` de `package.json` (`>=22.13.0 <23`).
+
+> **`engines` declara, no obliga.** Sin `engine-strict` activado, npm trata el
+> desajuste como un aviso `EBADENGINE` e instala igualmente. No está activado
+> todavía. Hoy la versión solo queda fijada de verdad en CI, que la lee de
+> `.nvmrc`. Ejecutar con otra versión funcionará casi siempre; simplemente no
+> es la combinación que se valida.
+
+**Decisión provisional (pendiente de ejecutar, en este orden):** fijar Node
+`22.23.2` de forma reproducible. Primero alinear el entorno local a esa
+versión; después verificar y, si procede, regenerar `package-lock.json` bajo
+ella (el actual se generó con Node 26.7.0, con un diff comprobado de solo
+metadatos); por último reflejar la misma versión en `eas.json` cuando exista.
+`.nvmrc` contiene todavía `22` y no se cambia hasta completar el primer paso.
 
 > **En Windows:** `nvm-windows` **no lee `.nvmrc`**. Si lo usas, ejecuta
 > `nvm use 22.x.x` indicando la versión a mano. Los gestores que sí lo leen son
