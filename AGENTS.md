@@ -120,9 +120,14 @@ src/
 └── types/      # cross-layer shared types
 ```
 
-**Dependency direction is one-way:** `app/ → features/ → domain/ + lib/ + ui/`.
-Never the reverse, never feature → feature. Enforced by ESLint
-(`no-restricted-imports`); a violation fails lint, it is not a style opinion.
+**Dependency direction is one-way:** `app/ → features/ → domain/ + lib/ + ui/`,
+with `lib/` allowed to use `domain/` and `domain/` depending on nothing. Never
+the reverse, never feature → feature, and `ui/` may not reach `lib/` either — a
+component does not fetch its own data.
+
+Enforced by ESLint (`import/no-restricted-paths`) against the **resolved
+location** of each import, so writing `../lib/x` instead of `@/lib/x` does not
+get around it. A violation fails lint; it is not a style opinion.
 
 Each directory has a `README.md` stating its constraints. Read it before adding
 files there.
