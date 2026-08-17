@@ -57,29 +57,36 @@ Dos reglas de calidad:
 
 Usa el comando `/adr` para redactar uno.
 
+## Numeración
+
+Los números se asignan **cronológicamente al crear cada ADR**, tomando el
+siguiente libre. **No se reservan números por adelantado.**
+
+Reservarlos parece ordenado y no lo es: obliga a decidir hoy qué decisiones se
+tomarán y en qué orden, deja huecos permanentes cuando alguna no llega a
+escribirse, y convierte una lista de intenciones en algo que parece un registro
+de decisiones. El registro solo contiene decisiones tomadas.
+
 ## Índice
 
 | ADR                         | Título                        | Estado    |
 | --------------------------- | ----------------------------- | --------- |
-| [009](ADR-009-licensing.md) | Licencia y avisos de terceros | Propuesto |
+| [001](ADR-001-licensing.md) | Licencia y avisos de terceros | Propuesto |
 
-## Pendientes (Fase 1)
+## Temas que previsiblemente necesitarán un ADR
 
-Se numeran al redactarse; el orden de la lista es el de prioridad, no el de
-numeración final.
+Lista de **temas**, no de números: se numerarán al redactarse, en el orden en
+que ocurra. Ninguno está reservado ni prejuzgado.
 
-| Nº  | Decisión                                                     |
-| --- | ------------------------------------------------------------ |
-| 001 | React Native + Expo con CNG como plataforma                  |
-| 002 | Supabase como backend y RLS como capa de autorización        |
-| 003 | Arquitectura por capas y reglas de import                    |
-| 004 | **Modelo de transacciones: caja / gasto real / deuda**       |
-| 005 | Representación del dinero y escala por moneda                |
-| 006 | Estrategia de código nativo iOS (CNG vs prebuild versionado) |
-| 007 | Estrategia de entornos (dev / staging / producción)          |
-| 008 | Idempotencia y cola offline para entrada rápida              |
-| 010 | **Participantes sin cuenta: invitación y reclamación**       |
-| 011 | Estrategia de i18n y localización                            |
-
-El **004** es el más importante del proyecto. El **010** es el de mayor riesgo
-de seguridad.
+- **Modelo de datos: caja / gasto económico / deuda / liquidación** — la
+  decisión más cara de revertir del proyecto.
+- **Participantes sin cuenta: invitación, reclamación y fusión** — la de mayor
+  riesgo de seguridad.
+- Representación del dinero y escala por moneda.
+- Idempotencia y cola offline para la entrada rápida.
+- React Native + Expo con CNG como plataforma.
+- Supabase como backend y RLS como capa de autorización.
+- Arquitectura por capas y reglas de import.
+- Estrategia de código nativo iOS (CNG vs prebuild versionado).
+- Estrategia de entornos (dev / staging / producción).
+- Estrategia de i18n y localización.

@@ -3,7 +3,7 @@
 Nomey se construye sobre software de terceros. Este archivo recoge los avisos
 que deben conservarse.
 
-Ver [`docs/adr/ADR-009-licensing.md`](docs/adr/ADR-009-licensing.md) para el
+Ver [`docs/adr/ADR-001-licensing.md`](docs/adr/ADR-001-licensing.md) para el
 análisis completo y las decisiones pendientes.
 
 ---
@@ -62,7 +62,7 @@ Casos que merecen nota:
 - **`lightningcss`** (MPL-2.0) — copyleft a nivel de archivo. Se usa como
   herramienta de build. **Pendiente de verificar** si alguna porción llega al
   binario distribuido; la MPL-2.0 obliga a dar acceso al código de los archivos
-  cubiertos que se distribuyan en forma ejecutable. Ver ADR-009.
+  cubiertos que se distribuyan en forma ejecutable. Ver ADR-001.
 - **`node-forge`** (BSD-3-Clause OR GPL-2.0) — licencia dual; Nomey se acoge a
   BSD-3-Clause.
 

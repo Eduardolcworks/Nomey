@@ -6,7 +6,7 @@
 > `LICENSE` de la raíz sigue siendo el del template de Expo (MIT © 650
 > Industries) y **no ha sido modificado**.
 >
-> Ver [`docs/adr/ADR-009-licensing.md`](docs/adr/ADR-009-licensing.md).
+> Ver [`docs/adr/ADR-001-licensing.md`](docs/adr/ADR-001-licensing.md).
 >
 > No es asesoramiento legal. Conviene revisión profesional antes de publicar.
 
@@ -41,6 +41,6 @@ Este software se proporciona "tal cual", sin garantía de ningún tipo.
    completa; si es una persona física, su nombre legal.
 2. **Confirmar el año** de copyright.
 3. **Decidir si se sustituye `LICENSE`** o se añade este archivo junto a él.
-   La propuesta del ADR-009 es sustituirlo.
+   La propuesta del ADR-001 es sustituirlo.
 4. Los avisos de terceros permanecen en
    [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) en cualquier caso.

@@ -1,4 +1,4 @@
-# ADR-009 — Licencia de Nomey y avisos de terceros
+# ADR-001 — Licencia de Nomey y avisos de terceros
 
 - **Estado:** Propuesto
 - **Fecha:** 2026-08-17
