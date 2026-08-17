@@ -174,13 +174,30 @@ Spanish and English from the start. Even before an i18n library exists:
   extractable.
 - Separate the monetary **value** from its **formatting**.
 
-### 6. Secrets
+### 6. Secrets and API keys
+
+**The invariant:** a backend credential with elevated privileges is never
+present in the client bundle. No exception, no variant, no "just for testing".
 
 - `EXPO_PUBLIC_*` variables are **inlined into the app bundle** and readable by
-  anyone who downloads the binary. Fine for the Supabase URL and anon key.
-- **The service role key must never reach the client, in any form.** It bypasses
-  RLS entirely and would expose every user's financial data.
+  anyone who downloads the binary.
 - Never commit `.env`.
+
+**Which keys Nomey uses.** Supabase's current API keys: **publishable**
+(`sb_publishable_…`) for the client, **secret** (`sb_secret_…`) for backend
+components only — Edge Functions, servers, CI. The legacy `anon` /
+`service_role` JWT keys are documented by Supabase as deprecated, so Nomey does
+not start on them.
+
+Legacy names, recorded only so older tutorials can be read: `anon` ~
+publishable, `service_role` ~ secret.
+
+That map is an orientation, **not an equivalence**. The new keys differ in
+implementation and compatibility from the legacy ones, particularly around Edge
+Functions and JWT verification. **Whenever a concrete integration depends on a
+key's authentication behaviour, verify it against the current official docs
+before implementing it.** How each future Edge Function authenticates is not
+decided here.
 
 ### 7. Logging
 

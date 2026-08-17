@@ -48,7 +48,9 @@ leaks, not style.
 - Group policies leaking personal data beyond the group's own transactions.
 - Can a participant be claimed without a single-use invitation token? Name or
   email matching is exploitable.
-- `service_role` anywhere near client code. `EXPO_PUBLIC_` on a secret.
+- Any elevated backend credential reachable from client code — a Supabase
+  secret key (`sb_secret_…`) or a legacy `service_role` key. `EXPO_PUBLIC_` on
+  anything that is not safe to ship inside the binary.
 - Transaction objects in logs.
 
 **3. Idempotency and offline**
