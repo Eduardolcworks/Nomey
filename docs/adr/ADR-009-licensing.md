@@ -38,9 +38,12 @@ Recuento sobre 515 paquetes instalados:
 
 Los tres casos no plenamente permisivos:
 
-- **`lightningcss`** (MPL-2.0, ×2). Copyleft **a nivel de archivo**. Es una
-  herramienta de build; no se enlaza en el binario móvil. Sin obligación
-  mientras no se modifiquen sus fuentes.
+- **`lightningcss`** (MPL-2.0, ×2). Copyleft **a nivel de archivo**. Se usa
+  como herramienta de build (procesado de CSS en Metro). **No se ha verificado
+  si alguna porción llega al binario distribuido**, y la MPL-2.0 impone
+  obligaciones de disponibilidad del código de los archivos cubiertos cuando se
+  distribuyen en forma ejecutable, se hayan modificado o no. Pendiente de
+  comprobar antes de publicar.
 - **`node-forge`** (BSD-3-Clause **OR** GPL-2.0). Licencia dual: se puede
   acoger a BSD-3-Clause.
 

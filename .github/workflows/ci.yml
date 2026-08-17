@@ -19,9 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Single source of truth for the Node version: .nvmrc. Keeping the
+      # version out of this file stops CI and local dev from drifting apart.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       # `npm ci` installs exactly what package-lock.json pins and fails if the

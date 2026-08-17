@@ -15,7 +15,7 @@ inglés.
 | `requirements/` | Reglas de negocio por pilar                          | Fase 1     |
 | `architecture/` | Visión técnica, modelo de datos, estructura, offline | Fase 1     |
 | `database/`     | Esquema, políticas RLS, migraciones                  | Fase 3     |
-| `security/`     | Modelo de amenazas, tratamiento de datos             | Fase 1     |
+| `security/`     | Modelo de amenazas, tratamiento de datos             | Parcial    |
 | `ux/`           | Design system, flujos                                | Fase 4     |
 | `adr/`          | Architecture Decision Records                        | **Activa** |
 | `runbooks/`     | Procedimientos operativos                            | Fase 1     |
@@ -45,3 +45,5 @@ Un cambio de código que los contradiga es un PR incompleto:
 - Restricciones por capa: `README.md` dentro de cada carpeta de `src/`
 - Estado de los assets: [`assets/README.md`](../assets/README.md)
 - Estrategia de tests: [`tests/README.md`](../tests/README.md)
+- Riesgos abiertos en dependencias:
+  [`security/dependency-risks.md`](security/dependency-risks.md)

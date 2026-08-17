@@ -56,7 +56,15 @@ Web **no** es plataforma objetivo.
 
 ## Puesta en marcha
 
-Requiere Node >= 20.
+Requiere **Node 22 LTS** (`>=22.13.0 <23`). La versión está declarada en
+[`.nvmrc`](.nvmrc) y en el campo `engines` de `package.json`.
+
+> **En Windows:** `nvm-windows` **no lee `.nvmrc`**. Si lo usas, ejecuta
+> `nvm use 22.x.x` indicando la versión a mano. Los gestores que sí lo leen son
+> [fnm](https://github.com/Schniz/fnm) y [nvs](https://github.com/jasongin/nvs);
+> [Volta](https://volta.sh) también funciona bien en Windows pero se ancla
+> desde `package.json`. `.nvmrc` se conserva porque además es la única fuente
+> de la versión que usa la CI.
 
 ```bash
 npm install

@@ -134,6 +134,9 @@ in `domain/` (business rules), `lib/` (infrastructure) or `ui/` (presentation).
 
 ## Conventions
 
+- **Node 22 LTS** (`>=22.13.0 <23`), pinned in `.nvmrc` and `engines`. React
+  Native 0.86 declares `^20.19.4 || ^22.13.0 || ^24.3.0 || >= 25.0.0`; Nomey
+  narrows that to the 22 LTS line to keep local, CI and EAS aligned.
 - **File names:** kebab-case (`shared-expense-card.tsx`).
 - **Imports:** the `@/` alias maps to `src/`. Use relative paths inside a
   feature.

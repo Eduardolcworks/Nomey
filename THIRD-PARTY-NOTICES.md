@@ -59,9 +59,10 @@ propietario.
 
 Casos que merecen nota:
 
-- **`lightningcss`** (MPL-2.0) — copyleft a nivel de archivo. Herramienta de
-  build; no se enlaza en el binario. Sin obligación mientras no se modifiquen
-  sus fuentes.
+- **`lightningcss`** (MPL-2.0) — copyleft a nivel de archivo. Se usa como
+  herramienta de build. **Pendiente de verificar** si alguna porción llega al
+  binario distribuido; la MPL-2.0 obliga a dar acceso al código de los archivos
+  cubiertos que se distribuyan en forma ejecutable. Ver ADR-009.
 - **`node-forge`** (BSD-3-Clause OR GPL-2.0) — licencia dual; Nomey se acoge a
   BSD-3-Clause.
 
