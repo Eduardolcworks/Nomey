@@ -42,7 +42,14 @@ leaks, not style.
 
 **2. Security and isolation**
 
-- Any table without RLS.
+- Any exposed table without RLS.
+- **Grants**, not just policies: excessive or default-inherited privileges on an
+  exposed object. RLS and grants are complementary; correct policies on a table
+  with careless grants is not a secure table.
+- A function whose `EXECUTE` is granted too widely. RLS does not apply to
+  functions.
+- A `SECURITY DEFINER` function without an explicit `search_path`, or one doing
+  more than the narrow job it was created for — it bypasses RLS by design.
 - A policy that queries the table it protects (recursion).
 - Client-side filtering treated as authorization.
 - Group policies leaking personal data beyond the group's own transactions.

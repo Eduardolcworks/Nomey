@@ -88,6 +88,12 @@ que ocurra. Ninguno está reservado ni prejuzgado.
 - Idempotencia y cola offline para la entrada rápida.
 - React Native + Expo con CNG como plataforma.
 - Supabase como backend y RLS como capa de autorización.
+- **Hardening del Data API**: esquema expuesto (`public` vs esquema dedicado) y
+  política de grants por rol.
+- **Mecanismo de comprobación de membresía**: `SECURITY DEFINER`, política
+  reestructurada sin join, o claims en el JWT. Difieren en rendimiento,
+  superficie de escalada y **frescura de permisos** (con claims, expulsar a
+  alguien de un grupo no surte efecto hasta que su token se refresca).
 - Arquitectura por capas y reglas de import.
 - Estrategia de código nativo iOS (CNG vs prebuild versionado).
 - Estrategia de entornos (dev / staging / producción).

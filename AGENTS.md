@@ -145,15 +145,47 @@ clean way to deduplicate afterwards.
 **Open (ADR):** the key's exact name, type and where the uniqueness constraint
 lives. The requirement itself is not open.
 
-### 4. Row Level Security
+### 4. Database authorization
+
+RLS is Nomey's **primary row-level authorization mechanism**, and it is one
+layer among several. Supabase's own hardening guidance is explicit that grants
+and RLS are complementary: "Grants control whether a role can access an object.
+RLS controls which rows the role can access. Use both controls for every
+exposed object." Note also that **RLS does not apply to functions at all**.
+
+The layers that together make up database authorization:
+
+- **Exposed schema** — what the Data API can reach.
+- **Grants** — explicit, minimal privileges per role; default grants reviewed
+  rather than inherited.
+- **RLS** — which rows, for a role that already has the grant.
+- **Functions** — `EXECUTE` granted narrowly; every `SECURITY DEFINER` function
+  reviewed as a privilege boundary, because it bypasses RLS by design.
+- **Key separation** — client versus backend credentials (see §6).
+
+Rules:
 
 - **No table is created without its RLS policy in the same migration.** A table
-  without RLS is a public table.
+  exposed through the Data API without RLS is reachable by any role holding a
+  matching grant.
+- **Grants are set deliberately, not inherited.** RLS on a table with excessive
+  grants still widens the surface.
 - **Client-side filters are never security.** `.eq('user_id', me)` is an
   optimisation; the attacker simply omits it.
-- Group membership checks must go through a `SECURITY DEFINER` function with a
-  fixed `search_path`, never a policy that queries the same table it protects
-  (infinite recursion).
+- **A policy must not depend on itself in a way that recurses.** A policy that
+  queries the very table it protects is a design error, and relaxing the policy
+  to "fix" it is worse than the bug.
+- **Any `SECURITY DEFINER` function pins `search_path` explicitly** and is
+  reviewed as a privilege boundary.
+
+**Open (ADR):** how membership checks are actually performed. A `SECURITY
+DEFINER` helper is one option; Supabase also documents restructuring the policy
+to avoid the join, and JWT claims are a third. They differ on performance, on
+escalation surface, and on **permission freshness** — with claims in the token,
+removing someone from a group does not take effect until their token refreshes,
+which is a product decision wearing technical clothes. Also open: whether to
+expose a dedicated API schema instead of `public`.
+
 - **Participants can exist without a user account.** A group member may be
   added and take part in expenses before ever installing Nomey, and if they
   later join, linking them must lose no expense, share, debt or history.
