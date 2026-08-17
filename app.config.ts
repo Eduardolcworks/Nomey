@@ -15,6 +15,16 @@ const IS_DEV = process.env.APP_VARIANT === 'development';
 
 const BUNDLE_ID = IS_DEV ? 'es.lcworks.nomey.dev' : 'es.lcworks.nomey';
 
+/**
+ * Deep link scheme, split per variant like the bundle identifier.
+ *
+ * With a single shared scheme, a device holding both builds resolves
+ * `nomey://` ambiguously and the OS picks a winner: a dev deep link can open
+ * production, or the reverse. That is precisely the kind of bug that shows up
+ * once and is never reproducible.
+ */
+const SCHEME = IS_DEV ? 'nomey-dev' : 'nomey';
+
 // Placeholder brand colours. Nomey's identity is black and yellow; the exact
 // palette is pending. Icon and splash artwork are still the Expo template's.
 const BACKGROUND_COLOR = '#000000';
@@ -25,7 +35,7 @@ const config: ExpoConfig = {
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icons/icon.png',
-  scheme: 'nomey',
+  scheme: SCHEME,
   userInterfaceStyle: 'automatic',
 
   // Nomey is a mobile-only product. Web is deliberately not a target.
