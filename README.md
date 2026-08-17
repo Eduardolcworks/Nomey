@@ -94,7 +94,13 @@ npm ci
 npm start
 ```
 
-Después, `i` para iOS o `a` para Android. También `npm run ios` / `npm run android`.
+Después, `a` para el emulador de Android o `i` para el simulador de iOS
+(`npm run android` / `npm run ios` hacen lo mismo).
+
+> **El desarrollo actual es en Windows**, donde el simulador de iOS no está
+> disponible: requiere macOS con Xcode. Desde Windows, iOS se prueba en un
+> dispositivo físico con un development build, o desde un equipo macOS. Android
+> funciona con normalidad.
 
 Copia `.env.example` a `.env` cuando haya credenciales que configurar. **`.env`
 nunca se commitea.**

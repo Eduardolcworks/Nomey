@@ -46,8 +46,13 @@ so and stop. The rules below constrain any design; they do not describe one.
 
 ## Non-negotiable rules
 
-1. **RLS in the same migration that creates the table.** A table without RLS is
-   a public table. Never defer it to a follow-up migration.
+1. **Any table reachable from the client gets its RLS policy in the same
+   migration that creates it.** Never defer it to a follow-up. Exposed through
+   the Data API without RLS, a table is readable by any role holding a matching
+   grant — so exposure plus grants, not the mere absence of RLS, is what makes
+   it reachable. Objects that are genuinely internal (not in an exposed schema,
+   no grants to client roles) are governed by that exclusion instead, and it
+   must be deliberate and stated, never assumed.
 2. **Never write a policy that queries the table it protects** — that recurses,
    and relaxing the policy to make the error go away is worse than the bug.
    How membership checks are performed instead is an **ADR decision**, not a

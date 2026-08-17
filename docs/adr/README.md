@@ -20,9 +20,19 @@ abandona.
 | `Aceptado`                | Vigente. **Inmutable.**                         |
 | `Reemplazado por ADR-NNN` | Sustituido. Se conserva como registro histórico |
 
-**Un ADR aceptado no se edita.** Si la decisión cambia, se escribe uno nuevo que
-reemplaza al anterior. Esa inmutabilidad es justamente lo que los hace útiles:
-registran el razonamiento de un momento concreto, no el estado actual.
+**En un ADR aceptado, el contenido y el razonamiento son inmutables.** No se
+corrigen, no se matizan ni se actualizan: registran el razonamiento de un
+momento concreto con la información de entonces, no el estado actual. Eso es
+justamente lo que los hace útiles.
+
+Lo único que sí se actualiza es la **metadata de estado**: la línea `Estado:`
+puede pasar a `Reemplazado por ADR-NNN`, y puede añadirse el enlace al ADR que
+lo sustituye. No es una excepción a la inmutabilidad — el razonamiento no se
+toca — sino la forma de mantener navegable el registro. Si la decisión cambia,
+se escribe un ADR nuevo; el antiguo se queda como estaba, solo marcado.
+
+Un ADR en estado `Propuesto` sí se edita libremente: todavía no es un registro
+de nada.
 
 ## Plantilla
 

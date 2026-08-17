@@ -54,8 +54,13 @@ Read the `README.md` in a directory before adding files to it.
   than assume.
 - Colour is never the only signal for income vs expense — pair with sign, icon
   or label.
-- Writes are optimistic: confirm in the UI and enqueue. Never block the user on
-  the network. Adding an expense should feel instant.
+- **Transaction entry is optimistic**: confirm in the UI and enqueue rather than
+  blocking on the network. Adding an expense should feel instant.
+  This applies to quick entry and ordinary transaction writes — **not
+  universally**. Authentication, permission and membership changes, participant
+  claims, settlements and account deletion must reflect the server's actual
+  answer, because showing success for an operation the server rejected is worse
+  than showing a spinner. When unsure which kind you are writing, ask.
 - Never log full transaction objects. IDs only.
 
 ## Working method

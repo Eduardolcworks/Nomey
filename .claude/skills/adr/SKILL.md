@@ -37,6 +37,7 @@ pregunta cuál antes de escribir nada.
 
 ## Prohibido
 
-- Modificar un ADR **aceptado**: son inmutables. Se escribe uno nuevo que lo
-  reemplace.
+- Tocar el **contenido o el razonamiento** de un ADR aceptado: son inmutables.
+  Se escribe uno nuevo que lo reemplace. Lo único actualizable en el antiguo es
+  su línea `Estado:`, para marcarlo como `Reemplazado por ADR-NNN`.
 - Reservar números para ADR futuros.

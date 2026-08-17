@@ -60,13 +60,19 @@ ADR for architecture, the commit message for everything else.
 These are the rules most likely to be violated by default. Breaking one of them
 produces a bug that is silent, expensive, or both.
 
-> **Invariants vs open decisions.** Everything in this section is a **decided
-> product invariant**: it constrains any design, and no implementation may
-> contradict it. It is deliberately expressed in domain terms, not schema
-> terms. Table names, column layout and which facts are stored versus derived
-> are **not settled** — they belong to the data-model ADR written in Phase 1.
-> If you find yourself needing a concrete table name to proceed, that is a
-> signal the ADR is missing, not a licence to invent one.
+> **Three kinds of statement live here.** Do not read them as one:
+>
+> - **Decided product invariants** — settled by the product. No implementation
+>   may contradict them.
+> - **Accepted technical and security principles** — justified engineering
+>   positions, revisable with a better argument or contrary evidence.
+> - **`Open (ADR)`** — explicitly undecided. Marked as such in place, and
+>   binding on nobody.
+>
+> Everything here is expressed in domain terms, not schema terms. Table names,
+> column layout and which facts are stored versus derived are **not settled** —
+> they belong to the data-model ADR written in Phase 1. Needing a concrete table
+> name to proceed is a signal the ADR is missing, not a licence to invent one.
 
 **Before writing any strong rule here — MUST, NEVER, ALWAYS — apply this
 test.** Is it a _statement about the world_ (then it needs evidence and
@@ -136,14 +142,21 @@ called. Do not treat any particular schema as settled, and do not invent one.
 
 ### 3. Idempotency
 
-Every write that records money carries an **idempotency key generated on the
-device** (working name `client_id`), and replaying the same key must never
-produce a second record. Quick entry can fire from a widget with no network and
-be retried. Without this the result is duplicate expenses in production with no
-clean way to deduplicate afterwards.
+**Any monetary operation that can be retried must be idempotent.** Replaying it
+must not produce a second record.
 
-**Open (ADR):** the key's exact name, type and where the uniqueness constraint
-lives. The requirement itself is not open.
+Quick entry can fire from a widget with no network and be retried, so this
+starts as a client concern — but it is not only one. Recurring charges, imports,
+backend-originated operations and future bank integrations all replay too, and
+each needs an equivalent guarantee rather than the same mechanism.
+
+Without this, the result is duplicate money in production with no clean way to
+deduplicate afterwards.
+
+**Open (ADR):** the mechanism per origin. For client-originated writes a stable
+client-generated identifier (working name `client_id`) is the obvious
+candidate; other sources may need something else. Names, types and where
+uniqueness is enforced are ADR territory. The requirement is not.
 
 ### 4. Database authorization
 

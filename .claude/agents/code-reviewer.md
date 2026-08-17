@@ -53,8 +53,10 @@ leaks, not style.
 - A policy that queries the table it protects (recursion).
 - Client-side filtering treated as authorization.
 - Group policies leaking personal data beyond the group's own transactions.
-- Can a participant be claimed without a single-use invitation token? Name or
-  email matching is exploitable.
+- Can a participant be claimed without **proof of authorization**? Matching on a
+  name, or on an unverified email, is not proof. Which mechanism constitutes
+  proof is an open ADR — flag the absence of any, not the absence of a
+  particular one.
 - Any elevated backend credential reachable from client code — a Supabase
   secret key (`sb_secret_…`) or a legacy `service_role` key. `EXPO_PUBLIC_` on
   anything that is not safe to ship inside the binary.
