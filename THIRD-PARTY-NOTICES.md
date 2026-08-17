@@ -87,6 +87,13 @@ commiteado.
 | Python-2.0                | 1        |
 | CC-BY-4.0                 | 1        |
 | **Sin metadato**          | **0**    |
+| **Total**                 | **853**  |
+
+Esta tabla lista **cada licencia por separado, sin categorías agregadas**, y su
+total debe coincidir siempre con el universo A declarado arriba. Si no coincide,
+la tabla está incompleta. En particular, `0BSD` y `(BSD-3-Clause OR GPL-2.0)`
+son entradas propias y **no** forman parte de las filas `BSD-2-Clause` /
+`BSD-3-Clause`.
 
 Sin AGPL, SSPL ni GPL como licencia única. No se ha identificado en este
 universo ninguna licencia que obstaculice distribuir Nomey como software

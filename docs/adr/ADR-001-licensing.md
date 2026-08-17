@@ -23,12 +23,28 @@ del Software", y el proyecto partió de ese template.
 
 ### Auditoría del árbol de dependencias
 
-El recuento, con su universo, metodología y fecha declarados, vive en
+El recuento íntegro, con su universo, metodología y fecha declarados, vive en
 [`THIRD-PARTY-NOTICES.md`](../../THIRD-PARTY-NOTICES.md). Resumen a
-**2026-08-17**, sobre las **853** entradas de `package-lock.json` — universo
-elegido por ser el único reproducible desde un archivo versionado: 739 MIT, 40
-ISC, 27 Apache-2.0, 12 MPL-2.0, 18 BSD y ninguna entrada sin metadato de
-licencia.
+**2026-08-17** sobre las **853** entradas de `package-lock.json` — universo
+elegido por ser el único reproducible desde un archivo versionado:
+
+| Licencia                             | Paquetes |
+| ------------------------------------ | -------- |
+| MIT                                  | 739      |
+| ISC                                  | 40       |
+| Apache-2.0                           | 27       |
+| MPL-2.0                              | 12       |
+| BSD-3-Clause + BSD-2-Clause          | 18       |
+| Otras nueve licencias (ver desglose) | 17       |
+| **Total**                            | **853**  |
+
+Ninguna entrada carece de metadato de licencia.
+
+> La fila «BSD-3-Clause + BSD-2-Clause» agrupa **solo** esas dos (9 + 9).
+> `0BSD` (2) y la dual `(BSD-3-Clause OR GPL-2.0)` (1) **no** están ahí: cuentan
+> entre las otras nueve, junto con BlueOak-1.0.0 (6), Unlicense (2),
+> `(MIT OR CC0-1.0)` (2), `MIT AND Apache-2.0` (1), `(MIT OR Apache-2.0)` (1),
+> Python-2.0 (1) y CC-BY-4.0 (1).
 
 > Una versión anterior de este ADR citaba **515 paquetes**. Esa cifra procedía
 > de recorrer `node_modules` antes de instalar el linting y **sin declarar el
