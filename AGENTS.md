@@ -284,13 +284,14 @@ in `domain/` (business rules), `lib/` (infrastructure) or `ui/` (presentation).
 
 ## Conventions
 
-- **Node 22 LTS.** React Native 0.86 declares
-  `^20.19.4 || ^22.13.0 || ^24.3.0 || >= 25.0.0`; Nomey narrows that to the 22
-  LTS line to keep local, CI and EAS aligned.
-  `engines` (`>=22.13.0 <23`) **declares** the range but does not enforce it:
-  without `engine-strict`, npm treats a mismatch as an `EBADENGINE` warning and
-  installs anyway. `engine-strict` is not enabled yet. CI is the only place the
-  version is actually pinned today, via `.nvmrc`.
+- **Node 22.23.2**, pinned exactly in `.nvmrc`, which CI reads. React Native
+  0.86 declares `^20.19.4 || ^22.13.0 || ^24.3.0 || >= 25.0.0`; Nomey narrows
+  that to one version so local, CI and EAS run the same binary.
+  `engines` (`>=22.13.0 <23`) **declares** the admissible range but does not
+  enforce it: without `engine-strict`, npm treats a mismatch as an
+  `EBADENGINE` warning and installs anyway. `engine-strict` is not enabled yet.
+  Bumping the pinned version is a deliberate change to `.nvmrc`, not something
+  to do in passing.
 - **File names:** kebab-case (`shared-expense-card.tsx`).
 - **Imports:** the `@/` alias maps to `src/`. Use relative paths inside a
   feature.
