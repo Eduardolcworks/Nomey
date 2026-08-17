@@ -324,6 +324,7 @@ starts (`npx expo start`).
 
 | Command             | What it does                    |
 | ------------------- | ------------------------------- |
+| `npm ci`            | Install from the lockfile       |
 | `npm start`         | Expo dev server                 |
 | `npm run ios`       | Dev server, iOS                 |
 | `npm run android`   | Dev server, Android             |
@@ -345,7 +346,12 @@ starts (`npx expo start`).
   first.
 - Edit generated files by hand: `expo-env.d.ts`, `src/types/database.ts`.
 - Add runtime dependencies without explicit approval. Every dependency is
-  bundle weight, an upgrade liability and attack surface.
+  bundle weight, an upgrade liability and attack surface. When one is approved,
+  add Expo-ecosystem packages with `npx expo install <pkg>`, which picks the
+  version matching the installed SDK — a plain `npm install <pkg>` can pull one
+  that does not fit SDK 57.
+- Use `npm install` to prepare an existing checkout. Use `npm ci`: it installs
+  exactly what the lockfile pins and fails if the lockfile has drifted.
 - Push or merge to `main` without being asked.
 
 ---

@@ -79,8 +79,13 @@ metadatos); por último reflejar la misma versión en `eas.json` cuando exista.
 > desde `package.json`. `.nvmrc` se conserva porque además es la única fuente
 > de la versión que usa la CI.
 
+Para preparar un checkout existente, **`npm ci`**: instala exactamente lo que
+fija `package-lock.json`, parte de un `node_modules` limpio y falla si el lock y
+`package.json` han divergido. `npm install` puede modificar el lockfile, así que
+se reserva para cuando se cambian dependencias a propósito.
+
 ```bash
-npm install
+npm ci
 ```
 
 ```bash
@@ -108,6 +113,16 @@ nunca se commitea.**
 
 Ejecuta `npm run verify` después de cada unidad de trabajo. CI lo comprueba en
 cada PR.
+
+### Añadir dependencias
+
+Para cualquier paquete del ecosistema Expo, **`npx expo install <paquete>`**, no
+`npm install <paquete>`: selecciona la versión compatible con el SDK instalado.
+Un `npm install` directo puede traer una versión que no case con SDK 57.
+
+```bash
+npx expo install expo-secure-store
+```
 
 ---
 
