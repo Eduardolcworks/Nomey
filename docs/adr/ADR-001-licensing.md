@@ -23,22 +23,26 @@ del Software", y el proyecto partió de ese template.
 
 ### Auditoría del árbol de dependencias
 
-Recuento sobre 515 paquetes instalados:
+El recuento, con su universo, metodología y fecha declarados, vive en
+[`THIRD-PARTY-NOTICES.md`](../../THIRD-PARTY-NOTICES.md). Resumen a
+**2026-08-17**, sobre las **853** entradas de `package-lock.json` — universo
+elegido por ser el único reproducible desde un archivo versionado: 739 MIT, 40
+ISC, 27 Apache-2.0, 12 MPL-2.0, 18 BSD y ninguna entrada sin metadato de
+licencia.
 
-| Licencia                  | Paquetes |
-| ------------------------- | -------- |
-| MIT                       | 451      |
-| ISC                       | 22       |
-| Apache-2.0                | 13       |
-| BSD-3-Clause              | 8        |
-| BlueOak-1.0.0             | 5        |
-| BSD-2-Clause              | 4        |
-| MPL-2.0                   | 2        |
-| Otras permisivas y duales | 10       |
+> Una versión anterior de este ADR citaba **515 paquetes**. Esa cifra procedía
+> de recorrer `node_modules` antes de instalar el linting y **sin declarar el
+> universo**, así que no era reproducible; se retira. El cambio de cifra no
+> refleja ningún cambio en las dependencias del proyecto.
 
-Los tres casos no plenamente permisivos:
+**Advertencia de alcance:** ese universo incluye todo el tooling de build. El
+inventario legalmente relevante es **lo que viaja dentro del binario**, que no
+se deriva del lockfile y **está pendiente de determinar**.
 
-- **`lightningcss`** (MPL-2.0, ×2). Copyleft **a nivel de archivo**. Se usa
+Los casos no plenamente permisivos:
+
+- **`lightningcss`** (MPL-2.0; 12 entradas, que son el paquete y sus 11
+  binarios por plataforma). Copyleft **a nivel de archivo**. Se usa
   como herramienta de build (procesado de CSS en Metro). **No se ha verificado
   si alguna porción llega al binario distribuido**, y la MPL-2.0 impone
   obligaciones de disponibilidad del código de los archivos cubiertos cuando se
