@@ -19,12 +19,12 @@ influencia son los argumentos que recibe.
 
 ## Contenido previsto
 
-| Módulo       | Responsabilidad                                            |
-| ------------ | ---------------------------------------------------------- |
-| `money`      | Aritmética en unidad mínima entera + moneda ISO-4217       |
-| `split`      | Reparto de un gasto entre participantes, incluido el resto |
-| `balance`    | Deudas netas por participante dentro de un grupo           |
-| `settlement` | Minimización del número de pagos para saldar un grupo      |
+| Módulo       | Responsabilidad                                                |
+| ------------ | -------------------------------------------------------------- |
+| `money`      | Aritmética monetaria exacta sobre importes con moneda ISO 4217 |
+| `split`      | Reparto de un gasto entre participantes, incluido el resto     |
+| `balance`    | Deudas netas por participante dentro de un grupo               |
+| `settlement` | Minimización del número de pagos para saldar un grupo          |
 
 ## Invariantes
 

@@ -64,8 +64,11 @@ leaks, not style.
 
 **3. Idempotency and offline**
 
-- A money-recording write path with no device-generated idempotency key, or one
-  whose uniqueness is not enforced by the database.
+- A retryable monetary operation without an effective idempotency guarantee
+  for its origin. Client entry, recurring charges, imports and
+  backend-originated operations have different replay paths. Consult accepted
+  ADRs; where none governs the mechanism, flag an absent or ineffective
+  guarantee, not the absence of one particular scheme.
 - Retry logic that can duplicate a transaction.
 
 **4. Architecture**
