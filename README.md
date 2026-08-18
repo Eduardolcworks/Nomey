@@ -1,56 +1,172 @@
-# Welcome to your Expo app 👋
+# Nomey
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicación móvil de finanzas personales y gastos compartidos, para iOS y
+Android.
 
-## Get started
+**Software propietario.** Ver [`NOTICE.md`](NOTICE.md) y
+[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## Qué es
 
-2. Start the app
+Tres pilares:
 
-   ```bash
-   npx expo start
-   ```
+1. **Finanzas personales** — ingresos, gastos, categorías, presupuestos, gastos
+   recurrentes, objetivos de ahorro, previsión y dinero disponible real.
+2. **Gastos compartidos** — grupos, viajes, parejas y pisos compartidos: quién
+   pagó, cómo se reparte, deudas y liquidaciones.
+3. **Entrada en ~5 segundos** — registrar un gasto corriente debe ser casi
+   instantáneo, primero desde la app y después desde widgets, Siri y el Botón
+   de Acción.
 
-In the output, you'll find options to open the app in a
+### La idea que lo distingue
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Un gasto compartido son **tres hechos distintos**, no uno. Si alguien paga 120 €
+de una cena entre cuatro:
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+| Hecho                     | Importe |
+| ------------------------- | ------- |
+| Salió de su cuenta        | −120 €  |
+| Lo que realmente consumió | −30 €   |
+| Lo que le deben           | +90 €   |
 
-## Get a fresh project
+Cuando recibe esos 90 €, **no es un ingreso**: cancela una deuda. Modelar esto
+correctamente es la decisión central del proyecto.
 
-When you're ready, run:
+---
+
+## Estado
+
+**Fase 0 — cimientos del repositorio.**
+
+Todavía no hay base de datos, ni autenticación, ni funcionalidad. La pantalla
+en blanco es intencionada. Ver el [roadmap por fases](docs/README.md).
+
+---
+
+## Stack
+
+React Native · Expo SDK 57 · expo-router · TypeScript · Supabase (Postgres,
+Auth, RLS) · Swift para integraciones nativas de iOS más adelante.
+
+Web **no** es plataforma objetivo.
+
+---
+
+## Puesta en marcha
+
+Node: **22.23.2**, versión exacta fijada en [`.nvmrc`](.nvmrc). El campo
+`engines` de `package.json` **declara** además el rango admisible de la línea 22
+(`>=22.13.0 <23`).
+
+> **`engines` declara, no obliga.** Sin `engine-strict` activado, npm trata el
+> desajuste como un aviso `EBADENGINE` e instala igualmente. No está activado
+> todavía. Ejecutar con otra versión funcionará casi siempre; simplemente no es
+> la combinación que se valida.
+
+Local y CI comparten ya esa versión: la CI la lee de `.nvmrc`. **Pendiente:**
+reflejarla también en `eas.json` cuando ese archivo exista.
+
+> **Sobre `package-lock.json`.** El lockfile del repositorio se generó con
+> npm 11 e instala correctamente con el npm 10.9.8 que acompaña a Node 22.23.2.
+> Un `npm install` bajo npm 10 le quitaría unos campos `libc` de paquetes
+> opcionales que npm 10 no registra: **es ruido, no deriva de dependencias, y no
+> debe commitearse.** Otra razón más para usar `npm ci` en un checkout.
+
+> **En Windows:** `nvm-windows` **no lee `.nvmrc`**. Si lo usas, ejecuta
+> `nvm use 22.x.x` indicando la versión a mano. Los gestores que sí lo leen son
+> [fnm](https://github.com/Schniz/fnm) y [nvs](https://github.com/jasongin/nvs);
+> [Volta](https://volta.sh) también funciona bien en Windows pero se ancla
+> desde `package.json`. `.nvmrc` se conserva porque además es la única fuente
+> de la versión que usa la CI.
+
+Para preparar un checkout existente, **`npm ci`**: instala exactamente lo que
+fija `package-lock.json`, parte de un `node_modules` limpio y falla si el lock y
+`package.json` han divergido. `npm install` puede modificar el lockfile, así que
+se reserva para cuando se cambian dependencias a propósito.
 
 ```bash
-npm run reset-project
+npm ci
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+```bash
+npm start
+```
 
-### Other setup steps
+Después, `a` para el emulador de Android o `i` para el simulador de iOS
+(`npm run android` / `npm run ios` hacen lo mismo).
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+> **El desarrollo actual es en Windows**, donde el simulador de iOS no está
+> disponible: requiere macOS con Xcode. Desde Windows, iOS se prueba en un
+> dispositivo físico con un development build, o desde un equipo macOS. Android
+> funciona con normalidad.
 
-## Learn more
+Copia `.env.example` a `.env` cuando haya credenciales que configurar. **`.env`
+nunca se commitea.**
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Comandos
 
-## Join the community
+| Comando             | Qué hace                        |
+| ------------------- | ------------------------------- |
+| `npm start`         | Servidor de desarrollo          |
+| `npm run ios`       | Servidor + iOS                  |
+| `npm run android`   | Servidor + Android              |
+| `npm run typecheck` | `tsc --noEmit`                  |
+| `npm run lint`      | ESLint                          |
+| `npm run format`    | Prettier                        |
+| `npm run verify`    | typecheck + lint + format check |
 
-Join our community of developers creating universal apps.
+Ejecuta `npm run verify` después de cada unidad de trabajo. CI lo comprueba en
+cada PR.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Añadir dependencias
+
+Para cualquier paquete del ecosistema Expo, **`npx expo install <paquete>`**, no
+`npm install <paquete>`: selecciona la versión compatible con el SDK instalado.
+Un `npm install` directo puede traer una versión que no case con SDK 57.
+
+```bash
+npx expo install expo-secure-store
+```
+
+---
+
+## Estructura
+
+```
+src/
+├── app/        # rutas de expo-router. Archivos finos, solo composición.
+├── features/   # dominios funcionales autónomos
+├── domain/     # reglas de negocio puras. Sin React, Expo, Supabase ni red.
+├── lib/        # infraestructura: supabase, query, offline, format, env
+├── ui/         # design system
+└── types/
+```
+
+Las dependencias van en una sola dirección:
+`app/ → features/ → domain/ + lib/ + ui/`. Nunca al revés, nunca entre
+features. Lo impone ESLint, no es una convención opcional.
+
+Cada carpeta tiene un `README.md` con sus restricciones.
+
+---
+
+## Documentación
+
+- [`docs/`](docs/README.md) — wiki técnica y de producto (español)
+- [`docs/adr/`](docs/adr/README.md) — decisiones arquitectónicas
+- [`AGENTS.md`](AGENTS.md) — reglas operativas para personas y agentes de IA
+
+---
+
+## Contribuir
+
+Ramas `feature/*`, `fix/*`, `chore/*` desde `main`. Commits en inglés siguiendo
+Conventional Commits. Nunca commits directos a `main`.
+
+Todo lo que toque dinero o RLS necesita revisión reforzada: son los dos sitios
+donde un fallo produce números erróneos silenciosos o fuga de datos entre
+usuarios.
