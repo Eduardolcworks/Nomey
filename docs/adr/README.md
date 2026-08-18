@@ -79,17 +79,16 @@ de decisiones. El registro solo contiene decisiones tomadas.
 
 ## Índice
 
-| ADR                         | Título                        | Estado    |
-| --------------------------- | ----------------------------- | --------- |
-| [001](ADR-001-licensing.md) | Licencia y avisos de terceros | Propuesto |
+| ADR                                | Título                        | Estado    |
+| ---------------------------------- | ----------------------------- | --------- |
+| [001](ADR-001-licensing.md)        | Licencia y avisos de terceros | Propuesto |
+| [002](ADR-002-accounting-model.md) | Modelo contable               | Aceptado  |
 
 ## Temas que previsiblemente necesitarán un ADR
 
 Lista de **temas**, no de números: se numerarán al redactarse, en el orden en
 que ocurra. Ninguno está reservado ni prejuzgado.
 
-- **Modelo de datos: caja / gasto económico / deuda / liquidación** — la
-  decisión más cara de revertir del proyecto.
 - **Participantes sin cuenta: invitación, reclamación y fusión** — la de mayor
   riesgo de seguridad.
 - **Representación del dinero** y escala por moneda: unidad mínima entera,
