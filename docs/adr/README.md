@@ -83,12 +83,13 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | -------------------------------------- | -------------------------------- | --------- |
 | [001](ADR-001-licensing.md)            | Licencia y avisos de terceros    | Propuesto |
 | [002](ADR-002-accounting-model.md)     | Modelo contable                  | Aceptado  |
-| [003](ADR-003-money-representation.md) | Representación exacta del dinero | Propuesto |
+| [003](ADR-003-money-representation.md) | Representación exacta del dinero | Aceptado  |
 
-> **ADR-003 está en `Propuesto` con una puerta de aceptación explícita:** la
-> verificación empírica de la frontera PostgreSQL → PostgREST → cliente, que
-> `AGENTS.md` §1 exige y que no puede hacerse hasta conectar Supabase. No pasa a
-> `Aceptado` antes de eso.
+> **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
+> **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
+> de almacenamiento del ADR y demostró que su contingencia T8 es necesaria para
+> hacer cumplir T7. La evidencia reproducible vive en
+> [`supabase/e11/`](../../supabase/e11/README.md).
 
 ## Temas que previsiblemente necesitarán un ADR
 

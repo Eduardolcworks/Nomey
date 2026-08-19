@@ -1,0 +1,16 @@
+{
+  "name": "nomey-e11-probe",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sondeo E11: mide la frontera PostgreSQL -> PostgREST -> supabase-js -> TypeScript. NO forma parte de la aplicacion Nomey.",
+  "type": "module",
+  "scripts": {
+    "raw": "node raw-http.mjs",
+    "client": "node client.mjs",
+    "layers": "node layers.mjs",
+    "alternatives": "node alternatives.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.112.3"
+  }
+}

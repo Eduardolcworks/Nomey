@@ -2,7 +2,7 @@
 
 > ⚠️ **NO NORMATIVO.** La fuente normativa de esta materia es
 > **[ADR-003 — Representación exacta del dinero](../adr/ADR-003-money-representation.md)**,
-> hoy en estado `Propuesto` y pendiente de su puerta de aceptación (E11).
+> en estado `Aceptado` desde el 2026-08-19, tras cumplir su puerta E11.
 >
 > Este documento es el **archivo de evidencia y del razonamiento** que precedió
 > al ADR. Lee cada sección con su clasificación delante, porque no todas tienen
@@ -17,12 +17,12 @@
 > | **Pendientes**                       | Sin decidir                                                             |
 >
 > **Que una decisión esté `Decidido` aquí no la convierte en normativa del
-> repositorio.** Lo normativo es ADR-003, y **ADR-003 no es vinculante mientras
-> siga en `Propuesto`**. Este documento custodia el razonamiento para que no
-> dependa del contexto de una conversación.
+> repositorio.** Lo normativo es ADR-003, que **desde su aceptación sí es
+> vinculante**. Este documento custodia el razonamiento para que no dependa del
+> contexto de una conversación.
 >
-> Cuando ADR-003 pase a `Aceptado`, decidiremos si este documento se conserva
-> como historial de análisis o se retira.
+> Con ADR-003 ya aceptado, queda **pendiente de decidir** si este documento se
+> conserva como historial de análisis o se retira.
 
 Decisión que lo enmarca: [ADR-002](../adr/ADR-002-accounting-model.md).
 Vocabulario: [glosario](../product/glossary.md).
@@ -1154,11 +1154,12 @@ cast u otro mecanismo—. **Cuál, no se decide ahora.**
 
 #### T9 · Estado de ADR-003
 
-`ADR-003 — Representación exacta del dinero` se redacta en estado **`Propuesto`**,
-no `Aceptado`.
+`ADR-003 — Representación exacta del dinero` se redactó en estado **`Propuesto`**,
+con la aceptación condicionada únicamente a E11.
 
-La fase de análisis queda completada; **la aceptación formal queda condicionada
-únicamente a E11** y a cualquier fallo real que esa prueba revele.
+> **Cumplido.** E11 se ejecutó el 2026-08-19 contra un stack Supabase local real
+> y no falsificó ninguna premisa. **ADR-003 pasó a `Aceptado` ese mismo día.**
+> Ver E11 más abajo y §10 del ADR.
 
 #### T10 · Redondeo FX
 
@@ -1420,15 +1421,27 @@ Fuente: <https://www.postgresql.org/docs/17/datatype-numeric.html>
 > medirlo para la Fase 2: T6 exige **validación explícita** y no se apoya en la
 > precisión declarada para excluir nada.
 
-### E11 · Sin verificar — serialización de PostgREST
+### E11 · Verificado — serialización de PostgREST
 
-**No se ha podido confirmar en documentación oficial** cómo serializa PostgREST
+**No se pudo confirmar en documentación oficial** cómo serializa PostgREST
 `int8` y `numeric` hacia el cliente: ni la página de _resource representation_ ni
-la documentación de Supabase lo especifican.
+la documentación de Supabase lo especifican. Por eso hubo que medirlo.
 
-Es la comprobación empírica que ADR-002 dejó explícitamente pedida, y **queda
-pendiente para cuando se conecte Supabase**. Cualquier propuesta debería estar
-construida de modo que la respuesta no la invalide.
+> **Medido el 2026-08-19** contra Supabase local: PostgreSQL 17.6, PostgREST
+> v16.1, Supabase CLI 2.115.0, `@supabase/supabase-js` 2.112.3, Node 22.23.2.
+>
+> - PostgreSQL almacena `BIGINT` y `NUMERIC` **exactamente**, con su escala.
+> - PostgREST emite los **bytes JSON exactos**.
+> - La degradación la produce **`JSON.parse`**, al convertirlos en `number`.
+> - `BIGINT` por encima de 2^53 pierde precisión **en silencio**, con HTTP 200.
+> - `NUMERIC` cruza también como `number`: pierde exactitud decimal y escala.
+> - `supabase gen types typescript` produce `number` para `int8` y `numeric`.
+> - Un cast explícito a `text` conserva valor y escala, y genera `string`.
+> - Un RPC que devuelve `bigint` **sin cast falla igual** que una tabla directa.
+>
+> **Lo determinante es el cast, no el camino de acceso.** Scripts reproducibles
+> en [`supabase/e11/`](../../supabase/e11/README.md); resultado normativo en
+> §10 de [ADR-003](../adr/ADR-003-money-representation.md).
 
 ### E12 · El orden entre repartir y convertir cambia el resultado
 

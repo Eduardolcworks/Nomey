@@ -145,6 +145,65 @@ Admite pagos parciales: pagar 30 de 100 deja 70.
 
 ---
 
+## Moneda e importe
+
+Referencia: [ADR-003](../adr/ADR-003-money-representation.md).
+
+### Definición monetaria
+
+La unidad de identidad monetaria. **No es el código ISO**: es el código junto a
+su escala y a una **identidad estable e inmutable** que permite saber qué
+significaba un importe cuando se registró.
+
+Dos hechos con el mismo código pueden pertenecer a definiciones distintas —si la
+moneda redenominó, o si se corrigió un error en la metadata—, y entonces **no son
+directamente comparables**.
+
+> **El significado monetario de un hecho histórico es inmutable.** Cambiar la
+> metadata de una moneda nunca reinterpreta un hecho ya registrado.
+
+### Importe original
+
+El que introdujo el usuario, con su moneda. Es **el único autoritativo** de la
+operación.
+
+### Importe derivado
+
+El mismo valor expresado en la moneda base de un ámbito. Se calcula, se redondea
+y **se almacena**, y **nunca se usa para reconstruir el original**.
+
+Una operación puede tener **varios** importes derivados, uno por ámbito
+alcanzado, cada uno con el tipo de cambio exacto que se usó. **No hay un tipo de
+cambio único por operación.**
+
+### Moneda base
+
+La moneda de un ámbito. **Inmutable tras su primera operación.** Antes de esa
+primera operación, el creador de un Grupo todavía puede cambiarla.
+
+### Tipo de cambio
+
+Valor decimal exacto, **distinto de un importe**. Corresponde a la **fecha
+efectiva del hecho**, no al momento de sincronización; lo resuelve el servidor;
+y una vez registrado **queda congelado**. Corregir una operación **hereda** el
+tipo histórico, salvo que el tipo sea justamente el dato que se corrige.
+
+### Agregación
+
+> **Dos importes solo se suman si comparten definición monetaria.**
+
+Importes de definiciones distintas **no se agregan automáticamente**, aunque
+compartan código, símbolo o nombre. Si no son comparables, Nomey **no muestra un
+total**: hace falta una conversión explícita a una definición común.
+
+### Residuo de conversión
+
+Lo que se descarta al redondear una conversión a la unidad mínima de la moneda
+destino. **No es un movimiento financiero y no genera ningún efecto** — en
+particular, **no es un `ajuste`**.
+
+---
+
 ## Reparto
 
 | Término             | Qué es                                                   |
@@ -209,6 +268,10 @@ dinero líquido.
 El saldo del Modo Pareja **no entra**: al no existir porcentajes de propiedad,
 ningún miembro tiene una parte determinable de él.
 
+**Ambas magnitudes están sujetas a la regla de agregación**: si los importes
+implicados pertenecen a definiciones monetarias distintas, no se suman sin una
+conversión explícita, y sin ella **no hay cifra que mostrar**.
+
 ---
 
 ## Permisos y efectos sobre otros
@@ -272,14 +335,16 @@ deja de serlo al entrar en `Cierre`.
 
 ## Términos que no usamos
 
-| ❌ No decir                     | ✅ Decir                                  |
-| ------------------------------- | ----------------------------------------- |
-| «cuenta personal de A»          | Modo Personal de A                        |
-| «transferencia entre cuentas»   | transferencia entre Modos Personales      |
-| «multicuenta»                   | —                                         |
-| «gasto» sin decir cuál          | movimiento de caja **o** gasto económico  |
-| «saldo» sin decir de qué ámbito | saldo del Modo Personal / del Modo Pareja |
-| «el usuario debe» en un grupo   | el **participante** debe                  |
+| ❌ No decir                     | ✅ Decir                                    |
+| ------------------------------- | ------------------------------------------- |
+| «cuenta personal de A»          | Modo Personal de A                          |
+| «transferencia entre cuentas»   | transferencia entre Modos Personales        |
+| «multicuenta»                   | —                                           |
+| «gasto» sin decir cuál          | movimiento de caja **o** gasto económico    |
+| «saldo» sin decir de qué ámbito | saldo del Modo Personal / del Modo Pareja   |
+| «el usuario debe» en un grupo   | el **participante** debe                    |
+| «la moneda» cuando importa cuál | la **definición monetaria**                 |
+| «el importe» sin decir cuál     | importe **original** o importe **derivado** |
 
 Los ámbitos de Nomey **no son cuentas bancarias**. Una integración externa
 futura aporta procedencia y conciliación; no cambia su naturaleza.

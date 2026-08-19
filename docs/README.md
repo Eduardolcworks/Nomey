@@ -8,9 +8,9 @@ inglés.
 > - **Fases 0, 1 y 2:** cerradas.
 >   [ADR-002](adr/ADR-002-accounting-model.md) está **aceptado**, y
 >   `architecture/data-model.md` y `product/glossary.md` existen.
-> - **Fase 3:** abierta. [ADR-003](adr/ADR-003-money-representation.md) sigue
->   en **`Propuesto`** hasta completar **E11**, su puerta de aceptación, que
->   exige un entorno PostgreSQL/PostgREST real.
+> - **Fase 3:** abierta. [ADR-003](adr/ADR-003-money-representation.md) está
+>   **aceptado**: su puerta **E11** se cumplió contra un stack Supabase local
+>   real.
 >
 > El plan por fases, con sus hitos y criterios de cierre, está en
 > [`product/roadmap.md`](product/roadmap.md).
@@ -65,10 +65,9 @@ historial de análisis o se retira.
 - **`architecture/code-structure.md`**, **`database/rls-policies.md`** y
   **`security/threat-model.md`** — de mantenimiento obligatorio en cuanto
   existan.
-- Cuando **ADR-003** pase a `Aceptado`, `architecture/data-model.md` y
-  `product/glossary.md` deberán incorporar el vocabulario de **definición
-  monetaria** y las reglas de agregación y de moneda base que el ADR fija. **No
-  antes**: mientras esté en `Propuesto` no es normativo.
+- **ADR-003 ya está aceptado**, así que `architecture/data-model.md` y
+  `product/glossary.md` deben incorporar el vocabulario de **definición
+  monetaria** y las reglas de agregación y de moneda base que el ADR fija.
 
 ## Dónde está lo demás
 

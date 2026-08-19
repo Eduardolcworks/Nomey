@@ -56,6 +56,7 @@ Sus estadísticas no se mezclan automáticamente. Transferir entre ellos sí es
 posible y explícito.
 
 Cada ámbito tiene una **moneda base inmutable tras su primera operación**.
+Antes de ella, el creador de un Grupo todavía puede cambiarla (§10).
 
 ---
 
@@ -349,6 +350,10 @@ Los participantes se eligen **por operación**, no por pertenencia al grupo.
 
 10 € entre tres: **3,34 · 3,33 · 3,33**, con 3,34 para el pagador.
 
+Si el gasto se declaró en otra moneda, **se convierte una vez al entrar en el
+ámbito y se reparte después**, ya en la moneda base del Grupo (§10). Repartir
+primero y convertir cada parte no garantiza que la suma cuadre con el total.
+
 ---
 
 ## 6. Participantes y ciclo de vida
@@ -385,6 +390,9 @@ anterior y aplica los de la nueva, sin operaciones de reversión separadas.
 - Un **reparto final ejecutado** es inmutable: se compensa, no se edita, y la
   compensación conserva la bilateralidad.
 - Toda corrección queda atribuida y notificada a los afectados.
+- Una corrección **hereda el tipo de cambio histórico** de la versión anterior,
+  salvo que el propio tipo sea el dato explícitamente corregido (§10). Corregir
+  no revaloriza.
 
 ---
 
@@ -514,11 +522,91 @@ implementaciones.
 
 ---
 
-## 10. Invariantes
+## 10. Moneda, importe y tipo de cambio
+
+Decisión de referencia: [ADR-003](../adr/ADR-003-money-representation.md). Aquí
+solo el vocabulario y las reglas de dominio; la representación técnica y el
+esquema pertenecen al ADR y a las migraciones.
+
+### Definición monetaria
+
+La unidad de identidad monetaria **no es el código ISO visible**, es la
+**definición monetaria**: el código, su escala o unidad mínima, y una
+**identidad estable e inmutable** que permite reconstruir exactamente qué
+significaba un importe cuando se registró.
+
+> **El significado monetario de un hecho histórico es inmutable.** Un cambio
+> posterior en la metadata de una moneda nunca lo reinterpreta.
+
+Dos casos que no se tratan igual: un **cambio real de la moneda** —los hechos
+antiguos conservan su significado, los nuevos usan la definición nueva— y un
+**error en la metadata**, que se corrige de forma explícita y trazable, nunca en
+silencio.
+
+### Agregación
+
+> **Dos importes solo pueden sumarse directamente si pertenecen a la misma
+> definición monetaria.** El código ISO por sí solo no lo demuestra.
+
+Importes de definiciones distintas **nunca se agregan automáticamente** como si
+fueran homogéneos, aunque compartan código, símbolo o nombre visible. Si no son
+comparables, **no se genera un total**. Para monedas distintas hace falta una
+**conversión explícita** a una definición común antes de agregar.
+
+### Importe declarado y derivados
+
+Cada operación tiene **un único importe original y autoritativo**: el que
+introdujo el usuario, con su moneda. Los importes expresados en la moneda base
+de un ámbito son **derivados y almacenados**, y **nunca se usan para
+reconstruir el original**.
+
+Una operación puede tener **varias conversiones derivadas**, una por ámbito
+alcanzado, cada una con el tipo exacto usado para esa derivación. **No existe un
+tipo de cambio único por operación.**
+
+### Conversión y reparto
+
+**Se convierte una vez y se calcula después.** La conversión ocurre en la
+frontera de entrada a cada ámbito; todo cálculo sujeto a una restricción de
+exactitud —que un reparto sume el total, que una deuda llegue a cero, que un
+saldo común se vacíe— se hace **después**, dentro de la moneda base del ámbito.
+
+**El residuo de un redondeo de conversión no genera ningún efecto.** No es un
+movimiento financiero, y en particular **no produce un `ajuste`**, que queda
+reservado a una reconciliación real de saldo (§3).
+
+### Tipo de cambio
+
+El tipo de cambio **no es un importe**: es un decimal exacto propio, con su
+identidad separada.
+
+- Corresponde a la **fecha efectiva del hecho**, no al momento de
+  sincronización. La falta de cobertura no altera el valor económico de un
+  gasto.
+- Lo resuelve el **servidor**, no el cliente, coherente con §9.
+- Una vez registrado **queda congelado** y no se actualiza automáticamente.
+- Una corrección **hereda el tipo histórico**, salvo que el propio tipo sea el
+  dato explícitamente corregido.
+
+### Moneda base de un ámbito
+
+Cada ámbito tiene una moneda base **inmutable tras su primera operación** (§2).
+Antes de esa primera operación, **el creador de un Grupo puede cambiarla**;
+participantes e invitaciones no la bloquean, porque todavía no existe ningún
+hecho financiero cuyo significado pueda alterarse, y el cambio **no genera
+notificación**.
+
+Una operación creada bajo una configuración monetaria anterior **nunca se
+reinterpreta en silencio**: entra en conflicto y requiere revisión antes de
+convertirse en operación financiera válida del ámbito.
+
+---
+
+## 11. Invariantes
 
 1. Los valores contables se representan de forma exacta, nunca mediante coma
    flotante binaria. Escala según la moneda.
-2. Todo importe lleva su moneda ISO 4217.
+2. Todo importe lleva su **definición monetaria**, cuyo código visible es ISO 4217. La identidad es la definición, no el código.
 3. Redondeo y reparto del resto deterministas y documentados.
 4. **Cada cambio de saldo de cada ámbito se representa exactamente una vez.**
    Una transferencia interna produce una salida en origen y una entrada en
@@ -562,16 +650,34 @@ implementaciones.
 20. El cliente no escribe efectos contables directamente.
 21. Un cambio de plan o entitlement nunca reescribe hechos contables
     históricos.
+22. **El significado monetario de un hecho histórico es inmutable.** Ningún
+    cambio de metadata lo reinterpreta.
+23. **Dos importes solo se suman si comparten definición monetaria.** No se
+    agregan en silencio importes de definiciones distintas.
+24. **Cada operación tiene un único importe original autoritativo**; los
+    importes de ámbito son derivados y almacenados, y nunca lo reconstruyen.
+25. **La conversión ocurre una vez**, al entrar en cada ámbito; los cálculos con
+    restricción de exactitud se hacen después, en la moneda del ámbito.
+26. **El residuo de un redondeo de conversión no genera ningún efecto**, y en
+    particular no produce un `ajuste`.
+27. **El tipo de cambio corresponde a la fecha efectiva del hecho**, lo resuelve
+    el servidor y queda congelado. Una corrección lo hereda salvo que sea el
+    dato corregido.
+28. **Una operación creada bajo una configuración monetaria anterior nunca se
+    reinterpreta en silencio.**
 
 ---
 
-## 11. Fuera de este documento
+## 12. Fuera de este documento
 
 **Monetización.** El dominio conoce ámbitos, operaciones, efectos y cierres; no
 conoce planes. La capa de capacidades **invoca** al dominio; el dominio **nunca
 consulta** capacidades.
 
-**Pendiente en otros ADR:** representación exacta del importe · comprobación de
-membresía · esquema expuesto y grants · idempotencia de recurrencias y backend ·
-origen y ajuste del tipo de cambio · conciliación entre un movimiento importado
-y la pata personal de una operación compuesta.
+**Resuelto desde este documento:** la representación exacta del importe y del
+tipo de cambio, en [ADR-003](../adr/ADR-003-money-representation.md), aceptado.
+
+**Pendiente en otros ADR:** comprobación de membresía · esquema expuesto y
+grants · idempotencia de recurrencias y backend · origen y frecuencia de los
+tipos de cambio · conciliación entre un movimiento importado y la pata personal
+de una operación compuesta.
