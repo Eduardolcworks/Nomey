@@ -3,15 +3,17 @@
 Wiki técnica y de producto. **En español**; el código y los commits van en
 inglés.
 
-> **Estado: Fase 2 — representación del dinero.**
+> **Estado: Fase 3 — persistencia y frontera de datos.** En curso.
 >
-> - **Fase 0** (cimientos del repositorio) y **Fase 1** (modelo contable):
->   cerradas. [ADR-002](adr/ADR-002-accounting-model.md) está **aceptado**, y
+> - **Fases 0, 1 y 2:** cerradas.
+>   [ADR-002](adr/ADR-002-accounting-model.md) está **aceptado**, y
 >   `architecture/data-model.md` y `product/glossary.md` existen.
-> - **Fase 2:** análisis completado.
->   [ADR-003](adr/ADR-003-money-representation.md) está en **`Propuesto`**, con
->   una puerta de aceptación explícita que no puede cumplirse hasta conectar
->   Supabase.
+> - **Fase 3:** abierta. [ADR-003](adr/ADR-003-money-representation.md) sigue
+>   en **`Propuesto`** hasta completar **E11**, su puerta de aceptación, que
+>   exige un entorno PostgreSQL/PostgREST real.
+>
+> El plan por fases, con sus hitos y criterios de cierre, está en
+> [`product/roadmap.md`](product/roadmap.md).
 >
 > Buena parte de esta documentación **todavía no existe**. Las tablas de abajo
 > distinguen lo que hay de lo que está previsto.
@@ -70,6 +72,8 @@ historial de análisis o se retira.
 
 ## Dónde está lo demás
 
+- Plan por fases, hitos y criterios de cierre:
+  [`product/roadmap.md`](product/roadmap.md)
 - Reglas operativas para agentes y personas: [`AGENTS.md`](../AGENTS.md)
 - Restricciones por capa: `README.md` dentro de cada carpeta de `src/`
 - Estado de los assets: [`assets/README.md`](../assets/README.md)
