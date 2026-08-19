@@ -176,10 +176,17 @@ para `supabase init`, exigida por `.claude/agents/data-architect.md`.
 **Puertas.**
 
 - **3.A · E11 → ADR-003.** Puerta dura. Si contradice una premisa del ADR, la
-  fase se detiene y se replantea antes de consolidar solución.
+  fase se detiene y se replantea antes de consolidar solución. **Cumplida el
+  2026-08-19**; ADR-003 quedó `Aceptado`.
 - **3.C ·** identidad de la definición monetaria · esquema expuesto por la Data
   API · estrategia de `GRANT` · mecanismo de comprobación de membresía en RLS ·
-  mecanismo de idempotencia.
+  mecanismo de idempotencia · **mecanismo de frontera textual** que haga cumplir
+  T7 de ADR-003, que E11 dejó abierto entre vista, RPC, adaptador o combinación.
+- **Entrada pendiente para 3.C, sin conclusión.** E11 observó que `anon` y
+  `authenticated` aparecen con privilegios `REFERENCES`, `TRIGGER` y `TRUNCATE`
+  sobre tablas nuevas de `public` a las que no se concedió nada. Habrá que
+  determinar empíricamente de dónde proceden, cuáles son efectivos y qué debe
+  revocarse de forma explícita.
 
 ---
 

@@ -1,9 +1,11 @@
 # ADR-003 — Representación exacta del dinero
 
-- **Estado:** Propuesto
+- **Estado:** Aceptado
 - **Fecha:** 2026-08-19
-- **Aceptación condicionada a:** la verificación empírica de la frontera
-  PostgreSQL → PostgREST → cliente (§10). Hasta entonces **no se acepta**.
+- **Aceptado el:** 2026-08-19, tras cumplir su puerta de aceptación: el
+  experimento **E11** sobre la frontera PostgreSQL → PostgREST → cliente (§10).
+  **E11 no falsificó la estrategia de este ADR**: confirmó sus supuestos de
+  almacenamiento y demostró que T8 es necesaria para hacer cumplir T7.
 
 > El análisis extenso, las mediciones completas y el rastro de cómo se llegó
 > aquí viven en [`architecture/money-representation.md`](../architecture/money-representation.md),
@@ -251,6 +253,16 @@ En la entrada al dominio: **validar, parsear y construir** `Money` o
 `ExchangeRate`. En la salida: **serializar de forma exacta**. **Aplica también
 al almacenamiento sin conexión.**
 
+**Esta garantía no se obtiene de forma automática.** E11 midió que el
+comportamiento por defecto de PostgREST y de la Data API entrega estos valores
+como números JSON, que JavaScript convierte a `number` (§10).
+
+> **Debe existir una frontera explícita que garantice la representación textual
+> antes de que el valor sea interpretado como `number` por JavaScript.**
+
+La regla es la garantía, no un mecanismo: **qué** frontera la produce se decide
+al diseñar el esquema (T8), y este ADR no la elige.
+
 La forma canónica del tipo de cambio preserva su **valor** exacto; la escala
 interna es un detalle de representación y no altera el resultado de la
 conversión.
@@ -370,8 +382,17 @@ cliente no confiable, contra ADR-002 §7.
   pasa a ser una entidad con identidad propia, presente en todo importe.
 - **Un flujo nuevo de conflicto** en la sincronización sin conexión, con su
   interfaz, que antes no existía.
-- **Todo descansa en que los importes viajen como string**, y eso no está
-  verificado (§10).
+- **Todo descansa en que los importes viajen como string**, y el
+  comportamiento por defecto **no lo garantiza**: hace falta una frontera
+  explícita (§10). Es coste permanente de mantenimiento, no un ajuste puntual.
+- **Los tipos generados por Supabase no son por sí solos una frontera segura.**
+  `supabase gen types typescript` produce `number` para `int8` y para `numeric`,
+  precisamente los tipos que este ADR prohíbe representar así. Siguen siendo
+  válidos como **referencia estructural** de la base de datos, pero **cualquier
+  superficie que el cliente use para importes o decimales exactos debe producir
+  el tipo TypeScript correcto en la frontera final**. **`database.ts` no se
+  escribe a mano para arreglarlo**: es un archivo generado, y corregirlo a mano
+  ocultaría el problema en lugar de resolverlo.
 
 ## Invariantes
 
@@ -399,34 +420,61 @@ cliente no confiable, contra ADR-002 §7.
 12. Una operación creada bajo una configuración monetaria anterior **nunca se
     reinterpreta en silencio**.
 
-## Puerta de aceptación — E11
+## Puerta de aceptación — E11, cumplida
 
-`AGENTS.md` §1 exige verificar empíricamente cómo sobrevive cada tipo numérico
-al viaje hasta el cliente. **No se ha podido confirmar en documentación oficial
-cómo serializa PostgREST `int8` y `numeric`**, y Supabase todavía no está
-conectado.
+`AGENTS.md` §1 exige verificar **empíricamente** cómo sobrevive cada tipo
+numérico al viaje hasta el cliente, porque la documentación oficial no lo
+especifica. Ese experimento —**E11**— se ejecutó contra un stack Supabase local
+real. Sus scripts se conservan en [`supabase/e11/`](../../supabase/e11/README.md)
+como evidencia reproducible; **no son migraciones y no forman parte del esquema
+de Nomey**.
 
-**No se altera el orden de fases por esto.** En su lugar, este ADR permanece en
-`Propuesto` y la verificación se convierte en su **puerta de aceptación**. Al
-comenzar la fase de infraestructura y base de datos:
+### Versiones medidas
 
-1. prueba empírica real, no documental;
-2. comprobar `BIGINT`;
-3. comprobar `NUMERIC`;
-4. comprobar el cliente JavaScript;
-5. comprobar Supabase y PostgREST reales;
-6. verificar que la frontera elegida garantiza **strings sin pérdida**.
+| Componente                               | Versión |
+| ---------------------------------------- | ------- |
+| PostgreSQL                               | 17.6    |
+| PostgREST                                | v16.1   |
+| Supabase CLI                             | 2.115.0 |
+| `@supabase/supabase-js` / `postgrest-js` | 2.112.3 |
+| Node                                     | 22.23.2 |
 
-Si el comportamiento por defecto de PostgREST no garantiza esa frontera, se
-introducirá **una capa de transporte que sí la garantice** —adapter, RPC, vista
-con cast u otro mecanismo—. Cuál, no se decide aquí.
+### Resultado
+
+- **PostgreSQL almacena `BIGINT` y `NUMERIC` exactamente**, incluida la escala
+  declarada y sus ceros finales.
+- **PostgREST emite los valores exactos en los bytes JSON.** El body HTTP es
+  correcto en todos los casos medidos.
+- **La degradación aparece cuando JavaScript interpreta esos números como
+  `number`.** No la produce PostgREST: la produce `JSON.parse`.
+- **`BIGINT` por encima de `Number.MAX_SAFE_INTEGER` pierde precisión en
+  silencio**, sin error y con HTTP 200.
+- **`NUMERIC` cruza igualmente como `number`**, perdiendo la garantía decimal
+  exacta y la escala declarada.
+- **La generación de tipos de Supabase produce `number` para `int8` y para
+  `numeric`.**
+- **Un cast explícito a `text` conserva valor y escala**, y genera `string` en
+  los tipos.
+- **Un RPC que devuelve `bigint` sin cast falla igual que una tabla directa.**
+
+> **Lo relevante es el cast, es decir la frontera explícita, no si el acceso se
+> realiza mediante tabla, vista o RPC.**
+
+### Qué significa para este ADR
+
+**E11 no falsificó ninguna premisa.** Confirmó T1 y T6 en almacenamiento,
+reforzó que `NUMERIC` no sirve como representación principal del importe —cruza
+la frontera igual de mal que `int8`—, y demostró que **T7 no se cumple sola**.
+
+Con ello **se activó exactamente la contingencia que T8 anticipaba**: el
+comportamiento por defecto no garantiza la frontera, luego hace falta una capa
+de transporte que sí lo haga. **Cuál —vista, RPC, adaptador de cliente o
+combinación— sigue sin decidirse aquí**, y se resuelve al diseñar el esquema,
+junto con el schema expuesto, los grants y la frontera de escritura.
 
 > **El modelo de dominio no depende de que PostgREST casualmente serialice un
-> tipo de una forma concreta.** Ese es el criterio con el que se juzgará la
-> prueba.
-
-**Este ADR no pasa a `Aceptado` hasta cumplir esta puerta.** Si la prueba revela
-un fallo real, se corrige aquí mismo: un ADR en `Propuesto` se edita libremente.
+> tipo de una forma concreta.** Ese fue el criterio con el que se juzgó la
+> prueba, y se sostiene.
 
 ## Fuera de alcance
 

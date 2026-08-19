@@ -109,19 +109,22 @@ backed by an accepted ADR. Otherwise it belongs in an ADR, not here.
 > ratios, animated counters) may use floating point, but must never feed back
 > into a value of record.
 
-**Proposed, not yet binding — [ADR-003](docs/adr/ADR-003-money-representation.md),
-status `Propuesto`.** It proposes integer minor units (`bigint` / `BIGINT`) for
-amounts, a separate exact decimal for exchange rates, and strings at every JSON
-boundary. **Do not treat it as settled while it stays `Propuesto`**, and do not
-implement against it without saying that is what you are doing.
+**Settled — [ADR-003](docs/adr/ADR-003-money-representation.md), status
+`Aceptado`.** Amounts are integer minor units (`bigint` / `BIGINT`), exchange
+rates are a separate exact decimal, and nothing monetary crosses JSON as a
+number. Read the ADR before writing anything that touches money.
 
-**The verification requirement stands and is now that ADR's acceptance gate.**
-The ADR must verify **empirically** how each numeric type survives the trip
-through PostgREST to the client — not from documentation, which does not specify
-it — and it does not move to `Aceptado` until that test runs against real
-Supabase. Note that in TypeScript a plain `number` _is_ an IEEE-754 double,
-exact only for integers up to 2^53, so "use an integer" is itself a choice with
-limits rather than an escape from the question.
+**The verification requirement was met.** Experiment **E11** ran against a real
+local Supabase stack and measured that PostgreSQL and PostgREST both keep the
+value exact, but JavaScript degrades it the moment it parses those JSON numbers
+into `number`: `int8` above 2^53 loses precision silently, and `numeric` loses
+its exact-decimal guarantee and its scale. **An explicit textual boundary is
+therefore required** — which boundary is a schema decision, not this file's.
+Evidence: `supabase/e11/`.
+
+Note that in TypeScript a plain `number` _is_ an IEEE-754 double, exact only for
+integers up to 2^53, so "use an integer" is itself a choice with limits rather
+than an escape from the question.
 
 ### 2. Cash flow is not economic expense is not debt
 
@@ -389,11 +392,10 @@ the `adr` skill to draft one.
 
 ## Current state
 
-The project is in **Phase 2** (money representation). Phases 0 (repository
-foundation) and 1 (accounting model) are closed: ADR-002 is accepted, and
-`docs/architecture/data-model.md` and `docs/product/glossary.md` exist. Phase 2
-analysis is complete and ADR-003 is drafted in `Propuesto`, gated on an
-empirical check that needs Supabase.
+The project is in **Phase 3** (persistence and data boundary). Phases 0, 1 and 2
+are closed: ADR-002 and ADR-003 are both accepted, and
+`docs/architecture/data-model.md` and `docs/product/glossary.md` exist. ADR-003
+met its E11 gate against a real local Supabase stack.
 
 There is still no Supabase connection, no schema, no auth and no business logic
 — that is deliberate, not an oversight. The visible app is an intentionally
