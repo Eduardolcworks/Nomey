@@ -90,10 +90,15 @@ backed by an accepted ADR. Otherwise it belongs in an ADR, not here.
 - **Monetary values that are a source of accounting truth are represented
   exactly**, never through binary floating point that can introduce precision
   error.
-- **Every amount carries its currency** (ISO 4217). There is no such thing as a
+- **Every amount carries a monetary definition.** There is no such thing as a
   bare amount. Nomey is multi-currency by design even while the UI shows one.
-- **Decimal scale depends on the currency.** EUR has 2, JPY has 0. Never
-  hardcode 2 decimals.
+- **The monetary definition has a stable internal identity. The ISO 4217 code is
+  a visible attribute of it, not that identity.** Two amounts are **not**
+  aggregable merely because they share an ISO code: the same code can belong to
+  different definitions over time. The full rules are in ADR-003 and are not
+  restated here.
+- **Decimal scale belongs to the monetary definition.** EUR has 2, JPY has 0.
+  Never hardcode 2 decimals.
 - **Rounding and remainder allocation are deterministic and documented.** 100
   between 3 is 33.33 / 33.33 / 33.34, and which participant absorbs the extra
   minor unit follows a written rule. If balances do not reconcile exactly, it
