@@ -3,9 +3,18 @@
 Wiki técnica y de producto. **En español**; el código y los commits van en
 inglés.
 
-> Estado: el proyecto está al final de la **Fase 0** (cimientos del
-> repositorio). La mayor parte de esta documentación aún no existe: se escribe
-> en la Fase 1, antes de tocar la base de datos.
+> **Estado: Fase 2 — representación del dinero.**
+>
+> - **Fase 0** (cimientos del repositorio) y **Fase 1** (modelo contable):
+>   cerradas. [ADR-002](adr/ADR-002-accounting-model.md) está **aceptado**, y
+>   `architecture/data-model.md` y `product/glossary.md` existen.
+> - **Fase 2:** análisis completado.
+>   [ADR-003](adr/ADR-003-money-representation.md) está en **`Propuesto`**, con
+>   una puerta de aceptación explícita que no puede cumplirse hasta conectar
+>   Supabase.
+>
+> Buena parte de esta documentación **todavía no existe**. Las tablas de abajo
+> distinguen lo que hay de lo que está previsto.
 
 ## Cómo se organiza
 
@@ -22,22 +31,42 @@ inglés.
 
 ## Documentos de mantenimiento obligatorio
 
-Un cambio de código que los contradiga es un PR incompleto:
+Un cambio de código que los contradiga es un PR incompleto. **La obligación
+aplica desde que el documento existe**; los marcados como previstos todavía no
+se han escrito.
 
-- `architecture/data-model.md`
-- `architecture/code-structure.md`
-- `database/rls-policies.md`
-- `security/threat-model.md`
-- `product/glossary.md`
-- todos los ADR aceptados
+| Documento                        | Estado       |
+| -------------------------------- | ------------ |
+| `architecture/data-model.md`     | Existe       |
+| `product/glossary.md`            | Existe       |
+| `architecture/code-structure.md` | **Previsto** |
+| `database/rls-policies.md`       | **Previsto** |
+| `security/threat-model.md`       | **Previsto** |
+| Todos los ADR **aceptados**      | ADR-002      |
 
-## Los tres primeros a escribir (Fase 1)
+## Documentos de trabajo — no normativos
 
-1. **`architecture/data-model.md`** — la decisión más cara de revertir.
-2. **`product/glossary.md`** — en Nomey, "gasto" significa tres cosas
-   distintas: movimiento de caja, gasto real y deuda. Sin un glosario, esa
-   ambigüedad acaba en los nombres de las tablas y en la UI.
-3. **`runbooks/local-setup.md`** — de cero a la app corriendo.
+Recogen un análisis en curso y **no obligan a nadie**. No son fuente normativa:
+lo es el ADR correspondiente, cuando se acepta.
+
+| Documento                                                                      | Fase | Qué es                                                                                                           |
+| ------------------------------------------------------------------------------ | ---- | ---------------------------------------------------------------------------------------------------------------- |
+| [`architecture/money-representation.md`](architecture/money-representation.md) | 2    | Evidencia medida, decisiones confirmadas y alternativas descartadas que preceden a **ADR-003**. **No normativo** |
+
+Al aceptarse el ADR que lo cierra, se decide si el documento se conserva como
+historial de análisis o se retira.
+
+## Qué falta por escribir
+
+- **`runbooks/local-setup.md`** — de cero a la app corriendo. Previsto desde la
+  Fase 1 y todavía sin escribir.
+- **`architecture/code-structure.md`**, **`database/rls-policies.md`** y
+  **`security/threat-model.md`** — de mantenimiento obligatorio en cuanto
+  existan.
+- Cuando **ADR-003** pase a `Aceptado`, `architecture/data-model.md` y
+  `product/glossary.md` deberán incorporar el vocabulario de **definición
+  monetaria** y las reglas de agregación y de moneda base que el ADR fija. **No
+  antes**: mientras esté en `Propuesto` no es normativo.
 
 ## Dónde está lo demás
 

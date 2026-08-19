@@ -109,12 +109,19 @@ backed by an accepted ADR. Otherwise it belongs in an ADR, not here.
 > ratios, animated counters) may use floating point, but must never feed back
 > into a value of record.
 
-**Open (money ADR):** the exact representation — integer minor units,
-PostgreSQL `numeric`, a decimal library, or something else. Note that in
-TypeScript a plain `number` _is_ an IEEE-754 double, exact only for integers up
-to 2^53, so "use an integer" is itself a choice with limits rather than an
-escape from the question. The ADR must also verify empirically how each numeric
-type survives the trip through PostgREST to the client.
+**Proposed, not yet binding — [ADR-003](docs/adr/ADR-003-money-representation.md),
+status `Propuesto`.** It proposes integer minor units (`bigint` / `BIGINT`) for
+amounts, a separate exact decimal for exchange rates, and strings at every JSON
+boundary. **Do not treat it as settled while it stays `Propuesto`**, and do not
+implement against it without saying that is what you are doing.
+
+**The verification requirement stands and is now that ADR's acceptance gate.**
+The ADR must verify **empirically** how each numeric type survives the trip
+through PostgREST to the client — not from documentation, which does not specify
+it — and it does not move to `Aceptado` until that test runs against real
+Supabase. Note that in TypeScript a plain `number` _is_ an IEEE-754 double,
+exact only for integers up to 2^53, so "use an integer" is itself a choice with
+limits rather than an escape from the question.
 
 ### 2. Cash flow is not economic expense is not debt
 
@@ -382,8 +389,14 @@ the `adr` skill to draft one.
 
 ## Current state
 
-The project is at the end of **Phase 0** (repository foundation). There is no
-Supabase connection, no schema, no auth and no business logic yet — that is
-deliberate, not an oversight. The visible app is an intentionally blank screen.
+The project is in **Phase 2** (money representation). Phases 0 (repository
+foundation) and 1 (accounting model) are closed: ADR-002 is accepted, and
+`docs/architecture/data-model.md` and `docs/product/glossary.md` exist. Phase 2
+analysis is complete and ADR-003 is drafted in `Propuesto`, gated on an
+empirical check that needs Supabase.
+
+There is still no Supabase connection, no schema, no auth and no business logic
+— that is deliberate, not an oversight. The visible app is an intentionally
+blank screen.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.

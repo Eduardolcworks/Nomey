@@ -79,10 +79,16 @@ de decisiones. El registro solo contiene decisiones tomadas.
 
 ## Índice
 
-| ADR                                | Título                        | Estado    |
-| ---------------------------------- | ----------------------------- | --------- |
-| [001](ADR-001-licensing.md)        | Licencia y avisos de terceros | Propuesto |
-| [002](ADR-002-accounting-model.md) | Modelo contable               | Aceptado  |
+| ADR                                    | Título                           | Estado    |
+| -------------------------------------- | -------------------------------- | --------- |
+| [001](ADR-001-licensing.md)            | Licencia y avisos de terceros    | Propuesto |
+| [002](ADR-002-accounting-model.md)     | Modelo contable                  | Aceptado  |
+| [003](ADR-003-money-representation.md) | Representación exacta del dinero | Propuesto |
+
+> **ADR-003 está en `Propuesto` con una puerta de aceptación explícita:** la
+> verificación empírica de la frontera PostgreSQL → PostgREST → cliente, que
+> `AGENTS.md` §1 exige y que no puede hacerse hasta conectar Supabase. No pasa a
+> `Aceptado` antes de eso.
 
 ## Temas que previsiblemente necesitarán un ADR
 
@@ -91,9 +97,6 @@ que ocurra. Ninguno está reservado ni prejuzgado.
 
 - **Participantes sin cuenta: invitación, reclamación y fusión** — la de mayor
   riesgo de seguridad.
-- **Representación del dinero** y escala por moneda: unidad mínima entera,
-  `numeric`, librería decimal u otra representación exacta, con verificación de
-  cómo sobrevive cada tipo al transporte hasta el cliente.
 - Idempotencia y cola offline para la entrada rápida.
 - React Native + Expo con CNG como plataforma.
 - Supabase como backend y RLS como capa de autorización.
