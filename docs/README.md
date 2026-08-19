@@ -11,9 +11,9 @@ inglés.
 
 | Carpeta         | Qué contiene                                         | Estado     |
 | --------------- | ---------------------------------------------------- | ---------- |
-| `product/`      | Visión, glosario, roadmap                            | Fase 1     |
+| `product/`      | Visión, glosario, roadmap                            | Parcial    |
 | `requirements/` | Reglas de negocio por pilar                          | Fase 1     |
-| `architecture/` | Visión técnica, modelo de datos, estructura, offline | Fase 1     |
+| `architecture/` | Visión técnica, modelo de datos, estructura, offline | Parcial    |
 | `database/`     | Esquema, políticas RLS, migraciones                  | Fase 3     |
 | `security/`     | Modelo de amenazas, tratamiento de datos             | Parcial    |
 | `ux/`           | Design system, flujos                                | Fase 4     |

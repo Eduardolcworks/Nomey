@@ -68,10 +68,13 @@ so and stop. The rules below constrain any design; they do not describe one.
    currency. **Which exact representation** (integer minor units, `numeric`,
    something else) is a money-ADR decision with real trade-offs; choosing it is
    part of your job, asserting it before the ADR is not.
-5. **Every write that records money carries a device-generated idempotency
-   key, enforced unique at the database level.** Offline writes get retried;
-   without this you get duplicates. Name and placement are for the ADR; the
-   requirement is not.
+5. **Any monetary operation that can be retried must be idempotent**:
+   replaying it must not produce a second record, or you get duplicate money in
+   production with no clean way to deduplicate afterwards. The guarantee has to
+   hold per origin — client entry, recurring charges, imports and
+   backend-originated operations all replay — and one scheme may not serve them
+   all. Mechanism, names, types and where uniqueness is enforced are ADR
+   territory; the requirement is not.
 6. **Cash movement, economic expense and debt are three distinct facts.** A
    settlement cancels a debt and must never read as income. How these are
    represented is an ADR question; that they are distinct is not.
