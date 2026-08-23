@@ -611,6 +611,18 @@ significaba un importe cuando se registró.
 > **El significado monetario de un hecho histórico es inmutable.** Un cambio
 > posterior en la metadata de una moneda nunca lo reinterpreta.
 
+**Una identidad estable identifica una única definición coherente.** Si dos
+valores dicen tener la misma identidad y se contradicen en escala o en código,
+**no son definiciones distintas: son un dato corrupto**, y operar con ellos es
+inválido. Sumarlos produciría una cifra falsa sin lanzar ningún error, que es
+exactamente el fallo contra el que existe todo lo demás.
+
+> **Decisión de producto de 2026-08-20**, tomada al auditar la Fase 3.B. ADR-003
+> exige que la identidad sea estable e inmutable pero **no aborda qué ocurre si
+> llegan metadatos contradictorios bajo la misma identidad**; esta regla no es
+> una lectura suya. De dónde salen las definiciones coherentes es cuestión del
+> catálogo, y el catálogo pertenece al esquema.
+
 Dos casos que no se tratan igual: un **cambio real de la moneda** —los hechos
 antiguos conservan su significado, los nuevos usan la definición nueva— y un
 **error en la metadata**, que se corrige de forma explícita y trazable, nunca en

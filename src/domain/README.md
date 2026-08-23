@@ -61,6 +61,16 @@ inventar una heurística acoplaría cliente y servidor a algo no decidido.
 > un double IEEE-754, exacto solo para enteros hasta 2^53 — "usar un entero"
 > también es una elección con límites, no una salida de la pregunta.
 
+## Implementación de referencia
+
+Esta capa **no es solo el cálculo del cliente**. ADR-002 §7 exige que la frontera
+de escritura autoritativa del servidor produzca exactamente los mismos
+resultados, y es lo que hace visible cualquier deriva entre las
+dos implementaciones. **Los vectores son la fuente única de expectativas**: no se
+escribe un resultado esperado en el código de test.
+
+Al cierre de la Fase 3.B: **110 tests en verde**.
+
 ## Tests
 
 Obligatorios, en `tests/domain/`, escritos **en el mismo PR** que la lógica.
