@@ -17,10 +17,13 @@ inglés.
 >   [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) y el
 >   análisis en curso, no normativo, de
 >   [`architecture/phase-3c-design.md`](architecture/phase-3c-design.md).
->   Ya han salido de él dos decisiones aceptadas:
+>   Ya han salido de él cuatro decisiones aceptadas:
 >   [ADR-004](adr/ADR-004-currency-definition-identity.md) —identidad física de
->   la definición monetaria— y [ADR-005](adr/ADR-005-schema-topology.md)
->   —topología de schemas—. **Todavía no se ha autorizado SQL definitivo.**
+>   la definición monetaria—, [ADR-005](adr/ADR-005-schema-topology.md)
+>   —topología de schemas—, [ADR-006](adr/ADR-006-privilege-model.md) —modelo de
+>   privilegios y lectura `api → core`— y
+>   [ADR-007](adr/ADR-007-membership-rls.md) —membresía y RLS—. **Todavía no se
+>   ha autorizado SQL definitivo.**
 >
 > El plan por fases, con sus hitos y criterios de cierre, está en
 > [`product/roadmap.md`](product/roadmap.md).
@@ -47,14 +50,14 @@ Un cambio de código que los contradiga es un PR incompleto. **La obligación
 aplica desde que el documento existe**; los marcados como previstos todavía no
 se han escrito.
 
-| Documento                        | Estado                                |
-| -------------------------------- | ------------------------------------- |
-| `architecture/data-model.md`     | Existe                                |
-| `product/glossary.md`            | Existe                                |
-| `architecture/code-structure.md` | **Previsto**                          |
-| `database/rls-policies.md`       | **Previsto**                          |
-| `security/threat-model.md`       | **Previsto**                          |
-| Todos los ADR **aceptados**      | ADR-002 · ADR-003 · ADR-004 · ADR-005 |
+| Documento                        | Estado                                                    |
+| -------------------------------- | --------------------------------------------------------- |
+| `architecture/data-model.md`     | Existe                                                    |
+| `product/glossary.md`            | Existe                                                    |
+| `architecture/code-structure.md` | **Previsto**                                              |
+| `database/rls-policies.md`       | **Previsto**                                              |
+| `security/threat-model.md`       | **Previsto**                                              |
+| Todos los ADR **aceptados**      | ADR-002 · ADR-003 · ADR-004 · ADR-005 · ADR-006 · ADR-007 |
 
 ## Documentos de trabajo — no normativos
 

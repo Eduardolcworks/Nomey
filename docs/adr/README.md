@@ -79,13 +79,15 @@ de decisiones. El registro solo contiene decisiones tomadas.
 
 ## Índice
 
-| ADR                                            | Título                                      | Estado    |
-| ---------------------------------------------- | ------------------------------------------- | --------- |
-| [001](ADR-001-licensing.md)                    | Licencia y avisos de terceros               | Propuesto |
-| [002](ADR-002-accounting-model.md)             | Modelo contable                             | Aceptado  |
-| [003](ADR-003-money-representation.md)         | Representación exacta del dinero            | Aceptado  |
-| [004](ADR-004-currency-definition-identity.md) | Identidad física de la definición monetaria | Aceptado  |
-| [005](ADR-005-schema-topology.md)              | Topología de schemas y frontera Data API    | Aceptado  |
+| ADR                                            | Título                                       | Estado    |
+| ---------------------------------------------- | -------------------------------------------- | --------- |
+| [001](ADR-001-licensing.md)                    | Licencia y avisos de terceros                | Propuesto |
+| [002](ADR-002-accounting-model.md)             | Modelo contable                              | Aceptado  |
+| [003](ADR-003-money-representation.md)         | Representación exacta del dinero             | Aceptado  |
+| [004](ADR-004-currency-definition-identity.md) | Identidad física de la definición monetaria  | Aceptado  |
+| [005](ADR-005-schema-topology.md)              | Topología de schemas y frontera Data API     | Aceptado  |
+| [006](ADR-006-privilege-model.md)              | Modelo de privilegios y lectura `api → core` | Aceptado  |
+| [007](ADR-007-membership-rls.md)               | Membresía y estrategia de RLS                | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
@@ -103,13 +105,13 @@ que ocurra. Ninguno está reservado ni prejuzgado.
 - Idempotencia y cola offline para la entrada rápida.
 - React Native + Expo con CNG como plataforma.
 - Supabase como backend y RLS como capa de autorización.
-- **Hardening del Data API**: la parte de **esquema expuesto** la cerró
-  [ADR-005](ADR-005-schema-topology.md); sigue abierta la **política de grants
-  por rol**, y con ella el mecanismo por el que `api` lee `core`.
-- **Mecanismo de comprobación de membresía**: `SECURITY DEFINER`, política
-  reestructurada sin join, o claims en el JWT. Difieren en rendimiento,
-  superficie de escalada y **frescura de permisos** (con claims, expulsar a
-  alguien de un grupo no surte efecto hasta que su token se refresca).
+- ~~**Hardening del Data API**~~ — cerrado entre
+  [ADR-005](ADR-005-schema-topology.md), que fijó el esquema expuesto, y
+  [ADR-006](ADR-006-privilege-model.md), que fijó los grants por rol y el
+  mecanismo de lectura `api → core`.
+- ~~**Mecanismo de comprobación de membresía**~~ — cerrado por
+  [ADR-007](ADR-007-membership-rls.md): helper `SECURITY DEFINER` reducido, sin
+  claims de membresía en el JWT.
 - Arquitectura por capas y reglas de import.
 - Estrategia de código nativo iOS (CNG vs prebuild versionado).
 - Estrategia de entornos (dev / staging / producción).
