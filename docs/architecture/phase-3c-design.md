@@ -766,6 +766,17 @@ de cierre 3.
 
 ### D3 · Estrategia de `GRANT`
 
+> ## ✅ APROBADA — privilegio mínimo explícito + saneamiento de defaults
+>
+> ### → Normativa en [ADR-006](../adr/ADR-006-privilege-model.md), `Aceptado`
+>
+> **La fuente normativa es el ADR, no esta sección**, que se conserva como el
+> análisis que lo precedió. Si ambos difieren, manda el ADR.
+>
+> Aprobada en la revisión del bloque **3.C.3**, con dos correcciones sobre lo
+> escrito aquí: la casilla «Tablas de `core`: —`es **falsa** —hace falta`SELECT`sobre las tablas que alimentan cada vista—, y el`EXECUTE`de`PUBLIC`se ataca con **los dos mecanismos a la vez**, el default global y el`REVOKE`por función. ADR-006 añade además el **invariante de exposición**:`core`y`sec`fuera de los schemas expuestos **y** del`extra_search_path`,
+> respaldado por un test.
+
 Consume la evidencia de D4 y la cita explícitamente. **La conclusión es mía; los
 hechos son de D4.**
 
@@ -807,6 +818,19 @@ Matriz propuesta. `[E]` = lo que se escribe explícitamente en migración.
 | Funciones de escritura de `api`       | —                                  | `EXECUTE` `[E]`, por función | —                            |
 | Toda función de `api`, `core` y `sec` | `REVOKE EXECUTE FROM PUBLIC` `[E]` | idem                         | idem                         |
 | Secuencias                            | —                                  | —                            | —                            |
+
+> **Medición posterior — E13.** La fila «Tablas de `core`: —» **quedó
+> desmentida** por [`supabase/e13/`](../../supabase/e13/README.md): una vista
+> `security_invoker` exige que el rol cliente tenga **`SELECT` sobre la tabla
+> subyacente**. En cambio **no** necesita `USAGE` sobre el schema de
+> persistencia, y con el helper en la política tampoco necesita `SELECT` sobre
+> `membership` **[medido]**. E13 también midió que ese privilegio **no crea
+> ruta HTTP**: ni por PostgREST —`406 PGRST106` / `404 PGRST205`— ni por
+> GraphQL, mientras el schema quede fuera de las superficies expuestas y del
+> `search_path` de la petición.
+>
+> **Es un hecho, no una aprobación.** La matriz sigue **sin aprobar** y hay que
+> corregirla antes de someterla a revisión.
 
 Y cinco reglas que van con ella:
 
@@ -1255,6 +1279,32 @@ ficha, así que:
 ---
 
 ### D5 · Comprobación de membresía en RLS
+
+> ## ✅ APROBADA — RLS de `core` como autoridad, con helper reducido
+>
+> ### → Normativa en [ADR-007](../adr/ADR-007-membership-rls.md), `Aceptado`
+>
+> **La fuente normativa es el ADR, no esta sección.** Si ambos difieren, manda
+> el ADR.
+>
+> Aprobada en la revisión del bloque **3.C.3**, con un cambio de énfasis
+> respecto a lo escrito aquí: el helper **no** queda como «excepción única para
+> romper la recursión», sino como **mecanismo normal**, porque E13 midió que
+> **reduce** los privilegios del cliente —elimina el `SELECT` sobre la tabla de
+> membresía— en vez de aumentarlos. Se descartan los claims de membresía y la
+> tabla de visibilidad derivada.
+
+> **Medición posterior — E13.** [`supabase/e13/`](../../supabase/e13/README.md)
+> midió el supuesto implícito de esta sección: **con una vista
+> `security_invoker`, la RLS de la persistencia sí se evalúa con el
+> `auth.uid()` de quien consulta**, y una vista ejecutada como su propietario
+> **no aplica la RLS en absoluto** —devolvió todas las filas a un no miembro y
+> a una sesión sin JWT—. Sobre el helper: basta con **`EXECUTE`, sin `USAGE`**
+> sobre su schema, de modo que la política funciona y el usuario **no** puede
+> invocarlo directamente; y usarlo en la política **elimina** la necesidad de
+> `SELECT` sobre `membership` **[medido]**.
+>
+> **Son hechos, no una aprobación.** D5 sigue sin aprobar.
 
 #### El problema, enunciado con precisión
 
@@ -2117,7 +2167,7 @@ antes de abrir el siguiente.
 | --------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | **3.C.1** | D4 — privilegios observados en E11                                                             | **CERRADO.** Medido con E12, auditado dos veces             |
 | **3.C.2** | D1 identidad monetaria · D2 schemas y Data API                                                 | **CERRADO.** Ambas **aprobadas**, D2 con recorte de alcance |
-| **3.C.3** | D3 estrategia de `GRANT` · D5 membresía y RLS                                                  | **Escrito.** Pendiente de revisión                          |
+| **3.C.3** | D3 estrategia de `GRANT` · D5 membresía y RLS                                                  | **CERRADO.** Ambas **aprobadas**; evidencia en E13          |
 | **3.C.4** | D6 frontera textual · D7 escritura · D8 idempotencia                                           | **Escrito.** Pendiente de revisión                          |
 | **3.C.5** | D9 versionado · D10 participantes · D11 persistido                                             | **Escrito.** Pendiente de revisión                          |
 | **3.C.6** | Transversales: vectores · Auth técnico · tests de aislamiento · orden de migraciones · runbook | **Pendiente**                                               |
@@ -2125,18 +2175,29 @@ antes de abrir el siguiente.
 
 ### Decisiones aprobadas hasta ahora
 
-| Decisión | Estado                                                                            | Fuente normativa                                                      |
-| -------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| **D1**   | **Aprobada:** `UUID` fijo y sembrado. Sustituye a la recomendación E del análisis | [ADR-004](../adr/ADR-004-currency-definition-identity.md), `Aceptado` |
-| **D2**   | **Aprobada solo la topología** `core` / `api` / `sec`, sin dominio en `public`    | [ADR-005](../adr/ADR-005-schema-topology.md), `Aceptado` — ver su §4  |
+| Decisión | Estado                                                                                       | Fuente normativa                                                      |
+| -------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **D1**   | **Aprobada:** `UUID` fijo y sembrado. Sustituye a la recomendación E del análisis            | [ADR-004](../adr/ADR-004-currency-definition-identity.md), `Aceptado` |
+| **D2**   | **Aprobada solo la topología** `core` / `api` / `sec`, sin dominio en `public`               | [ADR-005](../adr/ADR-005-schema-topology.md), `Aceptado` — ver su §4  |
+| **D3**   | **Aprobada:** privilegio mínimo explícito, saneamiento de defaults, invariante de exposición | [ADR-006](../adr/ADR-006-privilege-model.md), `Aceptado`              |
+| **D4**   | Medición cerrada. No es una decisión                                                         | Evidencia en [`supabase/e12/`](../../supabase/e12/README.md)          |
+| **D5**   | **Aprobada:** RLS de `core` como autoridad, helper reducido, sin claims                      | [ADR-007](../adr/ADR-007-membership-rls.md), `Aceptado`               |
 
 ### Abierto de forma expresa
 
-- **Mecanismo por el que `api` lee `core`.** La combinación «vistas
-  `security_invoker = true` + cero privilegios de cliente sobre `core`» **no
-  está aprobada**. Se decide en **D5/D6**.
 - **`public` dentro o fuera de `api.schemas`.** Pendiente de medición y decisión
-  posterior; separable.
+  posterior; separable, y ADR-006 lo deja fuera de alcance a propósito.
+- **Qué columnas proyecta cada vista y dónde ocurre cada `::text`** — **D6**.
+  La semántica de ejecución ya está fijada: `api security_invoker` → RLS de
+  `core` (ADR-006 §5). **D6 debe construir la frontera textual respetando ese
+  mecanismo, no sustituirlo en silencio.**
+- **Forma definitiva de las vistas de lectura y de las funciones autoritativas
+  de escritura** — **D6/D7**.
+
+> **Cerrado desde la revisión de 3.C.3:** el mecanismo por el que `api` lee
+> `core` ya no está abierto. Lo fija ADR-006 §5 —vistas `security_invoker` con
+> la RLS de `core` como autoridad—, con la evidencia de
+> [`supabase/e13/`](../../supabase/e13/README.md).
 
 **El resto de D1–D11 sigue sin aprobar. No se ha autorizado SQL definitivo**, y
 `supabase/migrations/` no existe.

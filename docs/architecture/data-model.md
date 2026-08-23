@@ -768,9 +768,12 @@ el dominio sigue tratando como opaca—, en
 directamente por la Data API, en [ADR-005](../adr/ADR-005-schema-topology.md),
 aceptado.
 
-**Pendiente en otros ADR:** comprobación de membresía · **estrategia de grants**
-y mecanismo por el que la superficie expuesta lee la persistencia, que
-[ADR-005](../adr/ADR-005-schema-topology.md) §4 deja expresamente abierto ·
-idempotencia de recurrencias y backend · origen y frecuencia de los tipos de
-cambio · conciliación entre un movimiento importado y la pata personal de una
-operación compuesta.
+**Resuelto también:** la **estrategia de grants** y el mecanismo por el que la
+superficie expuesta lee la persistencia, en
+[ADR-006](../adr/ADR-006-privilege-model.md) · la **comprobación de membresía** y
+la estrategia de RLS, en [ADR-007](../adr/ADR-007-membership-rls.md).
+
+**Pendiente en otros ADR:** frontera textual concreta y funciones autoritativas
+de escritura · idempotencia de recurrencias y backend · origen y frecuencia de
+los tipos de cambio · conciliación entre un movimiento importado y la pata
+personal de una operación compuesta.
