@@ -436,16 +436,14 @@
     },
     {
       "id": "4.7-liquidar-con-participante-sin-usuario",
-      "source": "data-model.md §4.7",
-      "note": "A debia 30 a Marta y se los paga. La transferencia es EXTERNA porque solo hay un extremo interno. La deuda debe existir antes: una liquidacion no la crea.",
+      "source": "data-model.md §4.7 · §6",
+      "note": "Marta pago la cena y NO tiene Modo Personal, asi que no se le inventa ninguno: el gasto de Grupo y la deuda existen igual, pero no hay efecto de caja interno por su parte. Despues A le paga: transferencia EXTERNA, un unico extremo interno, y la liquidacion cierra la deuda.",
       "operations": [
         {
           "kind": "groupExpense",
           "groupScope": "grupo-1",
-          "payerScope": "personal-M",
           "currency": "eur",
           "total": "6000",
-          "paidFromPayerScope": "6000",
           "participants": ["M", "A"],
           "payer": "M",
           "method": {
@@ -473,14 +471,24 @@
             "scope": "personal-A",
             "currency": "eur",
             "amount": "-3000"
-          },
-          {
-            "scope": "personal-M",
-            "currency": "eur",
-            "amount": "-6000"
           }
         ],
-        "debts": []
+        "participantExpense": [
+          {
+            "scope": "grupo-1",
+            "participant": "M",
+            "currency": "eur",
+            "amount": "3000"
+          },
+          {
+            "scope": "grupo-1",
+            "participant": "A",
+            "currency": "eur",
+            "amount": "3000"
+          }
+        ],
+        "debts": [],
+        "balanceEffectScopes": ["personal-A"]
       }
     },
     {
@@ -843,6 +851,124 @@
         }
       ],
       "expectError": "SETTLEMENT_AMOUNT_NOT_POSITIVE"
+    },
+    {
+      "id": "pagador-sin-modo-personal",
+      "source": "data-model.md §6 · ADR-002 §5 · invariante 4",
+      "note": "Un participante existe con o sin usuario y el pagador es siempre participante. Sin Modo Personal no hay extremo interno de caja, pero la participacion economica y la deuda se derivan igual.",
+      "operations": [
+        {
+          "kind": "groupExpense",
+          "groupScope": "grupo-1",
+          "currency": "eur",
+          "total": "9000",
+          "participants": ["M", "A", "B"],
+          "payer": "M",
+          "method": {
+            "kind": "equal"
+          }
+        }
+      ],
+      "expect": {
+        "participantExpense": [
+          {
+            "scope": "grupo-1",
+            "participant": "M",
+            "currency": "eur",
+            "amount": "3000"
+          },
+          {
+            "scope": "grupo-1",
+            "participant": "A",
+            "currency": "eur",
+            "amount": "3000"
+          },
+          {
+            "scope": "grupo-1",
+            "participant": "B",
+            "currency": "eur",
+            "amount": "3000"
+          }
+        ],
+        "economicExpense": [
+          {
+            "scope": "grupo-1",
+            "currency": "eur",
+            "amount": "9000"
+          }
+        ],
+        "debts": [
+          {
+            "scope": "grupo-1",
+            "debtor": "A",
+            "creditor": "M",
+            "currency": "eur",
+            "amount": "3000"
+          },
+          {
+            "scope": "grupo-1",
+            "debtor": "B",
+            "creditor": "M",
+            "currency": "eur",
+            "amount": "3000"
+          }
+        ],
+        "balanceEffectScopes": []
+      }
+    },
+    {
+      "id": "pagador-con-modo-personal",
+      "source": "data-model.md §4.2 · invariante 4",
+      "note": "El contraste del anterior: mismo gasto, pero el pagador si tiene ambito Personal, y aparece exactamente un efecto de caja.",
+      "operations": [
+        {
+          "kind": "groupExpense",
+          "groupScope": "grupo-1",
+          "payerScope": "personal-M",
+          "currency": "eur",
+          "total": "9000",
+          "paidFromPayerScope": "9000",
+          "participants": ["M", "A", "B"],
+          "payer": "M",
+          "method": {
+            "kind": "equal"
+          }
+        }
+      ],
+      "expect": {
+        "balances": [
+          {
+            "scope": "personal-M",
+            "currency": "eur",
+            "amount": "-9000"
+          }
+        ],
+        "participantExpense": [
+          {
+            "scope": "grupo-1",
+            "participant": "M",
+            "currency": "eur",
+            "amount": "3000"
+          }
+        ],
+        "debts": [
+          {
+            "scope": "grupo-1",
+            "debtor": "A",
+            "creditor": "M",
+            "currency": "eur",
+            "amount": "3000"
+          },
+          {
+            "scope": "grupo-1",
+            "debtor": "B",
+            "creditor": "M",
+            "currency": "eur",
+            "amount": "3000"
+          }
+        ],
+        "balanceEffectScopes": ["personal-M"]
+      }
     }
   ]
 }

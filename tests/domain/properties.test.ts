@@ -190,12 +190,11 @@ describe('propiedades contables', () => {
   const cena = () =>
     deriveGroupExpense({
       groupScope: grupo,
-      payerScope: personalA,
       total: moneyFromMinorString('10000', eur),
-      paidFromPayerScope: moneyFromMinorString('10000', eur),
       participants: [A, B],
       payer: A,
       method: { kind: 'equal' },
+      payerCashMovement: { scope: personalA, amount: moneyFromMinorString('10000', eur) },
     });
 
   it('una liquidación no introduce ningún efecto de saldo', () => {
@@ -288,6 +287,26 @@ describe('propiedades contables', () => {
         expect(debt.debtor).toBe(B);
       }
     }
+  });
+
+  it('sin Modo Personal del pagador, los efectos del Grupo son exactamente los mismos', () => {
+    const conAmbito = cena();
+    const sinAmbito = deriveGroupExpense({
+      groupScope: grupo,
+      total: moneyFromMinorString('10000', eur),
+      participants: [A, B],
+      payer: A,
+      method: { kind: 'equal' },
+    });
+
+    // La deuda y la participación económica no dependen de que el pagador
+    // tenga ámbito interno.
+    expect(deriveDebts(sinAmbito, grupo, eur)).toStrictEqual(deriveDebts(conAmbito, grupo, eur));
+
+    // Lo único que cambia es el efecto de caja, que no se inventa.
+    expect(sinAmbito.filter((e) => e.balance !== null)).toHaveLength(0);
+    expect(conAmbito.filter((e) => e.balance !== null)).toHaveLength(1);
+    expect(sinAmbito.filter((e) => e.scope === personalA)).toHaveLength(0);
   });
 
   it('un gasto de grupo deja el saldo del propio Grupo sin tocar', () => {

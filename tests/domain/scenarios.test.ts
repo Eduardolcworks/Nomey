@@ -39,6 +39,7 @@ interface ScenarioCase extends VectorCase {
     readonly participantExpense?: readonly Expectation[];
     readonly debts?: readonly Expectation[];
     readonly netDebtPosition?: readonly Expectation[];
+    readonly balanceEffectScopes?: readonly string[];
   };
 }
 
@@ -64,14 +65,21 @@ function applyOperation(op: Operation, prior: readonly Effect[]): Effect[] {
 
     case 'groupExpense': {
       const payerCurrency = op.payerCurrency === undefined ? c : currency(str(op, 'payerCurrency'));
+      // Un vector sin payerScope representa un pagador sin Modo Personal.
+      const cash =
+        op.payerScope === undefined
+          ? undefined
+          : {
+              scope: scope(str(op, 'payerScope')),
+              amount: moneyFromMinorString(str(op, 'paidFromPayerScope'), payerCurrency),
+            };
       return deriveGroupExpense({
         groupScope: scope(str(op, 'groupScope')),
-        payerScope: scope(str(op, 'payerScope')),
         total: moneyFromMinorString(str(op, 'total'), c),
-        paidFromPayerScope: moneyFromMinorString(str(op, 'paidFromPayerScope'), payerCurrency),
         participants: (op.participants as string[]).map(participant),
         payer: participant(str(op, 'payer')),
         method: op.method as { kind: 'equal' },
+        payerCashMovement: cash,
       });
     }
 
@@ -205,6 +213,15 @@ describe('escenarios normativos · data-model.md §4', () => {
 
         expect(actual, `deudas de ${scopeName}`).toStrictEqual(wanted);
       }
+    }
+
+    if (item.expect!.balanceEffectScopes !== undefined) {
+      const actual = [
+        ...new Set(effects.filter((e) => e.balance !== null).map((e) => String(e.scope))),
+      ].sort();
+      expect(actual, 'ámbitos con efecto de saldo').toStrictEqual(
+        [...item.expect!.balanceEffectScopes].sort(),
+      );
     }
 
     for (const exp of item.expect!.netDebtPosition ?? []) {

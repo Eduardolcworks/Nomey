@@ -364,6 +364,21 @@ Los participantes se eligen **por operación**, no por pertenencia al grupo.
   iguales entre cuatro» de «cuatro importes fijos», y esa diferencia decide si
   una corrección posterior recalcula.
 
+### El pagador puede no tener Modo Personal
+
+No es una regla nueva: se sigue de dos que ya están escritas. Un participante
+**existe con o sin usuario** (§6) y el pagador es siempre un participante, así
+que puede pagar alguien que todavía no tiene cuenta en Nomey.
+
+Cuando ocurre, **el gasto y las deudas del Grupo se registran igual** —la
+participación económica es de todos los participantes— pero **no hay ningún
+efecto de caja interno**: el dinero salió de un sitio que Nomey no representa.
+Es la misma situación que el invariante 4 admite al decir que una transferencia
+externa puede tener un único extremo interno.
+
+La ausencia de ese efecto **no significa que no pagara nadie**. Significa que no
+hay ámbito interno del que descontar.
+
 **Reparto del resto**, determinista y reproducible en cualquier dispositivo:
 
 1. cuotas matemáticas

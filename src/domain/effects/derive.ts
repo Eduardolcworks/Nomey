@@ -45,17 +45,41 @@ export function deriveAdjustment(input: { scope: ScopeId; delta: Money }): Effec
   ];
 }
 
+/**
+ * El movimiento de caja del pagador: de qué ámbito sale el dinero y cuánto.
+ *
+ * Van juntos a propósito. El ámbito sin el importe, o al revés, no significa
+ * nada, y agruparlos hace ese estado irrepresentable.
+ */
+export interface PayerCashMovement {
+  readonly scope: ScopeId;
+  /** Importe en la moneda base del ámbito del pagador, que puede no ser la del Grupo. */
+  readonly amount: Money;
+}
+
 export interface GroupExpenseInput {
   readonly groupScope: ScopeId;
-  /** Modo Personal del pagador. De él sale el dinero. */
-  readonly payerScope: ScopeId;
   /** Total **ya convertido** a la moneda base del Grupo. */
   readonly total: Money;
-  /** Importe que sale del ámbito del pagador, en la moneda base de ese ámbito. */
-  readonly paidFromPayerScope: Money;
   readonly participants: readonly ParticipantId[];
   readonly payer: ParticipantId;
   readonly method: SplitMethod;
+  /**
+   * **Opcional a propósito.** Un participante puede figurar en repartos
+   * existiendo **con o sin usuario** (`data-model.md` §6), y el pagador es
+   * siempre un participante (ADR-002 §5). Cuando quien pagó no tiene Modo
+   * Personal, no hay ningún ámbito interno del que descontar: el gasto es
+   * igualmente real, y el dinero salió de un sitio que Nomey no representa.
+   *
+   * Su ausencia **no** significa «no pagó nadie»: significa que no hay efecto
+   * de caja interno que registrar. Los efectos del Grupo —participación
+   * económica y deudas— se derivan igual.
+   *
+   * Esto no implementa nada de participantes sin cuenta —invitación,
+   * reclamación, autorización—: solo evita presuponer un ámbito que el modelo
+   * nunca garantizó.
+   */
+  readonly payerCashMovement?: PayerCashMovement;
 }
 
 /**
@@ -106,14 +130,18 @@ export function deriveGroupExpense(input: GroupExpenseInput): Effect[] {
     );
   }
 
-  // El movimiento de caja: uno solo, por el total (invariante 4).
-  effects.push(
-    effect({
-      scope: input.payerScope,
-      accountingClass: 'expense',
-      balance: negateMoney(input.paidFromPayerScope),
-    }),
-  );
+  // El movimiento de caja: uno solo, por el total (invariante 4). Si el pagador
+  // no tiene Modo Personal, no hay ningún extremo interno que registrar — la
+  // misma situación que el invariante 4 admite para una transferencia externa.
+  if (input.payerCashMovement !== undefined) {
+    effects.push(
+      effect({
+        scope: input.payerCashMovement.scope,
+        accountingClass: 'expense',
+        balance: negateMoney(input.payerCashMovement.amount),
+      }),
+    );
+  }
 
   return effects;
 }

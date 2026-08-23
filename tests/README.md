@@ -76,13 +76,13 @@ debe**. Procedimiento, reproducible en un minuto:
    devolviendo `index` en lugar de `-1` para el pagador.
 2. `npm test`.
 3. Deben caer **exactamente los vectores cuyo resultado depende del
-   desempate**, no la suite entera. Medido el 2026-08-20: **3 de 107**, y son
+   desempate**, no la suite entera. Medido el 2026-08-20: **3 de 110**, y son
    precisamente aquellos en los que el pagador **no** ocupa la primera posición
    de la lista — `equal-el-pagador-no-va-primero`,
    `equal-indivisible-pagador-en-medio` y `equal-resto-multiple` —. Los demás
    siguen pasando porque su pagador ya iba primero y el desempate no los
    distingue.
-4. Revierte el cambio y vuelve a ejecutar: 107 de 107.
+4. Revierte el cambio y vuelve a ejecutar: 110 de 110.
 
 Si al romper la regla no falla nada, el vector que la cubría no existe.
 
