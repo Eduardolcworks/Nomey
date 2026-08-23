@@ -1474,6 +1474,33 @@ de producto.
 
 ### D6 · Frontera textual de ADR-003 §6 (T7)
 
+> ## ✅ APROBADA — estrategia combinada, con una corrección medida
+>
+> ### → Normativa en [ADR-008](../adr/ADR-008-exact-data-boundary.md), `Aceptado`
+>
+> **La fuente normativa es el ADR, no esta sección**, que se conserva como el
+> análisis que lo precedió. Si ambos difieren, manda el ADR.
+>
+> Aprobada en la revisión del bloque **3.C.4**, con **tres correcciones** sobre
+> lo escrito aquí, todas respaldadas por
+> [`supabase/e14/`](../../supabase/e14/README.md):
+>
+> 1. **Los parámetros `text` no son una garantía de escritura.** E14 midió que
+>    PostgREST **coacciona un número JSON a texto**, así que un parámetro `text`
+>    no distingue un cliente correcto de uno que ya degradó el valor. La norma
+>    pasa a ser el **invariante** —los valores exactos cruzan como `string` y la
+>    frontera debe poder comprobar el tipo JSON original—, y **el mecanismo se
+>    delega a D7**. Que `jsonb_typeof` pueda hacerlo es evidencia, **no** una
+>    decisión de que D7 use `jsonb`.
+> 2. **El tipo de cambio viaja como `coefficient` (string) + `scale` (entero
+>    acotado)**, alineado con el dominio y con `tests/vectors/`. No se introduce
+>    el decimal canónico como segundo contrato ni se añade constructor alguno.
+> 3. **No se limita el producto.** Filtrar, ordenar y agregar por importe
+>    **siguen permitidos**; lo que cambia es que ocurren numéricamente **dentro
+>    del servidor**, antes de serializar.
+>
+> `UUID` no necesita protección textual: cruza como `string` de forma natural.
+
 **Lo que E11 dejó fijado y no se rediscute:** el comportamiento por defecto
 **no** cumple T7; el `BIGINT` por encima de 2^53 se degrada en silencio con HTTP
 200; **lo determinante es el cast a texto, no el camino de acceso** —un RPC que
@@ -1541,15 +1568,28 @@ create function api.record_personal_expense(
    y no cambia—, pero deja de ser una trampa. **`src/types/database.ts` no se
    edita a mano bajo ninguna circunstancia.**
 
-#### Lo que hay que verificar antes de dar D6 por bueno
+#### Lo que había que verificar — **MEDIDO en E14**
 
-**[no medido, tarea de verificación]** Si un cliente envía un número JSON a un
-parámetro declarado `text`, ¿PostgREST lo rechaza o lo coacciona a texto? Las
-dos respuestas son aceptables —rechazo ruidoso o texto exacto de lo recibido—
-pero **si lo coacciona, la degradación ya ocurrió en el cliente** y hay que
-añadir una validación de forma en la función, que es lo que el punto 2 propone
-de todos modos. Se mide con una llamada HTTP; entra en el guion del transversal
-A.
+La pregunta abierta era: si un cliente envía un número JSON a un parámetro
+declarado `text`, ¿PostgREST lo rechaza o lo coacciona?
+
+**Lo coacciona.** Los cinco casos —string grande, number grande, number normal,
+decimal y `null`— se aceptan con **HTTP 200**, y PostgREST conserva
+**exactamente** los dígitos recibidos. No degrada nada; tampoco exige que el
+tipo JSON original fuese `string` **[medido,
+[`supabase/e14/`](../../supabase/e14/README.md)]**.
+
+Dos consecuencias, y la segunda invalida el punto 2 de arriba tal como estaba
+escrito:
+
+- **La degradación vive en el cliente.** `JSON.stringify({ v: 9007199254740993 })`
+  emite `{"v":9007199254740992}` **[medido]**. El servidor recibiría una cadena
+  exacta **del valor equivocado**, y la validación por expresión regular la
+  aceptaría sin pestañear: es **necesaria pero insuficiente**.
+- **El tipo JSON original sí es observable** con un payload `jsonb`
+  —`jsonb_typeof` distingue `string`, `number` y `null` sobre los mismos bytes
+  **[medido]**—. Eso demuestra que el invariante **es exigible**; **qué
+  mecanismo lo exige pertenece a D7** y ADR-008 lo delega expresamente.
 
 #### Ventajas
 
@@ -1568,8 +1608,12 @@ A.
   Mitigación: exponer también una columna auxiliar **no monetaria** para
   ordenación si hace falta, o —mejor— que la ordenación y la agregación ocurran
   **dentro** del servidor y el cliente no filtre por importe **[preferencia]**.
-- Agregar del lado cliente deja de ser posible, que es una consecuencia deseada
-  (ver §8, `max_rows`).
+- Agregar del lado cliente sobre las columnas textuales deja de ser posible.
+  **Corregido en la revisión de 3.C.4:** una redacción anterior remitía a «§8,
+  `max_rows`», una sección que **nunca se escribió**. El dato de fondo es
+  correcto —`max_rows = 1000` en `config.toml`—, pero no había tal referencia.
+  Y la consecuencia **no** es que Nomey no pueda agregar por importe: es que la
+  agregación ocurre **en el servidor**, sobre los tipos exactos (ADR-008 §6).
 
 #### Riesgos
 
@@ -2168,7 +2212,7 @@ antes de abrir el siguiente.
 | **3.C.1** | D4 — privilegios observados en E11                                                             | **CERRADO.** Medido con E12, auditado dos veces             |
 | **3.C.2** | D1 identidad monetaria · D2 schemas y Data API                                                 | **CERRADO.** Ambas **aprobadas**, D2 con recorte de alcance |
 | **3.C.3** | D3 estrategia de `GRANT` · D5 membresía y RLS                                                  | **CERRADO.** Ambas **aprobadas**; evidencia en E13          |
-| **3.C.4** | D6 frontera textual · D7 escritura · D8 idempotencia                                           | **Escrito.** Pendiente de revisión                          |
+| **3.C.4** | D6 frontera textual · D7 escritura · D8 idempotencia                                           | **D6 APROBADA**; D7 y D8 pendientes de revisión             |
 | **3.C.5** | D9 versionado · D10 participantes · D11 persistido                                             | **Escrito.** Pendiente de revisión                          |
 | **3.C.6** | Transversales: vectores · Auth técnico · tests de aislamiento · orden de migraciones · runbook | **Pendiente**                                               |
 | **3.C.7** | Síntesis: dependencias, orden, aprobadas, abiertas, cierre                                     | **Pendiente**                                               |
@@ -2182,17 +2226,20 @@ antes de abrir el siguiente.
 | **D3**   | **Aprobada:** privilegio mínimo explícito, saneamiento de defaults, invariante de exposición | [ADR-006](../adr/ADR-006-privilege-model.md), `Aceptado`              |
 | **D4**   | Medición cerrada. No es una decisión                                                         | Evidencia en [`supabase/e12/`](../../supabase/e12/README.md)          |
 | **D5**   | **Aprobada:** RLS de `core` como autoridad, helper reducido, sin claims                      | [ADR-007](../adr/ADR-007-membership-rls.md), `Aceptado`               |
+| **D6**   | **Aprobada:** lectura textual, invariante de `api`, escritura como JSON `string`             | [ADR-008](../adr/ADR-008-exact-data-boundary.md), `Aceptado`          |
 
 ### Abierto de forma expresa
 
 - **`public` dentro o fuera de `api.schemas`.** Pendiente de medición y decisión
   posterior; separable, y ADR-006 lo deja fuera de alcance a propósito.
-- **Qué columnas proyecta cada vista y dónde ocurre cada `::text`** — **D6**.
-  La semántica de ejecución ya está fijada: `api security_invoker` → RLS de
-  `core` (ADR-006 §5). **D6 debe construir la frontera textual respetando ese
-  mecanismo, no sustituirlo en silencio.**
-- **Forma definitiva de las vistas de lectura y de las funciones autoritativas
-  de escritura** — **D6/D7**.
+- **Todo el mecanismo de la escritura autoritativa** — **D7**. ADR-008 fija
+  únicamente el **contrato de transporte** y delega expresamente: forma real del
+  payload · cómo se comprueba el tipo JSON original · las funciones
+  autoritativas y su firma · autenticación y autorización · validación semántica
+  completa · atomicidad y derivación de efectos · errores y su relación con la
+  idempotencia.
+- **Forma definitiva de las vistas de lectura** —qué columnas proyecta cada una—
+  y la API de servidor que permita filtrar, ordenar y agregar por importe.
 
 > **Cerrado desde la revisión de 3.C.3:** el mecanismo por el que `api` lee
 > `core` ya no está abierto. Lo fija ADR-006 §5 —vistas `security_invoker` con

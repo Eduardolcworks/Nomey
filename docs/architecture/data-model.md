@@ -773,7 +773,11 @@ superficie expuesta lee la persistencia, en
 [ADR-006](../adr/ADR-006-privilege-model.md) · la **comprobación de membresía** y
 la estrategia de RLS, en [ADR-007](../adr/ADR-007-membership-rls.md).
 
-**Pendiente en otros ADR:** frontera textual concreta y funciones autoritativas
-de escritura · idempotencia de recurrencias y backend · origen y frecuencia de
-los tipos de cambio · conciliación entre un movimiento importado y la pata
-personal de una operación compuesta.
+**Resuelto también:** el **contrato de transporte de los valores exactos** en
+las dos direcciones, en [ADR-008](../adr/ADR-008-exact-data-boundary.md).
+
+**Pendiente en otros ADR:** **funciones autoritativas de escritura** —incluido
+el mecanismo que comprueba el tipo JSON de entrada, que ADR-008 delega— ·
+idempotencia de recurrencias y backend · origen y frecuencia de los tipos de
+cambio · conciliación entre un movimiento importado y la pata personal de una
+operación compuesta.

@@ -88,6 +88,7 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [005](ADR-005-schema-topology.md)              | Topología de schemas y frontera Data API     | Aceptado  |
 | [006](ADR-006-privilege-model.md)              | Modelo de privilegios y lectura `api → core` | Aceptado  |
 | [007](ADR-007-membership-rls.md)               | Membresía y estrategia de RLS                | Aceptado  |
+| [008](ADR-008-exact-data-boundary.md)          | Frontera de datos exactos                    | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
