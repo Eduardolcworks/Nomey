@@ -34,15 +34,40 @@ policies on a table with careless grants is not a secure table.
 Anything else under `src/` — no components, screens, hooks or UI. If the client
 needs to change to match a schema change, say so and hand off.
 
-## The data model is not decided yet
+## The domain is decided. The schema is not.
 
-Nomey is in Phase 0. **No schema exists and none has been agreed.** Table
-names, which facts are stored versus derived, and how many tables it takes are
-all open questions belonging to the data-model ADR.
+Nomey is in **Phase 3.C**. Phases 0 through 3.B are closed, and that changes
+your job: **you are not here to reinvent the domain.**
 
-Your first job on any modelling task is to write or consult that ADR — not to
-produce a migration. If a task assumes a schema that has not been agreed, say
-so and stop. The rules below constrain any design; they do not describe one.
+**Already settled, and binding on you:**
+
+- [ADR-002](../../docs/adr/ADR-002-accounting-model.md), `Aceptado` — the
+  accounting model: operation and effect, three scopes, accounting classes,
+  largest-remainder allocation, correction by versioning, and the write
+  boundary.
+- [ADR-003](../../docs/adr/ADR-003-money-representation.md), `Aceptado` — exact
+  money representation. **Its E11 gate was met against a real local Supabase
+  stack**; the evidence is reproducible in `supabase/e11/`.
+- `docs/architecture/data-model.md` and `docs/product/glossary.md` — the domain
+  in domain terms, mandatory-maintenance documents.
+- **`src/domain/` exists** and is the pure reference implementation, with
+  shared vectors in `tests/vectors/`.
+
+**Still open, and yours to design:** the physical schema, exposed schemas,
+grants, RLS, the authoritative write boundary, idempotency and how versioning is
+persisted. **Table names, columns and which facts are stored versus derived are
+still open** — but the _facts themselves_ are not.
+
+Start with [`docs/architecture/phase-3c-handoff.md`](../../docs/architecture/phase-3c-handoff.md):
+it lists the fourteen open decisions of 3.C and the known traps.
+
+> **3.C starts with analysis, not SQL.** Do not write definitive migrations
+> until the low-reversibility decisions — monetary identity, exposed schema,
+> grants, membership mechanism, idempotency — have been presented and approved.
+
+**The vectors are your acceptance criterion.** ADR-002 §7 requires the server
+calculation and `domain/` to agree; `tests/vectors/` is what makes any drift
+between them visible. **Whatever you build must be able to run them.**
 
 ## Non-negotiable rules
 
@@ -62,12 +87,20 @@ so and stop. The rules below constrain any design; they do not describe one.
    pins `search_path` explicitly and is reviewed as a privilege boundary,
    because it bypasses RLS by design.
 3. **Grants are explicit and minimal per role**, never inherited by default.
-4. **Monetary values of record are stored exactly**, never in a representation
-   that can introduce binary floating-point error, and always alongside an
-   explicit ISO 4217 currency. Never assume 2 decimal places — scale varies by
-   currency. **Which exact representation** (integer minor units, `numeric`,
-   something else) is a money-ADR decision with real trade-offs; choosing it is
-   part of your job, asserting it before the ADR is not.
+4. **Monetary values of record are stored exactly** — settled by ADR-003:
+   integer minor units, `BIGINT` in PostgreSQL, exchange rates as a separate
+   exact decimal. Never assume 2 decimal places; scale belongs to the monetary
+   definition, whose **identity is not the ISO code**. Two amounts are not
+   aggregable just because they share a code.
+
+   **E11 measured that PostgreSQL and PostgREST both keep the value exact and
+   that JavaScript degrades it on `JSON.parse`.** So an explicit textual
+   boundary is required; **which** boundary — view, RPC, adapter — is yours to
+   decide, and E11 showed the cast is what matters, not the access path. Note
+   that `supabase gen types typescript` emits `number` for `int8` and
+   `numeric`: the generated types are a structural reference, **not** a safe
+   boundary, and `database.ts` is never hand-edited to paper over it.
+
 5. **Any monetary operation that can be retried must be idempotent**:
    replaying it must not produce a second record, or you get duplicate money in
    production with no clean way to deduplicate afterwards. The guarantee has to
@@ -103,5 +136,14 @@ so and stop. The rules below constrain any design; they do not describe one.
 
 ## Current state
 
-Supabase is **not connected yet** and `supabase init` has not been run. Do not
-initialise it without explicit approval.
+**Supabase local is initialised and reproducible.** `supabase/config.toml` is
+versioned; `npx supabase start` brings the stack up. `supabase/e11/` holds the
+boundary probe — **it is not a migration and must never become one**.
+
+**`supabase/migrations/` is still empty.** No schema, no RLS, no auth, no
+generated types yet. That is the work of 3.C.
+
+One measurement from E11 you will need early: `anon` and `authenticated` show up
+with `REFERENCES`, `TRIGGER` and `TRUNCATE` on new `public` tables that were
+granted nothing. Where those come from and what must be revoked is **an open
+question, deliberately left without a conclusion**.

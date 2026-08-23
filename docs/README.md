@@ -8,9 +8,13 @@ inglés.
 > - **Fases 0, 1 y 2:** cerradas.
 >   [ADR-002](adr/ADR-002-accounting-model.md) está **aceptado**, y
 >   `architecture/data-model.md` y `product/glossary.md` existen.
-> - **Fase 3:** abierta. [ADR-003](adr/ADR-003-money-representation.md) está
->   **aceptado**: su puerta **E11** se cumplió contra un stack Supabase local
->   real.
+> - **Fase 3:** abierta, con **3.A y 3.B cerradas**.
+>   [ADR-003](adr/ADR-003-money-representation.md) está **aceptado**: su puerta
+>   **E11** se cumplió contra un stack Supabase local real, y `src/domain/` ya
+>   contiene la implementación de referencia con sus vectores compartidos.
+> - **Siguiente trabajo: 3.C** —esquema, grants, RLS y frontera de escritura—,
+>   que arranca con análisis y no con SQL. Ver
+>   [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md).
 >
 > El plan por fases, con sus hitos y criterios de cierre, está en
 > [`product/roadmap.md`](product/roadmap.md).
@@ -54,6 +58,7 @@ lo es el ADR correspondiente, cuando se acepta.
 | Documento                                                                      | Fase | Qué es                                                                                                           |
 | ------------------------------------------------------------------------------ | ---- | ---------------------------------------------------------------------------------------------------------------- |
 | [`architecture/money-representation.md`](architecture/money-representation.md) | 2    | Evidencia medida, decisiones confirmadas y alternativas descartadas que preceden a **ADR-003**. **No normativo** |
+| [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md)         | 3    | Traspaso de 3.B a 3.C: estado de entrada, decisiones cerradas y pendientes de 3.C. **No normativo**              |
 
 Al aceptarse el ADR que lo cierra, se decide si el documento se conserva como
 historial de análisis o se retira.

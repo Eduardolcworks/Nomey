@@ -164,6 +164,10 @@ Dos hechos con el mismo código pueden pertenecer a definiciones distintas —si
 moneda redenominó, o si se corrigió un error en la metadata—, y entonces **no son
 directamente comparables**.
 
+A la inversa: **una identidad identifica una única definición coherente**. Dos
+valores con la misma identidad que se contradigan en escala o código no son
+definiciones distintas, son un dato corrupto, y operar con ellos es inválido.
+
 > **El significado monetario de un hecho histórico es inmutable.** Cambiar la
 > metadata de una moneda nunca reinterpreta un hecho ya registrado.
 

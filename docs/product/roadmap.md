@@ -125,7 +125,7 @@ aceptación, que se ejecuta en F3.
 
 ### Fase 3 — Persistencia y frontera de datos
 
-`FUNDAMENTO` · **abierta**
+`FUNDAMENTO` · **abierta** · 3.A **cerrada** · 3.B **cerrada** · 3.C pendiente
 
 **Objetivo.** Construir la primera capa de persistencia real, segura y
 reproducible, y cerrar la puerta de aceptación de ADR-003.
@@ -175,9 +175,15 @@ para `supabase init`, exigida por `.claude/agents/data-architect.md`.
 
 **Puertas.**
 
-- **3.A · E11 → ADR-003.** Puerta dura. Si contradice una premisa del ADR, la
-  fase se detiene y se replantea antes de consolidar solución. **Cumplida el
-  2026-08-19**; ADR-003 quedó `Aceptado`.
+- **3.A · E11 → ADR-003.** Puerta dura. **Cumplida el 2026-08-19**; ADR-003
+  quedó `Aceptado`. Evidencia reproducible en
+  [`supabase/e11/`](../../supabase/e11/README.md).
+- **3.B · cerrada el 2026-08-20.** `src/domain/` implementado como
+  implementación de referencia pura, con vectores compartidos en
+  `tests/vectors/` y 110 tests en verde. **La frontera de escritura autoritativa
+  de 3.C deberá reproducir esos vectores exactamente** (ADR-002 §7).
+- **3.C · arranca con análisis del Data Architect, no con SQL.** Ver
+  [`architecture/phase-3c-handoff.md`](../architecture/phase-3c-handoff.md).
 - **3.C ·** identidad de la definición monetaria · esquema expuesto por la Data
   API · estrategia de `GRANT` · mecanismo de comprobación de membresía en RLS ·
   mecanismo de idempotencia · **mecanismo de frontera textual** que haga cumplir

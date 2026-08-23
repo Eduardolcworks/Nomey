@@ -398,12 +398,22 @@ the `adr` skill to draft one.
 ## Current state
 
 The project is in **Phase 3** (persistence and data boundary). Phases 0, 1 and 2
-are closed: ADR-002 and ADR-003 are both accepted, and
-`docs/architecture/data-model.md` and `docs/product/glossary.md` exist. ADR-003
-met its E11 gate against a real local Supabase stack.
+are closed, and so are **3.A** and **3.B**. ADR-002 and ADR-003 are both
+accepted; ADR-003 met its E11 gate against a real local Supabase stack.
 
-There is still no Supabase connection, no schema, no auth and no business logic
-— that is deliberate, not an oversight. The visible app is an intentionally
-blank screen.
+**What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
+and the E11 probe that measured the data boundary (`supabase/e11/`, not a
+migration). A pure reference implementation of the financial domain in
+`src/domain/`, with shared test vectors in `tests/vectors/` and a Vitest suite —
+110 tests at the close of 3.B. **The authoritative server write boundary will
+have to reproduce those vectors exactly** (ADR-002 §7).
+
+**What does not exist yet.** No schema, no migrations, no RLS, no auth and no
+screens — that is deliberate, not an oversight. The visible app is still an
+intentionally blank screen.
+
+**Next up: Phase 3.C**, the physical schema, grants, RLS and the authoritative
+write boundary. It starts with analysis, not SQL — see
+`docs/architecture/phase-3c-handoff.md`.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.
