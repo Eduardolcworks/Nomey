@@ -79,11 +79,48 @@ const featureZones = featureNames.map((name) => ({
     'No feature-to-feature imports. Use relative imports inside a feature; move anything shared down to domain/, lib/ or ui/.',
 }));
 
+const MONEY_PURITY =
+  'No binary floating point in monetary arithmetic (ADR-003). Use bigint and the helpers in domain/money.';
+
 const boundaries = [
   {
     files: ['src/**/*.{ts,tsx}'],
     rules: {
       'import/no-restricted-paths': ['error', { zones: [...layerZones, ...featureZones] }],
+    },
+  },
+  {
+    // No binary floating point in monetary arithmetic. ADR-003 forbids number
+    // for values of record, and the failure it prevents is silent: a wrong
+    // amount that never throws. A lint rule makes it checkable instead of
+    // declarative. Number.isInteger and friends stay legal - only the
+    // conversions and the float helpers are banned.
+    files: ['src/domain/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.name='Number']",
+          message: MONEY_PURITY,
+        },
+        {
+          selector: "CallExpression[callee.name='parseFloat']",
+          message: MONEY_PURITY,
+        },
+        {
+          selector: "CallExpression[callee.name='parseInt']",
+          message: MONEY_PURITY,
+        },
+        {
+          selector:
+            "MemberExpression[object.name='Math'][property.name=/^(round|floor|ceil|trunc|abs|pow)$/]",
+          message: MONEY_PURITY,
+        },
+        {
+          selector: "CallExpression[callee.property.name='toFixed']",
+          message: MONEY_PURITY,
+        },
+      ],
     },
   },
   {
@@ -105,6 +142,15 @@ const boundaries = [
                 'expo-*',
                 '@expo/*',
                 '@supabase/*',
+                // No disk, no network, no Node runtime. AGENTS.md is explicit
+                // that domain/ touches neither, and 'node:fs' slipped through
+                // the list above until an audit probe caught it.
+                'node:*',
+                'fs',
+                'net',
+                'http',
+                'https',
+                'child_process',
               ],
               message: REASON.domain,
             },

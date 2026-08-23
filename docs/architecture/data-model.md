@@ -350,6 +350,38 @@ Los participantes se eligen **por operación**, no por pertenencia al grupo.
 
 10 € entre tres: **3,34 · 3,33 · 3,33**, con 3,34 para el pagador.
 
+### Participación declarada y participación calculada
+
+Son cosas distintas y la exigencia de ser positiva recae sobre la **declarada**.
+
+**Una participación calculada puede resultar cero.** Si el total no alcanza para
+asignar una unidad mínima a cada participante, el mayor resto reparte lo que
+hay: 0,01 € entre A, B y C con `equal` da **0,01 · 0 · 0**, y la unidad va al
+pagador por el desempate. **No es un error: es indivisibilidad.**
+
+Lo mismo puede ocurrirle al pagador. Con `shares`, un total de 0,01 € y pesos
+1 · 2 · 2 deja al pagador en **0**, porque el empate por mayor resto se produce
+entre los otros dos y el desempate no le alcanza. Sigue siendo válido: **su
+participación declarada era positiva**, que es lo que ADR-002 §5 exige.
+
+Qué debe ser estrictamente positivo, entonces:
+
+| Método          | Lo declarado        | ¿Puede el resultado ser 0?  |
+| --------------- | ------------------- | --------------------------- |
+| `equal`         | la inclusión        | **Sí**, por indivisibilidad |
+| `shares`        | el peso, entero > 0 | **Sí**, por el mayor resto  |
+| `exact_amounts` | el importe, > 0     | No: es el propio declarado  |
+
+> **Decisión de producto de 2026-08-20.** En `exact_amounts`, **quien figura con
+> importe declarado `0` no forma parte de los participantes de esa operación**.
+> La semántica es: _participante de una operación = persona con participación
+> económica declarada en ella_. Un gasto de 10 € con A = 10 € y B = 0 € tiene un
+> solo participante, no dos.
+>
+> **ADR-002 no aborda este caso**; no es una lectura suya. Queda registrada aquí
+> porque es una regla del modelo de dominio, no una decisión arquitectónica que
+> justifique un ADR propio.
+
 Si el gasto se declaró en otra moneda, **se convierte una vez al entrar en el
 ámbito y se reparte después**, ya en la moneda base del Grupo (§10). Repartir
 primero y convertir cada parte no garantiza que la suma cuadre con el total.
@@ -509,8 +541,10 @@ cierto.
 servidor valida y genera los efectos atómicamente. **Los roles cliente no tienen
 permisos de escritura sobre operaciones ni efectos.**
 
-Validaciones que le corresponden: pagador único y participante con parte > 0 ·
-participantes válidos en la fecha efectiva · `shares` enteros positivos ·
+Validaciones que le corresponden: pagador único **e incluido entre los
+participantes** · **participaciones declaradas positivas**, es decir `shares` con
+enteros > 0 y `exact_amounts` sin importes en cero —la participación _calculada_
+sí puede ser 0, ver §5— · participantes válidos en la fecha efectiva ·
 `exact_amounts` de suma exacta · idempotencia según origen · derecho de
 corrección · límites del acceso residual · **que quien registra tenga derecho a
 producir los efectos que la operación alcanza** · bilateralidad del reparto

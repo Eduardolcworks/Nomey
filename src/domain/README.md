@@ -17,14 +17,27 @@ exhaustiva en milisegundos, y un cambio de UI no puede alterar su
 comportamiento: al no importar nada de las capas superiores, la única vía de
 influencia son los argumentos que recibe.
 
-## Contenido previsto
+## Contenido
 
-| Módulo       | Responsabilidad                                                |
-| ------------ | -------------------------------------------------------------- |
-| `money`      | Aritmética monetaria exacta sobre importes con moneda ISO 4217 |
-| `split`      | Reparto de un gasto entre participantes, incluido el resto     |
-| `balance`    | Deudas netas por participante dentro de un grupo               |
-| `settlement` | Minimización del número de pagos para saldar un grupo          |
+| Módulo                      | Responsabilidad                                        |
+| --------------------------- | ------------------------------------------------------ |
+| `money/currency-definition` | Identidad monetaria opaca y su escala                  |
+| `money/money`               | Aritmética exacta sobre importes en unidad mínima      |
+| `money/rounding`            | Redondeo _half away from zero_ sobre magnitud absoluta |
+| `money/exchange-rate`       | Tipo de cambio como coeficiente entero y escala        |
+| `money/convert`             | Conversión racional exacta con un único redondeo final |
+| `split/largest-remainder`   | Mayor resto sobre magnitud no negativa                 |
+| `split/split`               | `equal`, `shares` y `exact_amounts`                    |
+| `effects/effect`            | El efecto y sus dimensiones separadas                  |
+| `effects/derive`            | Operación → efectos                                    |
+| `effects/balance`           | Saldos y totales económicos derivados                  |
+| `effects/debt`              | Deudas netas, liquidaciones y pagos parciales          |
+
+**Fuera de esta capa, por decisión:** la autorización —quién puede registrar
+qué—, la idempotencia y la selección de la versión vigente pertenecen a la
+frontera de escritura. **La minimización del número de pagos para saldar un
+grupo no está implementada**: ADR-002 no fija ningún algoritmo normativo, y
+inventar una heurística acoplaría cliente y servidor a algo no decidido.
 
 ## Invariantes
 
@@ -42,8 +55,9 @@ influencia son los argumentos que recibe.
 - El **formateo no pertenece a esta capa**: depende del locale y vive en
   `src/lib/format`. Aquí solo hay aritmética.
 
-> La **representación concreta** (unidad mínima entera, `numeric`, librería
-> decimal…) está pendiente del ADR de dinero. Ojo: en TypeScript un `number` es
+> La **representación concreta** la fija
+> [ADR-003](../../docs/adr/ADR-003-money-representation.md), aceptado: entero en
+> unidad mínima con `bigint`. Ojo: en TypeScript un `number` es
 > un double IEEE-754, exacto solo para enteros hasta 2^53 — "usar un entero"
 > también es una elección con límites, no una salida de la pregunta.
 

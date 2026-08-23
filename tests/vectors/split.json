@@ -1,0 +1,281 @@
+{
+  "source": "ADR-002 §5 · ADR-003 T11 · data-model.md §5",
+  "note": "Los participantes van en el orden estable guardado con la operacion. El desempate da la unidad al pagador y, si persiste, sigue ese orden.",
+  "cases": [
+    {
+      "id": "equal-10-eur-entre-3",
+      "source": "ADR-002 §5 · data-model.md §5 · E5",
+      "note": "El caso canonico: 3,34 / 3,33 / 3,33, con el centimo al pagador.",
+      "given": {
+        "total": "1000",
+        "currency": "eur",
+        "participants": ["A", "B", "C"],
+        "payer": "A",
+        "method": { "kind": "equal" }
+      },
+      "expect": { "shares": ["334", "333", "333"] }
+    },
+    {
+      "id": "equal-el-pagador-no-va-primero",
+      "source": "ADR-002 §5",
+      "note": "El desempate sigue al pagador, no a la posicion en la lista.",
+      "given": {
+        "total": "1000",
+        "currency": "eur",
+        "participants": ["B", "A", "C"],
+        "payer": "A",
+        "method": { "kind": "equal" }
+      },
+      "expect": { "shares": ["333", "334", "333"] }
+    },
+    {
+      "id": "equal-100-jpy-escala-cero",
+      "source": "money-representation.md E5",
+      "given": {
+        "total": "100",
+        "currency": "jpy",
+        "participants": ["A", "B", "C"],
+        "payer": "A",
+        "method": { "kind": "equal" }
+      },
+      "expect": { "shares": ["34", "33", "33"] }
+    },
+    {
+      "id": "equal-1-bhd-tres-decimales",
+      "source": "money-representation.md E5",
+      "given": {
+        "total": "1000",
+        "currency": "bhd",
+        "participants": ["A", "B", "C"],
+        "payer": "A",
+        "method": { "kind": "equal" }
+      },
+      "expect": { "shares": ["334", "333", "333"] }
+    },
+    {
+      "id": "equal-0-010-bhd",
+      "source": "money-representation.md E5",
+      "given": {
+        "total": "10",
+        "currency": "bhd",
+        "participants": ["A", "B", "C"],
+        "payer": "A",
+        "method": { "kind": "equal" }
+      },
+      "expect": { "shares": ["4", "3", "3"] }
+    },
+    {
+      "id": "equal-indivisible-una-unidad-minima",
+      "source": "data-model.md §5",
+      "note": "Decision de 2026-08-20: una participacion calculada puede resultar 0 por indivisibilidad. No invalida la operacion.",
+      "given": {
+        "total": "1",
+        "currency": "eur",
+        "participants": ["A", "B", "C"],
+        "payer": "A",
+        "method": { "kind": "equal" }
+      },
+      "expect": { "shares": ["1", "0", "0"] }
+    },
+    {
+      "id": "equal-indivisible-pagador-en-medio",
+      "source": "data-model.md §5",
+      "given": {
+        "total": "1",
+        "currency": "eur",
+        "participants": ["A", "B", "C"],
+        "payer": "B",
+        "method": { "kind": "equal" }
+      },
+      "expect": { "shares": ["0", "1", "0"] }
+    },
+    {
+      "id": "equal-resto-multiple",
+      "source": "ADR-002 §5",
+      "note": "5 unidades entre 4: sobran 1 tras truncar; el pagador va primero.",
+      "given": {
+        "total": "5",
+        "currency": "eur",
+        "participants": ["A", "B", "C", "D"],
+        "payer": "C",
+        "method": { "kind": "equal" }
+      },
+      "expect": { "shares": ["1", "1", "2", "1"] }
+    },
+    {
+      "id": "equal-total-cero",
+      "source": "ADR-003 T11",
+      "note": "Cero es magnitud no negativa valida.",
+      "given": {
+        "total": "0",
+        "currency": "eur",
+        "participants": ["A", "B"],
+        "payer": "A",
+        "method": { "kind": "equal" }
+      },
+      "expect": { "shares": ["0", "0"] }
+    },
+    {
+      "id": "shares-1-2-3",
+      "source": "money-representation.md E5",
+      "note": "100,00 EUR en 1:2:3 = 16,67 / 33,33 / 50,00",
+      "given": {
+        "total": "10000",
+        "currency": "eur",
+        "participants": ["A", "B", "C"],
+        "payer": "A",
+        "method": { "kind": "shares", "weights": ["1", "2", "3"] }
+      },
+      "expect": { "shares": ["1667", "3333", "5000"] }
+    },
+    {
+      "id": "shares-el-pagador-termina-en-cero",
+      "source": "data-model.md §5",
+      "note": "Decision de 2026-08-20: la participacion positiva exigida al pagador es la DECLARADA. Su peso es 1 (>0) pero el mayor resto da la unica unidad a otro.",
+      "given": {
+        "total": "1",
+        "currency": "eur",
+        "participants": ["A", "B", "C"],
+        "payer": "A",
+        "method": { "kind": "shares", "weights": ["1", "2", "2"] }
+      },
+      "expect": { "shares": ["0", "1", "0"] }
+    },
+    {
+      "id": "shares-peso-cero-rechazado",
+      "source": "ADR-002 §5 · data-model.md §5",
+      "given": {
+        "total": "1000",
+        "currency": "eur",
+        "participants": ["A", "B"],
+        "payer": "A",
+        "method": { "kind": "shares", "weights": ["1", "0"] }
+      },
+      "expectError": "SPLIT_SHARE_NOT_POSITIVE"
+    },
+    {
+      "id": "shares-peso-negativo-rechazado",
+      "source": "ADR-002 §5",
+      "given": {
+        "total": "1000",
+        "currency": "eur",
+        "participants": ["A", "B"],
+        "payer": "A",
+        "method": { "kind": "shares", "weights": ["1", "-2"] }
+      },
+      "expectError": "SPLIT_SHARE_NOT_POSITIVE"
+    },
+    {
+      "id": "shares-longitud-distinta",
+      "source": "ADR-002 §5",
+      "given": {
+        "total": "1000",
+        "currency": "eur",
+        "participants": ["A", "B", "C"],
+        "payer": "A",
+        "method": { "kind": "shares", "weights": ["1", "1"] }
+      },
+      "expectError": "SPLIT_WEIGHTS_LENGTH_MISMATCH"
+    },
+    {
+      "id": "exact-amounts-suma-exacta",
+      "source": "ADR-002 §5",
+      "given": {
+        "total": "10000",
+        "currency": "eur",
+        "participants": ["A", "B", "C"],
+        "payer": "A",
+        "method": { "kind": "exact_amounts", "amounts": ["3000", "3000", "4000"] }
+      },
+      "expect": { "shares": ["3000", "3000", "4000"] }
+    },
+    {
+      "id": "exact-amounts-sin-correccion-silenciosa",
+      "source": "ADR-002 §5",
+      "note": "La suma no cuadra y no se corrige: falla.",
+      "given": {
+        "total": "10000",
+        "currency": "eur",
+        "participants": ["A", "B"],
+        "payer": "A",
+        "method": { "kind": "exact_amounts", "amounts": ["3000", "3000"] }
+      },
+      "expectError": "SPLIT_EXACT_AMOUNTS_MISMATCH"
+    },
+    {
+      "id": "exact-amounts-importe-cero-rechazado",
+      "source": "data-model.md §5",
+      "note": "Decision de 2026-08-20: participante de una operacion = persona con participacion economica declarada. Quien declara 0 no participa.",
+      "given": {
+        "total": "1000",
+        "currency": "eur",
+        "participants": ["A", "B"],
+        "payer": "A",
+        "method": { "kind": "exact_amounts", "amounts": ["1000", "0"] }
+      },
+      "expectError": "SPLIT_EXACT_AMOUNT_NOT_POSITIVE"
+    },
+    {
+      "id": "pagador-fuera-de-participantes",
+      "source": "ADR-002 §5",
+      "given": {
+        "total": "1000",
+        "currency": "eur",
+        "participants": ["B", "C"],
+        "payer": "A",
+        "method": { "kind": "equal" }
+      },
+      "expectError": "SPLIT_PAYER_NOT_PARTICIPANT"
+    },
+    {
+      "id": "participante-duplicado",
+      "source": "ADR-002 §5",
+      "given": {
+        "total": "1000",
+        "currency": "eur",
+        "participants": ["A", "A"],
+        "payer": "A",
+        "method": { "kind": "equal" }
+      },
+      "expectError": "SPLIT_DUPLICATE_PARTICIPANT"
+    },
+    {
+      "id": "sin-participantes",
+      "source": "ADR-002 §5",
+      "given": {
+        "total": "1000",
+        "currency": "eur",
+        "participants": [],
+        "payer": "A",
+        "method": { "kind": "equal" }
+      },
+      "expectError": "SPLIT_NO_PARTICIPANTS"
+    },
+    {
+      "id": "total-negativo-rechazado",
+      "source": "ADR-003 T11",
+      "note": "El reparto opera sobre magnitud no negativa; el signo pertenece al efecto.",
+      "given": {
+        "total": "-1000",
+        "currency": "eur",
+        "participants": ["A", "B"],
+        "payer": "A",
+        "method": { "kind": "equal" }
+      },
+      "expectError": "SPLIT_NEGATIVE_TOTAL"
+    },
+    {
+      "id": "equal-importe-enorme",
+      "source": "money-representation.md E2",
+      "note": "Muy por encima del entero seguro de JavaScript.",
+      "given": {
+        "total": "9007199254740993",
+        "currency": "eur",
+        "participants": ["A", "B"],
+        "payer": "A",
+        "method": { "kind": "equal" }
+      },
+      "expect": { "shares": ["4503599627370497", "4503599627370496"] }
+    }
+  ]
+}
