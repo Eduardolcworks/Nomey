@@ -32,7 +32,7 @@ interface Expectation {
 
 interface ScenarioCase extends VectorCase {
   readonly operations: readonly Operation[];
-  readonly expect: {
+  readonly expect?: {
     readonly balances?: readonly Expectation[];
     readonly economicExpense?: readonly Expectation[];
     readonly economicIncome?: readonly Expectation[];
@@ -46,7 +46,7 @@ const cases = raw.cases as unknown as readonly ScenarioCase[];
 
 const str = (op: Operation, key: string): string => op[key] as string;
 
-function applyOperation(op: Operation): Effect[] {
+function applyOperation(op: Operation, prior: readonly Effect[]): Effect[] {
   const c = currency(str(op, 'currency'));
 
   switch (str(op, 'kind')) {
@@ -81,6 +81,7 @@ function applyOperation(op: Operation): Effect[] {
         debtor: participant(str(op, 'debtor')),
         creditor: participant(str(op, 'creditor')),
         amount: moneyFromMinorString(str(op, 'amount'), c),
+        priorEffects: prior,
       });
 
     case 'internalTransfer':
@@ -115,6 +116,7 @@ function applyOperation(op: Operation): Effect[] {
         debtor: participant(str(op, 'debtor')),
         creditor: participant(str(op, 'creditor')),
         settledAmount: moneyFromMinorString(str(op, 'settledAmount'), c),
+        priorEffects: prior,
       });
 
     default:
@@ -124,14 +126,25 @@ function applyOperation(op: Operation): Effect[] {
 
 describe('escenarios normativos · data-model.md §4', () => {
   it.each(cases.map((item) => [title(item), item] as const))('%s', (_name, item) => {
-    const effects = item.operations.flatMap(applyOperation);
+    const build = (): Effect[] => {
+      const acc: Effect[] = [];
+      for (const op of item.operations) acc.push(...applyOperation(op, acc));
+      return acc;
+    };
 
-    for (const exp of item.expect.balances ?? []) {
+    if (item.expectError !== undefined) {
+      expect(build).toThrowError(expect.objectContaining({ code: item.expectError }));
+      return;
+    }
+
+    const effects = build();
+
+    for (const exp of item.expect!.balances ?? []) {
       const value = deriveBalance(effects, scope(exp.scope), currency(exp.currency));
       expect(moneyToMinorString(value), `saldo de ${exp.scope}`).toBe(exp.amount);
     }
 
-    for (const exp of item.expect.economicExpense ?? []) {
+    for (const exp of item.expect!.economicExpense ?? []) {
       const value = deriveEconomicTotal(
         effects,
         scope(exp.scope),
@@ -141,7 +154,7 @@ describe('escenarios normativos · data-model.md §4', () => {
       expect(moneyToMinorString(value), `gasto económico de ${exp.scope}`).toBe(exp.amount);
     }
 
-    for (const exp of item.expect.economicIncome ?? []) {
+    for (const exp of item.expect!.economicIncome ?? []) {
       const value = deriveEconomicTotal(
         effects,
         scope(exp.scope),
@@ -151,7 +164,7 @@ describe('escenarios normativos · data-model.md §4', () => {
       expect(moneyToMinorString(value), `ingreso económico de ${exp.scope}`).toBe(exp.amount);
     }
 
-    for (const exp of item.expect.participantExpense ?? []) {
+    for (const exp of item.expect!.participantExpense ?? []) {
       const value = deriveParticipantExpense(
         effects,
         scope(exp.scope),
@@ -161,9 +174,9 @@ describe('escenarios normativos · data-model.md §4', () => {
       expect(moneyToMinorString(value), `gasto de ${exp.participant}`).toBe(exp.amount);
     }
 
-    if (item.expect.debts !== undefined) {
+    if (item.expect!.debts !== undefined) {
       const byScope = new Map<string, Expectation[]>();
-      for (const exp of item.expect.debts) {
+      for (const exp of item.expect!.debts) {
         byScope.set(exp.scope, [...(byScope.get(exp.scope) ?? []), exp]);
       }
       const scopes =
@@ -194,7 +207,7 @@ describe('escenarios normativos · data-model.md §4', () => {
       }
     }
 
-    for (const exp of item.expect.netDebtPosition ?? []) {
+    for (const exp of item.expect!.netDebtPosition ?? []) {
       const debts = deriveDebts(effects, scope(exp.scope), currency(exp.currency));
       const value = netDebtPosition(
         debts,

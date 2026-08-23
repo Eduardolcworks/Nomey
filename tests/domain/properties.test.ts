@@ -204,6 +204,7 @@ describe('propiedades contables', () => {
       debtor: B,
       creditor: A,
       amount: moneyFromMinorString('5000', eur),
+      priorEffects: cena(),
     });
 
     expect(effects.every((item) => item.balance === null)).toBe(true);
@@ -217,6 +218,7 @@ describe('propiedades contables', () => {
       debtor: B,
       creditor: A,
       amount: moneyFromMinorString('5000', eur),
+      priorEffects: cena(),
     });
     expect(effects.every((item) => item.economic === null)).toBe(true);
   });
@@ -230,6 +232,7 @@ describe('propiedades contables', () => {
           debtor: B,
           creditor: A,
           amount: moneyFromMinorString(paid, eur),
+          priorEffects: cena(),
         }),
       ];
       const debts = deriveDebts(effects, grupo, eur);
@@ -242,17 +245,19 @@ describe('propiedades contables', () => {
 
   it('pagos parciales sucesivos equivalen a un único pago por la suma', () => {
     const partes = ['1000', '2000', '2000'];
-    const troceado = [
-      ...cena(),
-      ...partes.flatMap((amount) =>
-        deriveDebtSettlement({
+    // Cada pago se valida contra lo que quedaba pendiente tras los anteriores.
+    const troceado = [...cena()];
+    for (const amount of partes) {
+      troceado.push(
+        ...deriveDebtSettlement({
           scope: grupo,
           debtor: B,
           creditor: A,
           amount: moneyFromMinorString(amount, eur),
+          priorEffects: troceado,
         }),
-      ),
-    ];
+      );
+    }
     const entero = [
       ...cena(),
       ...deriveDebtSettlement({
@@ -260,6 +265,7 @@ describe('propiedades contables', () => {
         debtor: B,
         creditor: A,
         amount: moneyFromMinorString('5000', eur),
+        priorEffects: cena(),
       }),
     ];
     expect(deriveDebts(troceado, grupo, eur)).toStrictEqual(deriveDebts(entero, grupo, eur));
@@ -274,6 +280,7 @@ describe('propiedades contables', () => {
           debtor: B,
           creditor: A,
           amount: moneyFromMinorString(paid, eur),
+          priorEffects: cena(),
         }),
       ];
       for (const debt of deriveDebts(effects, grupo, eur)) {

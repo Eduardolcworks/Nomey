@@ -437,8 +437,21 @@
     {
       "id": "4.7-liquidar-con-participante-sin-usuario",
       "source": "data-model.md §4.7",
-      "note": "Un unico extremo interno: Marta no tiene Modo Personal.",
+      "note": "A debia 30 a Marta y se los paga. La transferencia es EXTERNA porque solo hay un extremo interno. La deuda debe existir antes: una liquidacion no la crea.",
       "operations": [
+        {
+          "kind": "groupExpense",
+          "groupScope": "grupo-1",
+          "payerScope": "personal-M",
+          "currency": "eur",
+          "total": "6000",
+          "paidFromPayerScope": "6000",
+          "participants": ["M", "A"],
+          "payer": "M",
+          "method": {
+            "kind": "equal"
+          }
+        },
         {
           "kind": "externalTransfer",
           "scope": "personal-A",
@@ -460,17 +473,14 @@
             "scope": "personal-A",
             "currency": "eur",
             "amount": "-3000"
+          },
+          {
+            "scope": "personal-M",
+            "currency": "eur",
+            "amount": "-6000"
           }
         ],
-        "debts": [
-          {
-            "scope": "grupo-1",
-            "debtor": "M",
-            "creditor": "A",
-            "currency": "eur",
-            "amount": "3000"
-          }
-        ]
+        "debts": []
       }
     },
     {
@@ -661,6 +671,178 @@
         ],
         "debts": []
       }
+    },
+    {
+      "id": "sobrepago-por-una-unidad-minima",
+      "source": "data-model.md §3 · decision de producto 2026-08-20",
+      "note": "Deuda pendiente 50,00. Pagar 50,01 es invalido: el exceso pertenece a una transferencia, no a una liquidacion.",
+      "operations": [
+        {
+          "kind": "groupExpense",
+          "groupScope": "grupo-1",
+          "payerScope": "personal-A",
+          "currency": "eur",
+          "total": "10000",
+          "paidFromPayerScope": "10000",
+          "participants": ["A", "B"],
+          "payer": "A",
+          "method": {
+            "kind": "equal"
+          }
+        },
+        {
+          "kind": "debtSettlement",
+          "scope": "grupo-1",
+          "currency": "eur",
+          "debtor": "B",
+          "creditor": "A",
+          "amount": "5001"
+        }
+      ],
+      "expectError": "SETTLEMENT_EXCEEDS_DEBT"
+    },
+    {
+      "id": "sobrepago-grande",
+      "source": "data-model.md §3 · decision de producto 2026-08-20",
+      "operations": [
+        {
+          "kind": "groupExpense",
+          "groupScope": "grupo-1",
+          "payerScope": "personal-A",
+          "currency": "eur",
+          "total": "10000",
+          "paidFromPayerScope": "10000",
+          "participants": ["A", "B"],
+          "payer": "A",
+          "method": {
+            "kind": "equal"
+          }
+        },
+        {
+          "kind": "debtSettlement",
+          "scope": "grupo-1",
+          "currency": "eur",
+          "debtor": "B",
+          "creditor": "A",
+          "amount": "999999999999"
+        }
+      ],
+      "expectError": "SETTLEMENT_EXCEEDS_DEBT"
+    },
+    {
+      "id": "liquidacion-exacta-salda-la-deuda",
+      "source": "data-model.md §3",
+      "operations": [
+        {
+          "kind": "groupExpense",
+          "groupScope": "grupo-1",
+          "payerScope": "personal-A",
+          "currency": "eur",
+          "total": "10000",
+          "paidFromPayerScope": "10000",
+          "participants": ["A", "B"],
+          "payer": "A",
+          "method": {
+            "kind": "equal"
+          }
+        },
+        {
+          "kind": "debtSettlement",
+          "scope": "grupo-1",
+          "currency": "eur",
+          "debtor": "B",
+          "creditor": "A",
+          "amount": "5000"
+        }
+      ],
+      "expect": {
+        "debts": [],
+        "balances": [
+          {
+            "scope": "personal-A",
+            "currency": "eur",
+            "amount": "-10000"
+          },
+          {
+            "scope": "personal-B",
+            "currency": "eur",
+            "amount": "0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "liquidacion-en-direccion-inexistente",
+      "source": "data-model.md §3 · decision de producto 2026-08-20",
+      "note": "B debe a A. Intentar liquidar de A hacia B no es un pago parcial: no hay deuda pendiente en esa direccion.",
+      "operations": [
+        {
+          "kind": "groupExpense",
+          "groupScope": "grupo-1",
+          "payerScope": "personal-A",
+          "currency": "eur",
+          "total": "10000",
+          "paidFromPayerScope": "10000",
+          "participants": ["A", "B"],
+          "payer": "A",
+          "method": {
+            "kind": "equal"
+          }
+        },
+        {
+          "kind": "debtSettlement",
+          "scope": "grupo-1",
+          "currency": "eur",
+          "debtor": "A",
+          "creditor": "B",
+          "amount": "1"
+        }
+      ],
+      "expectError": "SETTLEMENT_EXCEEDS_DEBT"
+    },
+    {
+      "id": "liquidacion-sin-deuda-previa",
+      "source": "data-model.md §3 · decision de producto 2026-08-20",
+      "note": "Una liquidacion no crea deuda: sin nada pendiente, cualquier importe la excede.",
+      "operations": [
+        {
+          "kind": "debtSettlement",
+          "scope": "grupo-1",
+          "currency": "eur",
+          "debtor": "A",
+          "creditor": "B",
+          "amount": "1"
+        }
+      ],
+      "expectError": "SETTLEMENT_EXCEEDS_DEBT"
+    },
+    {
+      "id": "liquidacion-de-importe-no-positivo",
+      "source": "data-model.md §3",
+      "operations": [
+        {
+          "kind": "groupExpense",
+          "groupScope": "grupo-1",
+          "payerScope": "personal-A",
+          "currency": "eur",
+          "total": "10000",
+          "paidFromPayerScope": "10000",
+          "participants": ["A", "B"],
+          "payer": "A",
+          "method": {
+            "kind": "equal"
+          }
+        },
+        {
+          "kind": "debtSettlement",
+          "scope": "grupo-1",
+          "currency": "eur",
+          "debtor": "B",
+          "creditor": "A",
+          "amount": "0"
+        }
+      ],
+      "expectError": "SETTLEMENT_AMOUNT_NOT_POSITIVE"
     }
   ]
 }

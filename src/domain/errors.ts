@@ -48,6 +48,7 @@ export const DOMAIN_ERROR_CODES = [
   'DEBT_SELF_REFERENCE',
   'DEBT_AMOUNT_NOT_POSITIVE',
   'SETTLEMENT_AMOUNT_NOT_POSITIVE',
+  'SETTLEMENT_EXCEEDS_DEBT',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];

@@ -1,3 +1,4 @@
+import { fail } from '../errors';
 import type { ParticipantId, ScopeId } from '../ids';
 import type { Money } from '../money/money';
 import { negateMoney } from '../money/money';
@@ -5,6 +6,7 @@ import type { SplitMethod } from '../split/split';
 import { splitExpense } from '../split/split';
 import type { Effect } from './effect';
 import { effect } from './effect';
+import { deriveDebts } from './debt';
 
 /**
  * Derivación de operación → efectos.
@@ -116,13 +118,47 @@ export function deriveGroupExpense(input: GroupExpenseInput): Effect[] {
   return effects;
 }
 
-/** Escenario 4.5 · marcar una deuda como saldada. **No mueve saldo** (invariante 6). */
-export function deriveDebtSettlement(input: {
-  scope: ScopeId;
-  debtor: ParticipantId;
-  creditor: ParticipantId;
-  amount: Money;
-}): Effect[] {
+export interface DebtSettlementInput {
+  readonly scope: ScopeId;
+  readonly debtor: ParticipantId;
+  readonly creditor: ParticipantId;
+  readonly amount: Money;
+  /**
+   * Efectos ya registrados del ámbito. Son necesarios para conocer **la deuda
+   * pendiente**, porque una liquidación no puede superarla.
+   */
+  readonly priorEffects: readonly Effect[];
+}
+
+/**
+ * Escenario 4.5 · marcar una deuda como saldada. **No mueve saldo** (invariante 6).
+ *
+ * **Una liquidación nunca puede superar el importe pendiente de esa deuda**
+ * (`data-model.md` §3). Pagar 10 de 30 deja 20; pagar 30 la salda; pagar 31 es
+ * inválido. Un envío por encima de lo debido no es una liquidación: es una
+ * **transferencia entre usuarios**, que es otro hecho y se registra aparte.
+ *
+ * La deuda sigue siendo un saldo continuo y esto no introduce ninguna máquina
+ * de estados: es una validación en el momento de registrar, no un estado
+ * almacenado.
+ */
+export function deriveDebtSettlement(input: DebtSettlementInput): Effect[] {
+  if (input.amount.minor <= 0n) {
+    fail(
+      'SETTLEMENT_AMOUNT_NOT_POSITIVE',
+      `Una liquidación salda un importe positivo, recibido: ${input.amount.minor.toString()}`,
+    );
+  }
+
+  const pending = pendingDebt(input);
+
+  if (input.amount.minor > pending) {
+    fail(
+      'SETTLEMENT_EXCEEDS_DEBT',
+      `Se intenta liquidar ${input.amount.minor.toString()} sobre una deuda pendiente de ${pending.toString()}`,
+    );
+  }
+
   return [
     effect({
       scope: input.scope,
@@ -134,6 +170,15 @@ export function deriveDebtSettlement(input: {
       },
     }),
   ];
+}
+
+/** Lo que el deudor debe al acreedor ahora mismo. Cero si no debe nada. */
+function pendingDebt(input: DebtSettlementInput): bigint {
+  const debts = deriveDebts(input.priorEffects, input.scope, input.amount.currency);
+  const match = debts.find(
+    (debt) => debt.debtor === input.debtor && debt.creditor === input.creditor,
+  );
+  return match === undefined ? 0n : match.amount.minor;
 }
 
 /**
@@ -189,6 +234,7 @@ export function deriveSettlementByTransfer(input: {
   debtor: ParticipantId;
   creditor: ParticipantId;
   settledAmount: Money;
+  priorEffects: readonly Effect[];
 }): Effect[] {
   return [
     ...deriveInternalTransfer({ from: input.from, to: input.to }),
@@ -197,6 +243,7 @@ export function deriveSettlementByTransfer(input: {
       debtor: input.debtor,
       creditor: input.creditor,
       amount: input.settledAmount,
+      priorEffects: input.priorEffects,
     }),
   ];
 }

@@ -139,6 +139,11 @@ haberlos ganado: fuera de estadísticas.
 Extingue total o parcialmente una deuda. **No mueve saldo por definición.**
 Admite pagos parciales: pagar 30 de 100 deja 70.
 
+**Nunca supera el importe pendiente.** Sobre una deuda de 30, pagar 31 es
+inválido: el exceso no es una liquidación sino una **transferencia entre
+usuarios**. Tampoco se liquida una deuda que no existe ni en la dirección
+contraria a la existente.
+
 > **Transferencia ≠ liquidación.** Una mueve saldo, la otra modifica una deuda.
 > Una misma operación puede contener ambas —«pagar deuda mediante
 > transferencia»— pero eso no implica que toda liquidación mueva caja.

@@ -39,7 +39,7 @@ export {
   derivePersonalExpense,
   deriveSettlementByTransfer,
 } from './effects/derive';
-export type { GroupExpenseInput } from './effects/derive';
+export type { DebtSettlementInput, GroupExpenseInput } from './effects/derive';
 export { deriveBalance, deriveEconomicTotal, deriveParticipantExpense } from './effects/balance';
 export type { Debt } from './effects/debt';
 export { deriveDebts, netDebtPosition } from './effects/debt';

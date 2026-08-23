@@ -91,6 +91,30 @@ Una transferencia mueve saldo. Una liquidación modifica una deuda. Son hechos
 distintos y **no se fusionan**, aunque una misma operación pueda contener
 ambos.
 
+### Una liquidación no puede sobrepagar
+
+> **Una liquidación nunca supera el importe pendiente de esa deuda.**
+
+Sobre una deuda pendiente de 30 €: pagar 10 € es válido y deja 20 · pagar 30 €
+la salda · **pagar 31 € es inválido**.
+
+Un sobrepago **no convierte la deuda en otra de dirección contraria**. Si
+alguien quiere enviar a otro más de lo que le debe, ese exceso es una
+**transferencia entre usuarios**, que es un hecho distinto y se registra como
+tal. Confundirlos haría que una obligación inexistente apareciera de la nada.
+
+De ahí se siguen dos casos que también son inválidos: liquidar cuando **no hay
+deuda pendiente**, y liquidar **en la dirección contraria** a la deuda existente.
+
+> **Decisión de producto de 2026-08-20.** ADR-002 define la liquidación y admite
+> los pagos parciales, pero **no aborda el sobrepago**; esta regla no es una
+> lectura suya. Tampoco introduce una máquina de estados: la deuda sigue siendo
+> un saldo continuo y esto es una **validación al registrar**, no un estado
+> almacenado.
+>
+> Consecuencia para la frontera de escritura: validar exige **derivar la deuda
+> pendiente antes de aceptar la operación**, dentro de la misma transacción.
+
 ---
 
 ## 4. Escenarios resueltos
