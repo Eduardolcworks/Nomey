@@ -12,9 +12,15 @@ inglés.
 >   [ADR-003](adr/ADR-003-money-representation.md) está **aceptado**: su puerta
 >   **E11** se cumplió contra un stack Supabase local real, y `src/domain/` ya
 >   contiene la implementación de referencia con sus vectores compartidos.
-> - **Siguiente trabajo: 3.C** —esquema, grants, RLS y frontera de escritura—,
->   que arranca con análisis y no con SQL. Ver
->   [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md).
+> - **En curso: 3.C** —esquema, grants, RLS y frontera de escritura—, que
+>   arranca con análisis y no con SQL. Ver
+>   [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) y el
+>   análisis en curso, no normativo, de
+>   [`architecture/phase-3c-design.md`](architecture/phase-3c-design.md).
+>   Ya han salido de él dos decisiones aceptadas:
+>   [ADR-004](adr/ADR-004-currency-definition-identity.md) —identidad física de
+>   la definición monetaria— y [ADR-005](adr/ADR-005-schema-topology.md)
+>   —topología de schemas—. **Todavía no se ha autorizado SQL definitivo.**
 >
 > El plan por fases, con sus hitos y criterios de cierre, está en
 > [`product/roadmap.md`](product/roadmap.md).
@@ -41,14 +47,14 @@ Un cambio de código que los contradiga es un PR incompleto. **La obligación
 aplica desde que el documento existe**; los marcados como previstos todavía no
 se han escrito.
 
-| Documento                        | Estado       |
-| -------------------------------- | ------------ |
-| `architecture/data-model.md`     | Existe       |
-| `product/glossary.md`            | Existe       |
-| `architecture/code-structure.md` | **Previsto** |
-| `database/rls-policies.md`       | **Previsto** |
-| `security/threat-model.md`       | **Previsto** |
-| Todos los ADR **aceptados**      | ADR-002      |
+| Documento                        | Estado                                |
+| -------------------------------- | ------------------------------------- |
+| `architecture/data-model.md`     | Existe                                |
+| `product/glossary.md`            | Existe                                |
+| `architecture/code-structure.md` | **Previsto**                          |
+| `database/rls-policies.md`       | **Previsto**                          |
+| `security/threat-model.md`       | **Previsto**                          |
+| Todos los ADR **aceptados**      | ADR-002 · ADR-003 · ADR-004 · ADR-005 |
 
 ## Documentos de trabajo — no normativos
 
@@ -59,6 +65,7 @@ lo es el ADR correspondiente, cuando se acepta.
 | ------------------------------------------------------------------------------ | ---- | ---------------------------------------------------------------------------------------------------------------- |
 | [`architecture/money-representation.md`](architecture/money-representation.md) | 2    | Evidencia medida, decisiones confirmadas y alternativas descartadas que preceden a **ADR-003**. **No normativo** |
 | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md)         | 3    | Traspaso de 3.B a 3.C: estado de entrada, decisiones cerradas y pendientes de 3.C. **No normativo**              |
+| [`architecture/phase-3c-design.md`](architecture/phase-3c-design.md)           | 3    | Análisis de 3.C por bloques: D1–D11, evidencia E12 y alternativas. **No normativo**, también para lo ya aprobado |
 
 Al aceptarse el ADR que lo cierra, se decide si el documento se conserva como
 historial de análisis o se retira.

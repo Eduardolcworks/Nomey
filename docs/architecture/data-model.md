@@ -760,9 +760,17 @@ conoce planes. La capa de capacidades **invoca** al dominio; el dominio **nunca
 consulta** capacidades.
 
 **Resuelto desde este documento:** la representación exacta del importe y del
-tipo de cambio, en [ADR-003](../adr/ADR-003-money-representation.md), aceptado.
+tipo de cambio, en [ADR-003](../adr/ADR-003-money-representation.md), aceptado ·
+la **identidad física** de la definición monetaria —`UUID` fijo y sembrado, que
+el dominio sigue tratando como opaca—, en
+[ADR-004](../adr/ADR-004-currency-definition-identity.md), aceptado · el
+**esquema expuesto** y la regla de que las tablas contables no se alcanzan
+directamente por la Data API, en [ADR-005](../adr/ADR-005-schema-topology.md),
+aceptado.
 
-**Pendiente en otros ADR:** comprobación de membresía · esquema expuesto y
-grants · idempotencia de recurrencias y backend · origen y frecuencia de los
-tipos de cambio · conciliación entre un movimiento importado y la pata personal
-de una operación compuesta.
+**Pendiente en otros ADR:** comprobación de membresía · **estrategia de grants**
+y mecanismo por el que la superficie expuesta lee la persistencia, que
+[ADR-005](../adr/ADR-005-schema-topology.md) §4 deja expresamente abierto ·
+idempotencia de recurrencias y backend · origen y frecuencia de los tipos de
+cambio · conciliación entre un movimiento importado y la pata personal de una
+operación compuesta.
