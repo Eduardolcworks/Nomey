@@ -1,0 +1,41 @@
+{
+  "source": "ADR-003 §3 · data-model.md §10",
+  "note": "eurLegacy comparte el codigo ISO de eur y NO es la misma definicion monetaria. Existe para probar que compartir codigo no basta. eurBadScale y eurBadCode comparten la IDENTIDAD de eur y la contradicen en metadatos: son un dato corrupto, no una definicion distinta.",
+  "currencies": {
+    "eur": {
+      "id": "cd-eur-1",
+      "code": "EUR",
+      "scale": 2
+    },
+    "eurLegacy": {
+      "id": "cd-eur-0",
+      "code": "EUR",
+      "scale": 2
+    },
+    "usd": {
+      "id": "cd-usd-1",
+      "code": "USD",
+      "scale": 2
+    },
+    "jpy": {
+      "id": "cd-jpy-1",
+      "code": "JPY",
+      "scale": 0
+    },
+    "bhd": {
+      "id": "cd-bhd-1",
+      "code": "BHD",
+      "scale": 3
+    },
+    "eurBadScale": {
+      "id": "cd-eur-1",
+      "code": "EUR",
+      "scale": 3
+    },
+    "eurBadCode": {
+      "id": "cd-eur-1",
+      "code": "USD",
+      "scale": 2
+    }
+  }
+}

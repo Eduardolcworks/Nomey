@@ -1,0 +1,92 @@
+{
+  "source": "ADR-003 T10 · money-representation.md E6",
+  "note": "half away from zero sobre la magnitud absoluta. Los negativos se alejan del cero, no se truncan hacia el.",
+  "cases": [
+    {
+      "id": "half-up-positivo",
+      "source": "ADR-003 T10",
+      "given": { "numerator": "5", "denominator": "2" },
+      "expect": { "result": "3" }
+    },
+    {
+      "id": "half-away-negativo",
+      "source": "ADR-003 T10",
+      "given": { "numerator": "-5", "denominator": "2" },
+      "expect": { "result": "-3" }
+    },
+    {
+      "id": "empate-exacto-1-2",
+      "source": "ADR-003 T10",
+      "given": { "numerator": "1", "denominator": "2" },
+      "expect": { "result": "1" }
+    },
+    {
+      "id": "empate-exacto-negativo-1-2",
+      "source": "ADR-003 T10",
+      "given": { "numerator": "-1", "denominator": "2" },
+      "expect": { "result": "-1" }
+    },
+    {
+      "id": "empate-exacto-3-2",
+      "source": "ADR-003 T10",
+      "given": { "numerator": "3", "denominator": "2" },
+      "expect": { "result": "2" }
+    },
+    {
+      "id": "sin-resto",
+      "source": "ADR-003 T10",
+      "given": { "numerator": "4", "denominator": "2" },
+      "expect": { "result": "2" }
+    },
+    {
+      "id": "por-debajo-de-la-mitad",
+      "source": "ADR-003 T10",
+      "given": { "numerator": "1", "denominator": "3" },
+      "expect": { "result": "0" }
+    },
+    {
+      "id": "por-encima-de-la-mitad",
+      "source": "ADR-003 T10",
+      "given": { "numerator": "2", "denominator": "3" },
+      "expect": { "result": "1" }
+    },
+    {
+      "id": "por-encima-de-la-mitad-negativo",
+      "source": "ADR-003 T10 · E6",
+      "given": { "numerator": "-2", "denominator": "3" },
+      "expect": { "result": "-1" }
+    },
+    {
+      "id": "1-49-baja",
+      "source": "ADR-003 T10",
+      "given": { "numerator": "149", "denominator": "100" },
+      "expect": { "result": "1" }
+    },
+    {
+      "id": "1-50-sube",
+      "source": "ADR-003 T10",
+      "given": { "numerator": "150", "denominator": "100" },
+      "expect": { "result": "2" }
+    },
+    {
+      "id": "menos-1-50-se-aleja-del-cero",
+      "source": "ADR-003 T10",
+      "given": { "numerator": "-150", "denominator": "100" },
+      "expect": { "result": "-2" }
+    },
+    {
+      "id": "el-caso-de-E1-en-exacto",
+      "source": "money-representation.md E1",
+      "note": "1,005 x 100 daba 1,00 en coma flotante. En exacto sube.",
+      "given": { "numerator": "1005", "denominator": "2" },
+      "expect": { "result": "503" }
+    },
+    {
+      "id": "mas-alla-de-2-53",
+      "source": "money-representation.md E2 · E3",
+      "note": "El numerador supera el entero seguro de JavaScript.",
+      "given": { "numerator": "18014398509481987", "denominator": "2" },
+      "expect": { "result": "9007199254740994" }
+    }
+  ]
+}

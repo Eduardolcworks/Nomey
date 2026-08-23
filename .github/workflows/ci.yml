@@ -40,5 +40,7 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
-      # Tests arrive in Phase 2, together with the first domain logic.
-      # Add a `test` job here at that point.
+      # Domain tests. They run the shared vectors in tests/vectors, which the
+      # authoritative server implementation will have to reproduce exactly.
+      - name: Test
+        run: npm test

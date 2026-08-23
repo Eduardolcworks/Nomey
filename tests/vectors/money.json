@@ -1,0 +1,182 @@
+{
+  "source": "ADR-003 §2 §3 · data-model.md §10",
+  "cases": [
+    {
+      "id": "suma-simple",
+      "source": "ADR-003 §2",
+      "given": {
+        "op": "add",
+        "a": "8620",
+        "b": "1380",
+        "currency": "eur"
+      },
+      "expect": {
+        "result": "10000"
+      }
+    },
+    {
+      "id": "suma-mas-alla-de-2-53",
+      "source": "money-representation.md E2 · E3",
+      "note": "El valor que E3 midio que se degrada al cruzar JSON como numero.",
+      "given": {
+        "op": "add",
+        "a": "9007199254740993",
+        "b": "1",
+        "currency": "eur"
+      },
+      "expect": {
+        "result": "9007199254740994"
+      }
+    },
+    {
+      "id": "suma-en-el-techo-de-int64",
+      "source": "money-representation.md E2",
+      "given": {
+        "op": "add",
+        "a": "9223372036854775806",
+        "b": "1",
+        "currency": "eur"
+      },
+      "expect": {
+        "result": "9223372036854775807"
+      }
+    },
+    {
+      "id": "resta-con-resultado-negativo",
+      "source": "ADR-003 §2",
+      "given": {
+        "op": "subtract",
+        "a": "1000",
+        "b": "2500",
+        "currency": "eur"
+      },
+      "expect": {
+        "result": "-1500"
+      }
+    },
+    {
+      "id": "acumulacion-sin-deriva",
+      "source": "money-representation.md E9",
+      "note": "E9 midio que un millon de sumas de 0,01 derivaba en float. En entero, no.",
+      "given": {
+        "op": "repeatedAdd",
+        "a": "1",
+        "times": 1000000,
+        "currency": "eur"
+      },
+      "expect": {
+        "result": "1000000"
+      }
+    },
+    {
+      "id": "comparacion-menor",
+      "source": "ADR-003 §2",
+      "given": {
+        "op": "compare",
+        "a": "100",
+        "b": "200",
+        "currency": "eur"
+      },
+      "expect": {
+        "result": "-1"
+      }
+    },
+    {
+      "id": "comparacion-iguales",
+      "source": "ADR-003 §2",
+      "given": {
+        "op": "compare",
+        "a": "-1",
+        "b": "-1",
+        "currency": "eur"
+      },
+      "expect": {
+        "result": "0"
+      }
+    },
+    {
+      "id": "mismo-codigo-ISO-distinta-definicion",
+      "source": "ADR-003 §3 · P3.2 · data-model.md invariante 23",
+      "note": "eur y eurLegacy comparten el codigo EUR. No son agregables.",
+      "given": {
+        "op": "addCrossCurrency",
+        "a": "1000",
+        "currencyA": "eur",
+        "b": "2000",
+        "currencyB": "eurLegacy"
+      },
+      "expectError": "MONEY_CURRENCY_MISMATCH"
+    },
+    {
+      "id": "monedas-distintas-no-se-suman",
+      "source": "ADR-003 §3",
+      "given": {
+        "op": "addCrossCurrency",
+        "a": "1000",
+        "currencyA": "eur",
+        "b": "2000",
+        "currencyB": "usd"
+      },
+      "expectError": "MONEY_CURRENCY_MISMATCH"
+    },
+    {
+      "id": "comparar-definiciones-incompatibles",
+      "source": "ADR-003 §3",
+      "given": {
+        "op": "compareCrossCurrency",
+        "a": "1000",
+        "currencyA": "eur",
+        "b": "1000",
+        "currencyB": "eurLegacy"
+      },
+      "expectError": "MONEY_CURRENCY_MISMATCH"
+    },
+    {
+      "id": "minor-no-entero",
+      "source": "ADR-003 §2",
+      "given": {
+        "op": "parse",
+        "a": "10.5",
+        "currency": "eur"
+      },
+      "expectError": "MONEY_MINOR_NOT_INTEGER"
+    },
+    {
+      "id": "misma-identidad-escala-contradictoria",
+      "source": "ADR-003 §3 · data-model.md §10",
+      "note": "Sin la comprobacion, 1,00 + 0,100 daba 2,00 en silencio.",
+      "given": {
+        "op": "addCrossCurrency",
+        "a": "100",
+        "currencyA": "eur",
+        "b": "100",
+        "currencyB": "eurBadScale"
+      },
+      "expectError": "CURRENCY_DEFINITION_INCONSISTENT"
+    },
+    {
+      "id": "misma-identidad-codigo-contradictorio",
+      "source": "ADR-003 §3 · data-model.md §10",
+      "given": {
+        "op": "addCrossCurrency",
+        "a": "100",
+        "currencyA": "eur",
+        "b": "100",
+        "currencyB": "eurBadCode"
+      },
+      "expectError": "CURRENCY_DEFINITION_INCONSISTENT"
+    },
+    {
+      "id": "comparar-con-identidad-incoherente",
+      "source": "ADR-003 §3",
+      "given": {
+        "op": "compareCrossCurrency",
+        "a": "100",
+        "currencyA": "eur",
+        "b": "100",
+        "currencyB": "eurBadScale"
+      },
+      "expectError": "CURRENCY_DEFINITION_INCONSISTENT"
+    }
+  ]
+}

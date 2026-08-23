@@ -1,0 +1,139 @@
+{
+  "source": "ADR-003 §5 T12 · money-representation.md E7",
+  "note": "Un unico redondeo, al final, al llegar a la unidad minima del destino.",
+  "cases": [
+    {
+      "id": "usd-a-eur-E7",
+      "source": "money-representation.md E7",
+      "note": "123,45 USD x 0,8592340000 = 106,07 EUR",
+      "given": {
+        "amount": "12345",
+        "from": "usd",
+        "to": "eur",
+        "rate": {
+          "coefficient": "8592340000",
+          "scale": 10
+        }
+      },
+      "expect": {
+        "result": "10607"
+      }
+    },
+    {
+      "id": "usd-a-jpy-cambio-de-escala-E7",
+      "source": "money-representation.md E7",
+      "note": "Destino con 0 decimales: 123,45 USD -> 19492 JPY",
+      "given": {
+        "amount": "12345",
+        "from": "usd",
+        "to": "jpy",
+        "rate": {
+          "coefficient": "1578912345678",
+          "scale": 10
+        }
+      },
+      "expect": {
+        "result": "19492"
+      }
+    },
+    {
+      "id": "eur-a-bhd-tres-decimales",
+      "source": "ADR-003 D3.2",
+      "note": "Destino con 3 decimales: 100,00 EUR x 0,41 = 41,000 BHD",
+      "given": {
+        "amount": "10000",
+        "from": "eur",
+        "to": "bhd",
+        "rate": {
+          "coefficient": "4100000000",
+          "scale": 10
+        }
+      },
+      "expect": {
+        "result": "41000"
+      }
+    },
+    {
+      "id": "jpy-a-eur-desde-escala-cero",
+      "source": "money-representation.md E12",
+      "given": {
+        "amount": "1000",
+        "from": "jpy",
+        "to": "eur",
+        "rate": {
+          "coefficient": "61234567",
+          "scale": 10
+        }
+      },
+      "expect": {
+        "result": "612"
+      }
+    },
+    {
+      "id": "importe-pequeno-que-pierde-E8",
+      "source": "money-representation.md E8",
+      "note": "0,04 USD -> 0,03 EUR. La irreversibilidad es aritmetica, no un defecto.",
+      "given": {
+        "amount": "4",
+        "from": "usd",
+        "to": "eur",
+        "rate": {
+          "coefficient": "8592340000",
+          "scale": 10
+        }
+      },
+      "expect": {
+        "result": "3"
+      }
+    },
+    {
+      "id": "importe-negativo",
+      "source": "ADR-003 T10",
+      "note": "El signo se aplica despues del redondeo sobre la magnitud.",
+      "given": {
+        "amount": "-12345",
+        "from": "usd",
+        "to": "eur",
+        "rate": {
+          "coefficient": "8592340000",
+          "scale": 10
+        }
+      },
+      "expect": {
+        "result": "-10607"
+      }
+    },
+    {
+      "id": "importe-enorme-cerca-del-techo-de-int64",
+      "source": "money-representation.md E2",
+      "note": "El origen supera con creces el entero seguro de JavaScript.",
+      "given": {
+        "amount": "92233720368547758",
+        "from": "eur",
+        "to": "usd",
+        "rate": {
+          "coefficient": "11638420000",
+          "scale": 10
+        }
+      },
+      "expect": {
+        "result": "107345477581171360"
+      }
+    },
+    {
+      "id": "destino-con-identidad-incoherente",
+      "source": "ADR-003 §3 · T12",
+      "note": "Sin la comprobacion, convertir a un destino que dice la misma identidad con otra escala multiplicaba por 10.",
+      "given": {
+        "amount": "10000",
+        "from": "eur",
+        "to": "eurBadScale",
+        "rate": {
+          "coefficient": "10000000000",
+          "scale": 10
+        }
+      },
+      "expectError": "CURRENCY_DEFINITION_INCONSISTENT"
+    }
+  ]
+}
