@@ -91,6 +91,7 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [008](ADR-008-exact-data-boundary.md)          | Frontera de datos exactos                    | Aceptado  |
 | [009](ADR-009-authoritative-write-boundary.md) | Frontera autoritativa de escritura           | Aceptado  |
 | [010](ADR-010-client-operation-idempotency.md) | Idempotencia de operaciones cliente          | Aceptado  |
+| [011](ADR-011-operation-version-model.md)      | Operaciones, versiones y comandos cliente    | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
