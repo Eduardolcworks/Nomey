@@ -776,8 +776,16 @@ la estrategia de RLS, en [ADR-007](../adr/ADR-007-membership-rls.md).
 **Resuelto también:** el **contrato de transporte de los valores exactos** en
 las dos direcciones, en [ADR-008](../adr/ADR-008-exact-data-boundary.md).
 
-**Pendiente en otros ADR:** **funciones autoritativas de escritura** —incluido
-el mecanismo que comprueba el tipo JSON de entrada, que ADR-008 delega— ·
-idempotencia de recurrencias y backend · origen y frecuencia de los tipos de
-cambio · conciliación entre un movimiento importado y la pata personal de una
-operación compuesta.
+**Resuelto también:** la **frontera autoritativa de escritura** —funciones por
+clase, payload `jsonb`, identidad de la petición, writer de mínimo privilegio
+sometido a RLS y transacción única—, en
+[ADR-009](../adr/ADR-009-authoritative-write-boundary.md) · la **idempotencia
+del origen cliente**, en
+[ADR-010](../adr/ADR-010-client-operation-idempotency.md).
+
+**Pendiente en otros ADR:** el **esquema físico** —tablas de operación y versión,
+políticas y grants del writer, mecanismo de lock—, que ADR-009 y ADR-010 delegan
+· idempotencia de **recurrencias, importaciones bancarias y backend** · **origen,
+frecuencia y regla de selección de los tipos de cambio**, que ADR-003 dejó fuera
+de alcance y ADR-009 §8 subraya que **no está decidida** · conciliación entre un
+movimiento importado y la pata personal de una operación compuesta.
