@@ -17,7 +17,7 @@ inglés.
 >   [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) y el
 >   análisis en curso, no normativo, de
 >   [`architecture/phase-3c-design.md`](architecture/phase-3c-design.md).
->   Ya han salido de él siete decisiones aceptadas:
+>   Ya han salido de él ocho decisiones aceptadas:
 >   [ADR-004](adr/ADR-004-currency-definition-identity.md) —identidad física de
 >   la definición monetaria—, [ADR-005](adr/ADR-005-schema-topology.md)
 >   —topología de schemas—, [ADR-006](adr/ADR-006-privilege-model.md) —modelo de
@@ -27,7 +27,9 @@ inglés.
 >   [ADR-009](adr/ADR-009-authoritative-write-boundary.md) —frontera
 >   autoritativa de escritura— y
 >   [ADR-010](adr/ADR-010-client-operation-idempotency.md) —idempotencia de
->   operaciones cliente—. **Todavía no se ha autorizado SQL definitivo.**
+>   operaciones cliente— y [ADR-011](adr/ADR-011-operation-version-model.md)
+>   —operaciones, versiones y comandos cliente—. **Todavía no se ha autorizado
+>   SQL definitivo.**
 >
 > El plan por fases, con sus hitos y criterios de cierre, está en
 > [`product/roadmap.md`](product/roadmap.md).
@@ -61,7 +63,7 @@ se han escrito.
 | `architecture/code-structure.md` | **Previsto**      |
 | `database/rls-policies.md`       | **Previsto**      |
 | `security/threat-model.md`       | **Previsto**      |
-| Todos los ADR **aceptados**      | ADR-002 a ADR-010 |
+| Todos los ADR **aceptados**      | ADR-002 a ADR-011 |
 
 ## Documentos de trabajo — no normativos
 

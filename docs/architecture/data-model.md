@@ -783,9 +783,17 @@ sometido a RLS y transacción única—, en
 del origen cliente**, en
 [ADR-010](../adr/ADR-010-client-operation-idempotency.md).
 
-**Pendiente en otros ADR:** el **esquema físico** —tablas de operación y versión,
-políticas y grants del writer, mecanismo de lock—, que ADR-009 y ADR-010 delegan
-· idempotencia de **recurrencias, importaciones bancarias y backend** · **origen,
+**Resuelto también:** el **modelo físico de operaciones, versiones y comandos
+cliente** —identidad estable, versiones inmutables, efectos por versión,
+`client_command` separado y restricciones de linaje—, en
+[ADR-011](../adr/ADR-011-operation-version-model.md).
+
+**Pendiente en otros ADR:** la **forma física de los datos autoritativos de cada
+versión**, el inventario **persistido frente a derivado**, la **proyección
+canónica de efectos vigentes** y el **mecanismo de lock de la deuda**, todo ello
+delegado por ADR-011 · la **referencia a participantes sin cuenta** ·
+idempotencia de **recurrencias, importaciones bancarias y backend** · **origen,
 frecuencia y regla de selección de los tipos de cambio**, que ADR-003 dejó fuera
-de alcance y ADR-009 §8 subraya que **no está decidida** · conciliación entre un
-movimiento importado y la pata personal de una operación compuesta.
+de alcance y ADR-009 §8 subraya que **no está decidida** · la **anulación** como
+concepto distinto de la corrección · conciliación entre un movimiento importado
+y la pata personal de una operación compuesta.

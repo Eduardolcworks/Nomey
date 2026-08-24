@@ -1965,6 +1965,28 @@ Condiciona **D7** y **D9**. Depende de que exista `created_by`, es decir de auth
 
 ### D9 · Persistencia del versionado
 
+> ## ✅ APROBADA — operación estable, versiones inmutables, comandos separados
+>
+> ### → Normativa en [ADR-011](../adr/ADR-011-operation-version-model.md), `Aceptado`
+>
+> **La fuente normativa es el ADR, no esta sección**, que se conserva como el
+> análisis que lo precedió. Aprobada en la revisión de **3.C.6**, con **dos
+> correcciones de fondo**:
+>
+> 1. **La clave de idempotencia NO vive en `operation`.** Con K1 creando y K2/K3
+>    corrigiendo la misma operación, solo hay una casilla para tres comandos: o
+>    K1 pierde su idempotencia, o K2 y K3 no la tienen. Se añade
+>    **`core.client_command`**, y la unidad de idempotencia pasa a ser el
+>    **comando**, no la operación.
+> 2. **La formulación absoluta de inmutabilidad se acota.** No se fija que jamás
+>    pueda existir un borrado administrativo: se fija que **las correcciones no
+>    modifican ni borran, y los caminos normales no reciben esa capacidad**.
+>    Retención y purga quedan fuera.
+>
+> E17 midió además el ciclo operación/versión con FK compuesta diferible, las
+> seis restricciones de linaje, la reclamación del comando antes de su resultado
+> y la representación de las políticas `PUBLIC` en el catálogo.
+
 ADR-002 §6 y `data-model.md` §7: los hechos son inmutables, corregir crea una
 **versión nueva**, y saldos y estadísticas se derivan de la **versión vigente**.
 
@@ -2255,7 +2277,7 @@ antes de abrir el siguiente.
 | **3.C.2** | D1 identidad monetaria · D2 schemas y Data API                                                 | **CERRADO.** Ambas **aprobadas**, D2 con recorte de alcance |
 | **3.C.3** | D3 estrategia de `GRANT` · D5 membresía y RLS                                                  | **CERRADO.** Ambas **aprobadas**; evidencia en E13          |
 | **3.C.4** | D6 frontera textual · D7 escritura · D8 idempotencia                                           | **CERRADO.** D6, D7 y D8 **aprobadas**                      |
-| **3.C.5** | D9 versionado · D10 participantes · D11 persistido                                             | **Escrito.** Pendiente de revisión                          |
+| **3.C.5** | D9 versionado · D10 participantes · D11 persistido                                             | **D9 APROBADA**; D10 y D11 pendientes                       |
 | **3.C.6** | Transversales: vectores · Auth técnico · tests de aislamiento · orden de migraciones · runbook | **Pendiente**                                               |
 | **3.C.7** | Síntesis: dependencias, orden, aprobadas, abiertas, cierre                                     | **Pendiente**                                               |
 
@@ -2271,20 +2293,24 @@ antes de abrir el siguiente.
 | **D6**   | **Aprobada:** lectura textual, invariante de `api`, escritura como JSON `string`             | [ADR-008](../adr/ADR-008-exact-data-boundary.md), `Aceptado`          |
 | **D7**   | **Aprobada:** funciones por clase, payload `jsonb`, writer dedicado bajo RLS                 | [ADR-009](../adr/ADR-009-authoritative-write-boundary.md), `Aceptado` |
 | **D8**   | **Aprobada:** UUID de cliente, comparación solo en servidor, envelope mínimo                 | [ADR-010](../adr/ADR-010-client-operation-idempotency.md), `Aceptado` |
+| **D9**   | **Aprobada:** operación estable, versiones inmutables, `client_command` separado             | [ADR-011](../adr/ADR-011-operation-version-model.md), `Aceptado`      |
 
 ### Abierto de forma expresa
 
 - **`public` dentro o fuera de `api.schemas`.** Pendiente de medición y decisión
   posterior; separable, y ADR-006 lo deja fuera de alcance a propósito.
-- **Todo el esquema físico** — **D9**. ADR-009 y ADR-010 delegan expresamente:
-  tablas de operación y versión · ubicación física de `client_operation_id` ·
-  si se almacena intención normalizada, hash o ambos · **políticas concretas del
-  writer, incluida la posible necesidad de `RESTRICTIVE`** · grants concretos
-  del writer sobre las tablas · **mecanismo de lock** para serializar la deuda
-  pendiente · forma física del envelope y de los resultados · relaciones y
-  restricciones definitivas.
+- **Referencia a participantes sin cuenta** — **D10**. No altera el modelo de
+  operación, versión y comando que fija ADR-011.
+- **Persistido frente a derivado** — **D11**. ADR-011 le delega expresamente:
+  la **forma física de los datos autoritativos de cada versión** · la
+  **proyección canónica de efectos económicamente vigentes**, sin la cual cada
+  consulta reimplementaría a mano el filtro por versión vigente · y el
+  **mecanismo de lock** de la deuda, que depende de si existe una fila
+  materializada.
 - **Forma definitiva de las vistas de lectura** —qué columnas proyecta cada una—
   y la API de servidor que permita filtrar, ordenar y agregar por importe.
+- **La anulación o cancelación** como concepto distinto de la corrección. Hoy no
+  aparece en ningún documento normativo, y ADR-011 no la inventa.
 - **Fuera de D9, como decisión de producto:** la **regla concreta de resolución
   del tipo de cambio**. ADR-003 dejó fuera de alcance el proveedor, la
   granularidad, la regla de selección y qué ocurre si no hay tipo para una
