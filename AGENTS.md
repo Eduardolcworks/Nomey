@@ -432,8 +432,8 @@ ADR-013 are accepted**; ADR-003 met its E11 gate against a real local Supabase
 stack.
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
-and nine reproducible probes that measured the decisions of this phase
-(`supabase/e11/` … `supabase/e19/`, **none of them a migration**). A pure
+and ten reproducible probes that measured the decisions of this phase
+(`supabase/e11/` … `supabase/e20/`, **none of them a migration**). A pure
 reference implementation of the financial domain in `src/domain/`, with shared
 test vectors in `tests/vectors/` and a Vitest suite — 110 tests. **The
 authoritative server write boundary will have to reproduce those vectors
@@ -444,8 +444,9 @@ screens — that is deliberate, not an oversight. The visible app is still an
 intentionally blank screen. The whole physical model of 3.C lives in ADRs and in
 probes; **`supabase/migrations/` has not been created**.
 
-**Next up inside 3.C:** the E20 probe that fixes the writer's write-side policy,
-and then the cross-cutting work and the closing synthesis. See
+**Next up inside 3.C:** the cross-cutting work and the closing synthesis. E20
+measured the writer's write-side policies and ADR-013 §10 fixed them, so **no
+technical uncertainty is blocking the migrations any more**. See
 `docs/architecture/phase-3c-handoff.md`.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.

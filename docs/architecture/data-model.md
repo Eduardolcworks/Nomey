@@ -460,7 +460,13 @@ anterior y aplica los de la nueva, sin operaciones de reversión separadas.
   incorporación o anteriores en las que ya figuraba como participante.
 - Un **reparto final ejecutado** es inmutable: se compensa, no se edita, y la
   compensación conserva la bilateralidad.
-- Toda corrección queda atribuida y notificada a los afectados.
+- Toda corrección queda atribuida y notificada a los afectados. **La atribución
+  es por versión**: quien creó la operación lo sigue siendo para siempre, y cada
+  versión queda atribuida a quien la crea. Si A registra V1 y B la corrige, V1
+  sigue siendo de A y V2 es de B.
+- **El derecho a corregir no deriva de haber creado la operación.** Es funcional
+  y contextual al ámbito, se resuelve en la frontera autoritativa (§9), y **ver
+  una operación no implica poder corregirla**.
 - Una corrección **hereda el tipo de cambio histórico** de la versión anterior,
   salvo que el propio tipo sea el dato explícitamente corregido (§10). Corregir
   no revaloriza.
