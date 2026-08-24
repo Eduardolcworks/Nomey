@@ -484,12 +484,81 @@ relación operación↔ámbito sería exactamente eso, porque su contenido es
 derivable de los efectos— · ninguna política aplicable a **`PUBLIC`** · ninguna
 política **`RESTRICTIVE`**.
 
-> **El `WITH CHECK` definitivo del writer sobre los efectos no se fija aquí.**
-> Corresponde a **E20**, antes de escribir migraciones. Lo que sí queda fijado es
-> que el aislamiento por ámbito **no** puede ser ese predicado: ADR-002 §10
-> permite deliberadamente que una operación produzca efectos sobre el ámbito de
-> otro usuario, así que «el actor es miembro del ámbito del efecto» rechazaría
-> escrituras legítimas.
+> **El aislamiento por ámbito no puede ser el predicado de los efectos**:
+> ADR-002 §10 permite deliberadamente que una operación produzca efectos sobre
+> el ámbito de otro usuario, así que «el actor es miembro del ámbito del efecto»
+> rechazaría escrituras legítimas.
+
+#### Resolución de la delegación a E20
+
+Esta sección delegaba en **E20** el `WITH CHECK` del writer sobre los efectos,
+antes de escribir migraciones. **E20 se ejecutó** contra el stack local
+(`supabase/e20/`) y midió el conjunto por comando. Se fija aquí lo medido:
+
+| Relación            | Comando  | Predicado del writer                                                        |
+| ------------------- | -------- | --------------------------------------------------------------------------- |
+| `operation`         | `INSERT` | la atribución inicial coincide con el actor de la petición                  |
+| `operation`         | `SELECT` | **no deriva de la autoría original** (ver abajo)                            |
+| `operation`         | `UPDATE` | **no deriva de la autoría original**; el `WITH CHECK` omitido es el `USING` |
+| `operation_version` | `INSERT` | la atribución **de esa versión** coincide con el actor                      |
+| `operation_version` | `SELECT` | **no deriva de la atribución de la versión** (ver abajo)                    |
+| `effect`            | `INSERT` | **existe una versión, referida por el efecto, atribuida al actor**          |
+
+**El predicado de los efectos es satisfacible durante la secuencia.** E20 midió
+que el subconsulta de un `WITH CHECK` **ve las filas que la propia transacción
+acaba de insertar y aún no ha confirmado**, de modo que el efecto puede anclarse
+a la versión creada dos pasos antes sin diferir nada.
+
+> **Es una segunda barrera de integridad, no autorización por ámbito ni
+> validación contable.** Garantiza que los efectos de una petición solo cuelguen
+> de una versión creada por el actor de esa petición. **No se amplía** para
+> comprobar membresía del ámbito, por la razón ya dicha.
+
+**La autoría original no concede exclusividad sobre las correcciones.** Una
+versión nueva puede crearla cualquier actor al que la autorización funcional del
+ámbito se lo permita, tal como ya establecía `data-model.md` §7. Por tanto:
+
+> **Ninguna política RLS del writer deriva de `operation.created_by`.** Hacerlo
+> convertiría una regla de producto en una política de seguridad y, según midió
+> E20, impediría que otro miembro autorizado corrigiera la operación. **El
+> derecho de corrección se resuelve en la frontera autoritativa**, que es donde
+> `data-model.md` §9 ya lo sitúa.
+
+`operation.created_by` conserva para siempre quién creó la operación, y **cada
+versión conserva su propia atribución**: si A crea V1 y B la corrige, V1 sigue
+atribuida a A y V2 queda atribuida a B.
+
+**La lectura de las versiones tampoco puede derivar de su atribución.** Construir
+V2 **exige leer V1**: el siguiente `version_no` se calcula (ADR-011 §12), el FX
+congelado **se hereda** (§6), la intención declarada no corregida **se conserva**
+(§7) y el reparto anterior cuelga de `(versión, ámbito)` (§5). Con la lectura
+restringida por atribución, la V1 de A es **invisible** para B, y E20 midió que
+el fallo **no es un error**: la agregación devuelve `NULL`, de modo que la
+frontera concluiría que no hay predecesor. Por tanto:
+
+> **La política de `SELECT` del writer sobre las versiones debe alcanzar las
+> versiones que la frontera necesite leer para corregir**, incluidas las de otro
+> actor. Conocer el puntero **no sustituye** esa lectura: E20 midió que el
+> identificador de la versión vigente es legible desde la operación mientras la
+> **fila** de esa versión permanece oculta, así que `supersedes_version_id` se
+> satisface pero ningún dato heredable.
+
+**Ampliar esa lectura no afloja la escritura**, y ese es el motivo de que los dos
+mecanismos estén separados: con la política de lectura amplia, E20 midió que el
+`WITH CHECK` de los efectos **sigue rechazando** que B cuelgue efectos de la V1
+de A, y que el `WITH CHECK` de las versiones **sigue impidiendo** que B cree una
+versión atribuida a A.
+
+**Dos precisiones más, medidas en E20**, que no cambian ninguna decisión pero
+condicionan la migración:
+
+- **La RLS acota filas, no columnas.** Limitar la escritura de la operación al
+  puntero de vigencia es un **grant por columna**, no una política.
+- **Las políticas de `SELECT` del writer son portantes de la escritura**: la
+  subconsulta del `WITH CHECK` de los efectos atraviesa los grants y la RLS del
+  rol que escribe, de modo que retirar la política de lectura de las versiones
+  no afloja la escritura — la rompe. Es la otra cara de lo anterior: esa política
+  **no puede ser ni demasiado estrecha ni una formalidad**.
 
 ### 11. Serialización de la deuda
 
@@ -523,6 +592,12 @@ ninguna dimensión de deuda.
 
 Los pasos 2 y 4 **no se pueden invertir**: leer antes de bloquear reintroduce
 exactamente la carrera.
+
+> **El paso 2 depende de una política de `UPDATE` del writer.** E20 midió que un
+> bloqueo de lectura exige además esa política, y que su ausencia **no produce
+> error: devuelve cero filas**. La transacción continuaría leyendo, validando y
+> escribiendo sobre datos que creía haber protegido, que es el sobrepago que E15
+> midió sin ningún lock, con la causa una capa más abajo.
 
 **El advisory lock por par de deuda queda como posible escalada futura**, si
 alguna medición muestra contención de ámbito. **No es el diseño de v1**: es más

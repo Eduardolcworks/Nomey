@@ -10,7 +10,7 @@
 > Existe para que una sesión nueva reconstruya el estado del proyecto leyendo el
 > repositorio, **sin depender de ninguna conversación previa**.
 
-Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al cerrar 3.C.8 (D11) el
+Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al cerrar E20 el
 2026-08-24**, con el estado completo de la fase.
 
 ---
@@ -23,14 +23,15 @@ Checkpoint **durable**: describe qué hay decidido y consolidado, no una foto de
 |                            |                                                                                  |
 | -------------------------- | -------------------------------------------------------------------------------- |
 | **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                       |
-| **D11**                    | **Cerrado** en la rama `chore/phase-3c-d11`: ADR-013 y `supabase/e19/`           |
-| **Rama de trabajo**        | `chore/phase-3c-d11`, abierta desde `bc2b8d7`                                    |
-| **`main`**                 | **Aún sin D11** mientras su PR no esté revisada y mergeada                       |
+| **D11**                    | **Cerrado y mergeado a `main`** (`d672246`): ADR-013 y `supabase/e19/`           |
+| **E20**                    | **Cerrada** en la rama `chore/phase-3c-e20`: `supabase/e20/` y ADR-013 §10       |
+| **Rama de trabajo**        | `chore/phase-3c-e20`, abierta desde `d672246`                                    |
+| **`main`**                 | **Aún sin E20** mientras su PR no esté revisada y mergeada                       |
 | **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                 |
 | **`supabase/migrations/`** | **No existe.** No se ha autorizado SQL definitivo                                |
 | **`npm test`**             | **110/110** en verde                                                             |
 | **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                 |
-| **E18 · E19**              | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio** |
+| **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio** |
 
 **Cómo comprobarlo en una sesión nueva**, sin depender de esta tabla:
 
@@ -39,9 +40,9 @@ git log --oneline main..HEAD
 git status --porcelain -uall
 ```
 
-Se esperan **dos commits propios** en la rama —uno con `supabase/e19/` y otro con
-ADR-013 y la documentación— y un árbol limpio. Si `main` ya los contiene, la PR
-se mergeó y **procede sincronizar `main` y abrir E20**.
+**D11 ya está en `main`** (merge `d672246`). La rama viva es
+`chore/phase-3c-e20`, con **dos commits propios** —uno con `supabase/e20/` y otro
+con ADR-013 y la documentación— y un árbol limpio.
 
 **Historial de la fase en `main`**, útil para reconstruir el orden:
 
@@ -53,6 +54,7 @@ se mergeó y **procede sincronizar `main` y abrir E20**.
 | `dd3fb96` | 3.C.5 — D7/D8 · E15/E16       |
 | `d0b6d95` | 3.C.6 — D9 · E17              |
 | `bc2b8d7` | 3.C.7 — D10 · E18             |
+| `d672246` | 3.C.8 — D11 · E19             |
 
 ---
 
@@ -71,10 +73,11 @@ se mergeó y **procede sincronizar `main` y abrir E20**.
 | **3.C.7** | D10 identidad de participantes              | E18       |
 | **3.C.8** | D11 persistido frente a derivado            | E19       |
 
-**Siguiente: E20** —única incertidumbre pendiente: el `WITH CHECK` del writer
-durante la secuencia autoritativa—, y después los **transversales y la
-finalización de 3.C** que marca el roadmap existente. **No hay fases nuevas**;
-consultar [`product/roadmap.md`](../product/roadmap.md).
+**E20 está cerrada.** Midió el `WITH CHECK` del writer durante la secuencia
+autoritativa, y la decisión humana que dejó abierta —quién puede corregir— está
+tomada (§10). **Siguiente: los transversales y la finalización de 3.C** que marca
+el roadmap existente. **No hay fases nuevas**; consultar
+[`product/roadmap.md`](../product/roadmap.md).
 
 ---
 
@@ -105,17 +108,18 @@ Los trece están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
 nunca deben convertirse en migración.** Cada una tiene su `README.md` con el
 procedimiento y su teardown.
 
-|                                     | Qué demuestra                                                                                                                                                                                                                                                                       |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [E11](../../supabase/e11/README.md) | PostgreSQL y PostgREST conservan `BIGINT` y `NUMERIC` exactos; **la degradación la produce `JSON.parse`**. Lo determinante es el cast a texto, no el camino de acceso                                                                                                               |
-| [E12](../../supabase/e12/README.md) | Las tablas nuevas de `public` nacen con `TRUNCATE`, `REFERENCES`, `TRIGGER` y `MAINTAIN` para los roles cliente, por default privileges de Supabase; son **ejecutables**; `MAINTAIN` es invisible para `information_schema`; y `PUBLIC` tiene `EXECUTE` sobre toda función nueva    |
-| [E13](../../supabase/e13/README.md) | Una vista `security_invoker` **sí aplica la RLS**; una ejecutada como propietario **no**; el helper funciona con `EXECUTE` sin `USAGE`; y los grants SQL **no abren ruta HTTP** mientras el schema quede fuera de las superficies expuestas **y** de los search paths               |
-| [E14](../../supabase/e14/README.md) | PostgREST **coacciona un número JSON a un parámetro `text`**, así que ese tipo no conserva el tipo JSON original; con `jsonb`, `jsonb_typeof` **sí lo distingue**. La degradación ocurre **dentro del cliente**                                                                     |
-| [E15](../../supabase/e15/README.md) | `RAISE sqlstate 'PGRST'` transporta código propio y estado HTTP sin usar el mensaje humano; `ON CONFLICT` y la captura de `unique_violation` son **ambos** correctos; y **sin serializar, dos liquidaciones concurrentes producen sobrepago**                                       |
-| [E16](../../supabase/e16/README.md) | Un `SECURITY DEFINER` cuyo owner **no** es propietario de la tabla y **no** tiene `BYPASSRLS` **sigue sometido a RLS**, y una política `WITH CHECK` detuvo una escritura indebida. `auth.uid()` no es invocable por ese writer                                                      |
-| [E17](../../supabase/e17/README.md) | El ciclo operación/versión con FK compuesta diferible deja invariante **fuerte al commit**; las seis constraints de linaje funcionan; el comando se reclama antes de su resultado y revierte con él; sin `TO` y `TO PUBLIC` son indistinguibles en catálogo                         |
-| [E18](../../supabase/e18/README.md) | Las tres cardinalidades del vínculo participante ↔ usuario son estructurales; los periodos soportan entrar, salir y volver con una identidad; y la exclusión de solapes **exige `btree_gist`**                                                                                      |
-| [E19](../../supabase/e19/README.md) | La RLS **sobrevive a dos vistas `security_invoker` encadenadas**, y **decide el eslabón más cercano a las tablas**; `pg_depend` registra dependencias **directas, no transitivas**, así que la guarda es estructural para vistas; un cuerpo `BEGIN ATOMIC` **sí** deja dependencias |
+|                                     | Qué demuestra                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [E11](../../supabase/e11/README.md) | PostgreSQL y PostgREST conservan `BIGINT` y `NUMERIC` exactos; **la degradación la produce `JSON.parse`**. Lo determinante es el cast a texto, no el camino de acceso                                                                                                                                                                                                                                                                                                                                                                             |
+| [E12](../../supabase/e12/README.md) | Las tablas nuevas de `public` nacen con `TRUNCATE`, `REFERENCES`, `TRIGGER` y `MAINTAIN` para los roles cliente, por default privileges de Supabase; son **ejecutables**; `MAINTAIN` es invisible para `information_schema`; y `PUBLIC` tiene `EXECUTE` sobre toda función nueva                                                                                                                                                                                                                                                                  |
+| [E13](../../supabase/e13/README.md) | Una vista `security_invoker` **sí aplica la RLS**; una ejecutada como propietario **no**; el helper funciona con `EXECUTE` sin `USAGE`; y los grants SQL **no abren ruta HTTP** mientras el schema quede fuera de las superficies expuestas **y** de los search paths                                                                                                                                                                                                                                                                             |
+| [E14](../../supabase/e14/README.md) | PostgREST **coacciona un número JSON a un parámetro `text`**, así que ese tipo no conserva el tipo JSON original; con `jsonb`, `jsonb_typeof` **sí lo distingue**. La degradación ocurre **dentro del cliente**                                                                                                                                                                                                                                                                                                                                   |
+| [E15](../../supabase/e15/README.md) | `RAISE sqlstate 'PGRST'` transporta código propio y estado HTTP sin usar el mensaje humano; `ON CONFLICT` y la captura de `unique_violation` son **ambos** correctos; y **sin serializar, dos liquidaciones concurrentes producen sobrepago**                                                                                                                                                                                                                                                                                                     |
+| [E16](../../supabase/e16/README.md) | Un `SECURITY DEFINER` cuyo owner **no** es propietario de la tabla y **no** tiene `BYPASSRLS` **sigue sometido a RLS**, y una política `WITH CHECK` detuvo una escritura indebida. `auth.uid()` no es invocable por ese writer                                                                                                                                                                                                                                                                                                                    |
+| [E17](../../supabase/e17/README.md) | El ciclo operación/versión con FK compuesta diferible deja invariante **fuerte al commit**; las seis constraints de linaje funcionan; el comando se reclama antes de su resultado y revierte con él; sin `TO` y `TO PUBLIC` son indistinguibles en catálogo                                                                                                                                                                                                                                                                                       |
+| [E18](../../supabase/e18/README.md) | Las tres cardinalidades del vínculo participante ↔ usuario son estructurales; los periodos soportan entrar, salir y volver con una identidad; y la exclusión de solapes **exige `btree_gist`**                                                                                                                                                                                                                                                                                                                                                    |
+| [E19](../../supabase/e19/README.md) | La RLS **sobrevive a dos vistas `security_invoker` encadenadas**, y **decide el eslabón más cercano a las tablas**; `pg_depend` registra dependencias **directas, no transitivas**, así que la guarda es estructural para vistas; un cuerpo `BEGIN ATOMIC` **sí** deja dependencias                                                                                                                                                                                                                                                               |
+| [E20](../../supabase/e20/README.md) | El `WITH CHECK` de un efecto **ve la versión insertada y aún no confirmada** en su misma transacción, así que existe un predicado no trivial y útil; el aislamiento por ámbito **rechazaría escrituras legítimas**; `SELECT … FOR UPDATE` **exige política de `UPDATE` y su ausencia devuelve 0 filas sin error**; la RLS **no acota columnas**; las políticas de `SELECT` del writer **son portantes de la escritura**; y restringir por atribución la lectura de las versiones **impide corregir la de otro actor**, con `NULL` en vez de error |
 
 ---
 
@@ -347,9 +351,37 @@ por eso no amplían al cliente.
 > el recurso de la FK diferida no tiene equivalente. Además, E16 midió que
 > **`auth.uid()` no es invocable por el writer**.
 
-**Pendiente en E20:** el `WITH CHECK` del writer sobre los efectos. Lo único
-fijado es que **no puede ser el aislamiento por ámbito**, porque ADR-002 §10
-permite efectos sobre el ámbito de otro.
+**Resuelto por E20 y fijado en ADR-013 §10.** El `WITH CHECK` del writer sobre
+los efectos es: **existe una versión, referida por el efecto, atribuida al actor
+de la petición**. Es satisfacible dentro de la transacción porque la subconsulta
+ve la versión insertada y aún no confirmada. **No** es el aislamiento por
+ámbito, que rechazaría escrituras legítimas (ADR-002 §10).
+
+**Ninguna política del writer deriva de la autoría.** La autoría original **no**
+concede exclusividad sobre las correcciones: el derecho a corregir es **funcional
+y contextual al ámbito**, y se resuelve en la frontera autoritativa. Cada versión
+queda atribuida a quien la crea.
+
+Eso alcanza también a la **lectura de las versiones**: construir V2 **exige leer
+V1** —`version_no` calculado, FX heredado, intención conservada, reparto
+anterior—, y E20 midió que con la lectura restringida por atribución la V1 de
+otro actor es **invisible** y la agregación devuelve **`NULL` sin error**.
+Conocer el puntero **no sustituye** esa lectura: el identificador es legible
+desde la operación mientras la fila de la versión permanece oculta.
+
+**Ampliar la lectura no afloja la escritura.** Con la política de `SELECT` amplia,
+el `WITH CHECK` de los efectos **sigue rechazando** que un actor cuelgue efectos
+de la versión de otro, y el de las versiones **sigue impidiendo** atribuirse una
+versión ajena.
+
+Cuatro precisiones más que E20 midió y que condicionan la migración:
+
+- **`SELECT … FOR UPDATE` exige política de `UPDATE`**, y su ausencia **devuelve
+  0 filas sin error** — afecta al paso 2 de §10 bis;
+- **la RLS acota filas; `GRANT UPDATE (columna)` acota columnas**;
+- las **políticas de `SELECT` del writer son portantes** de las subconsultas de
+  `WITH CHECK`;
+- **`INSERT … RETURNING` puede exigir política de `SELECT`**.
 
 ---
 
@@ -376,16 +408,6 @@ El advisory lock por par queda como **escalada futura**, no como diseño de v1.
 ## 11 · Deliberadamente ABIERTO
 
 **No tratar nada de esto como decidido.**
-
-### E20 — no empezado
-
-Única incertidumbre técnica pendiente de 3.C. Debe precisar el **`WITH CHECK`
-del writer** durante la secuencia autoritativa —`INSERT` de operación, versión y
-efectos, más el `SELECT … FOR UPDATE` y el movimiento del puntero—, y en
-particular **si el predicado de los efectos puede comprobar algo sobre la
-versión insertada en el paso anterior** o el único satisfacible es trivialmente
-cierto. Cabe medir de paso si `INSERT … RETURNING` activa además la política de
-`SELECT`. **Va antes de las migraciones, no antes del ADR.**
 
 ### Producto y fases posteriores
 
@@ -460,17 +482,16 @@ de ser conceptualmente un cierre de saldo (Q2).
 
 ## 14 · Próximo paso exacto
 
-**No empezar los transversales hasta que D11 esté en `main`.** En orden:
+**No empezar los transversales hasta que E20 esté en `main`.** En orden:
 
-1. **comprobar que ADR-013 y `supabase/e19/` están consolidados** en la rama —
-   `git log --oneline main..HEAD` debe mostrar los dos commits y `git status` un
-   árbol limpio;
-2. si aún no ocurrió: **push** de `chore/phase-3c-d11`, **PR** y **esperar
+1. **comprobar que `supabase/e20/` y la documentación están consolidados** en la
+   rama — `git log --oneline main..HEAD` debe mostrar los dos commits y
+   `git status` un árbol limpio;
+2. si aún no ocurrió: **push** de `chore/phase-3c-e20`, **PR** y **esperar
    revisión y merge**. **Nunca merge sin petición explícita**;
 3. **sincronizar `main`** una vez mergeada;
-4. **E20**, que es lo único técnico pendiente antes de poder escribir
-   migraciones: el `WITH CHECK` del writer durante la secuencia autoritativa;
-5. después, **transversales y síntesis** de 3.C.
+4. después, **transversales y síntesis** de 3.C. **Ya no queda ninguna
+   incertidumbre técnica** bloqueando las migraciones.
 
 Antes de implementar hay una deuda concreta ya identificada:
 `tests/vectors/scenarios.json` **no tiene ningún caso de corrección** (§15), y
