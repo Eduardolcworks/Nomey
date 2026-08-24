@@ -465,6 +465,20 @@ anterior y aplica los de la nueva, sin operaciones de reversión separadas.
   salvo que el propio tipo sea el dato explícitamente corregido (§10). Corregir
   no revaloriza.
 
+> **Precisión de [ADR-013](../adr/ADR-013-persisted-vs-derived.md) §6.** La
+> herencia del tipo aplica **cuando no cambian las entradas de las que el tipo
+> depende**. Corregir solo una nota, o el importe conservando moneda, ámbito y
+> fecha efectiva, **hereda**. Corregir la **fecha efectiva**, o la **definición
+> monetaria o el ámbito** de forma que la conversión anterior deje de describir
+> esa conversión, **exige una resolución nueva**: no es corregir el tipo, es
+> haber corregido sus entradas. La conversión nueva **debe poder previsualizarse
+> antes de confirmar**.
+>
+> **La versión nueva se calcula con las reglas económicas vigentes al crearla**,
+> conservando la intención declarada que no se haya corregido. La versión
+> anterior permanece intacta y cada una registra bajo qué contrato de derivación
+> nació. Registrar el contrato **no implica** poder reejecutar reglas antiguas.
+
 ---
 
 ## 8. Permisos y efectos sobre otros usuarios
@@ -794,10 +808,13 @@ referencian siempre al participante, periodos de presencia y reclamación que no
 altera la contabilidad—, en
 [ADR-012](../adr/ADR-012-participant-identity.md).
 
-**Pendiente en otros ADR:** la **forma física de los datos autoritativos de cada
-versión**, el inventario **persistido frente a derivado**, la **proyección
-canónica de efectos vigentes** y el **mecanismo de lock de la deuda**, todo ello
-delegado por ADR-011 · el **mecanismo de prueba del claim**, la **revocación** y
+**Resuelto también:** el inventario **persistido frente a derivado**, la **forma
+física de los datos autoritativos de cada versión**, el **reparto contextual por
+ámbito** —con el método y el pagador fuera de la versión—, la **proyección
+canónica de efectos vigentes** y el **protocolo de serialización de la deuda**,
+en [ADR-013](../adr/ADR-013-persisted-vs-derived.md).
+
+**Pendiente en otros ADR:** el **mecanismo de prueba del claim**, la **revocación** y
 la **fusión de participantes**, delegados por ADR-012 a F10 · el **acceso
 residual** de quien sale de un ámbito con saldo pendiente, que sigue sin
 representación física · idempotencia de **recurrencias, importaciones bancarias

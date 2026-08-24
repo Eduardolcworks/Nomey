@@ -348,6 +348,39 @@ sería inventar.
 
 ## 5 · Clasificación persistido / derivado — **D11**
 
+> ## ✅ APROBADA — persistido frente a derivado, reparto contextual, proyección canónica
+>
+> ### → Normativa en [ADR-013](../adr/ADR-013-persisted-vs-derived.md), `Aceptado`
+>
+> **La fuente normativa es el ADR, no esta sección**, que se conserva como el
+> análisis que lo precedió. Aprobada en la revisión del bloque **3.C.8**, con
+> **cinco correcciones de fondo** sobre lo escrito aquí y abajo:
+>
+> 1. **`current_version_id` es estado autoritativo persistido**, no una
+>    derivación materializada. `current_version_id == la versión de mayor
+version_no` es un invariante de integridad y una vía de reconstrucción,
+>    **no una segunda definición de vigencia**. Una anulación futura podría
+>    romper el invariante sin cambiar el significado del puntero.
+> 2. **El método de reparto y el pagador NO viven en `operation_version`.**
+>    Pertenecen a una **cabecera de reparto por `(versión, ámbito)`**. El motivo
+>    decisivo es de autorización: una política RLS decide filas, **no puede
+>    ocultar columnas**, así que un dato local a un ámbito en una fila sin ámbito
+>    solo estaría protegido por una propiedad contingente.
+> 3. **`operation` y `operation_version` no llevan ámbito.** Una operación
+>    alcanza varios, y no existe uno único para todas las clases. Su RLS de
+>    lectura se deriva de la existencia de efectos visibles, y las políticas se
+>    separan **por comando y por rol**, porque un predicado derivado de efectos
+>    es insatisfacible al insertar la operación y **las políticas no son
+>    diferibles**.
+> 4. **La proyección canónica es un límite de privilegio.** E19 midió que en una
+>    cadena de dos vistas decide **el eslabón más cercano a las tablas**.
+> 5. **Se adopta una versión de reglas económicas** en cada versión, como
+>    metadata inmutable de auditoría que **no** implica poder reejecutar reglas
+>    antiguas.
+>
+> El `WITH CHECK` del writer sobre los efectos **no queda fijado**: es E20,
+> antes de las migraciones.
+
 El objetivo es **no crear segundas fuentes de verdad**. La regla de decisión que
 propongo, y que se aplica en toda la tabla:
 
@@ -2284,6 +2317,15 @@ participaciones», que es de baja reversibilidad.
 
 ### D11 · Persistido frente a derivado
 
+> ## ✅ APROBADA — ver el recuadro de **§5**
+>
+> ### → Normativa en [ADR-013](../adr/ADR-013-persisted-vs-derived.md), `Aceptado`
+>
+> Las cinco correcciones sobre lo escrito aquí están en §5. En particular, **la
+> recomendación (b) de abajo se aprueba con una relectura**: el puntero de
+> vigencia **no** es «la única derivación que se materializa», es **estado
+> autoritativo**.
+
 **La sustancia está en §5**, que es la sección propia que este documento le
 dedica. Aquí solo la ficha de decisión.
 
@@ -2323,7 +2365,7 @@ antes de abrir el siguiente.
 | **3.C.5**  | D7 escritura autoritativa · D8 idempotencia                                                    | **CERRADO.** Ambas **aprobadas**; evidencia en E15 y E16    |
 | **3.C.6**  | D9 versionado                                                                                  | **CERRADO.** **Aprobada**; evidencia en E17                 |
 | **3.C.7**  | D10 participantes                                                                              | **CERRADO.** **Aprobada**; evidencia en E18                 |
-| **3.C.8**  | D11 persistido frente a derivado                                                               | **Pendiente. No empezado**                                  |
+| **3.C.8**  | D11 persistido frente a derivado                                                               | **CERRADO.** **Aprobada**; evidencia en E19                 |
 | **3.C.9**  | Transversales: vectores · Auth técnico · tests de aislamiento · orden de migraciones · runbook | **Pendiente**                                               |
 | **3.C.10** | Síntesis: dependencias, orden, aprobadas, abiertas, cierre                                     | **Pendiente**                                               |
 
@@ -2347,6 +2389,7 @@ antes de abrir el siguiente.
 | **D8**   | **Aprobada:** UUID de cliente, comparación solo en servidor, envelope mínimo                 | [ADR-010](../adr/ADR-010-client-operation-idempotency.md), `Aceptado` |
 | **D9**   | **Aprobada:** operación estable, versiones inmutables, `client_command` separado             | [ADR-011](../adr/ADR-011-operation-version-model.md), `Aceptado`      |
 | **D10**  | **Aprobada:** participante contextual, vínculo separado, periodos de presencia               | [ADR-012](../adr/ADR-012-participant-identity.md), `Aceptado`         |
+| **D11**  | **Aprobada:** todo derivado salvo los hechos, reparto contextual, proyección canónica        | [ADR-013](../adr/ADR-013-persisted-vs-derived.md), `Aceptado`         |
 
 ### Abierto de forma expresa
 
@@ -2357,12 +2400,10 @@ antes de abrir el siguiente.
   deja abierto expresamente.
 - **El mecanismo de prueba del claim, la revocación y la fusión** de
   participantes, delegados por ADR-012 a **F10**.
-- **Persistido frente a derivado** — **D11**. ADR-011 le delega expresamente:
-  la **forma física de los datos autoritativos de cada versión** · la
-  **proyección canónica de efectos económicamente vigentes**, sin la cual cada
-  consulta reimplementaría a mano el filtro por versión vigente · y el
-  **mecanismo de lock** de la deuda, que depende de si existe una fila
-  materializada.
+- **El `WITH CHECK` del writer sobre los efectos**, que ADR-013 §10 delega
+  expresamente a **E20**, antes de escribir migraciones. Lo único fijado es que
+  **no puede ser el aislamiento por ámbito**: ADR-002 §10 permite efectos sobre
+  el ámbito de otro, así que ese predicado rechazaría escrituras legítimas.
 - **Forma definitiva de las vistas de lectura** —qué columnas proyecta cada una—
   y la API de servidor que permita filtrar, ordenar y agregar por importe.
 - **La anulación o cancelación** como concepto distinto de la corrección. Hoy no
@@ -2377,8 +2418,9 @@ antes de abrir el siguiente.
 > la RLS de `core` como autoridad—, con la evidencia de
 > [`supabase/e13/`](../../supabase/e13/README.md).
 
-**El resto de D1–D11 sigue sin aprobar. No se ha autorizado SQL definitivo**, y
-`supabase/migrations/` no existe.
+**D1–D11 están todas aprobadas**, cada una con su ADR. **Aun así no se ha
+autorizado SQL definitivo**, y `supabase/migrations/` no existe: la aprobación de
+una decisión no es la autorización de una migración.
 
 > **Este documento sigue siendo NO NORMATIVO**, también para lo aprobado. Una
 > decisión aprobada aquí no adquiere fuerza normativa por estarlo: cuando toque

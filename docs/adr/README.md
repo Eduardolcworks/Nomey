@@ -93,6 +93,7 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [010](ADR-010-client-operation-idempotency.md) | Idempotencia de operaciones cliente          | Aceptado  |
 | [011](ADR-011-operation-version-model.md)      | Operaciones, versiones y comandos cliente    | Aceptado  |
 | [012](ADR-012-participant-identity.md)         | Identidad de participantes sin cuenta        | Aceptado  |
+| [013](ADR-013-persisted-vs-derived.md)         | Persistido frente a derivado                 | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos

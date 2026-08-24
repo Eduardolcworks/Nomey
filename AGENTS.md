@@ -151,9 +151,13 @@ Two consequences that hold regardless of how any of this is stored:
   cash movements makes whoever pays for dinners look reckless and whoever never
   pays look frugal. Both figures are wrong and neither throws an error.
 
-**Open (data-model ADR, Phase 1):** how these facts are represented — one table
-or several, which are stored and which derived, and what any of them are
-called. Do not treat any particular schema as settled, and do not invent one.
+**Settled — [ADR-002](docs/adr/ADR-002-accounting-model.md) and
+[ADR-011](docs/adr/ADR-011-operation-version-model.md)** for how the facts are
+represented (operation, immutable version, effect with separate dimensions), and
+**[ADR-013](docs/adr/ADR-013-persisted-vs-derived.md)** for which are stored and
+which are derived: balances, debts, statistics, totals and both `Disponible`
+figures are **derived from the effects of the current version**, and there is no
+economic cache in v1. Physical names still belong to the migrations.
 
 ### 3. Idempotency
 
@@ -168,10 +172,17 @@ each needs an equivalent guarantee rather than the same mechanism.
 Without this, the result is duplicate money in production with no clean way to
 deduplicate afterwards.
 
-**Open (ADR):** the mechanism per origin. For client-originated writes a stable
-client-generated identifier (working name `client_id`) is the obvious
-candidate; other sources may need something else. Names, types and where
-uniqueness is enforced are ADR territory. The requirement is not.
+**Settled for the client origin —
+[ADR-010](docs/adr/ADR-010-client-operation-idempotency.md) and
+[ADR-011](docs/adr/ADR-011-operation-version-model.md) §5.** A UUID generated and
+persisted by the client before the first attempt, unique per
+`(actor, client_operation_id)` **across every operation class**, compared
+**only** on the server, and held by a separate command relation — not by the
+operation, because one operation can be the result of several commands.
+
+**Still open (ADR):** the mechanism for **recurring charges, imports and
+backend-originated operations**. Each needs an equivalent guarantee rather than
+the same mechanism, and none of them is decided.
 
 ### 4. Database authorization
 
@@ -188,7 +199,8 @@ The layers that together make up database authorization:
   rather than inherited.
 - **RLS** — which rows, for a role that already has the grant.
 - **Functions** — `EXECUTE` granted narrowly; every `SECURITY DEFINER` function
-  reviewed as a privilege boundary, because it bypasses RLS by design.
+  reviewed as a privilege boundary, because it runs with **its owner's**
+  privileges, so RLS is evaluated against that owner and not against the caller.
 - **Key separation** — client versus backend credentials (see §7).
 
 Rules:
@@ -205,14 +217,26 @@ Rules:
   to "fix" it is worse than the bug.
 - **Any `SECURITY DEFINER` function pins `search_path` explicitly** and is
   reviewed as a privilege boundary.
+- **A `SECURITY DEFINER` owner that neither owns the table nor holds
+  `BYPASSRLS` is still subject to RLS**, including on writes. **E16 measured
+  it**, and it is what makes the authoritative writer of
+  [ADR-009](docs/adr/ADR-009-authoritative-write-boundary.md) a second barrier
+  rather than an escape hatch. Never assume a definer function is above RLS —
+  check who owns it.
 
-**Open (ADR):** how membership checks are actually performed. A `SECURITY
-DEFINER` helper is one option; Supabase also documents restructuring the policy
-to avoid the join, and JWT claims are a third. They differ on performance, on
-escalation surface, and on **permission freshness** — with claims in the token,
-removing someone from a group does not take effect until their token refreshes,
-which is a product decision wearing technical clothes. Also open: whether to
-expose a dedicated API schema instead of `public`.
+**Settled — [ADR-007](docs/adr/ADR-007-membership-rls.md).** The RLS of the
+persistence schema is the row-level authority, evaluated under the real user's
+identity through `security_invoker` views; membership is resolved by a reduced
+`SECURITY DEFINER` helper that takes the scope and never an arbitrary user; and
+**no membership claims go in the JWT**, because a claim in the token keeps
+someone's access alive until it refreshes.
+
+**Settled — [ADR-005](docs/adr/ADR-005-schema-topology.md).** There is a
+dedicated schema for the exposed surface, and the accounting tables are not
+reachable through it.
+
+**Still open (ADR):** whether `public` also remains in the list of exposed
+schemas.
 
 ### 5. Participants without an account
 
@@ -225,19 +249,24 @@ Three invariants, all decided:
 - **Claiming a participant requires proof of authorization.** A name match, or
   an unverified email match, is **not** proof.
 
-**Open (ADR):** every mechanism.
+**Settled — [ADR-012](docs/adr/ADR-012-participant-identity.md).**
 
-- Whether the link is a nullable user reference on the participant, a separate
-  link table, or something else. A nullable reference is the obvious shape, not
-  the only one; a link table carries the history of the link itself, which
-  matters for merges.
-- Whether shares and debts reference the participant directly. That is the
-  natural way to satisfy invariant 2 and a **strong candidate**, but stability
-  across the link event can be achieved in more than one way.
-- What constitutes proof: a single-use invitation token, a verified email
-  invitation issued by an existing member, explicit approval by a member, or a
-  combination. The invariant is the proof requirement, not the mechanism.
-- Duplicate handling and participant-to-participant merges.
+- The participant is **contextual per scope**, not global, and participants of
+  different scopes are **never correlated automatically**. The reason is
+  privacy: a global participant would force answering "is this the same Carlos?"
+  before anyone had proved it.
+- The link to an account lives in a **separate relation**, not as a nullable
+  reference on the participant.
+- **Effects always reference the participant, never the user.** This is what
+  makes a later claim change no accounting fact at all.
+- **Presence periods** are separate from user membership, and **claiming
+  establishes identity, not access**.
+
+**Still open (ADR), delegated to F10:** what constitutes proof — a single-use
+invitation token, a verified email invitation issued by an existing member,
+explicit approval by a member, or a combination; **revocation and unlink**; and
+**duplicate handling and participant-to-participant merges**. The invariant is
+the proof requirement, not the mechanism.
 
 ### 6. Internationalisation
 
@@ -397,23 +426,26 @@ the `adr` skill to draft one.
 
 ## Current state
 
-The project is in **Phase 3** (persistence and data boundary). Phases 0, 1 and 2
-are closed, and so are **3.A** and **3.B**. ADR-002 and ADR-003 are both
-accepted; ADR-003 met its E11 gate against a real local Supabase stack.
+The project is in **Phase 3** (persistence and data boundary), inside **3.C**.
+Phases 0, 1 and 2 are closed, and so are **3.A** and **3.B**. **ADR-002 through
+ADR-013 are accepted**; ADR-003 met its E11 gate against a real local Supabase
+stack.
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
-and the E11 probe that measured the data boundary (`supabase/e11/`, not a
-migration). A pure reference implementation of the financial domain in
-`src/domain/`, with shared test vectors in `tests/vectors/` and a Vitest suite —
-110 tests at the close of 3.B. **The authoritative server write boundary will
-have to reproduce those vectors exactly** (ADR-002 §7).
+and nine reproducible probes that measured the decisions of this phase
+(`supabase/e11/` … `supabase/e19/`, **none of them a migration**). A pure
+reference implementation of the financial domain in `src/domain/`, with shared
+test vectors in `tests/vectors/` and a Vitest suite — 110 tests. **The
+authoritative server write boundary will have to reproduce those vectors
+exactly** (ADR-002 §7).
 
 **What does not exist yet.** No schema, no migrations, no RLS, no auth and no
 screens — that is deliberate, not an oversight. The visible app is still an
-intentionally blank screen.
+intentionally blank screen. The whole physical model of 3.C lives in ADRs and in
+probes; **`supabase/migrations/` has not been created**.
 
-**Next up: Phase 3.C**, the physical schema, grants, RLS and the authoritative
-write boundary. It starts with analysis, not SQL — see
+**Next up inside 3.C:** the E20 probe that fixes the writer's write-side policy,
+and then the cross-cutting work and the closing synthesis. See
 `docs/architecture/phase-3c-handoff.md`.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.
