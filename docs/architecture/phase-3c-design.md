@@ -1640,6 +1640,28 @@ fija ADR-003; aquí solo se elige el mecanismo, y es reversible.
 
 ### D7 · Frontera de escritura autoritativa
 
+> ## ✅ APROBADA — funciones por clase, payload `jsonb`, writer dedicado bajo RLS
+>
+> ### → Normativa en [ADR-009](../adr/ADR-009-authoritative-write-boundary.md), `Aceptado`
+>
+> **La fuente normativa es el ADR, no esta sección.** Aprobada en la revisión de
+> **3.C.5**, con **tres correcciones medidas** sobre lo escrito aquí:
+>
+> 1. **El payload es `jsonb`, no parámetros tipados.** E14 midió que un
+>    parámetro `text` no conserva el tipo JSON original, así que la forma
+>    propuesta aquí no podía cumplir ADR-008 §3.
+> 2. **La afirmación de que «dentro de un `SECURITY DEFINER` la RLS no protege
+>    nada» es falsa** con el writer aprobado. E16 midió que un owner que no es
+>    propietario de la tabla y no tiene `BYPASSRLS` **sigue sometido a RLS**, y
+>    que una política `WITH CHECK` **detuvo una escritura indebida del writer**.
+>    Hay segunda barrera.
+> 3. **El FX no se resuelve automáticamente «del catálogo».** ADR-003 dejó fuera
+>    de alcance el proveedor y la regla de selección; ADR-009 §8 separa lo
+>    decidido de lo que no.
+>
+> Además, el actor **no** se obtiene con `auth.uid()`: E16 midió que falla para
+> un writer de mínimo privilegio. Se obtiene de los claims de la petición.
+
 **Lo que ya está decidido y no se rediscute** (ADR-002 §7, `data-model.md` §9):
 el cliente envía **intención**, no resultado contable; una función del servidor
 valida y genera los efectos **atómicamente**; los roles cliente **no** tienen
@@ -1808,6 +1830,26 @@ errores.
 ---
 
 ### D8 · Idempotencia — **origen cliente, y solo ese**
+
+> ## ✅ APROBADA — UUID de cliente, comparación solo en servidor
+>
+> ### → Normativa en [ADR-010](../adr/ADR-010-client-operation-idempotency.md), `Aceptado`
+>
+> **La fuente normativa es el ADR, no esta sección.** Aprobada en la revisión de
+> **3.C.5**, con **tres correcciones**:
+>
+> 1. **El cliente no calcula `intent_fingerprint`.** Solo genera, persiste y
+>    reutiliza el UUID. Toda comparación vive en el servidor, lo que elimina el
+>    riesgo —que esta misma sección declaraba— de una canonicalización divergente.
+> 2. **La unicidad abarca todas las clases de operación**, sin namespace por
+>    endpoint: misma clave en otra clase es conflicto.
+> 3. **El replay no exige autorización actual sobre el ámbito.** Exigirla
+>    rompería la idempotencia. Devuelve un **envelope mínimo** —identificador y
+>    `already_processed`— y nada del contenido.
+>
+> Y una afirmación retirada: la captura de `unique_violation` **no es «el único
+> patrón libre de carreras»**. E15 midió que `ON CONFLICT` lo resuelve igual de
+> bien.
 
 Invariante 19: toda operación monetaria reintentable es idempotente, **con
 garantía efectiva para su origen**. `AGENTS.md` §3 dice que cada origen puede
@@ -2212,7 +2254,7 @@ antes de abrir el siguiente.
 | **3.C.1** | D4 — privilegios observados en E11                                                             | **CERRADO.** Medido con E12, auditado dos veces             |
 | **3.C.2** | D1 identidad monetaria · D2 schemas y Data API                                                 | **CERRADO.** Ambas **aprobadas**, D2 con recorte de alcance |
 | **3.C.3** | D3 estrategia de `GRANT` · D5 membresía y RLS                                                  | **CERRADO.** Ambas **aprobadas**; evidencia en E13          |
-| **3.C.4** | D6 frontera textual · D7 escritura · D8 idempotencia                                           | **D6 APROBADA**; D7 y D8 pendientes de revisión             |
+| **3.C.4** | D6 frontera textual · D7 escritura · D8 idempotencia                                           | **CERRADO.** D6, D7 y D8 **aprobadas**                      |
 | **3.C.5** | D9 versionado · D10 participantes · D11 persistido                                             | **Escrito.** Pendiente de revisión                          |
 | **3.C.6** | Transversales: vectores · Auth técnico · tests de aislamiento · orden de migraciones · runbook | **Pendiente**                                               |
 | **3.C.7** | Síntesis: dependencias, orden, aprobadas, abiertas, cierre                                     | **Pendiente**                                               |
@@ -2227,19 +2269,26 @@ antes de abrir el siguiente.
 | **D4**   | Medición cerrada. No es una decisión                                                         | Evidencia en [`supabase/e12/`](../../supabase/e12/README.md)          |
 | **D5**   | **Aprobada:** RLS de `core` como autoridad, helper reducido, sin claims                      | [ADR-007](../adr/ADR-007-membership-rls.md), `Aceptado`               |
 | **D6**   | **Aprobada:** lectura textual, invariante de `api`, escritura como JSON `string`             | [ADR-008](../adr/ADR-008-exact-data-boundary.md), `Aceptado`          |
+| **D7**   | **Aprobada:** funciones por clase, payload `jsonb`, writer dedicado bajo RLS                 | [ADR-009](../adr/ADR-009-authoritative-write-boundary.md), `Aceptado` |
+| **D8**   | **Aprobada:** UUID de cliente, comparación solo en servidor, envelope mínimo                 | [ADR-010](../adr/ADR-010-client-operation-idempotency.md), `Aceptado` |
 
 ### Abierto de forma expresa
 
 - **`public` dentro o fuera de `api.schemas`.** Pendiente de medición y decisión
   posterior; separable, y ADR-006 lo deja fuera de alcance a propósito.
-- **Todo el mecanismo de la escritura autoritativa** — **D7**. ADR-008 fija
-  únicamente el **contrato de transporte** y delega expresamente: forma real del
-  payload · cómo se comprueba el tipo JSON original · las funciones
-  autoritativas y su firma · autenticación y autorización · validación semántica
-  completa · atomicidad y derivación de efectos · errores y su relación con la
-  idempotencia.
+- **Todo el esquema físico** — **D9**. ADR-009 y ADR-010 delegan expresamente:
+  tablas de operación y versión · ubicación física de `client_operation_id` ·
+  si se almacena intención normalizada, hash o ambos · **políticas concretas del
+  writer, incluida la posible necesidad de `RESTRICTIVE`** · grants concretos
+  del writer sobre las tablas · **mecanismo de lock** para serializar la deuda
+  pendiente · forma física del envelope y de los resultados · relaciones y
+  restricciones definitivas.
 - **Forma definitiva de las vistas de lectura** —qué columnas proyecta cada una—
   y la API de servidor que permita filtrar, ordenar y agregar por importe.
+- **Fuera de D9, como decisión de producto:** la **regla concreta de resolución
+  del tipo de cambio**. ADR-003 dejó fuera de alcance el proveedor, la
+  granularidad, la regla de selección y qué ocurre si no hay tipo para una
+  fecha; ADR-009 §8 lo subraya y **no lo resuelve**.
 
 > **Cerrado desde la revisión de 3.C.3:** el mecanismo por el que `api` lee
 > `core` ya no está abierto. Lo fija ADR-006 §5 —vistas `security_invoker` con

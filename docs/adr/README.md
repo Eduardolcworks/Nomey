@@ -89,6 +89,8 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [006](ADR-006-privilege-model.md)              | Modelo de privilegios y lectura `api → core` | Aceptado  |
 | [007](ADR-007-membership-rls.md)               | Membresía y estrategia de RLS                | Aceptado  |
 | [008](ADR-008-exact-data-boundary.md)          | Frontera de datos exactos                    | Aceptado  |
+| [009](ADR-009-authoritative-write-boundary.md) | Frontera autoritativa de escritura           | Aceptado  |
+| [010](ADR-010-client-operation-idempotency.md) | Idempotencia de operaciones cliente          | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
@@ -103,7 +105,10 @@ que ocurra. Ninguno está reservado ni prejuzgado.
 
 - **Participantes sin cuenta: invitación, reclamación y fusión** — la de mayor
   riesgo de seguridad.
-- Idempotencia y cola offline para la entrada rápida.
+- **Cola offline para la entrada rápida.** La idempotencia del **origen
+  cliente** la cerró [ADR-010](ADR-010-client-operation-idempotency.md); siguen
+  abiertas la cola en sí y la idempotencia de **recurrencias, importaciones
+  bancarias y operaciones de backend**.
 - React Native + Expo con CNG como plataforma.
 - Supabase como backend y RLS como capa de autorización.
 - ~~**Hardening del Data API**~~ — cerrado entre
