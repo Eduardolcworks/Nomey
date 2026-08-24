@@ -10,8 +10,8 @@
 > Existe para que una sesión nueva reconstruya el estado del proyecto leyendo el
 > repositorio, **sin depender de ninguna conversación previa**.
 
-Escrito al cerrar **3.B** el 2026-08-20. **Reescrito al consolidar 3.C.7 (D10)
-el 2026-08-24**, con el estado completo de la fase.
+Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al cerrar 3.C.8 (D11) el
+2026-08-24**, con el estado completo de la fase.
 
 ---
 
@@ -20,16 +20,17 @@ el 2026-08-24**, con el estado completo de la fase.
 Checkpoint **durable**: describe qué hay decidido y consolidado, no una foto del
 índice de Git. **La verdad del árbol es `git status`**, no esta tabla.
 
-|                            |                                                                                                  |
-| -------------------------- | ------------------------------------------------------------------------------------------------ |
-| **D10**                    | **Cerrado y consolidado** en la rama `chore/phase-3c-d10`: ADR-012 y `supabase/e18/` commiteados |
-| **Rama de trabajo**        | `chore/phase-3c-d10`, abierta desde `d0b6d95`                                                    |
-| **`main`**                 | **Aún sin D10** mientras su PR no esté revisada y mergeada                                       |
-| **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                                 |
-| **`supabase/migrations/`** | **No existe.** No se ha autorizado SQL definitivo                                                |
-| **`npm test`**             | **110/110** en verde                                                                             |
-| **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                                 |
-| **E18**                    | Reproducido de extremo a extremo contra el stack local, con **teardown limpio**                  |
+|                            |                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                       |
+| **D11**                    | **Cerrado** en la rama `chore/phase-3c-d11`: ADR-013 y `supabase/e19/`           |
+| **Rama de trabajo**        | `chore/phase-3c-d11`, abierta desde `bc2b8d7`                                    |
+| **`main`**                 | **Aún sin D11** mientras su PR no esté revisada y mergeada                       |
+| **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                 |
+| **`supabase/migrations/`** | **No existe.** No se ha autorizado SQL definitivo                                |
+| **`npm test`**             | **110/110** en verde                                                             |
+| **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                 |
+| **E18 · E19**              | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio** |
 
 **Cómo comprobarlo en una sesión nueva**, sin depender de esta tabla:
 
@@ -38,16 +39,9 @@ git log --oneline main..HEAD
 git status --porcelain -uall
 ```
 
-Se esperan **dos commits propios** en la rama —`test: add E18 participant claim
-probes` y `docs: record phase 3C participant identity`— y un árbol limpio. Si
-`main` ya los contiene, la PR se mergeó y **procede sincronizar `main` y abrir
-D11**.
-
-> **Snapshot del cambio de sesión previo a la consolidación de D10**, conservado
-> solo como registro histórico y **no** como estado vigente: en ese momento la
-> rama tenía **cero commits propios**, con **5 ficheros modificados y 7 nuevos**
-> —ADR-012 y los seis de `supabase/e18/`— pendientes de commitear. Eso ya
-> ocurrió.
+Se esperan **dos commits propios** en la rama —uno con `supabase/e19/` y otro con
+ADR-013 y la documentación— y un árbol limpio. Si `main` ya los contiene, la PR
+se mergeó y **procede sincronizar `main` y abrir E20**.
 
 **Historial de la fase en `main`**, útil para reconstruir el orden:
 
@@ -58,6 +52,7 @@ D11**.
 | `f80ccf8` | 3.C.4 — D6 · E14              |
 | `dd3fb96` | 3.C.5 — D7/D8 · E15/E16       |
 | `d0b6d95` | 3.C.6 — D9 · E17              |
+| `bc2b8d7` | 3.C.7 — D10 · E18             |
 
 ---
 
@@ -74,18 +69,18 @@ D11**.
 | **3.C.5** | D7 escritura autoritativa · D8 idempotencia | E15 · E16 |
 | **3.C.6** | D9 modelo de operaciones y versiones        | E17       |
 | **3.C.7** | D10 identidad de participantes              | E18       |
+| **3.C.8** | D11 persistido frente a derivado            | E19       |
 
-**Siguiente: 3.C.8 — D11, persistido frente a derivado. NO empezado.**
-
-Después vendrán los **transversales y la finalización de 3.C** que marca el
-roadmap existente. **No hay fases nuevas**; consultar
-[`product/roadmap.md`](../product/roadmap.md).
+**Siguiente: E20** —única incertidumbre pendiente: el `WITH CHECK` del writer
+durante la secuencia autoritativa—, y después los **transversales y la
+finalización de 3.C** que marca el roadmap existente. **No hay fases nuevas**;
+consultar [`product/roadmap.md`](../product/roadmap.md).
 
 ---
 
 ## 3 · ADR aceptados
 
-Los doce están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
+Los trece están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
 
 | ADR                                                   | Decisión principal                                                                                                               |
 | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -100,6 +95,7 @@ Los doce están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
 | [010](../adr/ADR-010-client-operation-idempotency.md) | UUID generado y persistido por el cliente, unicidad por actor transversal a clases, comparación solo en servidor                 |
 | [011](../adr/ADR-011-operation-version-model.md)      | Operación estable, versiones inmutables, efectos por versión y `client_command` como unidad física de idempotencia               |
 | [012](../adr/ADR-012-participant-identity.md)         | Participante contextual por ámbito, vínculo con la cuenta en relación separada, y periodos de presencia                          |
+| [013](../adr/ADR-013-persisted-vs-derived.md)         | Solo los hechos se persisten; saldos y deudas se derivan; el reparto es contextual y hay una proyección canónica de vigentes     |
 
 ---
 
@@ -109,16 +105,17 @@ Los doce están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
 nunca deben convertirse en migración.** Cada una tiene su `README.md` con el
 procedimiento y su teardown.
 
-|                                     | Qué demuestra                                                                                                                                                                                                                                                                    |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [E11](../../supabase/e11/README.md) | PostgreSQL y PostgREST conservan `BIGINT` y `NUMERIC` exactos; **la degradación la produce `JSON.parse`**. Lo determinante es el cast a texto, no el camino de acceso                                                                                                            |
-| [E12](../../supabase/e12/README.md) | Las tablas nuevas de `public` nacen con `TRUNCATE`, `REFERENCES`, `TRIGGER` y `MAINTAIN` para los roles cliente, por default privileges de Supabase; son **ejecutables**; `MAINTAIN` es invisible para `information_schema`; y `PUBLIC` tiene `EXECUTE` sobre toda función nueva |
-| [E13](../../supabase/e13/README.md) | Una vista `security_invoker` **sí aplica la RLS**; una ejecutada como propietario **no**; el helper funciona con `EXECUTE` sin `USAGE`; y los grants SQL **no abren ruta HTTP** mientras el schema quede fuera de las superficies expuestas **y** de los search paths            |
-| [E14](../../supabase/e14/README.md) | PostgREST **coacciona un número JSON a un parámetro `text`**, así que ese tipo no conserva el tipo JSON original; con `jsonb`, `jsonb_typeof` **sí lo distingue**. La degradación ocurre **dentro del cliente**                                                                  |
-| [E15](../../supabase/e15/README.md) | `RAISE sqlstate 'PGRST'` transporta código propio y estado HTTP sin usar el mensaje humano; `ON CONFLICT` y la captura de `unique_violation` son **ambos** correctos; y **sin serializar, dos liquidaciones concurrentes producen sobrepago**                                    |
-| [E16](../../supabase/e16/README.md) | Un `SECURITY DEFINER` cuyo owner **no** es propietario de la tabla y **no** tiene `BYPASSRLS` **sigue sometido a RLS**, y una política `WITH CHECK` detuvo una escritura indebida. `auth.uid()` no es invocable por ese writer                                                   |
-| [E17](../../supabase/e17/README.md) | El ciclo operación/versión con FK compuesta diferible deja invariante **fuerte al commit**; las seis constraints de linaje funcionan; el comando se reclama antes de su resultado y revierte con él; sin `TO` y `TO PUBLIC` son indistinguibles en catálogo                      |
-| [E18](../../supabase/e18/README.md) | Las tres cardinalidades del vínculo participante ↔ usuario son estructurales; los periodos soportan entrar, salir y volver con una identidad; y la exclusión de solapes **exige `btree_gist`**                                                                                   |
+|                                     | Qué demuestra                                                                                                                                                                                                                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [E11](../../supabase/e11/README.md) | PostgreSQL y PostgREST conservan `BIGINT` y `NUMERIC` exactos; **la degradación la produce `JSON.parse`**. Lo determinante es el cast a texto, no el camino de acceso                                                                                                               |
+| [E12](../../supabase/e12/README.md) | Las tablas nuevas de `public` nacen con `TRUNCATE`, `REFERENCES`, `TRIGGER` y `MAINTAIN` para los roles cliente, por default privileges de Supabase; son **ejecutables**; `MAINTAIN` es invisible para `information_schema`; y `PUBLIC` tiene `EXECUTE` sobre toda función nueva    |
+| [E13](../../supabase/e13/README.md) | Una vista `security_invoker` **sí aplica la RLS**; una ejecutada como propietario **no**; el helper funciona con `EXECUTE` sin `USAGE`; y los grants SQL **no abren ruta HTTP** mientras el schema quede fuera de las superficies expuestas **y** de los search paths               |
+| [E14](../../supabase/e14/README.md) | PostgREST **coacciona un número JSON a un parámetro `text`**, así que ese tipo no conserva el tipo JSON original; con `jsonb`, `jsonb_typeof` **sí lo distingue**. La degradación ocurre **dentro del cliente**                                                                     |
+| [E15](../../supabase/e15/README.md) | `RAISE sqlstate 'PGRST'` transporta código propio y estado HTTP sin usar el mensaje humano; `ON CONFLICT` y la captura de `unique_violation` son **ambos** correctos; y **sin serializar, dos liquidaciones concurrentes producen sobrepago**                                       |
+| [E16](../../supabase/e16/README.md) | Un `SECURITY DEFINER` cuyo owner **no** es propietario de la tabla y **no** tiene `BYPASSRLS` **sigue sometido a RLS**, y una política `WITH CHECK` detuvo una escritura indebida. `auth.uid()` no es invocable por ese writer                                                      |
+| [E17](../../supabase/e17/README.md) | El ciclo operación/versión con FK compuesta diferible deja invariante **fuerte al commit**; las seis constraints de linaje funcionan; el comando se reclama antes de su resultado y revierte con él; sin `TO` y `TO PUBLIC` son indistinguibles en catálogo                         |
+| [E18](../../supabase/e18/README.md) | Las tres cardinalidades del vínculo participante ↔ usuario son estructurales; los periodos soportan entrar, salir y volver con una identidad; y la exclusión de solapes **exige `btree_gist`**                                                                                      |
+| [E19](../../supabase/e19/README.md) | La RLS **sobrevive a dos vistas `security_invoker` encadenadas**, y **decide el eslabón más cercano a las tablas**; `pg_depend` registra dependencias **directas, no transitivas**, así que la guarda es estructural para vistas; un cuerpo `BEGIN ATOMIC` **sí** deja dependencias |
 
 ---
 
@@ -170,6 +167,47 @@ unicidad **`(created_by, client_operation_id)` transversal a todas las clases** 
 **comparación exclusivamente en el servidor** · **el cliente no calcula hash** ·
 misma clave con misma clase e intención → **replay** · con clase o intención
 distinta → **conflicto** · replay mínimo tras pérdida posterior de autorización.
+
+### Persistido frente a derivado (ADR-013)
+
+**Se persiste** un hecho cuando el usuario lo declaró **o** cuando recomputarlo
+podría dar otro resultado. **Todo lo demás se deriva**, y **no hay caché
+económica en v1**.
+
+Derivados **sin excepción**: saldo · deuda · estadísticas · totales ·
+`Disponible actual` · `Disponible tras saldar`.
+
+**`operation`** — identidad · clase · atribución inicial · instante ·
+`current_version_id`. **Sin ámbito, sin importe, sin `client_operation_id`.**
+
+**`operation_version`** — `version_no` · `supersedes_version_id` · atribución e
+instante de la versión · fecha efectiva · **exactamente un importe original** y
+su definición monetaria · versión de reglas económicas. **Sin clase** —la hereda—
+**sin ámbito, sin método de reparto y sin pagador.**
+
+**Reparto contextual** — cabecera por `(versión, ámbito)` con ámbito, método y
+pagador; filas de participante con ordinal, intención declarada y **resultado
+resuelto, ceros incluidos**. La moneda del resultado la determina el ámbito y
+**no se duplica**.
+
+**Conversiones** — una por ámbito alcanzado que la requiera, congelada **por
+valor**: definiciones origen y destino, coeficiente, escala, **fecha para la que
+se resolvió** y procedencia opcional **no autoritativa**.
+
+**`effect`** — cabecera con ámbito, clase, definición monetaria y versión, más
+**tres dimensiones independientes**: saldo, económica —con participante
+**legítimamente nulo**— y deuda —importe, deudor y acreedor, todos o ninguno—.
+**Una sola columna de importe no representa un efecto**: una misma fila puede
+llevar dimensiones con signos distintos.
+
+**Vigencia** — `current_version_id` es **estado autoritativo**. Que coincida con
+la versión de mayor número es **invariante de integridad**, no una segunda
+definición.
+
+**Reglas económicas** — cada versión registra su contrato de derivación. **No
+implica** poder reejecutar reglas antiguas. Una corrección usa las **vigentes al
+crearla**, conservando la intención no corregida, y **debe poder
+previsualizarse**.
 
 ---
 
@@ -290,19 +328,64 @@ la retira.
 - E17 midió que **sin `TO` y `TO PUBLIC` son indistinguibles** en catálogo, y
   que PostgreSQL **colapsa `TO public, authenticated` a `PUBLIC`** con un aviso.
 
+### Predicados de `operation` y `operation_version` (ADR-013 §10)
+
+**Lectura del cliente:** el efecto por **membresía del ámbito** con el helper;
+la **versión** si existe **al menos un efecto visible de esa versión**; la
+**operación** si existe uno de **alguna de sus versiones**. No recursa: el helper
+`SECURITY DEFINER` rompe la cadena y los efectos no referencian la operación. **La
+visibilidad del historial sale de los efectos históricos**, no solo de los
+vigentes.
+
+**Escritura: solo el writer.** Los roles cliente quedan sin grants y **sin
+políticas** de escritura. Las políticas del writer van **dirigidas a ese rol**, y
+por eso no amplían al cliente.
+
+> **La separación por comando y por rol no es una comodidad.** Un predicado
+> derivado de efectos es **insatisfacible** al insertar la operación y la
+> versión —todavía no hay efectos— y **las políticas RLS no son diferibles**:
+> el recurso de la FK diferida no tiene equivalente. Además, E16 midió que
+> **`auth.uid()` no es invocable por el writer**.
+
+**Pendiente en E20:** el `WITH CHECK` del writer sobre los efectos. Lo único
+fijado es que **no puede ser el aislamiento por ámbito**, porque ADR-002 §10
+permite efectos sobre el ámbito de otro.
+
+---
+
+## 10 bis · Serialización de la deuda (ADR-013 §11)
+
+> **Toda escritura autoritativa que pueda crear, modificar o consumir deuda
+> vigente de un ámbito participa en el mismo protocolo sobre ese ámbito.** Se
+> decide por **qué efectos produce**, no por la clase.
+
+Determinar los ámbitos → **bloquear** sus filas estables → **en orden
+determinista** si son varios → **leer la deuda después** → validar → insertar →
+mover el puntero → commit.
+
+Entran: crear un gasto que genera deuda · **corregir alterando deuda** ·
+**eliminarla mediante una versión nueva** · liquidar parcial o totalmente ·
+liquidar mediante transferencia. **No entra** lo que no toca deuda.
+
+**Una serialización parcial no serializa nada:** si solo la liquidación bloquea,
+una corrección concurrente produce el mismo sobrepago que E15 midió sin locks.
+El advisory lock por par queda como **escalada futura**, no como diseño de v1.
+
 ---
 
 ## 11 · Deliberadamente ABIERTO
 
 **No tratar nada de esto como decidido.**
 
-### D11 — no empezado
+### E20 — no empezado
 
-Debe resolver, entre otras cosas: qué datos se **persisten frente a derivan** ·
-la **forma física de los datos autoritativos** de `operation_version` · la
-**proyección canónica de efectos económicamente vigentes** · cómo resolver
-**«qué efectos son míos»** mediante participante ↔ usuario · si la **deuda** se
-deriva o se materializa · y el **lock definitivo de la deuda**.
+Única incertidumbre técnica pendiente de 3.C. Debe precisar el **`WITH CHECK`
+del writer** durante la secuencia autoritativa —`INSERT` de operación, versión y
+efectos, más el `SELECT … FOR UPDATE` y el movimiento del puntero—, y en
+particular **si el predicado de los efectos puede comprobar algo sobre la
+versión insertada en el paso anterior** o el único satisfacible es trivialmente
+cierto. Cabe medir de paso si `INSERT … RETURNING` activa además la política de
+`SELECT`. **Va antes de las migraciones, no antes del ADR.**
 
 ### Producto y fases posteriores
 
@@ -327,48 +410,71 @@ Pareja · Open Banking · recurrencias.
 4. **Claim ≠ membresía.** Vincular no concede acceso.
 5. **Periodo de participante ≠ membresía de usuario.** Son datos distintos.
 6. **No olvidar el filtro de versión vigente.** Es el fallo silencioso más
-   probable del modelo; **D11 debe aportar una proyección canónica**.
-7. **La deuda pendiente debe serializarse atómicamente.** El mecanismo sigue
-   abierto y depende de D11.
-8. **No usar políticas `PUBLIC` en `core`.**
-9. **No asumir que `btree_gist` existe en producción sin preflight.**
-10. **[`phase-3c-design.md`](phase-3c-design.md) es NO NORMATIVO**, incluso para
+   probable del modelo. **Nunca se reimplementa a mano**: se consulta la
+   proyección canónica de ADR-013 §9, y la guarda de catálogo detecta a quien la
+   evita.
+7. **La deuda pendiente debe serializarse atómicamente**, y el protocolo de
+   ADR-013 §11 **alcanza a toda escritura que pueda alterar deuda vigente**, no
+   solo a la liquidación. Una serialización parcial no serializa nada.
+8. **La proyección canónica es un límite de privilegio.** Si se crea sin
+   `security_invoker`, el camino de lectura pierde la RLS **y sigue devolviendo
+   cifras creíbles** (E19).
+9. **Nunca poner ámbito en `operation` ni en `operation_version`.** Una
+   operación alcanza varios y no hay uno único por clase.
+10. **El método de reparto y el pagador no viven en la versión**: una política
+    RLS decide filas y **no puede ocultar columnas**.
+11. **No usar políticas `PUBLIC` en `core`.**
+12. **No asumir que `btree_gist` existe en producción sin preflight.**
+13. **[`phase-3c-design.md`](phase-3c-design.md) es NO NORMATIVO**, incluso para
     lo ya aprobado. **Los ADR prevalecen.**
 
 ---
 
-## 13 · Qué entregó D10
+## 13 · Qué entregó D11
 
-|                      |                                                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------------------ |
-| **ADR-012**          | `Aceptado` — identidad de participantes y vínculo con la cuenta                                  |
-| **`supabase/e18/`**  | **6 ficheros** de evidencia reproducible, fuera de `migrations/`                                 |
-| **Documentación**    | `docs/README.md` · `docs/adr/README.md` · `data-model.md` · los dos de `architecture/phase-3c-*` |
-| **`npm test`**       | 110/110                                                                                          |
-| **`npm run verify`** | Verde                                                                                            |
-| **Teardown de E18**  | Limpio: 0 relaciones residuales                                                                  |
-| **`btree_gist`**     | **No queda instalada** tras el sondeo                                                            |
+|                      |                                                                                               |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| **ADR-013**          | `Aceptado` — persistido frente a derivado, reparto contextual y proyección canónica           |
+| **`supabase/e19/`**  | **9 ficheros** de evidencia reproducible, fuera de `migrations/`                              |
+| **Documentación**    | `AGENTS.md` · `docs/README.md` · `docs/adr/README.md` · `data-model.md` · los dos de fase 3.C |
+| **`npm test`**       | 110/110                                                                                       |
+| **`npm run verify`** | Verde                                                                                         |
+| **Teardown de E19**  | Limpio: 0 relaciones, 0 schemas, 0 funciones, 0 grants residuales                             |
 
-Todo ello **consolidado en `chore/phase-3c-d10`** en dos commits separados,
-siguiendo la convención de los bloques anteriores: la evidencia por un lado
-(`test:`) y la decisión más su documentación por otro (`docs:`).
+**Lo que decidió, en una línea cada cosa.** Solo los hechos se persisten y no hay
+caché económica en v1 · `operation` y `operation_version` **sin ámbito** · la
+clase vive solo en `operation` y **es conocible por quien ve un efecto**, sin que
+eso conceda nada más · **el método de reparto y el pagador salen de la versión** a
+una cabecera de reparto por `(versión, ámbito)` · un importe original y 0..n
+conversiones congeladas **por valor** · versión de reglas económicas como
+metadata · proyección canónica `security_invoker` con guarda de catálogo · RLS
+separada **por comando y por rol** · protocolo común de serialización de la
+deuda.
+
+**Decisiones humanas que lo desbloquearon:** la clase de operación es conocible
+desde cualquier efecto visible **sin imponer restricciones a clases futuras**
+(Q1), y el reparto final del Modo Pareja **reutiliza `exact_amounts`** sin dejar
+de ser conceptualmente un cierre de saldo (Q2).
 
 ---
 
 ## 14 · Próximo paso exacto
 
-**No empezar D11 hasta que D10 esté en `main`.** En orden:
+**No empezar los transversales hasta que D11 esté en `main`.** En orden:
 
-1. **comprobar que ADR-012 y `supabase/e18/` están consolidados** en la rama —
-   `git log --oneline main..HEAD` debe mostrar los dos commits de D10 y
-   `git status` un árbol limpio;
-2. si aún no ocurrió: **push** de `chore/phase-3c-d10`, **PR de D10** y
-   **esperar revisión y merge**. **Nunca merge sin petición explícita**;
+1. **comprobar que ADR-013 y `supabase/e19/` están consolidados** en la rama —
+   `git log --oneline main..HEAD` debe mostrar los dos commits y `git status` un
+   árbol limpio;
+2. si aún no ocurrió: **push** de `chore/phase-3c-d11`, **PR** y **esperar
+   revisión y merge**. **Nunca merge sin petición explícita**;
 3. **sincronizar `main`** una vez mergeada;
-4. **solo entonces abrir D11** — persistido frente a derivado.
+4. **E20**, que es lo único técnico pendiente antes de poder escribir
+   migraciones: el `WITH CHECK` del writer durante la secuencia autoritativa;
+5. después, **transversales y síntesis** de 3.C.
 
-Antes de implementar D11 hay una deuda concreta ya identificada:
-`tests/vectors/scenarios.json` **no tiene ningún caso de corrección** (§15).
+Antes de implementar hay una deuda concreta ya identificada:
+`tests/vectors/scenarios.json` **no tiene ningún caso de corrección** (§15), y
+añadirlos exige **extender el formato**, que hoy no tiene noción de versión.
 
 Los mensajes de commit de esta fase explican el **porqué**, no solo el qué.
 Conviene mantener ese estilo, con la explicación larga en el ADR, en el README
