@@ -92,6 +92,7 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [009](ADR-009-authoritative-write-boundary.md) | Frontera autoritativa de escritura           | Aceptado  |
 | [010](ADR-010-client-operation-idempotency.md) | Idempotencia de operaciones cliente          | Aceptado  |
 | [011](ADR-011-operation-version-model.md)      | Operaciones, versiones y comandos cliente    | Aceptado  |
+| [012](ADR-012-participant-identity.md)         | Identidad de participantes sin cuenta        | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
@@ -105,7 +106,9 @@ Lista de **temas**, no de números: se numerarán al redactarse, en el orden en
 que ocurra. Ninguno está reservado ni prejuzgado.
 
 - **Participantes sin cuenta: invitación, reclamación y fusión** — la de mayor
-  riesgo de seguridad.
+  riesgo de seguridad. **La identidad y el vínculo** los cerró
+  [ADR-012](ADR-012-participant-identity.md); siguen abiertos el **mecanismo de
+  prueba**, la **revocación** y la **fusión**, todos delegados a F10.
 - **Cola offline para la entrada rápida.** La idempotencia del **origen
   cliente** la cerró [ADR-010](ADR-010-client-operation-idempotency.md); siguen
   abiertas la cola en sí y la idempotencia de **recurrencias, importaciones

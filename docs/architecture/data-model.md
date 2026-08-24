@@ -788,11 +788,20 @@ cliente** —identidad estable, versiones inmutables, efectos por versión,
 `client_command` separado y restricciones de linaje—, en
 [ADR-011](../adr/ADR-011-operation-version-model.md).
 
+**Resuelto también:** la **identidad de los participantes sin cuenta** y su
+vínculo con una cuenta —participante contextual por ámbito, efectos que
+referencian siempre al participante, periodos de presencia y reclamación que no
+altera la contabilidad—, en
+[ADR-012](../adr/ADR-012-participant-identity.md).
+
 **Pendiente en otros ADR:** la **forma física de los datos autoritativos de cada
 versión**, el inventario **persistido frente a derivado**, la **proyección
 canónica de efectos vigentes** y el **mecanismo de lock de la deuda**, todo ello
-delegado por ADR-011 · la **referencia a participantes sin cuenta** ·
-idempotencia de **recurrencias, importaciones bancarias y backend** · **origen,
+delegado por ADR-011 · el **mecanismo de prueba del claim**, la **revocación** y
+la **fusión de participantes**, delegados por ADR-012 a F10 · el **acceso
+residual** de quien sale de un ámbito con saldo pendiente, que sigue sin
+representación física · idempotencia de **recurrencias, importaciones bancarias
+y backend** · **origen,
 frecuencia y regla de selección de los tipos de cambio**, que ADR-003 dejó fuera
 de alcance y ADR-009 §8 subraya que **no está decidida** · la **anulación** como
 concepto distinto de la corrección · conciliación entre un movimiento importado

@@ -295,10 +295,10 @@ Entidades en términos de dominio. **Los nombres son propuestas, no decisiones.*
  ─────────                        ─────────────────
  id                    ◄────────── operation_id
  created_by                        version_no        (1, 2, 3…)
- client_operation_id   (D8)        supersedes_version_id
- intent_fingerprint    (D8)        kind              (personalExpense, groupExpense…)
- current_version_id ──────────►    intent            JSONB: método, pesos, orden de desempate
- created_at                        original_amount_minor  BIGINT
+ operation_class                   supersedes_version_id
+ current_version_id ──────────►    kind              (personalExpense, groupExpense…)
+ created_at                        intent            JSONB: método, pesos, orden de desempate
+                                   original_amount_minor  BIGINT
                                    original_currency ──► currency_definition
                                    effective_date
                                    created_by · created_at
@@ -316,7 +316,21 @@ Entidades en términos de dominio. **Los nombres son propuestas, no decisiones.*
                                      economic_participant_id ─────┤ separadas de ADR-002 §1
                                      debt_debtor_id / debt_creditor_id ─┘
                                      applied_rate_coefficient / applied_rate_scale
+
+ client_command                     ← ADR-011 §5: la idempotencia vive aquí,
+ ──────────────                       no en `operation`
+ created_by · client_operation_id     UNIQUE juntos, transversal a clases
+ command_type · command_contract_version
+ canonical_intent                     JSONB canonicalizado por el servidor
+ result_operation_id ─────────────► operation
+ result_version_id   ─────────────► operation_version
+ created_at
 ```
+
+> **Corregido tras ADR-011.** Una versión anterior de este diagrama mostraba
+> `client_operation_id` e `intent_fingerprint` **dentro de `operation`**. Ambos
+> se retiran: la unidad de idempotencia es el **comando**, no la operación
+> —ADR-011 §5—, y **v1 no usa hash** —ADR-011 §10—.
 
 **Cómo leer el efecto.** No hay un discriminante: `affects_balance`,
 `economic_participant_id` y el par deudor/acreedor son **dimensiones
@@ -2119,6 +2133,35 @@ Condiciona **D7** y toda la superficie de lectura.
 
 ### D10 · Participantes con y sin usuario
 
+> ## ✅ APROBADA — participante contextual, vínculo separado, periodos
+>
+> ### → Normativa en [ADR-012](../adr/ADR-012-participant-identity.md), `Aceptado`
+>
+> **La fuente normativa es el ADR, no esta sección**, que se conserva como el
+> análisis que lo precedió. Aprobada en la revisión de **3.C.7**, con **tres
+> añadidos y una corrección**:
+>
+> 1. **El participante es contextual por ámbito, y el argumento es de
+>    privacidad.** Esta sección lo daba por supuesto —solo aparecía en el
+>    diagrama— sin compararlo con la alternativa global. ADR-012 §1 lo
+>    argumenta: un participante global obligaría a correlacionar precisamente
+>    los datos que no deben correlacionarse.
+> 2. **Corrección medida:** el índice `UNIQUE (user_id, participant_id)` que
+>    proponía esta sección **no imponía el invariante que su comentario
+>    declaraba** — como `participant_id` ya es clave, no añadía restricción, y
+>    no mencionaba el ámbito. Se sustituye por **clave primaria sobre
+>    `participant_id`** más **`UNIQUE (scope_id, user_id)`** más **FK
+>    compuesta**, las tres verificadas en E18.
+> 3. **Periodos de presencia** en una relación aparte, con exclusión declarativa
+>    de solapes vía **`btree_gist`**, que pasa a ser **dependencia explícita del
+>    esquema** con preflight obligatorio.
+> 4. **El claim establece identidad, no acceso**: no concede membresía ni
+>    autorización por sí solo.
+>
+> `proof_kind` y `proof_ref` **no quedan como columnas normativas**: F10 no ha
+> definido qué es la prueba. Lo que sí se fija es el **instante del vínculo** y
+> el requisito de trazabilidad antes de habilitar claims reales.
+
 **Lo que 3.C debe hacer:** admitir participantes sin cuenta **desde el
 principio** y **no cerrar la puerta** a la reclamación.
 **Lo que 3.C no debe hacer:** invitación, reclamación, prueba de autorización ni
@@ -2271,15 +2314,24 @@ dedica. Aquí solo la ficha de decisión.
 Documento **acumulativo**. Se escribe por bloques y cada bloque se persiste
 antes de abrir el siguiente.
 
-| Bloque    | Contenido                                                                                      | Estado                                                      |
-| --------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| **3.C.1** | D4 — privilegios observados en E11                                                             | **CERRADO.** Medido con E12, auditado dos veces             |
-| **3.C.2** | D1 identidad monetaria · D2 schemas y Data API                                                 | **CERRADO.** Ambas **aprobadas**, D2 con recorte de alcance |
-| **3.C.3** | D3 estrategia de `GRANT` · D5 membresía y RLS                                                  | **CERRADO.** Ambas **aprobadas**; evidencia en E13          |
-| **3.C.4** | D6 frontera textual · D7 escritura · D8 idempotencia                                           | **CERRADO.** D6, D7 y D8 **aprobadas**                      |
-| **3.C.5** | D9 versionado · D10 participantes · D11 persistido                                             | **D9 APROBADA**; D10 y D11 pendientes                       |
-| **3.C.6** | Transversales: vectores · Auth técnico · tests de aislamiento · orden de migraciones · runbook | **Pendiente**                                               |
-| **3.C.7** | Síntesis: dependencias, orden, aprobadas, abiertas, cierre                                     | **Pendiente**                                               |
+| Bloque     | Contenido                                                                                      | Estado                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **3.C.1**  | D4 — privilegios observados en E11                                                             | **CERRADO.** Medido con E12, auditado dos veces             |
+| **3.C.2**  | D1 identidad monetaria · D2 schemas y Data API                                                 | **CERRADO.** Ambas **aprobadas**, D2 con recorte de alcance |
+| **3.C.3**  | D3 estrategia de `GRANT` · D5 membresía y RLS                                                  | **CERRADO.** Ambas **aprobadas**; evidencia en E13          |
+| **3.C.4**  | D6 frontera textual                                                                            | **CERRADO.** **Aprobada**; evidencia en E14                 |
+| **3.C.5**  | D7 escritura autoritativa · D8 idempotencia                                                    | **CERRADO.** Ambas **aprobadas**; evidencia en E15 y E16    |
+| **3.C.6**  | D9 versionado                                                                                  | **CERRADO.** **Aprobada**; evidencia en E17                 |
+| **3.C.7**  | D10 participantes                                                                              | **CERRADO.** **Aprobada**; evidencia en E18                 |
+| **3.C.8**  | D11 persistido frente a derivado                                                               | **Pendiente. No empezado**                                  |
+| **3.C.9**  | Transversales: vectores · Auth técnico · tests de aislamiento · orden de migraciones · runbook | **Pendiente**                                               |
+| **3.C.10** | Síntesis: dependencias, orden, aprobadas, abiertas, cierre                                     | **Pendiente**                                               |
+
+> **Esta numeración por bloques es una convención interna de trabajo, sin valor
+> normativo.** [`product/roadmap.md`](../product/roadmap.md) **no subdivide
+> 3.C**; agrupa su contenido como una sola fase. Los bloques solo ordenan el
+> avance de este documento y del
+> [handoff](phase-3c-handoff.md), y renumerarlos no decide nada.
 
 ### Decisiones aprobadas hasta ahora
 
@@ -2294,13 +2346,17 @@ antes de abrir el siguiente.
 | **D7**   | **Aprobada:** funciones por clase, payload `jsonb`, writer dedicado bajo RLS                 | [ADR-009](../adr/ADR-009-authoritative-write-boundary.md), `Aceptado` |
 | **D8**   | **Aprobada:** UUID de cliente, comparación solo en servidor, envelope mínimo                 | [ADR-010](../adr/ADR-010-client-operation-idempotency.md), `Aceptado` |
 | **D9**   | **Aprobada:** operación estable, versiones inmutables, `client_command` separado             | [ADR-011](../adr/ADR-011-operation-version-model.md), `Aceptado`      |
+| **D10**  | **Aprobada:** participante contextual, vínculo separado, periodos de presencia               | [ADR-012](../adr/ADR-012-participant-identity.md), `Aceptado`         |
 
 ### Abierto de forma expresa
 
 - **`public` dentro o fuera de `api.schemas`.** Pendiente de medición y decisión
   posterior; separable, y ADR-006 lo deja fuera de alcance a propósito.
-- **Referencia a participantes sin cuenta** — **D10**. No altera el modelo de
-  operación, versión y comando que fija ADR-011.
+- **El acceso residual** de quien sale de un ámbito con saldo pendiente
+  —`data-model.md` §6—, que **sigue sin representación física**. ADR-012 §12 lo
+  deja abierto expresamente.
+- **El mecanismo de prueba del claim, la revocación y la fusión** de
+  participantes, delegados por ADR-012 a **F10**.
 - **Persistido frente a derivado** — **D11**. ADR-011 le delega expresamente:
   la **forma física de los datos autoritativos de cada versión** · la
   **proyección canónica de efectos económicamente vigentes**, sin la cual cada
