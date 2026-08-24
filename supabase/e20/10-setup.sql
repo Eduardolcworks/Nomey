@@ -140,6 +140,10 @@ create policy p_ov_writer_ins on e20_core.operation_version
   for insert to e20_writer
   with check (created_by = e20_sec.request_actor_id());
 
+-- OJO: tambien es LINEA BASE MEDIDA, no la politica decidida. 70-cross-author.sql
+-- mide que restringir esta lectura por atribucion impide corregir la version de
+-- otro actor, y que el fallo es NULL en vez de error. ADR-013 §10 decidio una
+-- lectura amplia para el writer. Se conserva porque es lo que midieron B5 y F1.
 create policy p_ov_writer_sel on e20_core.operation_version
   for select to e20_writer
   using (created_by = e20_sec.request_actor_id());

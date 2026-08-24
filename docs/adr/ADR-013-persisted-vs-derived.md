@@ -501,7 +501,7 @@ antes de escribir migraciones. **E20 se ejecutó** contra el stack local
 | `operation`         | `SELECT` | **no deriva de la autoría original** (ver abajo)                            |
 | `operation`         | `UPDATE` | **no deriva de la autoría original**; el `WITH CHECK` omitido es el `USING` |
 | `operation_version` | `INSERT` | la atribución **de esa versión** coincide con el actor                      |
-| `operation_version` | `SELECT` | por atribución de la versión                                                |
+| `operation_version` | `SELECT` | **no deriva de la atribución de la versión** (ver abajo)                    |
 | `effect`            | `INSERT` | **existe una versión, referida por el efecto, atribuida al actor**          |
 
 **El predicado de los efectos es satisfacible durante la secuencia.** E20 midió
@@ -528,6 +528,27 @@ versión nueva puede crearla cualquier actor al que la autorización funcional d
 versión conserva su propia atribución**: si A crea V1 y B la corrige, V1 sigue
 atribuida a A y V2 queda atribuida a B.
 
+**La lectura de las versiones tampoco puede derivar de su atribución.** Construir
+V2 **exige leer V1**: el siguiente `version_no` se calcula (ADR-011 §12), el FX
+congelado **se hereda** (§6), la intención declarada no corregida **se conserva**
+(§7) y el reparto anterior cuelga de `(versión, ámbito)` (§5). Con la lectura
+restringida por atribución, la V1 de A es **invisible** para B, y E20 midió que
+el fallo **no es un error**: la agregación devuelve `NULL`, de modo que la
+frontera concluiría que no hay predecesor. Por tanto:
+
+> **La política de `SELECT` del writer sobre las versiones debe alcanzar las
+> versiones que la frontera necesite leer para corregir**, incluidas las de otro
+> actor. Conocer el puntero **no sustituye** esa lectura: E20 midió que el
+> identificador de la versión vigente es legible desde la operación mientras la
+> **fila** de esa versión permanece oculta, así que `supersedes_version_id` se
+> satisface pero ningún dato heredable.
+
+**Ampliar esa lectura no afloja la escritura**, y ese es el motivo de que los dos
+mecanismos estén separados: con la política de lectura amplia, E20 midió que el
+`WITH CHECK` de los efectos **sigue rechazando** que B cuelgue efectos de la V1
+de A, y que el `WITH CHECK` de las versiones **sigue impidiendo** que B cree una
+versión atribuida a A.
+
 **Dos precisiones más, medidas en E20**, que no cambian ninguna decisión pero
 condicionan la migración:
 
@@ -536,7 +557,8 @@ condicionan la migración:
 - **Las políticas de `SELECT` del writer son portantes de la escritura**: la
   subconsulta del `WITH CHECK` de los efectos atraviesa los grants y la RLS del
   rol que escribe, de modo que retirar la política de lectura de las versiones
-  no afloja la escritura — la rompe.
+  no afloja la escritura — la rompe. Es la otra cara de lo anterior: esa política
+  **no puede ser ni demasiado estrecha ni una formalidad**.
 
 ### 11. Serialización de la deuda
 

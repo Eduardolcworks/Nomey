@@ -66,12 +66,14 @@ reales.
 | `40-returning-lock-columns.sql` | **C** · `INSERT … RETURNING`, `SELECT … FOR UPDATE` y columnas frente a filas |
 | `50-helper.sql`                 | **D** · el helper del actor dentro de las políticas del writer                |
 | `60-attribution.sql`            | **E** · el predicado de `operation` sin decidir quién puede corregir          |
+| `70-cross-author.sql`           | **F** · la lectura de la versión anterior en una corrección por otro actor    |
 | `99-teardown.sql`               | Retirada y recuento de residuos                                               |
 
 ## Cómo reproducirlo
 
 Requiere Docker y el stack local (`npx supabase start`). El orden importa:
-`30-`, `40-`, `50-` y `60-` usan la operación que crea `20-`.
+`30-`, `40-`, `50-` y `60-` usan la operación que crea `20-`; `70-` siembra la
+suya.
 
 ```bash
 docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/e20/10-setup.sql
@@ -95,6 +97,10 @@ docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q < supabase/e
 
 ```bash
 docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q < supabase/e20/60-attribution.sql
+```
+
+```bash
+docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q < supabase/e20/70-cross-author.sql
 ```
 
 ```bash
@@ -266,6 +272,47 @@ lo mueve**—.
 E4 importa: aflojar `operation` **no afloja `effect`**. Los dos predicados no
 están acoplados.
 
+### F · La lectura de la versión anterior en una corrección por otro actor
+
+La decisión de producto dice que Beto, funcionalmente autorizado, puede corregir
+la V1 que creó Ana. **Pero construir V2 exige leer V1**, y las fuentes lo piden
+explícitamente, no por conveniencia:
+
+| Dato de V2                       | Por qué exige leer V1                              |
+| -------------------------------- | -------------------------------------------------- |
+| `version_no`                     | La frontera **calcula el siguiente** (ADR-011 §12) |
+| FX congelado heredado            | La corrección **hereda** el de V1 (ADR-013 §6)     |
+| Intención declarada no corregida | **Se conserva** la no corregida (ADR-013 §7)       |
+| Reparto anterior                 | Cuelga de `(versión, ámbito)` (ADR-013 §5)         |
+
+`supersedes_version_id` es la excepción: sale del puntero, que vive en la
+operación.
+
+| Caso    | Situación                                                          | Resultado                        |
+| ------- | ------------------------------------------------------------------ | -------------------------------- |
+| **F1a** | Beto lee la V1 de Ana con `USING (created_by = actor)`             | **0 filas**                      |
+| **F1b** | El `version_no` siguiente que calcularía la frontera               | **`NULL`, y ningún error**       |
+| **F2**  | El **identificador** de la versión vigente, desde la operación     | **1 fila** — legible             |
+| **F3a** | La misma lectura con la política de versiones ampliada al writer   | **1 fila**, `version_no = 1`     |
+| **F4**  | Beto crea V2 atribuida a **él**                                    | **ACEPTADO**                     |
+| **F5**  | Con esa política amplia, efecto de Beto sobre la **V1 de Ana**     | **`42501`** — la barrera aguanta |
+| **F6**  | Con esa política amplia, efecto de Beto sobre **su propia V2**     | **ACEPTADO**                     |
+| **F7**  | Con esa política amplia, Beto crea una versión atribuida **a Ana** | **`42501`**                      |
+
+**Tres hechos:**
+
+1. **`USING (created_by = actor)` sobre las versiones es incompatible con la
+   corrección por otro actor**, y falla **en silencio**: F1b devuelve `NULL`, no
+   un error. La frontera concluiría que no hay predecesor.
+2. **Conocer el puntero no sustituye la lectura** (F2 frente a F1a). El
+   identificador de la versión vigente es legible desde la operación mientras la
+   **fila** de esa versión permanece oculta: `supersedes_version_id` se satisface
+   y ningún dato heredable.
+3. **Ampliar la lectura no afloja la escritura** (F5, F6, F7). Son mecanismos
+   distintos: la política de `SELECT` decide **qué filas lee** el writer; el
+   `WITH CHECK` de los efectos decide **de qué versión pueden colgar**, y sigue
+   exigiendo que sea una del actor de esa petición.
+
 ## Conclusión: el conjunto mínimo medido
 
 **Esto describe lo que se midió que funciona.** La decisión que fija estos
@@ -279,7 +326,7 @@ físicos siguen perteneciendo a la migración.
 | `operation`         | `SELECT` | Necesaria. **No deriva de la autoría original** (§E) | Portante del paso 4                                               |
 | `operation`         | `UPDATE` | Necesaria **incluso sólo para bloquear** (C4b)       | Tampoco deriva de la autoría. El `WITH CHECK` omitido = `USING`   |
 | `operation_version` | `INSERT` | `WITH CHECK (created_by = actor)`                    | Tampoco es regla de producto: es la atribución **de esa versión** |
-| `operation_version` | `SELECT` | `USING (created_by = actor)`                         | **Portante del `WITH CHECK` de `effect`**, no sólo de la lectura  |
+| `operation_version` | `SELECT` | **Amplia**, no por atribución (§F)                   | **Portante del `WITH CHECK` de `effect`**, no sólo de la lectura  |
 | `effect`            | `INSERT` | `WITH CHECK (exists versión con esa atribución)`     | **No trivial, satisfacible en la transacción y útil**             |
 | `effect`            | `SELECT` | Sólo si la frontera usa `INSERT … RETURNING`         | C1b                                                               |
 
@@ -300,6 +347,10 @@ Lo que garantiza: **todo efecto cuelga de una versión creada por el mismo actor
 de la petición**. Un writer al que se le colase un `operation_version_id`
 arbitrario —de otra operación, de otro usuario, adivinado— **no puede anclarle
 efectos**.
+
+**Se mantiene sin aflojar aunque la lectura de las versiones sea amplia** (F5,
+F6): es lo que permite que la política de `SELECT` alcance la V1 de otro actor,
+necesaria para corregir, sin que eso conceda anclar efectos a esa versión.
 
 Lo que **no** garantiza, y sigue viviendo en otras capas:
 
