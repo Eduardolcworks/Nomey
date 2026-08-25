@@ -10,7 +10,7 @@
 > Existe para que una sesión nueva reconstruya el estado del proyecto leyendo el
 > repositorio, **sin depender de ninguna conversación previa**.
 
-Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al cerrar los transversales previos a migraciones el
+Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al validar el bootstrap de migraciones el
 2026-08-25**, con el estado completo de la fase.
 
 ---
@@ -28,8 +28,8 @@ Checkpoint **durable**: describe qué hay decidido y consolidado, no una foto de
 | **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                |
 | **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                    |
 | **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                 |
-| **`supabase/migrations/`** | **No existe.** No se ha autorizado SQL definitivo                                |
-| **`npm test`**             | **110/110** en verde                                                             |
+| **`supabase/migrations/`** | **Existe** desde el 2026-08-25. Primera migración: el bootstrap de la frontera   |
+| **`npm test`**             | **116/116** en verde                                                             |
 | **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                 |
 | **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio** |
 
@@ -40,9 +40,15 @@ git log --oneline main..HEAD
 git status --porcelain -uall
 ```
 
-**E20 ya está en `main`** (merge `afe50ab`). Lo que siga a partir de aquí son las
-**primeras migraciones**, y `supabase/migrations/` debe seguir sin existir hasta
-que se autoricen.
+**Las migraciones ya han empezado.** `supabase/migrations/` existe y contiene el
+**bootstrap de la frontera de datos**: los tres schemas, los revokes explícitos y
+el saneamiento de default privileges. Nada más — ninguna tabla, ninguna vista,
+ninguna función, ningún rol de aplicación.
+
+> **Cambio de etapa.** `supabase/e11`–`e20` eran evidencia desechable sobre
+> maquetas y **nunca deben convertirse en migración**. A partir de aquí,
+> `supabase/migrations/` es **estado real y versionado**, y
+> `supabase/checks/bootstrap.sql` valida la migración de verdad, no una maqueta.
 
 **Historial de la fase en `main`**, útil para reconstruir el orden:
 
@@ -646,11 +652,45 @@ de ser conceptualmente un cierre de saldo (Q2).
 
 ---
 
+## 13 bis · El bootstrap de migraciones, validado
+
+Ejecutado el 2026-08-25, desde Ubuntu con `./scripts/supabase-cli.sh`.
+
+**Lo que quedó demostrado:**
+
+- **Las migraciones se reconstruyen desde cero.** Dos `db reset` consecutivos,
+  **38 s cada uno**, con resultado idéntico y sin intervención manual.
+- **El criterio que ADR-014 dejó abierto está verificado.** `supabase start`
+  desde frío ejecuta `Starting database → Applying migration → Starting
+containers`: **la migración se aplica antes de que PostgREST arranque**, así
+  que `api` existe cuando carga su caché de esquema. No se reprodujo el `503`.
+- **`public` dejó de estar expuesto**, en comportamiento y no solo en
+  configuración: `api` responde `200` y `public`, `core` y `sec` responden
+  **`406 PGRST106`**, con PostgREST declarando
+  «Only the following schemas are exposed: api, graphql_public».
+- **`/mnt/c` es aceptable** para este trabajo: 38 s por reset, 47 s el arranque
+  en frío. No se migra el repositorio al filesystem de Linux.
+
+> **Hallazgo operativo que conviene no olvidar: `db reset` no relee
+> `config.toml`.** Recrea la base y recarga la caché de esquema, pero **no
+> vuelve a renderizar el entorno de los contenedores**. Se midió: tras cambiar
+> los schemas expuestos y hacer `db reset`, PostgREST seguía sirviendo la lista
+> anterior. Aplicar `config.toml` exige `stop` + `start`.
+
+**Un límite del saneamiento, dicho explícitamente.** ADR-006 §7 se implementa
+para el rol **`postgres`**, que es con el que corren las migraciones y, por
+tanto, todo lo que Nomey cree. Los default privileges que `supabase_admin`
+mantiene sobre `public` **siguen concediendo a los roles cliente** y no se tocan:
+son del stack, no de Nomey, y alterarlos desde `postgres` no procede. La segunda
+capa sigue siendo ADR-014: `public` ya no tiene ruta HTTP.
+
+---
+
 ## 14 · Checklist de entrada a las primeras migraciones
 
-**Lo siguiente es escribir migraciones.** Antes, esta lista debe estar completa.
-Lo que está marcado ya lo está; nada de ello vuelve a discutirse sin una
-contradicción estructural.
+**Se cumplió el 2026-08-25** y el bootstrap ya está migrado (§13 bis). Se
+conserva como registro de qué estaba cerrado al empezar; nada de ello vuelve a
+discutirse sin una contradicción estructural.
 
 **Decisiones que condicionan la forma física — todas cerradas:**
 
@@ -685,16 +725,13 @@ contradicción estructural.
 
 **Al escribir la primera migración, no olvidar:**
 
-- **`schemas = ["api", "graphql_public"]` en `config.toml`, en el mismo commit
-  que cree `api`** — ADR-014, y antes de eso el stack no arranca. **Criterio de
-  aceptación de esa migración: verificar desde un clon limpio el orden real de
-  bootstrap**, es decir que la migración se aplique antes de que PostgREST
-  reclame el schema. Que ambos cambios vayan juntos es necesario; su suficiencia
-  operativa **se valida al implementarla**;
+- ~~`schemas = ["api", "graphql_public"]` en el mismo commit que cree `api`~~ —
+  **hecho y verificado** (§13 bis);
+- ~~el test que comprueba que `core` y `sec` no están expuestos (ADR-006 §6)~~ —
+  **hecho**: `tests/infra/exposed-schemas.test.ts`, que corre en CI;
 - ninguna tabla se crea sin su política RLS **en la misma migración**;
 - la guarda de catálogo de la proyección canónica (ADR-013 §9);
 - el test de catálogo de la superficie textual (ADR-008 §2);
-- el test que comprueba que `core` y `sec` no están expuestos (ADR-006 §6);
 - el test de aislamiento debe **fallar** al relajar una política a propósito
   (roadmap, cierre 4).
 

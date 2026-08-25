@@ -466,17 +466,22 @@ test vectors in `tests/vectors/` and a Vitest suite — 110 tests. **The
 authoritative server write boundary will have to reproduce those vectors
 exactly** (ADR-002 §7).
 
-**What does not exist yet.** No schema, no migrations, no RLS, no auth and no
-screens — that is deliberate, not an oversight. The visible app is still an
-intentionally blank screen. The whole physical model of 3.C lives in ADRs and in
-probes; **`supabase/migrations/` has not been created**.
+**What does not exist yet.** No domain table, no RLS policy, no authoritative
+writer, no auth and no screens — that is deliberate, not an oversight. The
+visible app is still an intentionally blank screen, and the rest of the physical
+model of 3.C still lives in ADRs.
 
-**Next up inside 3.C: the first real migrations.** E20 measured the writer's
-write-side policies, ADR-013 §10 fixed them, and the cross-cutting review of
-2026-08-25 closed the rest, so **no decision is left that could reasonably force
-redesigning them**. The entry checklist is
-`docs/architecture/phase-3c-handoff.md` §14, and **nothing on it is still open**.
-The first migration also lands the `config.toml` change ADR-014 requires, in the
-same commit that creates the `api` schema.
+**Migrations have started.** `supabase/migrations/` exists and holds the
+**bootstrap of the data boundary** — the three schemas, explicit revokes and the
+default-privilege sanitising — and nothing else: no table, no view, no function,
+no application role. Rebuilding from zero is verified, and so is ADR-014: `api`
+is served and `public`, `core` and `sec` answer `406 PGRST106`.
+
+> `supabase/e11`–`e20` were disposable evidence over toy models and **must never
+> become a migration**. `supabase/migrations/` is real versioned state.
+> `supabase/checks/bootstrap.sql` validates it against the live catalogue.
+
+**Next up inside 3.C:** the accounting relations, their RLS and the
+authoritative writer. See `docs/architecture/phase-3c-handoff.md` §13 bis.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.
