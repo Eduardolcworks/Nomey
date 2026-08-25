@@ -450,6 +450,14 @@ El advisory lock por par queda como **escalada futura**, no como diseño de v1.
 > 2026-08-25. Hasta entonces la configuración versionada conserva su valor
 > actual.
 
+> **Lo que ese experimento NO demuestra.** Midió que la configuración final es
+> inválida sin el schema. **No midió** que, desde un clon limpio, Supabase
+> aplique la migración que crea `api` **antes** de que PostgREST exija que
+> exista. Que ambos cambios viajen en el mismo commit es **necesario**; que ese
+> orden sea **suficiente** en el arranque real está **sin verificar**, y es un
+> criterio de aceptación de la primera migración, no una decisión pendiente. No
+> bloquea empezar.
+
 ### Producto y fases posteriores
 
 Regla concreta de **resolución del FX** · mecanismo de **claim** (F10) · prueba,
@@ -678,7 +686,11 @@ contradicción estructural.
 **Al escribir la primera migración, no olvidar:**
 
 - **`schemas = ["api", "graphql_public"]` en `config.toml`, en el mismo commit
-  que cree `api`** — ADR-014, y antes de eso el stack no arranca;
+  que cree `api`** — ADR-014, y antes de eso el stack no arranca. **Criterio de
+  aceptación de esa migración: verificar desde un clon limpio el orden real de
+  bootstrap**, es decir que la migración se aplique antes de que PostgREST
+  reclame el schema. Que ambos cambios vayan juntos es necesario; su suficiencia
+  operativa **se valida al implementarla**;
 - ninguna tabla se crea sin su política RLS **en la misma migración**;
 - la guarda de catálogo de la proyección canónica (ADR-013 §9);
 - el test de catálogo de la superficie textual (ADR-008 §2);

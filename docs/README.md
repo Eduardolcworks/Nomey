@@ -45,7 +45,7 @@ inglés.
 
 | Carpeta         | Qué contiene                                         | Estado     |
 | --------------- | ---------------------------------------------------- | ---------- |
-| `product/`      | Visión, glosario, roadmap                            | Parcial    |
+| `product/`      | Visión, glosario, roadmap, dirección visual          | Parcial    |
 | `requirements/` | Reglas de negocio por pilar                          | Fase 1     |
 | `architecture/` | Visión técnica, modelo de datos, estructura, offline | Parcial    |
 | `database/`     | Esquema, políticas RLS, migraciones                  | Fase 3     |
@@ -64,6 +64,7 @@ se han escrito.
 | -------------------------------- | ----------------- |
 | `architecture/data-model.md`     | Existe            |
 | `product/glossary.md`            | Existe            |
+| `product/design-direction.md`    | Existe            |
 | `architecture/code-structure.md` | **Previsto**      |
 | `database/rls-policies.md`       | **Previsto**      |
 | `security/threat-model.md`       | **Previsto**      |
@@ -98,6 +99,8 @@ historial de análisis o se retira.
 
 - Plan por fases, hitos y criterios de cierre:
   [`product/roadmap.md`](product/roadmap.md)
+- Dirección visual y estética, fuente de verdad única:
+  [`product/design-direction.md`](product/design-direction.md)
 - Reglas operativas para agentes y personas: [`AGENTS.md`](../AGENTS.md)
 - Restricciones por capa: `README.md` dentro de cada carpeta de `src/`
 - Estado de los assets: [`assets/README.md`](../assets/README.md)

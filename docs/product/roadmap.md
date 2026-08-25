@@ -212,6 +212,12 @@ para `supabase init`, exigida por `.claude/agents/data-architect.md`.
 **Objetivo.** Fijar el marco visual, de navegación y de textos antes de la
 primera pantalla de producto, sin construir un design system especulativo.
 
+**Dirección visual.** La estética de Nomey —minimalista, oscura, premium, con
+glassmorphism como recurso de profundidad y neumorfismo solo como matiz táctil—
+está fijada en [`design-direction.md`](design-direction.md), que es su **fuente
+de verdad única**. F4 la convierte en principios, wireframes, tokens y tema; **no
+la redefine**.
+
 **Alcance.** Arquitectura de navegación y jerarquía principal · flujos
 fundamentales derivados de [`data-model.md`](../architecture/data-model.md) §4 ·
 estructura de las pantallas principales a nivel de wireframe · principios

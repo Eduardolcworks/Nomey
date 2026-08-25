@@ -239,7 +239,12 @@ reachable through it.
 is **not** exposed either. The list is `["api", "graphql_public"]`, and
 `extra_search_path` is unchanged — they are two different parameters. The
 config change lands **in the same commit that creates the `api` schema**:
-PostgREST fails to start if a listed schema does not exist.
+PostgREST fails to start if a listed schema does not exist — measured.
+
+**What that measurement does not cover:** whether, from a clean clone, Supabase
+applies the migration that creates `api` **before** PostgREST demands it. Same
+commit is **necessary**; its **sufficiency at boot is unverified**, and
+verifying it is an acceptance criterion of the first migration.
 
 ### 5. Participants without an account
 
@@ -339,6 +344,15 @@ files there.
 
 **Never create a generic `utils/`.** It becomes a dumping ground. Code belongs
 in `domain/` (business rules), `lib/` (infrastructure) or `ui/` (presentation).
+
+**Before building any UI, read
+[`docs/product/design-direction.md`](docs/product/design-direction.md).** It is
+the single source of truth for Nomey's aesthetic — dark, minimal, premium, with
+glassmorphism as the depth device and neumorphism only as a tactile hint — and
+it binds every phase that builds UI, not just F4. Its accessibility rule is
+binding: if an effect costs contrast, legibility, or the unambiguity of an
+amount, a debt, a state or a destructive action, the effect goes. Changing that
+direction is documented there, never introduced from a single screen.
 
 ---
 
