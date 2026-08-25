@@ -94,6 +94,7 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [011](ADR-011-operation-version-model.md)      | Operaciones, versiones y comandos cliente    | Aceptado  |
 | [012](ADR-012-participant-identity.md)         | Identidad de participantes sin cuenta        | Aceptado  |
 | [013](ADR-013-persisted-vs-derived.md)         | Persistido frente a derivado                 | Aceptado  |
+| [014](ADR-014-data-api-schema-exposure.md)     | Exposición de schemas de la Data API         | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
@@ -117,9 +118,11 @@ que ocurra. Ninguno está reservado ni prejuzgado.
 - React Native + Expo con CNG como plataforma.
 - Supabase como backend y RLS como capa de autorización.
 - ~~**Hardening del Data API**~~ — cerrado entre
-  [ADR-005](ADR-005-schema-topology.md), que fijó el esquema expuesto, y
+  [ADR-005](ADR-005-schema-topology.md), que fijó el esquema expuesto,
   [ADR-006](ADR-006-privilege-model.md), que fijó los grants por rol y el
-  mecanismo de lectura `api → core`.
+  mecanismo de lectura `api → core`, y
+  [ADR-014](ADR-014-data-api-schema-exposure.md), que retiró `public` de la
+  lista de schemas expuestos.
 - ~~**Mecanismo de comprobación de membresía**~~ — cerrado por
   [ADR-007](ADR-007-membership-rls.md): helper `SECURITY DEFINER` reducido, sin
   claims de membresía en el JWT.

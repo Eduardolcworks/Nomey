@@ -85,19 +85,19 @@ primeras migraciones y la finalización de 3.C** que marca el roadmap existente.
 El roadmap enumera seis puertas para esta fase. **Todas cerradas**, cada una con
 la fuente que lo sostiene:
 
-| Puerta                                    | Estado      | Fuente                                                                                                                                                                                    |
-| ----------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Identidad de la definición monetaria      | **CERRADA** | [ADR-004](../adr/ADR-004-currency-definition-identity.md): `UUID` fijo y sembrado                                                                                                         |
-| Esquema expuesto por la Data API          | **CERRADA** | [ADR-005](../adr/ADR-005-schema-topology.md) §2 y [ADR-006](../adr/ADR-006-privilege-model.md) §6: `api` es la superficie; `core` y `sec` fuera de `schemas` **y** de `extra_search_path` |
-| Estrategia de `GRANT`                     | **CERRADA** | [ADR-006](../adr/ADR-006-privilege-model.md) §1-§4 y §7, medido en E12 y E13                                                                                                              |
-| Membresía en RLS                          | **CERRADA** | [ADR-007](../adr/ADR-007-membership-rls.md): helper reducido `SECURITY DEFINER`, sin claims en el JWT                                                                                     |
-| Mecanismo de idempotencia                 | **CERRADA** | [ADR-010](../adr/ADR-010-client-operation-idempotency.md) y [ADR-011](../adr/ADR-011-operation-version-model.md) §5, para el **origen cliente**                                           |
-| Frontera textual que cumple T7 de ADR-003 | **CERRADA** | [ADR-008](../adr/ADR-008-exact-data-boundary.md) §1-§2: vista `security_invoker` de `api` que proyecta texto, con test de catálogo                                                        |
+| Puerta                                    | Estado      | Fuente                                                                                                                                                                                                                                   |
+| ----------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identidad de la definición monetaria      | **CERRADA** | [ADR-004](../adr/ADR-004-currency-definition-identity.md): `UUID` fijo y sembrado                                                                                                                                                        |
+| Esquema expuesto por la Data API          | **CERRADA** | [ADR-005](../adr/ADR-005-schema-topology.md) §2, [ADR-006](../adr/ADR-006-privilege-model.md) §6 y [ADR-014](../adr/ADR-014-data-api-schema-exposure.md): `api` es la superficie; `core`, `sec` y **`public`** quedan fuera de `schemas` |
+| Estrategia de `GRANT`                     | **CERRADA** | [ADR-006](../adr/ADR-006-privilege-model.md) §1-§4 y §7, medido en E12 y E13                                                                                                                                                             |
+| Membresía en RLS                          | **CERRADA** | [ADR-007](../adr/ADR-007-membership-rls.md): helper reducido `SECURITY DEFINER`, sin claims en el JWT                                                                                                                                    |
+| Mecanismo de idempotencia                 | **CERRADA** | [ADR-010](../adr/ADR-010-client-operation-idempotency.md) y [ADR-011](../adr/ADR-011-operation-version-model.md) §5, para el **origen cliente**                                                                                          |
+| Frontera textual que cumple T7 de ADR-003 | **CERRADA** | [ADR-008](../adr/ADR-008-exact-data-boundary.md) §1-§2: vista `security_invoker` de `api` que proyecta texto, con test de catálogo                                                                                                       |
 
-> **La puerta del esquema expuesto está cerrada en lo que decide qué se expone.**
-> Queda una **elección de configuración** separable —si `public` permanece junto a
-> `api` en `api.schemas`— que **no cambia ninguna migración**: ni tabla, ni
-> columna, ni constraint, ni política, ni grant. Ver §11.
+> **La puerta del esquema expuesto se completó con
+> [ADR-014](../adr/ADR-014-data-api-schema-exposure.md)**, que resolvió el punto
+> que ADR-005 §4 dejó abierto: **`public` no se expone**. La lista queda
+> `["api", "graphql_public"]`, y `extra_search_path` no cambia. Ver §11.
 
 **La entrada pendiente que el roadmap dejó sin conclusión** —de dónde salen los
 privilegios `REFERENCES`, `TRIGGER` y `TRUNCATE` sobre tablas nuevas— **la
@@ -109,7 +109,7 @@ ADR-006 §7 fija su saneamiento explícito.
 
 ## 3 · ADR aceptados
 
-Los trece están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
+Los catorce están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
 
 | ADR                                                   | Decisión principal                                                                                                               |
 | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -125,6 +125,7 @@ Los trece están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
 | [011](../adr/ADR-011-operation-version-model.md)      | Operación estable, versiones inmutables, efectos por versión y `client_command` como unidad física de idempotencia               |
 | [012](../adr/ADR-012-participant-identity.md)         | Participante contextual por ámbito, vínculo con la cuenta en relación separada, y periodos de presencia                          |
 | [013](../adr/ADR-013-persisted-vs-derived.md)         | Solo los hechos se persisten; saldos y deudas se derivan; el reparto es contextual y hay una proyección canónica de vigentes     |
+| [014](../adr/ADR-014-data-api-schema-exposure.md)     | `public` no se expone por la Data API; la lista es `["api", "graphql_public"]`                                                   |
 
 ---
 
@@ -435,29 +436,19 @@ El advisory lock por par queda como **escalada futura**, no como diseño de v1.
 
 **No tratar nada de esto como decidido.**
 
-### La única elección que queda antes de configurar la superficie
+### Nada previo a las migraciones
 
-**Si `public` permanece o no en `api.schemas`.** Lo dejaron abierto
-[ADR-005](../adr/ADR-005-schema-topology.md) §4 y
-[ADR-006](../adr/ADR-006-privilege-model.md) en su alcance, y **sigue abierto**.
+**La lista de abiertos previos a migraciones está vacía.** El último era si
+`public` permanecía en `api.schemas`, y lo cerró
+[ADR-014](../adr/ADR-014-data-api-schema-exposure.md): **no permanece**.
 
-Lo que **no** está en discusión: `api` es la superficie de Nomey, y `core` y
-`sec` quedan fuera de `schemas` **y** de `extra_search_path` (ADR-006 §6).
-Ninguna tabla de dominio vive en `public`, así que la elección **no cambia
-ninguna migración**.
-
-Lo que sí decide: si un objeto que alguien cree en `public` —hoy no hay
-ninguno— obtiene ruta HTTP automáticamente. E12 midió que las tablas nuevas de
-`public` **nacen con grants para los roles cliente**, de modo que la
-combinación «expuesto + defaults heredados» es la que produce superficie sin que
-nadie la conceda.
-
-> **Es una decisión de configuración con dimensión de seguridad, y corresponde
-> a un ADR.** No se toma aquí. Hasta que se tome, `supabase/config.toml`
-> conserva su valor actual.
-
-**No es un bloqueo para las primeras migraciones**, porque `api.schemas` vive en
-`config.toml` y no en el SQL, y cambiarlo después no invalida nada ya migrado.
+> **Con una condición de secuencia medida.** El cambio de `config.toml` se
+> aplica **en el mismo commit que cree el schema `api`**, no antes: con
+> `schemas = ["api", …]` y sin ese schema, PostgREST falla con
+> `3F000 schema "api" does not exist`, reintenta y nunca sirve, y
+> `supabase start` aborta con el contenedor REST en `503`. Medido el
+> 2026-08-25. Hasta entonces la configuración versionada conserva su valor
+> actual.
 
 ### Producto y fases posteriores
 
@@ -679,14 +670,15 @@ contradicción estructural.
 - [x] Sin caché económica en v1 — retirado de pendientes
 - [x] Los vectores compartidos **no** necesitan extenderse
 
-**Abierto, y que no bloquea:**
+- [x] Exposición definitiva de schemas de la Data API — ADR-014: `public`
+      **fuera**; `api` es la superficie y `graphql_public` se conserva
 
-- [ ] **Si `public` permanece en `api.schemas`** — decisión de configuración con
-      dimensión de seguridad, corresponde a un ADR, y **no cambia ninguna
-      migración** (§11).
+**Abierto que bloquee: ninguno.**
 
 **Al escribir la primera migración, no olvidar:**
 
+- **`schemas = ["api", "graphql_public"]` en `config.toml`, en el mismo commit
+  que cree `api`** — ADR-014, y antes de eso el stack no arranca;
 - ninguna tabla se crea sin su política RLS **en la misma migración**;
 - la guarda de catálogo de la proyección canónica (ADR-013 §9);
 - el test de catálogo de la superficie textual (ADR-008 §2);

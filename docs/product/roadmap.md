@@ -198,8 +198,10 @@ para `supabase init`, exigida por `.claude/agents/data-architect.md`.
   los default privileges de Supabase, son **ejecutables**, y `MAINTAIN` es
   además **invisible para `information_schema`**. ADR-006 §7 fija su saneamiento
   explícito.
-- **Sigue abierto, y no bloquea las migraciones:** si `public` permanece junto a
-  `api` en `api.schemas`. Es configuración, no esquema.
+- **Cerrado el 2026-08-25 por ADR-014:** `public` **no** forma parte de los
+  schemas expuestos. La lista queda `["api", "graphql_public"]`, y el cambio de
+  `config.toml` se aplica **en el mismo commit que cree el schema `api`**,
+  porque PostgREST no arranca si el schema no existe.
 
 ---
 

@@ -235,8 +235,11 @@ someone's access alive until it refreshes.
 dedicated schema for the exposed surface, and the accounting tables are not
 reachable through it.
 
-**Still open (ADR):** whether `public` also remains in the list of exposed
-schemas.
+**Settled — [ADR-014](docs/adr/ADR-014-data-api-schema-exposure.md).** `public`
+is **not** exposed either. The list is `["api", "graphql_public"]`, and
+`extra_search_path` is unchanged — they are two different parameters. The
+config change lands **in the same commit that creates the `api` schema**:
+PostgREST fails to start if a listed schema does not exist.
 
 ### 5. Participants without an account
 
@@ -428,7 +431,7 @@ the `adr` skill to draft one.
 
 The project is in **Phase 3** (persistence and data boundary), inside **3.C**.
 Phases 0, 1 and 2 are closed, and so are **3.A** and **3.B**. **ADR-002 through
-ADR-013 are accepted**; ADR-003 met its E11 gate against a real local Supabase
+ADR-014 are accepted**; ADR-003 met its E11 gate against a real local Supabase
 stack.
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
@@ -448,7 +451,8 @@ probes; **`supabase/migrations/` has not been created**.
 write-side policies, ADR-013 §10 fixed them, and the cross-cutting review of
 2026-08-25 closed the rest, so **no decision is left that could reasonably force
 redesigning them**. The entry checklist is
-`docs/architecture/phase-3c-handoff.md` §14; the one item still open there —
-whether `public` stays in `api.schemas` — is configuration, not schema.
+`docs/architecture/phase-3c-handoff.md` §14, and **nothing on it is still open**.
+The first migration also lands the `config.toml` change ADR-014 requires, in the
+same commit that creates the `api` schema.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.
