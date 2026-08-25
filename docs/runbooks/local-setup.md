@@ -160,37 +160,78 @@ detectar los contenedores **ya existentes** sin recrearlos.
 
 ---
 
-## 7 · Antes de la primera migración
+## 7 · Migraciones
 
-Dos cosas que este runbook **no** resuelve y que hay que tener presentes al
-escribir `supabase/migrations/`, que hoy no existe.
+```bash
+./scripts/supabase-cli.sh migration new <nombre>
+./scripts/supabase-cli.sh db reset
+```
 
-### El bootstrap de `api`
+`db reset` recrea la base y aplica **todas** las migraciones desde cero.
 
-[ADR-014](../adr/ADR-014-data-api-schema-exposure.md) decide que `public` no se
-expone. La configuración final es `schemas = ["api", "graphql_public"]`, y **el
-commit que cree el schema `api` debe traerla consigo**: está medido que con esa
-lista y sin ese schema PostgREST no arranca.
+> ### `db reset` no relee `config.toml`
+>
+> **Un cambio en `config.toml` no llega a los contenedores con `db reset`.** Ese
+> comando recrea la base de datos y recarga la caché de esquema, pero **no
+> vuelve a renderizar el entorno de los contenedores**. Se midió: tras cambiar
+> los schemas expuestos y hacer `db reset`, PostgREST seguía sirviendo la lista
+> anterior.
+>
+> Para aplicar `config.toml` hace falta un ciclo completo:
+>
+> ```bash
+> ./scripts/supabase-cli.sh stop --no-backup
+> ./scripts/supabase-cli.sh start
+> ```
 
-> **Lo que ese commit tendrá que verificar desde un estado limpio** es el orden
-> real de arranque: que la migración se aplique **antes** de que PostgREST
-> reclame el schema. Que ambos cambios viajen juntos es **necesario**; su
-> suficiencia **no está medida**. Es un criterio de aceptación de esa migración.
+### El orden de arranque, ya medido
 
-### La E/S de `/mnt/c`
+`supabase start` desde frío ejecuta, **en este orden**:
 
-El camino de lectura está probado: `--version` y `status` responden con
-normalidad, y un recorrido de los ficheros del repositorio desde Ubuntu tarda
-unos 166 ms. **Pero `db reset` y `db diff` mueven mucha más E/S**, y eso no está
-medido. Si `/mnt/c` resultara demasiado lento, la alternativa es un checkout
-dentro del filesystem de Linux — que implica dos copias y su propio coste, y no
-se adopta sin evidencia.
+```
+Starting database  →  Applying migration ...  →  Starting containers  →  health checks
+```
+
+**Las migraciones se aplican antes de arrancar PostgREST.** Es lo que hace
+viable la decisión de [ADR-014](../adr/ADR-014-data-api-schema-exposure.md): con
+`schemas = ["api", …]` el schema ya existe cuando PostgREST carga su caché, y no
+se reproduce el `503` que sí ocurre si se cambia la configuración sin la
+migración.
+
+### La E/S de `/mnt/c` es aceptable
+
+Medido el 2026-08-25 sobre el bootstrap:
+
+| Operación                   | Duración |
+| --------------------------- | -------- |
+| `db reset` (primera)        | 38 s     |
+| `db reset` (segunda)        | 38 s     |
+| `stop` + `start` desde frío | 47 s     |
+
+Suficiente para trabajar. **No se migra el repositorio al filesystem de Linux**;
+si en el futuro un esquema mucho mayor lo empeorase de forma material, esa
+alternativa sigue disponible, con el coste de mantener dos copias.
+
+### Comprobar el bootstrap contra la base real
+
+```bash
+docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
+  -X -q -v ON_ERROR_STOP=1 < supabase/checks/bootstrap.sql
+```
+
+Falla con código distinto de cero en la primera violación. Comprueba el
+catálogo; la configuración versionada la comprueba `npm test`, en
+`tests/infra/`.
 
 ---
 
 ## 8 · Lo que este entorno no cubre
 
-- **CI.** GitHub Actions no ejecuta hoy la Supabase CLI.
+- **CI.** GitHub Actions ejecuta `npm test`, así que las comprobaciones de
+  `tests/infra/` **sí** corren en cada PR. Lo que **no** ejecuta todavía es la
+  Supabase CLI: reconstruir las migraciones desde cero en CI es una PR posterior
+  de 3.C. Como CI corre en `ubuntu-latest`, podrá invocar el mismo
+  `./scripts/supabase-cli.sh` sin duplicar la versión.
 - **Producción.** Nada de este runbook apunta a un proyecto remoto; no hay
   `link`, `push` ni `pull`, y `AGENTS.md` prohíbe ejecutar nada contra
   producción.
