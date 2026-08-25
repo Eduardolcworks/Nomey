@@ -462,20 +462,20 @@ stack.
 and ten reproducible probes that measured the decisions of this phase
 (`supabase/e11/` … `supabase/e20/`, **none of them a migration**). A pure
 reference implementation of the financial domain in `src/domain/`, with shared
-test vectors in `tests/vectors/` and a Vitest suite — 110 tests. **The
+test vectors in `tests/vectors/` and a Vitest suite — 116 tests. **The
 authoritative server write boundary will have to reproduce those vectors
 exactly** (ADR-002 §7).
 
-**What does not exist yet.** No domain table, no RLS policy, no authoritative
-writer, no auth and no screens — that is deliberate, not an oversight. The
-visible app is still an intentionally blank screen, and the rest of the physical
+**What does not exist yet.** No authoritative writer, no view of any kind, no
+generated types and no screens — that is deliberate, not an oversight. The
+visible app is still an intentionally blank screen, and part of the physical
 model of 3.C still lives in ADRs.
 
-**Migrations have started.** `supabase/migrations/` exists and holds the
+**Migrations have started.** `supabase/migrations/` holds three. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
-default-privilege sanitising — and nothing else: no table, no view, no function,
-no application role. Rebuilding from zero is verified, and so is ADR-014: `api`
-is served and `public`, `core` and `sec` answer `406 PGRST106`.
+default-privilege sanitising — and nothing else. Rebuilding from zero is
+verified, and so is ADR-014: `api` is served and `public`, `core` and `sec`
+answer `406 PGRST106`.
 
 > `supabase/e11`–`e20` were disposable evidence over toy models and **must never
 > become a migration**. `supabase/migrations/` is real versioned state.
@@ -487,12 +487,25 @@ exist with their lineage constraints, the deferred composite pointer, the
 `nomey_writer` role, `sec.request_actor_id()`, and RLS from birth. CI rebuilds
 every migration from zero and runs the SQL checks.
 
-**`core.effect` is absent from that migration, for integrity and not for scope:**
-its normative FKs need `core.scope` and `core.participant`, and its client read
-policy is scope membership (ADR-013 §10), which needs the membership relation.
-Those three belong to **3.C**, not to a later phase: the roadmap puts "Auth
-técnico con usuarios reales" inside 3.C, and Phase 5 depends on it. What Phase 5
-adds is the identity _experience_, not the relation RLS needs.
+**Scope, participant, membership and effect are migrated too.** `core.scope`,
+`core.participant`, `core.membership` and `core.effect` exist with the helper
+`sec.is_member(uuid)` of ADR-007, RLS from birth, the client read path of
+ADR-013 §10 and the writer's `WITH CHECK` measured in E20. Four points worth
+knowing before touching them:
+
+- **An effect's currency is the base currency of its scope, structurally.** A
+  composite FK `(scope_id, currency_definition_id) → scope (id,
+base_currency_definition_id)` enforces it, and the same FK makes the base
+  currency unchangeable once effects exist — invariant 12, as structure rather
+  than as validation.
+- **The three participants an effect names belong to the effect's own scope**,
+  also by composite FK. That is what makes ADR-012 §1's "contextual" structural.
+- **`core.membership` is current authorization, never history.** The row exists
+  ⇔ the membership is active. If historical membership is ever needed it gets
+  modelled deliberately; do not reinterpret this relation.
+- **`scope.kind` is a closed vocabulary** — `personal | group | couple`. A fourth
+  scope type requires a deliberate migration, unlike `operation_class`, which is
+  open on purpose.
 
 **Version lineage is only partly structural, by design.** The composite FKs
 guarantee the predecessor and the pointer belong to the same operation; that the
@@ -501,7 +514,12 @@ absence of branching — is reserved to the authoritative boundary by ADR-011 §
 Do not describe the lineage as "linear" on the strength of the constraints
 alone.
 
-**Next up inside 3.C:** scope, participant, membership and effect together, then
-the canonical projection, the `api` read views and the authoritative writer.
+**Next up inside 3.C:** `participant_period` and `participant_user_link` —
+which is when `btree_gist` arrives — then the canonical projection, the `api`
+read views with their text cast, and the authoritative writer. The debt lock of
+ADR-013 §11 will need both an `UPDATE` policy **and** an `UPDATE` privilege on
+`core.scope`: PostgreSQL requires `UPDATE` on at least one column for `SELECT …
+FOR UPDATE`, and E20 measured that a missing policy returns zero rows without
+erroring.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.
