@@ -97,6 +97,12 @@ jobs:
       - name: Participant identity checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/participant-identity.sql
 
+      # Contextual split and frozen conversion. Closes the persisted-fact
+      # inventory of ADR-013 §1: after this, everything that ADR declares
+      # authoritative-persisted exists.
+      - name: Split and conversion checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/split-conversion.sql
+
       - name: Stop
         if: always()
         run: ./scripts/supabase-cli.sh stop --no-backup
