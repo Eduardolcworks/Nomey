@@ -481,7 +481,18 @@ is served and `public`, `core` and `sec` answer `406 PGRST106`.
 > become a migration**. `supabase/migrations/` is real versioned state.
 > `supabase/checks/bootstrap.sql` validates it against the live catalogue.
 
-**Next up inside 3.C:** the accounting relations, their RLS and the
-authoritative writer. See `docs/architecture/phase-3c-handoff.md` §13 bis.
+**The versioning spine is migrated too.** `core.operation`,
+`core.operation_version`, `core.client_command` and `core.currency_definition`
+exist with their lineage constraints, the deferred composite pointer, the
+`nomey_writer` role, `sec.request_actor_id()`, and RLS from birth. CI rebuilds
+every migration from zero and runs the SQL checks.
+
+**`core.effect` is deliberately absent, for integrity and not for scope:** its
+client read policy is scope membership (ADR-013 §10), which needs the membership
+relation from the identity phase, and its normative FKs need `core.scope` and
+`core.participant`. See `docs/architecture/phase-3c-handoff.md` §13 ter.
+
+**Next up inside 3.C:** scope, participant and effect together, then the
+canonical projection, the `api` read views and the authoritative writer.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.
