@@ -10,7 +10,7 @@
 > Existe para que una sesión nueva reconstruya el estado del proyecto leyendo el
 > repositorio, **sin depender de ninguna conversación previa**.
 
-Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al validar el bootstrap de migraciones el
+Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al migrar el nucleo de operacion y version el
 2026-08-25**, con el estado completo de la fase.
 
 ---
@@ -28,7 +28,7 @@ Checkpoint **durable**: describe qué hay decidido y consolidado, no una foto de
 | **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                |
 | **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                    |
 | **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                 |
-| **`supabase/migrations/`** | **Existe** desde el 2026-08-25. Primera migración: el bootstrap de la frontera   |
+| **`supabase/migrations/`** | **Dos migraciones**: bootstrap de la frontera y núcleo de operación/versión      |
 | **`npm test`**             | **116/116** en verde                                                             |
 | **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                 |
 | **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio** |
@@ -40,15 +40,22 @@ git log --oneline main..HEAD
 git status --porcelain -uall
 ```
 
-**Las migraciones ya han empezado.** `supabase/migrations/` existe y contiene el
-**bootstrap de la frontera de datos**: los tres schemas, los revokes explícitos y
-el saneamiento de default privileges. Nada más — ninguna tabla, ninguna vista,
-ninguna función, ningún rol de aplicación.
+**Las migraciones ya han empezado.** `supabase/migrations/` contiene dos:
+
+1. **`bootstrap_data_boundary`** — los tres schemas, los revokes explícitos y el
+   saneamiento de default privileges (§13 bis);
+2. **`operation_version_ledger`** — la espina dorsal del versionado:
+   `core.currency_definition`, `core.operation`, `core.operation_version` y
+   `core.client_command`, más el rol `nomey_writer` y
+   `sec.request_actor_id()`, con RLS y grants desde el nacimiento (§13 ter).
+
+**Todavía no existen** `core.effect`, el ámbito, el participante, la proyección
+canónica, las vistas de `api` ni el writer autoritativo como función.
 
 > **Cambio de etapa.** `supabase/e11`–`e20` eran evidencia desechable sobre
 > maquetas y **nunca deben convertirse en migración**. A partir de aquí,
 > `supabase/migrations/` es **estado real y versionado**, y
-> `supabase/checks/bootstrap.sql` valida la migración de verdad, no una maqueta.
+> `supabase/checks/` valida las migraciones de verdad, no una maqueta.
 
 **Historial de la fase en `main`**, útil para reconstruir el orden:
 
@@ -515,6 +522,10 @@ Los ADR aceptados **ya fijan por uso** estos, y no se renombran:
 `core.operation` · `core.operation_version` · `core.effect` ·
 `core.client_command` · `core.participant` · `core.participant_user_link`
 
+**Ya migrados y por tanto fijados**: `core.operation`, `core.operation_version`,
+`core.client_command`, `core.currency_definition`, el rol `nomey_writer` y
+`sec.request_actor_id()`.
+
 Conceptos con **semántica cerrada y nombre todavía no fijado**, que la migración
 nombrará: la **cabecera de reparto** por `(versión, ámbito)` y sus **filas de
 participante** (ADR-013 §5) · la **conversión congelada** (ADR-013 §6) · el
@@ -683,6 +694,93 @@ tanto, todo lo que Nomey cree. Los default privileges que `supabase_admin`
 mantiene sobre `public` **siguen concediendo a los roles cliente** y no se tocan:
 son del stack, no de Nomey, y alterarlos desde `postgres` no procede. La segunda
 capa sigue siendo ADR-014: `public` ya no tiene ruta HTTP.
+
+---
+
+## 13 ter · El núcleo de operación, versión y comando
+
+Segunda migración real, `operation_version_ledger`. Materializa la **espina
+dorsal del versionado**: `core.currency_definition`, `core.operation`,
+`core.operation_version` y `core.client_command`, con el rol `nomey_writer`, el
+helper `sec.request_actor_id()`, y RLS y grants **en la misma migración**.
+
+**Lo verificado**, con dos `db reset` de **44 s** y resultado idéntico:
+
+- el linaje de versiones rechaza `version_no = 0`, una V1 con predecesor, una V2
+  sin predecesor, la autorreferencia y el `version_no` duplicado;
+- el **puntero de vigencia** no acepta la versión de otra operación, ni un
+  comando puede declarar como resultado una versión de otra operación;
+- la **idempotencia estructural** funciona: el mismo actor no reutiliza su
+  `client_operation_id` **ni con otra clase**, y otro actor **sí** puede usar el
+  mismo UUID;
+- la **RLS actúa como segunda barrera** con la frontera funcional aún ausente:
+  rechaza atribuir una operación o una versión a otro actor;
+- la **corrección cross-author no está bloqueada**: B lee la V1 de A, crea la V2
+  atribuida a B y mueve el puntero; y **no** puede devolver la vigencia a una
+  versión que no creó;
+- el `UPDATE` del writer está acotado **por columna**, no por política.
+
+### Qué protege el linaje, y qué no
+
+**Medido contra la migración real**, no deducido del ADR:
+
+| Propiedad                                            | ¿Estructural hoy?    |
+| ---------------------------------------------------- | -------------------- |
+| El predecesor pertenece a la **misma operación**     | **Sí**, FK compuesta |
+| El puntero de vigencia es de la **misma operación**  | **Sí**, FK compuesta |
+| `version_no >= 1`, sin duplicados, V1 sin predecesor | **Sí**               |
+| Sin autorreferencia                                  | **Sí**               |
+| El predecesor es **exactamente** la versión anterior | **No**               |
+| **Ausencia de bifurcación**                          | **No**               |
+| Monotonía de `version_no` respecto al predecesor     | **No**               |
+
+Es decir: hoy la base acepta una V3 que supersede a V1 saltándose la V2, y
+acepta que **varias versiones supersedan a la misma**. Se comprobó insertándolo.
+
+> **No es un defecto: está reservado.** [ADR-011](../adr/ADR-011-operation-version-model.md)
+> §11 lo dice expresamente —«una V4 podría superseder a V2 sin violar
+> ninguna… ese invariante pertenece a la frontera autoritativa»— y añade que no
+> se simula con una restricción imposible.
+
+**Sobre la bifurcación hay una opción real que no se adopta.** Un
+`UNIQUE (operation_id, supersedes_version_id)` la impediría, es barato y se
+comprobó que detecta el estado bifurcado. **No se añade** porque cerraría un
+escenario que ADR-013 §4 deja expresamente abierto: una **anulación o
+revocación** futura podría devolver la vigencia a una versión anterior, y
+corregir desde ahí crearía legítimamente una segunda versión que supersede a la
+misma. Adoptarlo sería decidir por adelantado algo que pertenece a un ADR.
+
+### Por qué `core.effect` no entra en esta migración
+
+Sus FK normativas exigen **`core.scope` y `core.participant`** —ADR-012 §3 fija
+que los efectos referencian **siempre** al participante contextual, y el
+participante es contextual **por ámbito**— y su política de lectura de cliente
+es la **membresía del ámbito** mediante el helper de ADR-007 §2 (ADR-013 §10),
+que necesita la relación de membresía usuario↔ámbito. **Son tres relaciones
+más, con su propia RLS: un bloque, no un apéndice de este.**
+
+> **Esas tres relaciones son de la Fase 3.C, no de una fase posterior.** El
+> roadmap incluye **«Auth técnico con usuarios reales»** en el alcance de 3.C, y
+> la Fase 5 declara como dependencia **«F3.C (Auth técnico y RLS)»** y como
+> objetivo _«que la app sepa quién es el usuario, sobre el Auth técnico que ya
+> existe desde 3.C»_. Lo que llega en F5 es la **experiencia** de identidad —
+> registro, login, recuperación, sesión, rutas protegidas—, **no** la relación
+> física que la RLS necesita.
+
+**No hay estado intermedio inválido por esperar al bloque siguiente.** `effect`
+simplemente no existe, igual que `operation` no existía antes. Por la misma
+razón, `operation` y `operation_version` nacen **sin políticas de lectura de
+cliente** —las suyas derivan de los efectos visibles— y **sin grants de
+lectura**: con RLS activada y sin política el resultado es **denegación total**,
+que es el estado seguro.
+
+### Lo que queda estructural frente a lo que necesita el writer
+
+`core.client_command` da hoy la **unicidad**: `(created_by, client_operation_id)`
+transversal a clases. **Eso no es la idempotencia completa.** El _replay_ —
+reconocer un comando repetido, devolver el resultado anterior y **no** crear una
+V3— es una secuencia que vive en la frontera autoritativa (ADR-011 §13) y se
+demuestra con ella, no con una restricción. No se simula aquí.
 
 ---
 

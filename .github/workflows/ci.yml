@@ -42,5 +42,47 @@ jobs:
 
       # Domain tests. They run the shared vectors in tests/vectors, which the
       # authoritative server implementation will have to reproduce exactly.
+      # tests/infra also runs here: it checks the versioned configuration -which
+      # schemas the Data API exposes- without needing a database.
       - name: Test
         run: npm test
+
+  database:
+    name: Migrations rebuilt from zero
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # The wrapper pins the CLI version in a single line and downloads the
+      # Linux binary to the npm cache, never into node_modules. `npm ci` is
+      # deliberately NOT run here: this job needs no project dependencies.
+      #
+      # Only postgres, kong and postgrest are started. PostgREST is kept on
+      # purpose: if the api schema stopped existing it would fail its health
+      # check, and that is the ADR-014 bootstrap guard for free.
+      #
+      # Kong cannot be excluded while postgrest is kept. The CLI probes
+      # PostgREST's readiness through the gateway, at
+      # http://127.0.0.1:54321/rest-admin/v1/ready, and 54321 is Kong's
+      # published port. Without Kong, PostgREST starts and serves correctly but
+      # the probe cannot reach it, so `start` fails with a transport error.
+      # Measured: it reproduces locally with this exact command.
+      - name: Start Supabase, applying every migration from zero
+        run: >
+          ./scripts/supabase-cli.sh start
+          -x gotrue,realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+      - name: Bootstrap checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/bootstrap.sql
+
+      - name: Core ledger checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/core-ledger.sql
+
+      - name: Stop
+        if: always()
+        run: ./scripts/supabase-cli.sh stop --no-backup

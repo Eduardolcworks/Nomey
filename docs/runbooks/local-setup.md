@@ -219,19 +219,26 @@ docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
   -X -q -v ON_ERROR_STOP=1 < supabase/checks/bootstrap.sql
 ```
 
-Falla con código distinto de cero en la primera violación. Comprueba el
-catálogo; la configuración versionada la comprueba `npm test`, en
-`tests/infra/`.
+```bash
+docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
+  -X -q -v ON_ERROR_STOP=1 < supabase/checks/core-ledger.sql
+```
+
+Fallan con código distinto de cero en la primera violación, y **no dejan datos**:
+lo que insertan ocurre dentro de una transacción que termina en `ROLLBACK`. La
+configuración versionada la comprueba `npm test`, en `tests/infra/`.
+
+**CI ejecuta estos mismos dos ficheros** en el job `Migrations rebuilt from
+zero`, sobre un stack levantado desde cero.
 
 ---
 
 ## 8 · Lo que este entorno no cubre
 
-- **CI.** GitHub Actions ejecuta `npm test`, así que las comprobaciones de
-  `tests/infra/` **sí** corren en cada PR. Lo que **no** ejecuta todavía es la
-  Supabase CLI: reconstruir las migraciones desde cero en CI es una PR posterior
-  de 3.C. Como CI corre en `ubuntu-latest`, podrá invocar el mismo
-  `./scripts/supabase-cli.sh` sin duplicar la versión.
+- **HTTP en CI.** El job de base de datos levanta solo `postgres` y `postgrest`,
+  así que las comprobaciones de exposición por HTTP siguen siendo locales. Lo
+  que sí protege es el arranque: si `api` dejara de existir, PostgREST no
+  pasaría su health check.
 - **Producción.** Nada de este runbook apunta a un proyecto remoto; no hay
   `link`, `push` ni `pull`, y `AGENTS.md` prohíbe ejecutar nada contra
   producción.
