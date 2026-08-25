@@ -52,7 +52,7 @@ inglés.
 | `security/`     | Modelo de amenazas, tratamiento de datos             | Parcial    |
 | `ux/`           | Design system, flujos                                | Fase 4     |
 | `adr/`          | Architecture Decision Records                        | **Activa** |
-| `runbooks/`     | Procedimientos operativos                            | Fase 1     |
+| `runbooks/`     | Procedimientos operativos                            | Parcial    |
 
 ## Documentos de mantenimiento obligatorio
 
@@ -86,8 +86,6 @@ historial de análisis o se retira.
 
 ## Qué falta por escribir
 
-- **`runbooks/local-setup.md`** — de cero a la app corriendo. Previsto desde la
-  Fase 1 y todavía sin escribir.
 - **`architecture/code-structure.md`**, **`database/rls-policies.md`** y
   **`security/threat-model.md`** — de mantenimiento obligatorio en cuanto
   existan.
@@ -101,6 +99,8 @@ historial de análisis o se retira.
   [`product/roadmap.md`](product/roadmap.md)
 - Dirección visual y estética, fuente de verdad única:
   [`product/design-direction.md`](product/design-direction.md)
+- Montaje del entorno local y comando estándar de la Supabase CLI:
+  [`runbooks/local-setup.md`](runbooks/local-setup.md)
 - Reglas operativas para agentes y personas: [`AGENTS.md`](../AGENTS.md)
 - Restricciones por capa: `README.md` dentro de cada carpeta de `src/`
 - Estado de los assets: [`assets/README.md`](../assets/README.md)

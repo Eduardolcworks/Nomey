@@ -408,6 +408,11 @@ starts (`npx expo start`).
 | `npm run format`    | Prettier, write                 |
 | `npm run verify`    | typecheck + lint + format check |
 
+The Supabase CLI is the exception: it runs **from Ubuntu (WSL2)**, not Windows,
+via `./scripts/supabase-cli.sh`, which pins its version in a single line. The
+setup and the reason are in
+[`docs/runbooks/local-setup.md`](docs/runbooks/local-setup.md).
+
 ---
 
 ## Do not
@@ -427,6 +432,11 @@ starts (`npx expo start`).
   that does not fit SDK 57.
 - Use `npm install` to prepare an existing checkout. Use `npm ci`: it installs
   exactly what the lockfile pins and fails if the lockfile has drifted.
+- Run `npm install` or `npm ci` **from WSL** against this checkout. Windows and
+  Ubuntu share one physical `node_modules` through `/mnt/c`, and it belongs to
+  the Windows toolchain: installing from Linux swaps platform artefacts and
+  breaks the other side silently. The Supabase CLI does not need it — see
+  [`docs/runbooks/local-setup.md`](docs/runbooks/local-setup.md).
 - Push or merge to `main` without being asked.
 
 ---
