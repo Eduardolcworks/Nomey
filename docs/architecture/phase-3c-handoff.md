@@ -720,24 +720,59 @@ helper `sec.request_actor_id()`, y RLS y grants **en la misma migración**.
   versión que no creó;
 - el `UPDATE` del writer está acotado **por columna**, no por política.
 
-### Por qué `core.effect` no entra todavía
+### Qué protege el linaje, y qué no
 
-**No es alcance, es integridad.** Dos razones independientes:
+**Medido contra la migración real**, no deducido del ADR:
 
-1. **Su política de lectura de cliente es la membresía del ámbito** mediante el
-   helper de ADR-007 §2 (ADR-013 §10). Ese helper necesita la relación de
-   membresía usuario↔ámbito, que pertenece a la fase de identidad y sesión.
-   Crear `effect` hoy sería crearlo **sin la política que su ADR le asigna**.
-2. **Sus FK normativas exigen `core.scope` y `core.participant`**: ADR-012 §3
-   fija que los efectos referencian **siempre** al participante contextual, y el
-   participante es contextual **por ámbito**, de modo que arrastra el ámbito.
-   Dejar esas columnas sin FK sería debilitar el modelo.
+| Propiedad                                            | ¿Estructural hoy?    |
+| ---------------------------------------------------- | -------------------- |
+| El predecesor pertenece a la **misma operación**     | **Sí**, FK compuesta |
+| El puntero de vigencia es de la **misma operación**  | **Sí**, FK compuesta |
+| `version_no >= 1`, sin duplicados, V1 sin predecesor | **Sí**               |
+| Sin autorreferencia                                  | **Sí**               |
+| El predecesor es **exactamente** la versión anterior | **No**               |
+| **Ausencia de bifurcación**                          | **No**               |
+| Monotonía de `version_no` respecto al predecesor     | **No**               |
 
-**No hay estado intermedio inválido por esperar.** `effect` simplemente no
-existe, igual que `operation` no existía antes. Por la misma razón, `operation`
-y `operation_version` nacen **sin políticas de lectura de cliente** —las suyas
-derivan de los efectos visibles— y **sin grants de lectura**: con RLS activada y
-sin política el resultado es **denegación total**, que es el estado seguro.
+Es decir: hoy la base acepta una V3 que supersede a V1 saltándose la V2, y
+acepta que **varias versiones supersedan a la misma**. Se comprobó insertándolo.
+
+> **No es un defecto: está reservado.** [ADR-011](../adr/ADR-011-operation-version-model.md)
+> §11 lo dice expresamente —«una V4 podría superseder a V2 sin violar
+> ninguna… ese invariante pertenece a la frontera autoritativa»— y añade que no
+> se simula con una restricción imposible.
+
+**Sobre la bifurcación hay una opción real que no se adopta.** Un
+`UNIQUE (operation_id, supersedes_version_id)` la impediría, es barato y se
+comprobó que detecta el estado bifurcado. **No se añade** porque cerraría un
+escenario que ADR-013 §4 deja expresamente abierto: una **anulación o
+revocación** futura podría devolver la vigencia a una versión anterior, y
+corregir desde ahí crearía legítimamente una segunda versión que supersede a la
+misma. Adoptarlo sería decidir por adelantado algo que pertenece a un ADR.
+
+### Por qué `core.effect` no entra en esta migración
+
+Sus FK normativas exigen **`core.scope` y `core.participant`** —ADR-012 §3 fija
+que los efectos referencian **siempre** al participante contextual, y el
+participante es contextual **por ámbito**— y su política de lectura de cliente
+es la **membresía del ámbito** mediante el helper de ADR-007 §2 (ADR-013 §10),
+que necesita la relación de membresía usuario↔ámbito. **Son tres relaciones
+más, con su propia RLS: un bloque, no un apéndice de este.**
+
+> **Esas tres relaciones son de la Fase 3.C, no de una fase posterior.** El
+> roadmap incluye **«Auth técnico con usuarios reales»** en el alcance de 3.C, y
+> la Fase 5 declara como dependencia **«F3.C (Auth técnico y RLS)»** y como
+> objetivo _«que la app sepa quién es el usuario, sobre el Auth técnico que ya
+> existe desde 3.C»_. Lo que llega en F5 es la **experiencia** de identidad —
+> registro, login, recuperación, sesión, rutas protegidas—, **no** la relación
+> física que la RLS necesita.
+
+**No hay estado intermedio inválido por esperar al bloque siguiente.** `effect`
+simplemente no existe, igual que `operation` no existía antes. Por la misma
+razón, `operation` y `operation_version` nacen **sin políticas de lectura de
+cliente** —las suyas derivan de los efectos visibles— y **sin grants de
+lectura**: con RLS activada y sin política el resultado es **denegación total**,
+que es el estado seguro.
 
 ### Lo que queda estructural frente a lo que necesita el writer
 

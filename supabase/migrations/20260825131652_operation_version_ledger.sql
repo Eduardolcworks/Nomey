@@ -92,6 +92,11 @@ create table core.operation_version (
   constraint operation_version_no_autoref    check (supersedes_version_id is distinct from id),
   -- El predecesor pertenece a la MISMA operacion. Compuesta, por eso cubre
   -- tambien el caso de apuntar a una version de otra operacion.
+  -- OJO: es lo UNICO del linaje que se garantiza estructuralmente. Estas
+  -- restricciones NO impiden que una V3 supersede a V1 saltandose la V2, ni que
+  -- dos versiones supersedan a la misma. ADR-011 §11 reserva expresamente ese
+  -- invariante —que el predecesor sea la version vigente anterior— a la
+  -- frontera autoritativa, y no se simula aqui.
   constraint operation_version_supersedes_misma_op
     foreign key (operation_id, supersedes_version_id)
     references core.operation_version (operation_id, id),
@@ -313,20 +318,21 @@ create policy client_command_writer_select on core.client_command
 --
 -- `core.effect` NO entra en esta migracion, y no por acotar el alcance.
 --
--- 1. Su policy de lectura del cliente es, segun ADR-013 §10, la MEMBRESIA DEL
---    AMBITO mediante el helper de ADR-007 §2. Ese helper necesita la relacion
---    de membresia usuario-ambito, que a su vez pertenece a la fase de identidad
---    y sesion. Crear `effect` hoy significaria crearlo sin la policy que su ADR
---    le asigna.
+-- Sus claves foraneas normativas exigen `core.scope` y `core.participant`
+-- —ADR-012 §3: los efectos referencian SIEMPRE al participante contextual, que
+-- es contextual POR AMBITO— y su policy de lectura de cliente es la MEMBRESIA
+-- DEL AMBITO mediante el helper de ADR-007 §2 (ADR-013 §10), que necesita la
+-- relacion de membresia usuario-ambito. Son tres relaciones mas, con su propia
+-- RLS: un bloque, no un apendice de este.
 --
--- 2. Sus claves foraneas normativas exigen ademas `core.scope` y
---    `core.participant` (ADR-012 §3: los efectos referencian SIEMPRE al
---    participante contextual), y el participante es contextual POR AMBITO, de
---    modo que arrastra el ambito. Dejar esas columnas sin FK seria debilitar el
---    modelo.
+-- Esas tres relaciones pertenecen a la Fase 3.C, NO a una fase posterior: el
+-- roadmap incluye "Auth tecnico con usuarios reales" en el alcance de 3.C, y la
+-- Fase 5 depende de "F3.C (Auth tecnico y RLS)". Lo que llega en F5 es la
+-- experiencia de identidad —registro, login, recuperacion, sesion—, no la
+-- relacion fisica que la RLS necesita.
 --
--- No hay estado intermedio invalido por esperar: `effect` simplemente todavia
--- no existe, igual que `operation` no existia antes de esta migracion. Las
--- policies de lectura de cliente de `operation` y `operation_version` —que
--- derivan de los efectos visibles— llegan en ese mismo bloque, junto con los
--- grants de lectura correspondientes.
+-- No hay estado intermedio invalido por esperar al bloque siguiente: `effect`
+-- simplemente todavia no existe, igual que `operation` no existia antes de esta
+-- migracion. Las policies de lectura de cliente de `operation` y
+-- `operation_version` —que derivan de los efectos visibles— llegan alli, junto
+-- con los grants de lectura correspondientes.

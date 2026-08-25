@@ -191,6 +191,30 @@ begin
     when others then fallos := array_append(fallos, format('B7: error inesperado %s', sqlstate));
   end;
 
+  -- B8 · el predecesor debe pertenecer a la MISMA operacion. Es lo unico del
+  -- linaje que la FK compuesta si garantiza estructuralmente; el resto —que el
+  -- predecesor sea exactamente la version vigente anterior— lo reserva
+  -- ADR-011 §11 a la frontera autoritativa.
+  begin
+    insert into core.operation (id, operation_class, created_by, current_version_id)
+    values ('a8000000-0000-4000-8000-000000000000','expense', A,
+            'b8000000-0000-4000-8000-000000000000');
+    insert into core.operation_version
+      (id, operation_id, version_no, supersedes_version_id, created_by,
+       effective_date, original_amount, original_currency_definition_id, economic_rules_version)
+    values ('b8000000-0000-4000-8000-000000000000','a8000000-0000-4000-8000-000000000000',
+            1, null, A, date '2026-01-01', 1, CD, 'v1');
+    insert into core.operation_version
+      (id, operation_id, version_no, supersedes_version_id, created_by,
+       effective_date, original_amount, original_currency_definition_id, economic_rules_version)
+    values ('b8800000-0000-4000-8000-000000000000','a8000000-0000-4000-8000-000000000000',
+            2, 'b1000000-0000-4000-8000-000000000000',  -- V1 de OTRA operacion
+            A, date '2026-01-01', 1, CD, 'v1');
+    fallos := array_append(fallos, 'B8: una version supersedio a la version de otra operacion');
+  exception when foreign_key_violation then null;
+    when others then fallos := array_append(fallos, format('B8: error inesperado %s', sqlstate));
+  end;
+
   --------------------------------------------------------- client_command ---
   insert into core.client_command
     (created_by, client_operation_id, command_type, command_contract_version,

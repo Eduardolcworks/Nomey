@@ -487,12 +487,21 @@ exist with their lineage constraints, the deferred composite pointer, the
 `nomey_writer` role, `sec.request_actor_id()`, and RLS from birth. CI rebuilds
 every migration from zero and runs the SQL checks.
 
-**`core.effect` is deliberately absent, for integrity and not for scope:** its
-client read policy is scope membership (ADR-013 §10), which needs the membership
-relation from the identity phase, and its normative FKs need `core.scope` and
-`core.participant`. See `docs/architecture/phase-3c-handoff.md` §13 ter.
+**`core.effect` is absent from that migration, for integrity and not for scope:**
+its normative FKs need `core.scope` and `core.participant`, and its client read
+policy is scope membership (ADR-013 §10), which needs the membership relation.
+Those three belong to **3.C**, not to a later phase: the roadmap puts "Auth
+técnico con usuarios reales" inside 3.C, and Phase 5 depends on it. What Phase 5
+adds is the identity _experience_, not the relation RLS needs.
 
-**Next up inside 3.C:** scope, participant and effect together, then the
-canonical projection, the `api` read views and the authoritative writer.
+**Version lineage is only partly structural, by design.** The composite FKs
+guarantee the predecessor and the pointer belong to the same operation; that the
+predecessor is _exactly_ the previously current version — and therefore the
+absence of branching — is reserved to the authoritative boundary by ADR-011 §11.
+Do not describe the lineage as "linear" on the strength of the constraints
+alone.
+
+**Next up inside 3.C:** scope, participant, membership and effect together, then
+the canonical projection, the `api` read views and the authoritative writer.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.
