@@ -62,14 +62,20 @@ jobs:
       # Linux binary to the npm cache, never into node_modules. `npm ci` is
       # deliberately NOT run here: this job needs no project dependencies.
       #
-      # Only postgres and postgrest are started. PostgREST is kept on purpose:
-      # if the api schema stopped existing, it would fail its health check, and
-      # that is the ADR-014 bootstrap guard for free. Everything else is
-      # excluded to keep the job fast and less flaky.
+      # Only postgres, kong and postgrest are started. PostgREST is kept on
+      # purpose: if the api schema stopped existing it would fail its health
+      # check, and that is the ADR-014 bootstrap guard for free.
+      #
+      # Kong cannot be excluded while postgrest is kept. The CLI probes
+      # PostgREST's readiness through the gateway, at
+      # http://127.0.0.1:54321/rest-admin/v1/ready, and 54321 is Kong's
+      # published port. Without Kong, PostgREST starts and serves correctly but
+      # the probe cannot reach it, so `start` fails with a transport error.
+      # Measured: it reproduces locally with this exact command.
       - name: Start Supabase, applying every migration from zero
         run: >
           ./scripts/supabase-cli.sh start
-          -x gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          -x gotrue,realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
 
       - name: Bootstrap checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/bootstrap.sql
