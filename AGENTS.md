@@ -444,9 +444,11 @@ screens — that is deliberate, not an oversight. The visible app is still an
 intentionally blank screen. The whole physical model of 3.C lives in ADRs and in
 probes; **`supabase/migrations/` has not been created**.
 
-**Next up inside 3.C:** the cross-cutting work and the closing synthesis. E20
-measured the writer's write-side policies and ADR-013 §10 fixed them, so **no
-technical uncertainty is blocking the migrations any more**. See
-`docs/architecture/phase-3c-handoff.md`.
+**Next up inside 3.C: the first real migrations.** E20 measured the writer's
+write-side policies, ADR-013 §10 fixed them, and the cross-cutting review of
+2026-08-25 closed the rest, so **no decision is left that could reasonably force
+redesigning them**. The entry checklist is
+`docs/architecture/phase-3c-handoff.md` §14; the one item still open there —
+whether `public` stays in `api.schemas` — is configuration, not schema.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.
