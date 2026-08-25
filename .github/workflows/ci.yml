@@ -83,6 +83,14 @@ jobs:
       - name: Core ledger checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/core-ledger.sql
 
+      # Scope, participant, membership and effect. This one exercises the
+      # client read path as `authenticated`, which needs auth.uid() to resolve
+      # simulated request.jwt.claims. Measured: auth.uid() ships with the
+      # postgres image, not with GoTrue, so it works in this job even though
+      # gotrue is excluded above.
+      - name: Scope and effect checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/scope-effect.sql
+
       - name: Stop
         if: always()
         run: ./scripts/supabase-cli.sh stop --no-backup

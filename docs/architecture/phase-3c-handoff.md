@@ -10,8 +10,9 @@
 > Existe para que una sesión nueva reconstruya el estado del proyecto leyendo el
 > repositorio, **sin depender de ninguna conversación previa**.
 
-Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al migrar el nucleo de operacion y version el
-2026-08-25**, con el estado completo de la fase.
+Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al migrar el ámbito, el
+participante, la membresía y el efecto el 2026-08-25**, con el estado completo
+de la fase.
 
 ---
 
@@ -28,7 +29,7 @@ Checkpoint **durable**: describe qué hay decidido y consolidado, no una foto de
 | **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                |
 | **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                    |
 | **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                 |
-| **`supabase/migrations/`** | **Dos migraciones**: bootstrap de la frontera y núcleo de operación/versión      |
+| **`supabase/migrations/`** | **Tres migraciones**: bootstrap · núcleo de operación/versión · ámbito y efecto  |
 | **`npm test`**             | **116/116** en verde                                                             |
 | **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                 |
 | **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio** |
@@ -40,17 +41,22 @@ git log --oneline main..HEAD
 git status --porcelain -uall
 ```
 
-**Las migraciones ya han empezado.** `supabase/migrations/` contiene dos:
+**Las migraciones ya han empezado.** `supabase/migrations/` contiene tres:
 
 1. **`bootstrap_data_boundary`** — los tres schemas, los revokes explícitos y el
    saneamiento de default privileges (§13 bis);
 2. **`operation_version_ledger`** — la espina dorsal del versionado:
    `core.currency_definition`, `core.operation`, `core.operation_version` y
    `core.client_command`, más el rol `nomey_writer` y
-   `sec.request_actor_id()`, con RLS y grants desde el nacimiento (§13 ter).
+   `sec.request_actor_id()`, con RLS y grants desde el nacimiento (§13 ter);
+3. **`scope_participant_effect`** — `core.scope`, `core.participant`,
+   `core.membership` y `core.effect`, más el helper `sec.is_member(uuid)` y la
+   RLS de lectura del cliente que faltaba sobre `operation` y
+   `operation_version` (§13 quater).
 
-**Todavía no existen** `core.effect`, el ámbito, el participante, la proyección
-canónica, las vistas de `api` ni el writer autoritativo como función.
+**Todavía no existen** el periodo de presencia, el vínculo participante↔usuario,
+la cabecera de reparto, la conversión congelada, la proyección canónica, las
+vistas de `api` ni el writer autoritativo como función.
 
 > **Cambio de etapa.** `supabase/e11`–`e20` eran evidencia desechable sobre
 > maquetas y **nunca deben convertirse en migración**. A partir de aquí,
@@ -89,9 +95,22 @@ canónica, las vistas de `api` ni el writer autoritativo como función.
 
 **E20 está cerrada.** Midió el `WITH CHECK` del writer durante la secuencia
 autoritativa, y la decisión humana que dejó abierta —quién puede corregir— está
-tomada (§10). **Los transversales están cerrados** (§11 bis). **Siguiente: las
-primeras migraciones y la finalización de 3.C** que marca el roadmap existente.
-**No hay fases nuevas**; consultar [`product/roadmap.md`](../product/roadmap.md).
+tomada (§10). **Los transversales están cerrados** (§11 bis). **No hay fases
+nuevas**; consultar [`product/roadmap.md`](../product/roadmap.md).
+
+**Migrado hasta aquí:** bootstrap (§13 bis) · núcleo de operación y versión
+(§13 ter) · ámbito, participante, membresía y efecto (§13 quater).
+
+**Siguiente bloque físico**, y en este orden:
+
+```
+participant_period + participant_user_link + btree_gist
+  → proyección canónica de efectos vigentes + vistas `api` con cast a texto
+  → writer autoritativo
+```
+
+Los tres siguen **dentro de 3.C**. F10 construirá el claim, las invitaciones y
+la fusión **sobre relaciones que ya existirán**, no creándolas.
 
 ### Las seis puertas de 3.C
 
@@ -355,6 +374,13 @@ E18 midió: disponible en el stack local · **no instalada por defecto** ·
 necesaria porque `uuid` no tiene operator class GiST · funciona · y el teardown
 la retira.
 
+> **Todavía no está instalada, y es deliberado.** La migración
+> `scope_participant_effect` **no la trae**, porque ninguna de sus cuatro
+> relaciones la necesita: `core.effect` no tiene clave foránea hacia los
+> periodos, y la elegibilidad histórica de ADR-012 §7 es una validación de la
+> frontera autoritativa, no una restricción del efecto. Entra con
+> `core.participant_period`, en el bloque siguiente.
+
 > **Preflight obligatorio antes de producción:** verificar que la plataforma
 > PostgreSQL objetivo la ofrece. **Si algún entorno no la ofreciera, el
 > mecanismo se revisa** — no se sustituye preventivamente.
@@ -523,15 +549,14 @@ Los ADR aceptados **ya fijan por uso** estos, y no se renombran:
 `core.client_command` · `core.participant` · `core.participant_user_link`
 
 **Ya migrados y por tanto fijados**: `core.operation`, `core.operation_version`,
-`core.client_command`, `core.currency_definition`, el rol `nomey_writer` y
-`sec.request_actor_id()`.
+`core.client_command`, `core.currency_definition`, `core.scope`,
+`core.participant`, `core.membership`, `core.effect`, el rol `nomey_writer`,
+`sec.request_actor_id()` y `sec.is_member(uuid)`.
 
 Conceptos con **semántica cerrada y nombre todavía no fijado**, que la migración
 nombrará: la **cabecera de reparto** por `(versión, ámbito)` y sus **filas de
-participante** (ADR-013 §5) · la **conversión congelada** (ADR-013 §6) · el
-**periodo de presencia** (ADR-012, conceptualmente `participant_period`) · la
-**proyección canónica** (ADR-013 §9) · el **ámbito** y la **membresía** que
-ADR-007 presupone.
+participante** (ADR-013 §5) · la **conversión congelada** (ADR-013 §6) · la
+**proyección canónica** (ADR-013 §9).
 
 > **No se cambia el modelo para conseguir nombres mejores.** Nombrar es trabajo
 > de la migración; lo que no puede hacer la migración es **inventar semántica**
@@ -781,6 +806,110 @@ transversal a clases. **Eso no es la idempotencia completa.** El _replay_ —
 reconocer un comando repetido, devolver el resultado anterior y **no** crear una
 V3— es una secuencia que vive en la frontera autoritativa (ADR-011 §13) y se
 demuestra con ella, no con una restricción. No se simula aquí.
+
+---
+
+## 13 quater · El ámbito, el participante, la membresía y el efecto
+
+Tercera migración real, `scope_participant_effect`. Cierra el **conjunto mínimo
+que `core.effect` necesita para existir con integridad y con RLS**, que es la
+razón por la que §13 ter lo dejó fuera. Verificado con **dos `db reset`** de 35 s
+y 31 s, resultado idéntico, más un arranque en frío con la topología de CI.
+
+### Decisiones que se tomaron al materializarlo
+
+Ninguna reabre un ADR; todas eligen entre formas que ningún ADR fijaba.
+
+| Punto                                          | Decisión                                                                                                   |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Moneda del efecto                              | FK **compuesta** `(scope_id, currency_definition_id) → scope (id, base_currency_definition_id)`            |
+| Ciclo de vida de la membresía                  | **Presencia pura**: la fila existe ⇔ la membresía está activa. **No es historial**                         |
+| `scope.kind`                                   | Vocabulario **cerrado** por `check (kind in ('personal','group','couple'))`                                |
+| FK hacia `auth.users`                          | **Ninguna**, igual que `operation.created_by`: la retención y la purga siguen abiertas                     |
+| `scope.created_by`                             | **No existe.** El creador no participa en autorización, propiedad, moneda, efectos ni identidad del ámbito |
+| `participant_period` · `participant_user_link` | **Fuera de esta migración**, dentro de 3.C. Con ellas llegará `btree_gist`                                 |
+
+**La FK compuesta de moneda hace dos cosas a la vez**, y por eso se adoptó: un
+efecto no puede estar en una moneda distinta de la base de su ámbito (ADR-002
+§8), y la moneda base **no puede cambiar mientras existan efectos**, que es la
+inmutabilidad «tras la primera operación» del invariante 12 convertida en
+estructura. Medido en ambos sentidos: con efectos se rechaza con `23503`, sin
+efectos el cambio sigue permitido, tal como exige `data-model.md` §10.
+
+> **La membresía no es un historial y no debe reinterpretarse como tal.** Si
+> algún día hace falta el histórico de entradas y salidas, se modela
+> conscientemente en su propia relación. Añadir aquí un `until` en silencio
+> cambiaría el significado de todas las filas ya escritas.
+
+### `sec.is_member(uuid)`
+
+Cumple los ocho requisitos de ADR-007 §2: `SECURITY DEFINER`, `STABLE`,
+`search_path = ''` con referencias cualificadas, `auth.uid()` **interno**, acepta
+**solo** el ámbito, devuelve `boolean`, `REVOKE EXECUTE FROM PUBLIC` y `GRANT` a
+`authenticated` **sin `USAGE` sobre `sec`**.
+
+Se escribió con cuerpo **`BEGIN ATOMIC`** y se comprobó contra el stack —no se
+adoptó por estética—: deja la dependencia de catálogo hacia `core.membership`
+que E19 midió que los cuerpos textuales **no** dejan, de modo que la tabla no
+puede caer sin `CASCADE` mientras el helper la use.
+
+### Qué quedó medido sobre la frontera de lectura
+
+- **La RLS filtra por FILA, no por operación.** Con una operación cuyos efectos
+  caen en el ámbito de A y en el de B, cada uno ve la operación y su versión —
+  ADR-013 §2 concede la clase— y **solo su propio efecto**. Es el caso que hace
+  utilizable ADR-002 §10.
+- **Una operación sin ningún efecto en tus ámbitos es invisible**, con su
+  versión.
+- **`core.membership` no es legible por el cliente ni a través de una superficie
+  de `api`**: falta el `GRANT`, así que el fallo es `42501` y no una lista vacía.
+- **El helper no es invocable por nombre** por el rol cliente, contra la
+  migración real y no ya sobre una maqueta.
+- **Sin JWT no se ve nada**: `auth.uid()` es nulo y no hay membresía que casar.
+
+### Lo que este bloque NO concede, y hay que no olvidar
+
+- **`INSERT` del writer sobre ámbito, participante y membresía.** Ningún ADR fija
+  un `WITH CHECK` para esas altas, y un `with check (true)` aparentaría una
+  barrera inexistente. Llegan con los comandos que las ejecutan.
+- **La `UPDATE` de `core.scope` que el protocolo de deuda necesitará.** Bloquear
+  la fila estable de un ámbito (ADR-013 §11, paso 2) exige **dos cosas**, no una:
+  la **policy** de `UPDATE` que midió E20 —cuya ausencia devuelve cero filas sin
+  error— **y además el privilegio**. La documentación de PostgreSQL es explícita:
+  las cláusulas de bloqueo requieren `UPDATE` sobre al menos una columna. Cuando
+  llegue, el candidato natural es `GRANT UPDATE (base_currency_definition_id)`,
+  porque es una capacidad real del writer y la FK compuesta ya impide ejercerla
+  con efectos existentes.
+- **Índices de rendimiento.** Las policies de `operation` y `operation_version`
+  recorren `core.effect`. Es el grupo 3 de §11 bis: aplazado hasta medir.
+
+### Una incompletitud de la migración anterior, corregida
+
+`core.currency_definition` nació con RLS activada, con `GRANT SELECT` a
+`nomey_writer` y **sin ninguna policy**. No rompía nada porque todavía no existe
+ninguna función autoritativa, pero en cuanto exista esa lectura habría devuelto
+**cero filas sin error** — el mismo modo de fallo silencioso que E20 midió sobre
+las versiones. Se añade su policy de `SELECT`.
+
+**Y se añade la comprobación genérica que lo habría detectado**: un `GRANT
+SELECT` sobre una tabla de `core` con RLS que no tenga **ninguna** policy de
+`SELECT` aplicable a ese mismo rol. La regla se dispara por el **grant**, no por
+la tabla, de modo que `membership` y `client_command` —que deliberadamente niegan
+la lectura— no la incumplen: sin grant no hay nada que quede inutilizado.
+
+### `auth.uid()` sin GoTrue — resuelto
+
+Era la única incógnita operativa del bloque, porque el job de base de datos de CI
+excluye `gotrue` y toda la RLS de lectura del cliente depende de esa función.
+
+**Medido sobre un arranque en frío con la topología exacta de CI** —solo
+`postgres`, `kong` y `postgrest`—: `auth.uid()` **existe y funciona**. Viene de
+los scripts de inicialización de la imagen `supabase/postgres`, no de GoTrue,
+resuelve `request.jwt.claims` simulado y devuelve `NULL` sin claims. `auth.users`
+también existe por la misma vía, aunque este bloque no la referencia.
+
+**Consecuencia práctica:** los tests de aislamiento a nivel de base de datos no
+necesitan usuarios reales de GoTrue, y CI no cambia de topología.
 
 ---
 

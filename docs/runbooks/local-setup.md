@@ -224,12 +224,29 @@ docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
   -X -q -v ON_ERROR_STOP=1 < supabase/checks/core-ledger.sql
 ```
 
+```bash
+docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
+  -X -q -v ON_ERROR_STOP=1 < supabase/checks/scope-effect.sql
+```
+
 Fallan con código distinto de cero en la primera violación, y **no dejan datos**:
 lo que insertan ocurre dentro de una transacción que termina en `ROLLBACK`. La
 configuración versionada la comprueba `npm test`, en `tests/infra/`.
 
-**CI ejecuta estos mismos dos ficheros** en el job `Migrations rebuilt from
+**CI ejecuta estos mismos tres ficheros** en el job `Migrations rebuilt from
 zero`, sobre un stack levantado desde cero.
+
+> ### `auth.uid()` no depende de GoTrue
+>
+> `scope-effect.sql` ejerce la RLS del rol cliente, que necesita `auth.uid()`.
+> **Medido el 2026-08-25 sobre un arranque en frío con la topología exacta de
+> CI** —solo `postgres`, `kong` y `postgrest`—: la función existe y funciona.
+> Viene de los scripts de inicialización de la imagen `supabase/postgres`, no
+> del contenedor de GoTrue, resuelve un `request.jwt.claims` simulado con
+> `set_config` y devuelve `NULL` cuando no hay claims.
+>
+> **Consecuencia práctica:** los tests de aislamiento a nivel de base de datos
+> no necesitan usuarios reales, y el job de CI no tiene que arrancar GoTrue.
 
 ---
 
