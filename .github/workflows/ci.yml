@@ -91,6 +91,12 @@ jobs:
       - name: Scope and effect checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/scope-effect.sql
 
+      # Participant-account link and presence periods. This one also proves
+      # btree_gist is installed and actually provides the GiST operator class
+      # uuid lacks, which is what makes the overlap exclusion declarative.
+      - name: Participant identity checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/participant-identity.sql
+
       - name: Stop
         if: always()
         run: ./scripts/supabase-cli.sh stop --no-backup
