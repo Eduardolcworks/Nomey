@@ -235,8 +235,16 @@ someone's access alive until it refreshes.
 dedicated schema for the exposed surface, and the accounting tables are not
 reachable through it.
 
-**Still open (ADR):** whether `public` also remains in the list of exposed
-schemas.
+**Settled — [ADR-014](docs/adr/ADR-014-data-api-schema-exposure.md).** `public`
+is **not** exposed either. The list is `["api", "graphql_public"]`, and
+`extra_search_path` is unchanged — they are two different parameters. The
+config change lands **in the same commit that creates the `api` schema**:
+PostgREST fails to start if a listed schema does not exist — measured.
+
+**What that measurement does not cover:** whether, from a clean clone, Supabase
+applies the migration that creates `api` **before** PostgREST demands it. Same
+commit is **necessary**; its **sufficiency at boot is unverified**, and
+verifying it is an acceptance criterion of the first migration.
 
 ### 5. Participants without an account
 
@@ -337,6 +345,15 @@ files there.
 **Never create a generic `utils/`.** It becomes a dumping ground. Code belongs
 in `domain/` (business rules), `lib/` (infrastructure) or `ui/` (presentation).
 
+**Before building any UI, read
+[`docs/product/design-direction.md`](docs/product/design-direction.md).** It is
+the single source of truth for Nomey's aesthetic — dark, minimal, premium, with
+glassmorphism as the depth device and neumorphism only as a tactile hint — and
+it binds every phase that builds UI, not just F4. Its accessibility rule is
+binding: if an effect costs contrast, legibility, or the unambiguity of an
+amount, a debt, a state or a destructive action, the effect goes. Changing that
+direction is documented there, never introduced from a single screen.
+
 ---
 
 ## Conventions
@@ -428,7 +445,7 @@ the `adr` skill to draft one.
 
 The project is in **Phase 3** (persistence and data boundary), inside **3.C**.
 Phases 0, 1 and 2 are closed, and so are **3.A** and **3.B**. **ADR-002 through
-ADR-013 are accepted**; ADR-003 met its E11 gate against a real local Supabase
+ADR-014 are accepted**; ADR-003 met its E11 gate against a real local Supabase
 stack.
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
@@ -444,9 +461,12 @@ screens — that is deliberate, not an oversight. The visible app is still an
 intentionally blank screen. The whole physical model of 3.C lives in ADRs and in
 probes; **`supabase/migrations/` has not been created**.
 
-**Next up inside 3.C:** the cross-cutting work and the closing synthesis. E20
-measured the writer's write-side policies and ADR-013 §10 fixed them, so **no
-technical uncertainty is blocking the migrations any more**. See
-`docs/architecture/phase-3c-handoff.md`.
+**Next up inside 3.C: the first real migrations.** E20 measured the writer's
+write-side policies, ADR-013 §10 fixed them, and the cross-cutting review of
+2026-08-25 closed the rest, so **no decision is left that could reasonably force
+redesigning them**. The entry checklist is
+`docs/architecture/phase-3c-handoff.md` §14, and **nothing on it is still open**.
+The first migration also lands the `config.toml` change ADR-014 requires, in the
+same commit that creates the `api` schema.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.

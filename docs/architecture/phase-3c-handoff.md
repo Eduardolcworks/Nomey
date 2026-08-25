@@ -10,8 +10,8 @@
 > Existe para que una sesión nueva reconstruya el estado del proyecto leyendo el
 > repositorio, **sin depender de ninguna conversación previa**.
 
-Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al cerrar E20 el
-2026-08-24**, con el estado completo de la fase.
+Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al cerrar los transversales previos a migraciones el
+2026-08-25**, con el estado completo de la fase.
 
 ---
 
@@ -24,9 +24,9 @@ Checkpoint **durable**: describe qué hay decidido y consolidado, no una foto de
 | -------------------------- | -------------------------------------------------------------------------------- |
 | **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                       |
 | **D11**                    | **Cerrado y mergeado a `main`** (`d672246`): ADR-013 y `supabase/e19/`           |
-| **E20**                    | **Cerrada** en la rama `chore/phase-3c-e20`: `supabase/e20/` y ADR-013 §10       |
-| **Rama de trabajo**        | `chore/phase-3c-e20`, abierta desde `d672246`                                    |
-| **`main`**                 | **Aún sin E20** mientras su PR no esté revisada y mergeada                       |
+| **E20**                    | **Cerrada y mergeada a `main`** (`afe50ab`): `supabase/e20/` y ADR-013 §10       |
+| **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                |
+| **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                    |
 | **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                 |
 | **`supabase/migrations/`** | **No existe.** No se ha autorizado SQL definitivo                                |
 | **`npm test`**             | **110/110** en verde                                                             |
@@ -40,9 +40,9 @@ git log --oneline main..HEAD
 git status --porcelain -uall
 ```
 
-**D11 ya está en `main`** (merge `d672246`). La rama viva es
-`chore/phase-3c-e20`, con **dos commits propios** —uno con `supabase/e20/` y otro
-con ADR-013 y la documentación— y un árbol limpio.
+**E20 ya está en `main`** (merge `afe50ab`). Lo que siga a partir de aquí son las
+**primeras migraciones**, y `supabase/migrations/` debe seguir sin existir hasta
+que se autoricen.
 
 **Historial de la fase en `main`**, útil para reconstruir el orden:
 
@@ -55,6 +55,7 @@ con ADR-013 y la documentación— y un árbol limpio.
 | `d0b6d95` | 3.C.6 — D9 · E17              |
 | `bc2b8d7` | 3.C.7 — D10 · E18             |
 | `d672246` | 3.C.8 — D11 · E19             |
+| `afe50ab` | 3.C.9 — E20                   |
 
 ---
 
@@ -75,15 +76,40 @@ con ADR-013 y la documentación— y un árbol limpio.
 
 **E20 está cerrada.** Midió el `WITH CHECK` del writer durante la secuencia
 autoritativa, y la decisión humana que dejó abierta —quién puede corregir— está
-tomada (§10). **Siguiente: los transversales y la finalización de 3.C** que marca
-el roadmap existente. **No hay fases nuevas**; consultar
-[`product/roadmap.md`](../product/roadmap.md).
+tomada (§10). **Los transversales están cerrados** (§11 bis). **Siguiente: las
+primeras migraciones y la finalización de 3.C** que marca el roadmap existente.
+**No hay fases nuevas**; consultar [`product/roadmap.md`](../product/roadmap.md).
+
+### Las seis puertas de 3.C
+
+El roadmap enumera seis puertas para esta fase. **Todas cerradas**, cada una con
+la fuente que lo sostiene:
+
+| Puerta                                    | Estado      | Fuente                                                                                                                                                                                                                                   |
+| ----------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identidad de la definición monetaria      | **CERRADA** | [ADR-004](../adr/ADR-004-currency-definition-identity.md): `UUID` fijo y sembrado                                                                                                                                                        |
+| Esquema expuesto por la Data API          | **CERRADA** | [ADR-005](../adr/ADR-005-schema-topology.md) §2, [ADR-006](../adr/ADR-006-privilege-model.md) §6 y [ADR-014](../adr/ADR-014-data-api-schema-exposure.md): `api` es la superficie; `core`, `sec` y **`public`** quedan fuera de `schemas` |
+| Estrategia de `GRANT`                     | **CERRADA** | [ADR-006](../adr/ADR-006-privilege-model.md) §1-§4 y §7, medido en E12 y E13                                                                                                                                                             |
+| Membresía en RLS                          | **CERRADA** | [ADR-007](../adr/ADR-007-membership-rls.md): helper reducido `SECURITY DEFINER`, sin claims en el JWT                                                                                                                                    |
+| Mecanismo de idempotencia                 | **CERRADA** | [ADR-010](../adr/ADR-010-client-operation-idempotency.md) y [ADR-011](../adr/ADR-011-operation-version-model.md) §5, para el **origen cliente**                                                                                          |
+| Frontera textual que cumple T7 de ADR-003 | **CERRADA** | [ADR-008](../adr/ADR-008-exact-data-boundary.md) §1-§2: vista `security_invoker` de `api` que proyecta texto, con test de catálogo                                                                                                       |
+
+> **La puerta del esquema expuesto se completó con
+> [ADR-014](../adr/ADR-014-data-api-schema-exposure.md)**, que resolvió el punto
+> que ADR-005 §4 dejó abierto: **`public` no se expone**. La lista queda
+> `["api", "graphql_public"]`, y `extra_search_path` no cambia. Ver §11.
+
+**La entrada pendiente que el roadmap dejó sin conclusión** —de dónde salen los
+privilegios `REFERENCES`, `TRIGGER` y `TRUNCATE` sobre tablas nuevas— **la
+respondió E12**: son los default privileges de Supabase sobre `public`, son
+ejecutables, y `MAINTAIN` es además invisible para `information_schema`.
+ADR-006 §7 fija su saneamiento explícito.
 
 ---
 
 ## 3 · ADR aceptados
 
-Los trece están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
+Los catorce están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
 
 | ADR                                                   | Decisión principal                                                                                                               |
 | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -99,6 +125,7 @@ Los trece están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
 | [011](../adr/ADR-011-operation-version-model.md)      | Operación estable, versiones inmutables, efectos por versión y `client_command` como unidad física de idempotencia               |
 | [012](../adr/ADR-012-participant-identity.md)         | Participante contextual por ámbito, vínculo con la cuenta en relación separada, y periodos de presencia                          |
 | [013](../adr/ADR-013-persisted-vs-derived.md)         | Solo los hechos se persisten; saldos y deudas se derivan; el reparto es contextual y hay una proyección canónica de vigentes     |
+| [014](../adr/ADR-014-data-api-schema-exposure.md)     | `public` no se expone por la Data API; la lista es `["api", "graphql_public"]`                                                   |
 
 ---
 
@@ -409,6 +436,28 @@ El advisory lock por par queda como **escalada futura**, no como diseño de v1.
 
 **No tratar nada de esto como decidido.**
 
+### Nada previo a las migraciones
+
+**La lista de abiertos previos a migraciones está vacía.** El último era si
+`public` permanecía en `api.schemas`, y lo cerró
+[ADR-014](../adr/ADR-014-data-api-schema-exposure.md): **no permanece**.
+
+> **Con una condición de secuencia medida.** El cambio de `config.toml` se
+> aplica **en el mismo commit que cree el schema `api`**, no antes: con
+> `schemas = ["api", …]` y sin ese schema, PostgREST falla con
+> `3F000 schema "api" does not exist`, reintenta y nunca sirve, y
+> `supabase start` aborta con el contenedor REST en `503`. Medido el
+> 2026-08-25. Hasta entonces la configuración versionada conserva su valor
+> actual.
+
+> **Lo que ese experimento NO demuestra.** Midió que la configuración final es
+> inválida sin el schema. **No midió** que, desde un clon limpio, Supabase
+> aplique la migración que crea `api` **antes** de que PostgREST exija que
+> exista. Que ambos cambios viajen en el mismo commit es **necesario**; que ese
+> orden sea **suficiente** en el arranque real está **sin verificar**, y es un
+> criterio de aceptación de la primera migración, no una decisión pendiente. No
+> bloquea empezar.
+
 ### Producto y fases posteriores
 
 Regla concreta de **resolución del FX** · mecanismo de **claim** (F10) · prueba,
@@ -417,7 +466,124 @@ token, email o SMS · **revocación y unlink** · **fusión** de participantes �
 **anulación** de una operación como concepto distinto de la corrección · Modo
 Pareja · Open Banking · recurrencias.
 
+**Ninguno bloquea las migraciones**, y todos son **aditivos**: lo que persisten
+hoy las relaciones decididas no cambia cuando se resuelvan.
+
+Se les suma uno técnico del mismo tipo, que **ADR-010 dejó expresamente
+abierto**: la **idempotencia de recurrencias, importaciones bancarias y
+operaciones originadas en backend**. `core.client_command` es la unidad del
+**origen cliente** (ADR-011 §5); un origen distinto necesitará su propia
+garantía, y añadirla no altera esa relación.
+
 **No inventar respuestas para estos puntos.**
+
+---
+
+## 11 bis · Cierre de los transversales previos a migraciones
+
+Revisión del 2026-08-25, posterior a E20. **No introduce decisiones nuevas**:
+comprueba qué estaba ya decidido y retira de la lista de pendientes lo que no lo
+está.
+
+### Superficie de lectura que 3.C necesita
+
+**Solo la que exigen sus criterios de cierre.** No se diseña aquí la API de F6,
+F9 ni F13.
+
+| Objeto                                                                                  | ¿Ahora? | Fuente                                                                                                        |
+| --------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------- |
+| **Proyección canónica de efectos vigentes**, en `core`, vista simple `security_invoker` | **Sí**  | ADR-013 §9 — ya decidida, con su guarda de catálogo                                                           |
+| **Vistas `api` `security_invoker` con cast a texto** sobre lo que el cliente lea        | **Sí**  | ADR-006 §5 · ADR-008 §1-§2 — son la frontera textual, no una comodidad                                        |
+| Vistas de saldo, deuda, estadísticas y disponibles                                      | **No**  | Son **derivadas** y se construyen sobre la proyección canónica; su API pertenece a las fases que las consumen |
+| Superficies de Grupo y Modo Pareja                                                      | **No**  | Roadmap: llegan en sus fases, por migración                                                                   |
+
+**Lo que debe existir antes de cerrar 3.C es el camino, no el catálogo**: al
+menos una vista de `api` que demuestre el camino completo
+`core → security_invoker → texto → JSON string`, con su test de catálogo
+(ADR-008 §2) y su test de aislamiento (roadmap, cierre 3 y 4).
+
+### Nombres físicos
+
+Los ADR aceptados **ya fijan por uso** estos, y no se renombran:
+
+`core.operation` · `core.operation_version` · `core.effect` ·
+`core.client_command` · `core.participant` · `core.participant_user_link`
+
+Conceptos con **semántica cerrada y nombre todavía no fijado**, que la migración
+nombrará: la **cabecera de reparto** por `(versión, ámbito)` y sus **filas de
+participante** (ADR-013 §5) · la **conversión congelada** (ADR-013 §6) · el
+**periodo de presencia** (ADR-012, conceptualmente `participant_period`) · la
+**proyección canónica** (ADR-013 §9) · el **ámbito** y la **membresía** que
+ADR-007 presupone.
+
+> **No se cambia el modelo para conseguir nombres mejores.** Nombrar es trabajo
+> de la migración; lo que no puede hacer la migración es **inventar semántica**
+> que ningún ADR haya fijado.
+
+### Índices y restricciones
+
+Tres grupos, y solo dos se aplican ahora:
+
+1. **Corrección e invariantes** — el linaje de versiones y el puntero de
+   vigencia (ADR-011 §11, las seis constraints medidas en E17) · las tres
+   cardinalidades del vínculo participante ↔ usuario (ADR-012, E18) · la
+   exclusión de solapes de periodos, que **exige `btree_gist`** (E18, §9) · los
+   invariantes de dimensión de `effect` y de reparto (ADR-013 §5 y §8).
+2. **Claves únicas, FK y protocolo de bloqueo** — `UNIQUE (operation_id, version_no)`
+   como backstop (ADR-011 §12) · `UNIQUE (created_by, client_operation_id)`
+   transversal a clases (ADR-010) · las FK compuestas diferibles (ADR-011 §4 y
+   §5) · el índice que sostiene el `SELECT … FOR UPDATE` del protocolo de deuda
+   (§10 bis).
+3. **Rendimiento puro** — **aplazados hasta medir.** No se añade ninguno
+   especulativo.
+
+**`btree_gist` va al schema `extensions`**, que es donde este stack ya instala
+`pgcrypto`, `uuid-ossp` y `pg_stat_statements`. No es una decisión nueva: es la
+convención medida del stack. El preflight de §9 sigue en pie.
+
+### Caché de saldos
+
+**Cerrada, y se retira de todo listado de pendientes.** ADR-013 §1: no hay caché
+económica en v1, y saldo, deuda, estadísticas, `Disponible actual` y
+`Disponible tras saldar` son **derivados sin excepción**. Una caché posterior
+sería **aditiva** y exigiría medición, no previsión.
+
+### Vectores compartidos y correcciones
+
+**El formato de `tests/vectors/` no necesita extenderse antes de migrar**, y
+esto corrige el planteamiento de §15.
+
+La razón es que **la vigencia no es una regla de derivación**. `src/domain/`
+deriva los efectos de **la intención de una operación**, y no tiene —ni necesita—
+noción de versión ni de comando. Una V2 se deriva exactamente igual que
+cualquier operación, con sus propias entradas, incluido un tipo heredado. Lo que
+ADR-002 §7 obliga a reproducir es **esa derivación**.
+
+Los cuatro casos que §15 reclamaba prueban otra cosa:
+
+| Caso                                          | Qué prueba en realidad             | Dónde va                |
+| --------------------------------------------- | ---------------------------------- | ----------------------- |
+| V1 histórica · V2 vigente · solo V2 cuenta    | **Vigencia** y proyección canónica | Integración de servidor |
+| Replay idempotente que no crea V3             | **Idempotencia** del comando       | Integración de servidor |
+| Corrección sobre versión obsoleta → conflicto | **CAS** y concurrencia             | Integración de servidor |
+
+Ninguno es una derivación, así que **ninguno pertenece a los vectores
+compartidos**. Se implementan como tests de integración cuando exista la
+frontera autoritativa.
+
+### Hallazgos de E20
+
+Todos determinados antes de migrar, sin sonda nueva: actor derivado de la
+petición (ADR-009 §3) · writer `NOLOGIN`, no propietario y `NOBYPASSRLS`
+(ADR-009 §5) · políticas por comando y por rol, lectura cross-author incluida
+(ADR-013 §10) · `WITH CHECK` de `effect` (ADR-013 §10) · `GRANT UPDATE` por
+columna sobre el puntero (§10) · `SELECT … FOR UPDATE` y su fallo silencioso
+(§10, §10 bis) · `RETURNING` y su política de `SELECT` (§10) · las dos barreras
+que no se sustituyen (ADR-009 §6).
+
+**Queda un detalle de implementación, no una decisión:** un `sub` malformado
+sale como `22P02` y no como `42501`, así que el helper de producción **valida el
+UUID explícitamente** en vez de dejarlo al cast. No hace falta medir nada más.
 
 ---
 
@@ -480,22 +646,57 @@ de ser conceptualmente un cierre de saldo (Q2).
 
 ---
 
-## 14 · Próximo paso exacto
+## 14 · Checklist de entrada a las primeras migraciones
 
-**No empezar los transversales hasta que E20 esté en `main`.** En orden:
+**Lo siguiente es escribir migraciones.** Antes, esta lista debe estar completa.
+Lo que está marcado ya lo está; nada de ello vuelve a discutirse sin una
+contradicción estructural.
 
-1. **comprobar que `supabase/e20/` y la documentación están consolidados** en la
-   rama — `git log --oneline main..HEAD` debe mostrar los dos commits y
-   `git status` un árbol limpio;
-2. si aún no ocurrió: **push** de `chore/phase-3c-e20`, **PR** y **esperar
-   revisión y merge**. **Nunca merge sin petición explícita**;
-3. **sincronizar `main`** una vez mergeada;
-4. después, **transversales y síntesis** de 3.C. **Ya no queda ninguna
-   incertidumbre técnica** bloqueando las migraciones.
+**Decisiones que condicionan la forma física — todas cerradas:**
 
-Antes de implementar hay una deuda concreta ya identificada:
-`tests/vectors/scenarios.json` **no tiene ningún caso de corrección** (§15), y
-añadirlos exige **extender el formato**, que hoy no tiene noción de versión.
+- [x] Representación monetaria e identidad de la definición — ADR-003, ADR-004
+- [x] Topología de schemas y superficie expuesta — ADR-005, ADR-006 §6
+- [x] Grants por rol y saneamiento de defaults — ADR-006, medido en E12 y E13
+- [x] Membresía y RLS de lectura — ADR-007
+- [x] Frontera textual de lectura y de escritura — ADR-008
+- [x] Frontera autoritativa y atributos del writer — ADR-009
+- [x] Idempotencia del origen cliente — ADR-010, ADR-011 §5
+- [x] Operación, versión, efecto y linaje — ADR-011, medido en E17
+- [x] Identidad de participantes y periodos — ADR-012, medido en E18
+- [x] Persistido frente a derivado, reparto y proyección canónica — ADR-013,
+      medido en E19
+- [x] Políticas del writer por comando y por rol — ADR-013 §10, medido en E20
+- [x] Regla de corrección y atribución por versión — ADR-013 §10,
+      `data-model.md` §7
+
+**Comprobado en esta revisión y sin trabajo pendiente:**
+
+- [x] Superficie de lectura mínima de 3.C identificada (§11 bis)
+- [x] Nombres físicos ya fijados por uso, y los que la migración debe nombrar
+- [x] Índices de corrección y de unicidad separados de los de rendimiento
+- [x] `btree_gist` va a `extensions`; el preflight de §9 sigue vivo
+- [x] Sin caché económica en v1 — retirado de pendientes
+- [x] Los vectores compartidos **no** necesitan extenderse
+
+- [x] Exposición definitiva de schemas de la Data API — ADR-014: `public`
+      **fuera**; `api` es la superficie y `graphql_public` se conserva
+
+**Abierto que bloquee: ninguno.**
+
+**Al escribir la primera migración, no olvidar:**
+
+- **`schemas = ["api", "graphql_public"]` en `config.toml`, en el mismo commit
+  que cree `api`** — ADR-014, y antes de eso el stack no arranca. **Criterio de
+  aceptación de esa migración: verificar desde un clon limpio el orden real de
+  bootstrap**, es decir que la migración se aplique antes de que PostgREST
+  reclame el schema. Que ambos cambios vayan juntos es necesario; su suficiencia
+  operativa **se valida al implementarla**;
+- ninguna tabla se crea sin su política RLS **en la misma migración**;
+- la guarda de catálogo de la proyección canónica (ADR-013 §9);
+- el test de catálogo de la superficie textual (ADR-008 §2);
+- el test que comprueba que `core` y `sec` no están expuestos (ADR-006 §6);
+- el test de aislamiento debe **fallar** al relajar una política a propósito
+  (roadmap, cierre 4).
 
 Los mensajes de commit de esta fase explican el **porqué**, no solo el qué.
 Conviene mantener ese estilo, con la explicación larga en el ADR, en el README
@@ -524,6 +725,9 @@ Cosas que ya costaron una corrección.
   aparte de `tsc`; `npm run typecheck` ejecuta las dos.
 - **La suite debe poder fallar.** El procedimiento de regresión deliberada está
   en [`tests/README.md`](../../tests/README.md).
-- **`tests/vectors/scenarios.json` no tiene ningún caso de corrección.** Hacen
-  falta antes de implementar: V1 = 60, V2 = 75, V1 histórica, solo V2 cuenta,
-  replay que no crea V3, y corrección obsoleta que da conflicto.
+- **`tests/vectors/scenarios.json` no tiene ningún caso de corrección, y no le
+  hace falta.** §11 bis lo revisó: los cuatro casos que se reclamaban prueban
+  **vigencia, idempotencia y CAS**, no derivación, así que son **tests de
+  integración de servidor** y no vectores compartidos. La derivación de una V2
+  ya es expresable con el formato actual, porque es una operación como
+  cualquier otra.

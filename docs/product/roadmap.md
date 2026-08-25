@@ -184,15 +184,24 @@ para `supabase init`, exigida por `.claude/agents/data-architect.md`.
   de 3.C deberá reproducir esos vectores exactamente** (ADR-002 §7).
 - **3.C · arranca con análisis del Data Architect, no con SQL.** Ver
   [`architecture/phase-3c-handoff.md`](../architecture/phase-3c-handoff.md).
-- **3.C ·** identidad de la definición monetaria · esquema expuesto por la Data
-  API · estrategia de `GRANT` · mecanismo de comprobación de membresía en RLS ·
-  mecanismo de idempotencia · **mecanismo de frontera textual** que haga cumplir
-  T7 de ADR-003, que E11 dejó abierto entre vista, RPC, adaptador o combinación.
-- **Entrada pendiente para 3.C, sin conclusión.** E11 observó que `anon` y
-  `authenticated` aparecen con privilegios `REFERENCES`, `TRIGGER` y `TRUNCATE`
-  sobre tablas nuevas de `public` a las que no se concedió nada. Habrá que
-  determinar empíricamente de dónde proceden, cuáles son efectivos y qué debe
-  revocarse de forma explícita.
+- **3.C · las seis puertas están cerradas**, con ADR aceptado cada una:
+  identidad de la definición monetaria (ADR-004) · esquema expuesto por la Data
+  API (ADR-005, ADR-006 §6) · estrategia de `GRANT` (ADR-006) · comprobación de
+  membresía en RLS (ADR-007) · mecanismo de idempotencia del **origen cliente**
+  (ADR-010, ADR-011 §5) · **frontera textual** que hace cumplir T7 de ADR-003,
+  que E11 dejó abierto y que ADR-008 §1-§2 resuelve como vista `security_invoker`
+  de `api` que proyecta texto. Detalle en
+  [`architecture/phase-3c-handoff.md`](../architecture/phase-3c-handoff.md) §2.
+- **La entrada que quedaba sin conclusión ya la tiene.** E11 observó que `anon` y
+  `authenticated` aparecen con `REFERENCES`, `TRIGGER` y `TRUNCATE` sobre tablas
+  nuevas de `public` sin que se les conceda nada. **E12 lo midió**: proceden de
+  los default privileges de Supabase, son **ejecutables**, y `MAINTAIN` es
+  además **invisible para `information_schema`**. ADR-006 §7 fija su saneamiento
+  explícito.
+- **Cerrado el 2026-08-25 por ADR-014:** `public` **no** forma parte de los
+  schemas expuestos. La lista queda `["api", "graphql_public"]`, y el cambio de
+  `config.toml` se aplica **en el mismo commit que cree el schema `api`**,
+  porque PostgREST no arranca si el schema no existe.
 
 ---
 
@@ -202,6 +211,12 @@ para `supabase init`, exigida por `.claude/agents/data-architect.md`.
 
 **Objetivo.** Fijar el marco visual, de navegación y de textos antes de la
 primera pantalla de producto, sin construir un design system especulativo.
+
+**Dirección visual.** La estética de Nomey —minimalista, oscura, premium, con
+glassmorphism como recurso de profundidad y neumorfismo solo como matiz táctil—
+está fijada en [`design-direction.md`](design-direction.md), que es su **fuente
+de verdad única**. F4 la convierte en principios, wireframes, tokens y tema; **no
+la redefine**.
 
 **Alcance.** Arquitectura de navegación y jerarquía principal · flujos
 fundamentales derivados de [`data-model.md`](../architecture/data-model.md) §4 ·
