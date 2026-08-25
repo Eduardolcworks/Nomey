@@ -507,6 +507,34 @@ base_currency_definition_id)` enforces it, and the same FK makes the base
   scope type requires a deliberate migration, unlike `operation_class`, which is
   open on purpose.
 
+**The participant-account link and the presence periods are migrated too.**
+`core.participant_user_link` and `core.participant_period` exist, with
+`btree_gist` in the `extensions` schema. Keep three things straight — collapsing
+any two of them is the mistake ADR-012 exists to prevent:
+
+| Relation                     | Question it answers                        |
+| ---------------------------- | ------------------------------------------ |
+| `core.membership`            | What may an account see or do **now**?     |
+| `core.participant_user_link` | Which account is that contextual identity? |
+| `core.participant_period`    | **When** was that participant eligible?    |
+
+- **Periods are `date`-grained**, with `[valid_from, valid_until)` semantics and
+  a GiST exclusion on overlaps. The grain follows its only consumer: eligibility
+  is evaluated against an operation's `effective_date`, which is a `date`.
+  A period may end exactly when the next one starts.
+- **Nobody can write either relation yet** — not the client, not the writer.
+  That is deliberate: creating a link needs proof of authorization, whose
+  mechanism belongs to F10, and opening or closing periods belongs to
+  participant lifecycle commands that do not exist. They are empty and stay
+  empty until their command arrives.
+- **Neither is readable by the client either.** The link would reveal which
+  global account is behind a contextual identity, and the open delegation about
+  which effects are "mine" (see the handoff, §11 ter) is what should decide that
+  surface.
+- **`btree_gist`'s production preflight is still open.** Supabase's public docs
+  do not enumerate it, so availability on a target project is measured, not
+  assumed. The runbook carries the query to run before any real deploy.
+
 **Version lineage is only partly structural, by design.** The composite FKs
 guarantee the predecessor and the pointer belong to the same operation; that the
 predecessor is _exactly_ the previously current version — and therefore the
@@ -514,9 +542,9 @@ absence of branching — is reserved to the authoritative boundary by ADR-011 §
 Do not describe the lineage as "linear" on the strength of the constraints
 alone.
 
-**Next up inside 3.C:** `participant_period` and `participant_user_link` —
-which is when `btree_gist` arrives — then the canonical projection, the `api`
-read views with their text cast, and the authoritative writer. The debt lock of
+**Next up inside 3.C:** the contextual split header with its participant rows
+and the frozen conversion, then the canonical projection, the `api` read views
+with their text cast, and the authoritative writer. The debt lock of
 ADR-013 §11 will need both an `UPDATE` policy **and** an `UPDATE` privilege on
 `core.scope`: PostgreSQL requires `UPDATE` on at least one column for `SELECT …
 FOR UPDATE`, and E20 measured that a missing policy returns zero rows without
