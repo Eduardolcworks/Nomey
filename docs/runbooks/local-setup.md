@@ -229,11 +229,16 @@ docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
   -X -q -v ON_ERROR_STOP=1 < supabase/checks/scope-effect.sql
 ```
 
+```bash
+docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
+  -X -q -v ON_ERROR_STOP=1 < supabase/checks/participant-identity.sql
+```
+
 Fallan con código distinto de cero en la primera violación, y **no dejan datos**:
 lo que insertan ocurre dentro de una transacción que termina en `ROLLBACK`. La
 configuración versionada la comprueba `npm test`, en `tests/infra/`.
 
-**CI ejecuta estos mismos tres ficheros** en el job `Migrations rebuilt from
+**CI ejecuta estos mismos cuatro ficheros** en el job `Migrations rebuilt from
 zero`, sobre un stack levantado desde cero.
 
 > ### `auth.uid()` no depende de GoTrue
@@ -247,6 +252,30 @@ zero`, sobre un stack levantado desde cero.
 >
 > **Consecuencia práctica:** los tests de aislamiento a nivel de base de datos
 > no necesitan usuarios reales, y el job de CI no tiene que arrancar GoTrue.
+
+### Preflight de `btree_gist` antes de un despliegue real
+
+El esquema depende de la extensión **`btree_gist`**, que es lo que da a `uuid` el
+operator class GiST sin el cual la exclusión de solapes de
+`core.participant_period` **no puede existir** — falla con `42704`. En el stack
+local está disponible (1.7) e instalada en `extensions` por la migración.
+
+**Eso no demuestra nada sobre el proyecto objetivo.** La documentación pública de
+Supabase no enumera esta extensión, así que **antes de desplegar contra un
+proyecto real hay que comprobarlo en ese proyecto**, con esta consulta:
+
+```sql
+select name, default_version, installed_version
+from pg_available_extensions where name = 'btree_gist';
+```
+
+Debe devolver una fila. Si el entorno objetivo **no la ofreciera**,
+[ADR-012](../adr/ADR-012-participant-identity.md) §5 obliga a **revisar el
+mecanismo** —su alternativa G, validación procedural, exige serializar para ser
+correcta bajo concurrencia—, no a sustituirlo preventivamente.
+
+Nada de este runbook apunta a un proyecto remoto (§8): la comprobación se hará
+cuando exista uno, y es un requisito de ese momento, no de hoy.
 
 ---
 

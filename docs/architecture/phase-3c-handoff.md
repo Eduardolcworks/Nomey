@@ -10,9 +10,9 @@
 > Existe para que una sesión nueva reconstruya el estado del proyecto leyendo el
 > repositorio, **sin depender de ninguna conversación previa**.
 
-Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al migrar el ámbito, el
-participante, la membresía y el efecto el 2026-08-25**, con el estado completo
-de la fase.
+Escrito al cerrar **3.B** el 2026-08-20. **Actualizado al migrar el vínculo
+participante↔cuenta y los periodos de presencia el 2026-08-25**, con el estado
+completo de la fase.
 
 ---
 
@@ -21,18 +21,18 @@ de la fase.
 Checkpoint **durable**: describe qué hay decidido y consolidado, no una foto del
 índice de Git. **La verdad del árbol es `git status`**, no esta tabla.
 
-|                            |                                                                                  |
-| -------------------------- | -------------------------------------------------------------------------------- |
-| **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                       |
-| **D11**                    | **Cerrado y mergeado a `main`** (`d672246`): ADR-013 y `supabase/e19/`           |
-| **E20**                    | **Cerrada y mergeada a `main`** (`afe50ab`): `supabase/e20/` y ADR-013 §10       |
-| **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                |
-| **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                    |
-| **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                 |
-| **`supabase/migrations/`** | **Tres migraciones**: bootstrap · núcleo de operación/versión · ámbito y efecto  |
-| **`npm test`**             | **116/116** en verde                                                             |
-| **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                 |
-| **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio** |
+|                            |                                                                                                |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                                     |
+| **D11**                    | **Cerrado y mergeado a `main`** (`d672246`): ADR-013 y `supabase/e19/`                         |
+| **E20**                    | **Cerrada y mergeada a `main`** (`afe50ab`): `supabase/e20/` y ADR-013 §10                     |
+| **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                              |
+| **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                                  |
+| **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                               |
+| **`supabase/migrations/`** | **Cuatro migraciones**: bootstrap · operación/versión · ámbito y efecto · identidad y periodos |
+| **`npm test`**             | **116/116** en verde                                                                           |
+| **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                               |
+| **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio**               |
 
 **Cómo comprobarlo en una sesión nueva**, sin depender de esta tabla:
 
@@ -41,7 +41,7 @@ git log --oneline main..HEAD
 git status --porcelain -uall
 ```
 
-**Las migraciones ya han empezado.** `supabase/migrations/` contiene tres:
+**Las migraciones ya han empezado.** `supabase/migrations/` contiene cuatro:
 
 1. **`bootstrap_data_boundary`** — los tres schemas, los revokes explícitos y el
    saneamiento de default privileges (§13 bis);
@@ -52,11 +52,12 @@ git status --porcelain -uall
 3. **`scope_participant_effect`** — `core.scope`, `core.participant`,
    `core.membership` y `core.effect`, más el helper `sec.is_member(uuid)` y la
    RLS de lectura del cliente que faltaba sobre `operation` y
-   `operation_version` (§13 quater).
+   `operation_version` (§13 quater);
+4. **`participant_identity_periods`** — `core.participant_user_link`,
+   `core.participant_period` y la extensión `btree_gist` (§13 quinquies).
 
-**Todavía no existen** el periodo de presencia, el vínculo participante↔usuario,
-la cabecera de reparto, la conversión congelada, la proyección canónica, las
-vistas de `api` ni el writer autoritativo como función.
+**Todavía no existen** la cabecera de reparto, la conversión congelada, la
+proyección canónica, las vistas de `api` ni el writer autoritativo como función.
 
 > **Cambio de etapa.** `supabase/e11`–`e20` eran evidencia desechable sobre
 > maquetas y **nunca deben convertirse en migración**. A partir de aquí,
@@ -99,18 +100,20 @@ tomada (§10). **Los transversales están cerrados** (§11 bis). **No hay fases
 nuevas**; consultar [`product/roadmap.md`](../product/roadmap.md).
 
 **Migrado hasta aquí:** bootstrap (§13 bis) · núcleo de operación y versión
-(§13 ter) · ámbito, participante, membresía y efecto (§13 quater).
+(§13 ter) · ámbito, participante, membresía y efecto (§13 quater) · vínculo con
+la cuenta y periodos de presencia (§13 quinquies).
 
 **Siguiente bloque físico**, y en este orden:
 
 ```
-participant_period + participant_user_link + btree_gist
+cabecera de reparto + filas de participante + conversión congelada
   → proyección canónica de efectos vigentes + vistas `api` con cast a texto
   → writer autoritativo
 ```
 
-Los tres siguen **dentro de 3.C**. F10 construirá el claim, las invitaciones y
-la fusión **sobre relaciones que ya existirán**, no creándolas.
+Todo **dentro de 3.C**. **Antes de la proyección canónica** hay que resolver la
+delegación que ADR-013 no llegó a recoger (§11 ter). F10 construirá el claim, las
+invitaciones y la fusión **sobre relaciones que ya existen**, no creándolas.
 
 ### Las seis puertas de 3.C
 
@@ -374,12 +377,11 @@ E18 midió: disponible en el stack local · **no instalada por defecto** ·
 necesaria porque `uuid` no tiene operator class GiST · funciona · y el teardown
 la retira.
 
-> **Todavía no está instalada, y es deliberado.** La migración
-> `scope_participant_effect` **no la trae**, porque ninguna de sus cuatro
-> relaciones la necesita: `core.effect` no tiene clave foránea hacia los
-> periodos, y la elegibilidad histórica de ADR-012 §7 es una validación de la
-> frontera autoritativa, no una restricción del efecto. Entra con
-> `core.participant_period`, en el bloque siguiente.
+> **Ya está instalada**, en el schema `extensions` y en la versión 1.7, desde la
+> migración `participant_identity_periods`, que es la que trae
+> `core.participant_period`. Lo medido está en §13 quinquies, y **el preflight
+> de producción sigue vivo**: la documentación pública de Supabase no la
+> enumera, así que su disponibilidad en el proyecto objetivo no está demostrada.
 
 > **Preflight obligatorio antes de producción:** verificar que la plataforma
 > PostgreSQL objetivo la ofrece. **Si algún entorno no la ofreciera, el
@@ -550,7 +552,8 @@ Los ADR aceptados **ya fijan por uso** estos, y no se renombran:
 
 **Ya migrados y por tanto fijados**: `core.operation`, `core.operation_version`,
 `core.client_command`, `core.currency_definition`, `core.scope`,
-`core.participant`, `core.membership`, `core.effect`, el rol `nomey_writer`,
+`core.participant`, `core.membership`, `core.effect`,
+`core.participant_user_link`, `core.participant_period`, el rol `nomey_writer`,
 `sec.request_actor_id()` y `sec.is_member(uuid)`.
 
 Conceptos con **semántica cerrada y nombre todavía no fijado**, que la migración
@@ -626,6 +629,40 @@ que no se sustituyen (ADR-009 §6).
 **Queda un detalle de implementación, no una decisión:** un `sub` malformado
 sale como `22P02` y no como `42501`, así que el helper de producción **valida el
 UUID explícitamente** en vez de dejarlo al cast. No hace falta medir nada más.
+
+---
+
+## 11 ter · Una delegación que se quedó sin recoger
+
+Detectada el 2026-08-25 al migrar el vínculo participante↔usuario. **No es una
+contradicción entre ADR** y no bloquea nada de lo ya migrado, pero hay que
+resolverla **antes de la proyección canónica**, que es el bloque siguiente.
+
+[ADR-012](../adr/ADR-012-participant-identity.md), en su «Fuera de alcance»,
+delega expresamente:
+
+> Delegado a **D11**: la proyección canónica de efectos vigentes deberá resolver
+> también **qué efectos son «míos»**, que es una pregunta sobre el vínculo y no
+> sobre la membresía.
+
+**[ADR-013](../adr/ADR-013-persisted-vs-derived.md) es D11, y no la recoge.** No
+menciona el vínculo, ni la pregunta, en todo el documento — comprobado por
+búsqueda, no por lectura. Su §9 define la proyección canónica **por vigencia**, y
+su §10 define la visibilidad **por membresía del ámbito**. Ninguna de las dos
+responde «cuáles de estos efectos son míos», que es lo que necesita el Modo
+Personal para incorporar el historial de un participante reclamado
+(`data-model.md` §6, «reclamación retroactiva»).
+
+**Por qué no bloquea hoy.** La pregunta solo tiene consumidor cuando exista la
+proyección canónica **y** haya vínculos, y hoy no hay ninguna de las dos cosas:
+`core.participant_user_link` no puede recibir filas todavía. Por eso el bloque
+del vínculo no concede lectura de cliente sobre él: conceder ahora sería decidir
+por adelantado algo que pertenece a un ADR.
+
+**Qué hay que decidir**, y no se inventa aquí: si «mío» se resuelve por el
+vínculo del participante con la cuenta, si eso vive en la proyección canónica o
+en una superficie aparte, y qué ocurre con los efectos cuyo participante
+económico es nulo, que son precisamente los del Modo Personal.
 
 ---
 
@@ -910,6 +947,117 @@ también existe por la misma vía, aunque este bloque no la referencia.
 
 **Consecuencia práctica:** los tests de aislamiento a nivel de base de datos no
 necesitan usuarios reales de GoTrue, y CI no cambia de topología.
+
+---
+
+## 13 quinquies · El vínculo con la cuenta y los periodos de presencia
+
+Cuarta migración real, `participant_identity_periods`. Materializa las **dos
+relaciones que ADR-012 separa expresamente** de `participant` y de `membership`,
+y trae `btree_gist`. Verificado con **dos `db reset`** de 33,7 s y 31,8 s,
+resultado idéntico.
+
+Las tres preguntas siguen separadas, y colapsar dos de ellas es el error que
+ADR-012 existe para evitar:
+
+| Relación                     | Pregunta                                     |
+| ---------------------------- | -------------------------------------------- |
+| `core.membership`            | ¿Qué puede ver o hacer **ahora** una cuenta? |
+| `core.participant_user_link` | ¿Qué cuenta es esa identidad contextual?     |
+| `core.participant_period`    | ¿**Cuándo** era elegible ese participante?   |
+
+### Decisiones tomadas al materializarlo
+
+| Punto                        | Decisión                                                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| Granularidad temporal        | **`date`**, no `timestamptz`                                                            |
+| Representación del intervalo | Dos columnas + **expresión** `daterange(valid_from, valid_until, '[)')` en la `EXCLUDE` |
+| Clave del periodo            | `primary key (participant_id, valid_from)`                                              |
+| Auditoría del vínculo        | Solo `linked_at`. El actor y la procedencia llegan con F10                              |
+| Escritura                    | **Ninguna**, para nadie: ni cliente ni writer                                           |
+| Lectura del cliente          | **Ninguna**, para ninguna de las dos                                                    |
+
+**La granularidad es `date` porque lo es su único consumidor.** La elegibilidad
+se evalúa contra la **fecha efectiva** de una operación (`data-model.md` §7,
+ADR-012 §7) y `operation_version.effective_date` es `date`. Comparar una fecha
+con un instante introduciría una pregunta de zona horaria que ningún ADR ha
+decidido. **Consecuencia aceptada:** dos periodos del mismo participante no
+pueden empezar el mismo día, lo cual es indistinguible para la única pregunta
+que los periodos responden.
+
+**Se usa la expresión y no una columna generada** para que la forma de la
+relación siga siendo exactamente la que ADR-012 §5 describe, sin un tercer sitio
+donde el mismo dato pueda decir otra cosa.
+
+### Por qué el vínculo nace con `linked_at` y nada más
+
+ADR-012 §10 exige que un vínculo aceptado permita determinar **cuándo**, **qué
+participante y qué cuenta**, **qué actor o proceso autoritativo** lo estableció y
+**qué procedencia** lo justificó — pero fija como normativo **solo el instante**,
+y advierte de que fijar `proof_kind` y `proof_ref` ahora **prejuzgaría la forma
+de la prueba**, que pertenece a F10. Una columna `linked_by uuid` prejuzgaría
+igual: §10 dice «actor **o proceso** autoritativo», y no está decidido que el
+autor sea siempre una cuenta.
+
+**Añadirlas después no reproduce la asimetría de ADR-012 §2** —que descartó la
+columna `user_id` nullable porque migrar obligaría a inventar cuándo y con qué
+prueba se establecieron los vínculos existentes— porque **esta relación no puede
+recibir ninguna fila todavía**: nadie tiene `INSERT`, ni el cliente ni el writer,
+y no existe comando autoritativo que la escriba. No hay historial que inventar
+sobre cero filas, y ese vacío es estructural, no una promesa: los checks lo
+comprueban.
+
+### Por qué ninguna de las dos es legible por el cliente
+
+No es una omisión; son dos negativas razonadas, y ninguna se concede «por
+comodidad»:
+
+- **El vínculo** responde a _«¿cuáles de estos efectos son míos?»_ (ADR-012 §8),
+  y ADR-012 delegó esa pregunta en la proyección canónica de **D11** — que
+  **ADR-013 no llegó a resolver** (ver §11 ter) y que todavía no existe.
+  Exponerlo hoy revelaría además **qué cuenta global** hay detrás de cada
+  identidad contextual, y ADR-012 §1 hace del no correlacionar identidades el
+  motivo mismo de que el participante sea contextual.
+- **Los periodos** son entradas de una **validación autoritativa** (ADR-012 §7),
+  no de una pantalla. Nada de lo que existe hoy los lee desde el cliente.
+
+Ambas nacen con RLS y sin policy de cliente: denegación total, el mismo estado
+seguro con el que nacieron `operation` y `operation_version`.
+
+### `btree_gist`
+
+Instalada en **`extensions`**, versión **1.7**, que es la convención medida del
+stack —allí están ya `pgcrypto`, `uuid-ossp` y `pg_stat_statements`—.
+
+Reproducido contra este stack antes de escribir la migración, no heredado de
+E18: sin la extensión, `EXCLUDE USING gist (uuid WITH =, …)` falla con **`42704 ·
+data type uuid has no default operator class for access method "gist"`**; con
+ella, el solape se rechaza con **`23P01`**, el periodo contiguo se acepta, la
+reentrada se acepta, un **segundo periodo abierto** se rechaza y el **mismo
+intervalo para otro participante** se acepta.
+
+> **El preflight de producción sigue vivo, y no se cierra desde documentación.**
+> La documentación pública de Supabase **no enumera** `btree_gist` entre las
+> extensiones que ofrece, así que su disponibilidad en el proyecto objetivo
+> **no está demostrada**. Es una extensión estándar de `contrib` y el stack local
+> corre la misma familia de imagen, pero eso es una **inferencia**, no una
+> medición sobre el destino. El procedimiento concreto está en el runbook, y si
+> algún entorno objetivo no la ofreciera, ADR-012 §5 obliga a **revisar** el
+> mecanismo, no a sustituirlo preventivamente.
+
+### Lo que las regresiones deliberadas enseñaron
+
+Una de ellas **encontró un fallo real en el propio test**, que es para lo que
+existen: comprobar la denegación del cliente con un `select` directo sobre `core`
+**no probaba nada** sobre estas dos tablas, porque `authenticated` no tiene
+`USAGE` sobre el schema y habría fallado igual con el `GRANT` puesto. La
+comprobación pasa por la superficie `security_invoker` de `api`, que es la única
+forma de aislar la ausencia de grant.
+
+La otra que conviene recordar: relajar `[)` a `[]` **no la ve el catálogo** —la
+restricción de exclusión sigue existiendo— y la detecta la aserción de
+comportamiento sobre periodos contiguos. Es exactamente el invariante que
+ADR-012 §5 fija.
 
 ---
 
