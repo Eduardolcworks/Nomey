@@ -535,6 +535,32 @@ any two of them is the mistake ADR-012 exists to prevent:
   do not enumerate it, so availability on a target project is measured, not
   assumed. The runbook carries the query to run before any real deploy.
 
+**The contextual split and the frozen conversion are migrated too, and with
+them the persisted-fact inventory of ADR-013 §1 is complete.** `core.split`,
+`core.split_participant` and `core.frozen_conversion` exist. Everything that ADR
+declares authoritative-persisted now has a home; what remains in 3.C is derived
+surface and the write boundary, not new facts.
+
+- **The frozen rate is stored as `(coefficient, scale)`, not `numeric`** —
+  [ADR-015](docs/adr/ADR-015-frozen-rate-physical-representation.md), which
+  supersedes exactly that prescription of ADR-003 §4 and nothing else. `12` is
+  the maximum scale, **not a fixed one**: magnitude and precision trade off
+  against each other.
+- **The converted amount is not persisted.** It is reproducible from the
+  original amount, the coefficient, the scale and the target currency's scale,
+  with a single rounding at the end. It is also already resolved in the effects.
+- **`split_participant.resolved_amount` is not the same fact as
+  `effect.economic_amount`.** They coincide for a group expense and diverge in
+  the couple's final split, where resolved shares become _balance_ effects in
+  two different personal scopes. ADR-013 §1 persists both on purpose.
+- **The `ordinal` is the tie-break input**, not decoration. Together with the
+  payer it is what makes the spare cent land on the same person on a replay.
+- **"Every split has at least one participant" is NOT structural.** A header
+  with no payer and no rows is physically insertable; the invariant belongs to
+  the authoritative boundary, like "the predecessor is exactly the previous
+  version". Do not add a trigger to fake it, and do not claim the tables
+  guarantee `1..n`.
+
 **Version lineage is only partly structural, by design.** The composite FKs
 guarantee the predecessor and the pointer belong to the same operation; that the
 predecessor is _exactly_ the previously current version — and therefore the
@@ -542,9 +568,10 @@ absence of branching — is reserved to the authoritative boundary by ADR-011 §
 Do not describe the lineage as "linear" on the strength of the constraints
 alone.
 
-**Next up inside 3.C:** the contextual split header with its participant rows
-and the frozen conversion, then the canonical projection, the `api` read views
-with their text cast, and the authoritative writer. The debt lock of
+**Next up inside 3.C:** the canonical projection of current effects and the
+`api` read views with their text cast, then the authoritative writer. **Before
+the canonical projection**, the delegation ADR-013 never picked up — which
+effects are "mine" — has to be closed (handoff §11 ter). The debt lock of
 ADR-013 §11 will need both an `UPDATE` policy **and** an `UPDATE` privilege on
 `core.scope`: PostgreSQL requires `UPDATE` on at least one column for `SELECT …
 FOR UPDATE`, and E20 measured that a missing policy returns zero rows without

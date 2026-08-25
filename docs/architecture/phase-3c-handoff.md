@@ -21,18 +21,18 @@ completo de la fase.
 Checkpoint **durable**: describe qué hay decidido y consolidado, no una foto del
 índice de Git. **La verdad del árbol es `git status`**, no esta tabla.
 
-|                            |                                                                                                |
-| -------------------------- | ---------------------------------------------------------------------------------------------- |
-| **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                                     |
-| **D11**                    | **Cerrado y mergeado a `main`** (`d672246`): ADR-013 y `supabase/e19/`                         |
-| **E20**                    | **Cerrada y mergeada a `main`** (`afe50ab`): `supabase/e20/` y ADR-013 §10                     |
-| **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                              |
-| **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                                  |
-| **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                               |
-| **`supabase/migrations/`** | **Cuatro migraciones**: bootstrap · operación/versión · ámbito y efecto · identidad y periodos |
-| **`npm test`**             | **116/116** en verde                                                                           |
-| **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                               |
-| **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio**               |
+|                            |                                                                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                                                           |
+| **D11**                    | **Cerrado y mergeado a `main`** (`d672246`): ADR-013 y `supabase/e19/`                                               |
+| **E20**                    | **Cerrada y mergeada a `main`** (`afe50ab`): `supabase/e20/` y ADR-013 §10                                           |
+| **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                                                    |
+| **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                                                        |
+| **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                                                     |
+| **`supabase/migrations/`** | **Cinco migraciones**: bootstrap · operación/versión · ámbito y efecto · identidad y periodos · reparto y conversión |
+| **`npm test`**             | **116/116** en verde                                                                                                 |
+| **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                                                     |
+| **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio**                                     |
 
 **Cómo comprobarlo en una sesión nueva**, sin depender de esta tabla:
 
@@ -41,7 +41,7 @@ git log --oneline main..HEAD
 git status --porcelain -uall
 ```
 
-**Las migraciones ya han empezado.** `supabase/migrations/` contiene cuatro:
+**Las migraciones ya han empezado.** `supabase/migrations/` contiene cinco:
 
 1. **`bootstrap_data_boundary`** — los tres schemas, los revokes explícitos y el
    saneamiento de default privileges (§13 bis);
@@ -54,10 +54,17 @@ git status --porcelain -uall
    RLS de lectura del cliente que faltaba sobre `operation` y
    `operation_version` (§13 quater);
 4. **`participant_identity_periods`** — `core.participant_user_link`,
-   `core.participant_period` y la extensión `btree_gist` (§13 quinquies).
+   `core.participant_period` y la extensión `btree_gist` (§13 quinquies);
+5. **`contextual_split_and_conversion`** — `core.split`,
+   `core.split_participant` y `core.frozen_conversion` (§13 sexies).
 
-**Todavía no existen** la cabecera de reparto, la conversión congelada, la
-proyección canónica, las vistas de `api` ni el writer autoritativo como función.
+**Todavía no existen** la proyección canónica, las vistas de `api` ni el writer
+autoritativo como función.
+
+> **Con la quinta migración, el inventario de persistido autoritativo de
+> ADR-013 §1 queda COMPLETO.** Todo lo que ese ADR declara hecho persistido
+> tiene ya su relación. Lo que falta de 3.C es **superficie derivada y frontera
+> de escritura**, no hechos nuevos.
 
 > **Cambio de etapa.** `supabase/e11`–`e20` eran evidencia desechable sobre
 > maquetas y **nunca deben convertirse en migración**. A partir de aquí,
@@ -101,13 +108,13 @@ nuevas**; consultar [`product/roadmap.md`](../product/roadmap.md).
 
 **Migrado hasta aquí:** bootstrap (§13 bis) · núcleo de operación y versión
 (§13 ter) · ámbito, participante, membresía y efecto (§13 quater) · vínculo con
-la cuenta y periodos de presencia (§13 quinquies).
+la cuenta y periodos de presencia (§13 quinquies) · reparto contextual y
+conversión congelada (§13 sexies).
 
 **Siguiente bloque físico**, y en este orden:
 
 ```
-cabecera de reparto + filas de participante + conversión congelada
-  → proyección canónica de efectos vigentes + vistas `api` con cast a texto
+proyección canónica de efectos vigentes + vistas `api` con cast a texto
   → writer autoritativo
 ```
 
@@ -144,23 +151,24 @@ ADR-006 §7 fija su saneamiento explícito.
 
 ## 3 · ADR aceptados
 
-Los catorce están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
+Los quince están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
 
-| ADR                                                   | Decisión principal                                                                                                               |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| [002](../adr/ADR-002-accounting-model.md)             | Modelo centrado en la operación con efectos explícitos, versiones inmutables y frontera de escritura autoritativa en el servidor |
-| [003](../adr/ADR-003-money-representation.md)         | Los importes son enteros en unidad mínima con su definición monetaria, y nada monetario cruza JSON como número                   |
-| [004](../adr/ADR-004-currency-definition-identity.md) | La identidad física de una definición monetaria es un `UUID` fijo y sembrado, opaco para el dominio                              |
-| [005](../adr/ADR-005-schema-topology.md)              | `core` para la persistencia, `api` como única superficie expuesta, `sec` para helpers; las tablas contables no se exponen        |
-| [006](../adr/ADR-006-privilege-model.md)              | Privilegio mínimo explícito, saneamiento de defaults, y las lecturas atraviesan vistas `security_invoker`                        |
-| [007](../adr/ADR-007-membership-rls.md)               | La RLS de `core` es la autoridad por fila, con un helper reducido y sin claims de membresía en el JWT                            |
-| [008](../adr/ADR-008-exact-data-boundary.md)          | Los valores exactos salen como texto y entran como JSON `string`, y la frontera debe poder comprobar el tipo JSON original       |
-| [009](../adr/ADR-009-authoritative-write-boundary.md) | Funciones por clase con payload `jsonb`, `SECURITY DEFINER` de un writer de mínimo privilegio sometido a RLS, en una transacción |
-| [010](../adr/ADR-010-client-operation-idempotency.md) | UUID generado y persistido por el cliente, unicidad por actor transversal a clases, comparación solo en servidor                 |
-| [011](../adr/ADR-011-operation-version-model.md)      | Operación estable, versiones inmutables, efectos por versión y `client_command` como unidad física de idempotencia               |
-| [012](../adr/ADR-012-participant-identity.md)         | Participante contextual por ámbito, vínculo con la cuenta en relación separada, y periodos de presencia                          |
-| [013](../adr/ADR-013-persisted-vs-derived.md)         | Solo los hechos se persisten; saldos y deudas se derivan; el reparto es contextual y hay una proyección canónica de vigentes     |
-| [014](../adr/ADR-014-data-api-schema-exposure.md)     | `public` no se expone por la Data API; la lista es `["api", "graphql_public"]`                                                   |
+| ADR                                                          | Decisión principal                                                                                                               |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| [002](../adr/ADR-002-accounting-model.md)                    | Modelo centrado en la operación con efectos explícitos, versiones inmutables y frontera de escritura autoritativa en el servidor |
+| [003](../adr/ADR-003-money-representation.md)                | Los importes son enteros en unidad mínima con su definición monetaria, y nada monetario cruza JSON como número                   |
+| [004](../adr/ADR-004-currency-definition-identity.md)        | La identidad física de una definición monetaria es un `UUID` fijo y sembrado, opaco para el dominio                              |
+| [005](../adr/ADR-005-schema-topology.md)                     | `core` para la persistencia, `api` como única superficie expuesta, `sec` para helpers; las tablas contables no se exponen        |
+| [006](../adr/ADR-006-privilege-model.md)                     | Privilegio mínimo explícito, saneamiento de defaults, y las lecturas atraviesan vistas `security_invoker`                        |
+| [007](../adr/ADR-007-membership-rls.md)                      | La RLS de `core` es la autoridad por fila, con un helper reducido y sin claims de membresía en el JWT                            |
+| [008](../adr/ADR-008-exact-data-boundary.md)                 | Los valores exactos salen como texto y entran como JSON `string`, y la frontera debe poder comprobar el tipo JSON original       |
+| [009](../adr/ADR-009-authoritative-write-boundary.md)        | Funciones por clase con payload `jsonb`, `SECURITY DEFINER` de un writer de mínimo privilegio sometido a RLS, en una transacción |
+| [010](../adr/ADR-010-client-operation-idempotency.md)        | UUID generado y persistido por el cliente, unicidad por actor transversal a clases, comparación solo en servidor                 |
+| [011](../adr/ADR-011-operation-version-model.md)             | Operación estable, versiones inmutables, efectos por versión y `client_command` como unidad física de idempotencia               |
+| [012](../adr/ADR-012-participant-identity.md)                | Participante contextual por ámbito, vínculo con la cuenta en relación separada, y periodos de presencia                          |
+| [013](../adr/ADR-013-persisted-vs-derived.md)                | Solo los hechos se persisten; saldos y deudas se derivan; el reparto es contextual y hay una proyección canónica de vigentes     |
+| [014](../adr/ADR-014-data-api-schema-exposure.md)            | `public` no se expone por la Data API; la lista es `["api", "graphql_public"]`                                                   |
+| [015](../adr/ADR-015-frozen-rate-physical-representation.md) | El tipo congelado se persiste como `(coefficient, scale)`; supersede solo la prescripción de `NUMERIC` de ADR-003 §4             |
 
 ---
 
@@ -553,13 +561,12 @@ Los ADR aceptados **ya fijan por uso** estos, y no se renombran:
 **Ya migrados y por tanto fijados**: `core.operation`, `core.operation_version`,
 `core.client_command`, `core.currency_definition`, `core.scope`,
 `core.participant`, `core.membership`, `core.effect`,
-`core.participant_user_link`, `core.participant_period`, el rol `nomey_writer`,
+`core.participant_user_link`, `core.participant_period`, `core.split`,
+`core.split_participant`, `core.frozen_conversion`, el rol `nomey_writer`,
 `sec.request_actor_id()` y `sec.is_member(uuid)`.
 
-Conceptos con **semántica cerrada y nombre todavía no fijado**, que la migración
-nombrará: la **cabecera de reparto** por `(versión, ámbito)` y sus **filas de
-participante** (ADR-013 §5) · la **conversión congelada** (ADR-013 §6) · la
-**proyección canónica** (ADR-013 §9).
+Queda **un solo** concepto con semántica cerrada y nombre todavía no fijado, que
+la migración nombrará: la **proyección canónica** (ADR-013 §9).
 
 > **No se cambia el modelo para conseguir nombres mejores.** Nombrar es trabajo
 > de la migración; lo que no puede hacer la migración es **inventar semántica**
@@ -1058,6 +1065,144 @@ La otra que conviene recordar: relajar `[)` a `[]` **no la ve el catálogo** —
 restricción de exclusión sigue existiendo— y la detecta la aserción de
 comportamiento sobre periodos contiguos. Es exactamente el invariante que
 ADR-012 §5 fija.
+
+---
+
+## 13 sexies · El reparto contextual y la conversión congelada
+
+Quinta migración real, `contextual_split_and_conversion`. Cierra los **cuatro
+hechos económicos** que faltaban del inventario de ADR-013 §1: la cabecera de
+reparto, la intención declarada, el resultado resuelto y las conversiones
+congeladas. **Con ella, ese inventario queda completo.**
+
+### La contradicción documental que hubo que resolver
+
+`core.frozen_conversion` obligó a elegir entre dos formas físicas del mismo
+número, ambas respaldadas por ADR aceptados:
+
+| Fuente        | Forma                                                     |
+| ------------- | --------------------------------------------------------- |
+| ADR-003 §4    | «`NUMERIC` es la representación del valor decimal exacto» |
+| ADR-013 §6    | se congela «**coeficiente exacto · escala**»              |
+| ADR-008 §4    | coeficiente como `string`, escala como entero acotado     |
+| `src/domain/` | `ExchangeRate { coefficient: bigint; scale: number }`     |
+
+**Resuelto por [ADR-015](../adr/ADR-015-frozen-rate-physical-representation.md)**,
+que supersede **exclusivamente** esa prescripción de ADR-003 §4 y conserva sus
+cuatro garantías. No se enmendó ningún ADR aceptado: `docs/adr/README.md` los
+declara inmutables, y lo único que se actualiza es la metadata de estado.
+
+`rate_scale` está acotado a **`0..12`**, que es la cota que ADR-003 §4 exigía
+declarar y delegaba al esquema. **`12` es el máximo, no una escala fija:** un
+tipo de otra magnitud usa otra escala, y magnitud y precisión dependen de ambas
+conjuntamente. Los cuatro límites están probados: 0 y 12 aceptadas, −1 y 13
+rechazadas, coeficiente 0 y negativo rechazados.
+
+### Qué quedó estructural
+
+| Invariante                                                             | Mecanismo                             |
+| ---------------------------------------------------------------------- | ------------------------------------- |
+| Un reparto ocurre en **exactamente un ámbito**, uno por versión        | PK `(operation_version_id, scope_id)` |
+| Los participantes del reparto **son de ese ámbito**                    | FK compuesta hacia `participant`      |
+| El método de una fila **no diverge** del de su cabecera                | FK compuesta hacia `split`            |
+| El pagador, si existe, **figura entre los participantes**              | FK compuesta **diferible**            |
+| Un participante una sola vez · ordinal único · ordinal ≥ 0             | PK, `UNIQUE`, `CHECK`                 |
+| `shares` ↔ peso · `exact_amounts` ↔ importe · declarados **positivos** | `CHECK`                               |
+| En `exact_amounts`, **declarado = resuelto**                           | `CHECK`                               |
+| El resuelto **no es negativo**, y **cero es válido**                   | `CHECK`                               |
+| El destino de la conversión **es la moneda base del ámbito**           | FK compuesta hacia `scope`            |
+| El origen **es la moneda del importe original** de esa versión         | FK compuesta **triple**               |
+| La fecha resuelta **coincide con la fecha efectiva**                   | la misma FK triple                    |
+| `source <> target` · coeficiente > 0 · escala 0..12                    | `CHECK`                               |
+
+La FK triple necesitó añadir
+`UNIQUE (id, effective_date, original_currency_definition_id)` a
+`core.operation_version`. Es aditivo sobre un superconjunto de su clave
+primaria: no restringe nada que antes fuera posible. Es la primera vez que un
+bloque toca una tabla de una migración anterior.
+
+### Qué NO quedó estructural, y se dice
+
+> **«Todo reparto contiene al menos un participante» es un invariante de la
+> frontera autoritativa, no de las tablas.**
+
+Una cabecera **sin pagador y sin filas** es físicamente insertable: la FK
+diferible del pagador solo muerde cuando hay pagador, y ninguna restricción
+declarativa puede exigir la existencia de filas hijas. **No se añade un trigger
+para simularlo**, por el mismo criterio con el que ADR-011 §11 reservó a la
+frontera que el predecesor sea exactamente la versión anterior.
+
+El check lo comprueba **en positivo**: inserta esa cabecera vacía y verifica que
+la base la acepta. Si algún día la rechazara, es esta documentación la que
+estaría obsoleta.
+
+Tampoco son estructurales, y siguen en el writer: que los declarados de
+`exact_amounts` sumen el total · que los resueltos sumen el total · la
+elegibilidad del participante en la fecha efectiva.
+
+### Dos redundancias que no lo son
+
+1. **`split_participant.resolved_amount` frente a `effect.economic_amount`.**
+   Coinciden en un gasto de grupo y **divergen en el reparto final del Modo
+   Pareja**, donde los resueltos se convierten en efectos de **saldo** en dos
+   Modos Personales distintos. ADR-013 §1 persiste ambos a propósito, y ADR-002
+   §5 da el motivo: se conservan **intención y resultado**.
+2. **`declared_amount` frente a `resolved_amount` en `exact_amounts`.** Son
+   iguales siempre, y por eso hay un `CHECK` que lo impone. La columna sigue
+   existiendo porque esa igualdad es una propiedad **de ese método**, no del
+   modelo.
+
+### Lo que no se persiste, y por qué
+
+- **El importe convertido.** Reproducible con un único redondeo desde el importe
+  original, el coeficiente, la escala y la escala destino, y ya resuelto en los
+  efectos. El check comprueba que **no existe columna** donde ponerlo.
+- **Una referencia a catálogo FX.** ADR-013 §6: se congela el valor, no una
+  referencia.
+- **La procedencia.** Opcional y no autoritativa; fijar su forma prejuzgaría al
+  proveedor, que ADR-003 §4 deja fuera de alcance.
+
+### El redondeo no tiene entidad propia
+
+Se reproduce por sus **entradas**, y todas están persistidas:
+`rate_coefficient` · `rate_scale` · `payer_participant_id` · `ordinal` ·
+`economic_rules_version`. Y `resolved_amount` conserva el resultado.
+
+> **El `ordinal` es la pieza que suele olvidarse.** Es la entrada del paso 5 del
+> desempate de ADR-002 §5. Sin él, un replay podría asignar el céntimo sobrante
+> a otra persona **y la suma seguiría cuadrando**.
+
+El caso de `data-model.md` §5 está en el check como positivo: 0,01 € con pesos
+1·2·2 deja al **pagador resuelto en 0**, y es válido porque lo **declarado** era
+positivo.
+
+### Correcciones e idempotencia
+
+Las tres relaciones llevan `operation_version_id` en su clave primaria, así que
+**V2 crea las suyas y las de V1 permanecen intactas**, sin ninguna regla añadida.
+Heredar el FX es **copiar el valor** congelado a la fila de V2, nunca compartir
+una fila mutable con V1 — y el writer no tiene `UPDATE` ni `DELETE`.
+
+El replay **no necesita nada nuevo**: `core.client_command` ya apunta a la
+versión, y estas tres relaciones hacen que su resultado sea legible entero **sin
+volver a resolver FX ni a redondear**.
+
+### Lo que las regresiones deliberadas enseñaron
+
+Tres aserciones del propio check estaban mal construidas y las descubrió el
+propio procedimiento, no una revisión:
+
+- un duplicado de participante fallaba antes por un `CHECK` de `exact_amounts`
+  que por la clave primaria;
+- varios negativos de conversión chocaban con la clave primaria de un caso
+  anterior en vez de con su propia restricción — se resolvió con un ámbito libre
+  de conversiones;
+- una regresión intentaba insertar un participante de otro ámbito y la rechazaba
+  la FK de ámbito, no la constraint que se estaba probando.
+
+**Aislar cada negativo contra la restricción que pretende probar no es
+cosmético**: un negativo que pasa por el motivo equivocado es un test que no
+prueba nada y que seguirá en verde cuando la garantía real desaparezca.
 
 ---
 

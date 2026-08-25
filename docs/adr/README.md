@@ -79,22 +79,23 @@ de decisiones. El registro solo contiene decisiones tomadas.
 
 ## Índice
 
-| ADR                                            | Título                                       | Estado    |
-| ---------------------------------------------- | -------------------------------------------- | --------- |
-| [001](ADR-001-licensing.md)                    | Licencia y avisos de terceros                | Propuesto |
-| [002](ADR-002-accounting-model.md)             | Modelo contable                              | Aceptado  |
-| [003](ADR-003-money-representation.md)         | Representación exacta del dinero             | Aceptado  |
-| [004](ADR-004-currency-definition-identity.md) | Identidad física de la definición monetaria  | Aceptado  |
-| [005](ADR-005-schema-topology.md)              | Topología de schemas y frontera Data API     | Aceptado  |
-| [006](ADR-006-privilege-model.md)              | Modelo de privilegios y lectura `api → core` | Aceptado  |
-| [007](ADR-007-membership-rls.md)               | Membresía y estrategia de RLS                | Aceptado  |
-| [008](ADR-008-exact-data-boundary.md)          | Frontera de datos exactos                    | Aceptado  |
-| [009](ADR-009-authoritative-write-boundary.md) | Frontera autoritativa de escritura           | Aceptado  |
-| [010](ADR-010-client-operation-idempotency.md) | Idempotencia de operaciones cliente          | Aceptado  |
-| [011](ADR-011-operation-version-model.md)      | Operaciones, versiones y comandos cliente    | Aceptado  |
-| [012](ADR-012-participant-identity.md)         | Identidad de participantes sin cuenta        | Aceptado  |
-| [013](ADR-013-persisted-vs-derived.md)         | Persistido frente a derivado                 | Aceptado  |
-| [014](ADR-014-data-api-schema-exposure.md)     | Exposición de schemas de la Data API         | Aceptado  |
+| ADR                                                   | Título                                       | Estado    |
+| ----------------------------------------------------- | -------------------------------------------- | --------- |
+| [001](ADR-001-licensing.md)                           | Licencia y avisos de terceros                | Propuesto |
+| [002](ADR-002-accounting-model.md)                    | Modelo contable                              | Aceptado  |
+| [003](ADR-003-money-representation.md)                | Representación exacta del dinero             | Aceptado  |
+| [004](ADR-004-currency-definition-identity.md)        | Identidad física de la definición monetaria  | Aceptado  |
+| [005](ADR-005-schema-topology.md)                     | Topología de schemas y frontera Data API     | Aceptado  |
+| [006](ADR-006-privilege-model.md)                     | Modelo de privilegios y lectura `api → core` | Aceptado  |
+| [007](ADR-007-membership-rls.md)                      | Membresía y estrategia de RLS                | Aceptado  |
+| [008](ADR-008-exact-data-boundary.md)                 | Frontera de datos exactos                    | Aceptado  |
+| [009](ADR-009-authoritative-write-boundary.md)        | Frontera autoritativa de escritura           | Aceptado  |
+| [010](ADR-010-client-operation-idempotency.md)        | Idempotencia de operaciones cliente          | Aceptado  |
+| [011](ADR-011-operation-version-model.md)             | Operaciones, versiones y comandos cliente    | Aceptado  |
+| [012](ADR-012-participant-identity.md)                | Identidad de participantes sin cuenta        | Aceptado  |
+| [013](ADR-013-persisted-vs-derived.md)                | Persistido frente a derivado                 | Aceptado  |
+| [014](ADR-014-data-api-schema-exposure.md)            | Exposición de schemas de la Data API         | Aceptado  |
+| [015](ADR-015-frozen-rate-physical-representation.md) | Representación física del tipo congelado     | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
