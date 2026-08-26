@@ -647,10 +647,18 @@ them are easy to get wrong later:
   There is no other datum with which to check that a personal scope is the
   payer's, and accepting one blindly would let any member post a false cash
   charge in someone else's Modo Personal.
-- **A correction that lowers an expense below what was already settled is
-  accepted**, and can leave pending debt negative. No ADR fixes that rule and
-  the domain does not model it; adding it would be inventing product from a
-  migration. The lock still serializes the check and the consumption.
+- **A correction may not leave any debt with a negative pending balance** —
+  debt 5000, already settled 4000, corrected down to 3000 is refused. It is the
+  same invariant `data-model.md` §3 already fixed, checked at a different
+  moment, so it reuses `SETTLEMENT_EXCEEDS_DEBT` instead of minting a code.
+  Checked after the locks, on corrections only, and it covers dropping someone
+  from the split. It refuses and nothing else: no reverse debt, no automatic
+  offset, no reopening, no closing states.
+- **Who may correct is current membership, and nothing else** — not when they
+  joined, not who authored it, not whether they were in that expense.
+  `core.membership` is presence, not history, so its `created_at` is not a
+  joining date. `participant_period` is eligibility to appear in an operation,
+  never authorization.
 
 **Concurrency is proven with real simultaneous sessions**, not simulated:
 `scripts/writer-debt-concurrency.sh`, which CI runs last because it writes

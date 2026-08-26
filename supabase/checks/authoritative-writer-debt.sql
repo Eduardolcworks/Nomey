@@ -270,7 +270,8 @@ insert into core.scope (id,kind,base_currency_definition_id) values
   ('a0000000-0000-4000-8000-0000000000f3','group','dddddddd-dddd-4ddd-8ddd-dddddddddddd'),
   ('a0000000-0000-4000-8000-0000000000f4','group','cccccccc-cccc-4ccc-8ccc-cccccccccccc'),
   ('a0000000-0000-4000-8000-0000000000f5','group','cccccccc-cccc-4ccc-8ccc-cccccccccccc'),
-  ('a0000000-0000-4000-8000-0000000000f6','group','cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+  ('a0000000-0000-4000-8000-0000000000f6','group','cccccccc-cccc-4ccc-8ccc-cccccccccccc'),
+  ('a0000000-0000-4000-8000-0000000000f7','group','cccccccc-cccc-4ccc-8ccc-cccccccccccc');
 
 -- Participantes de G1: qA qB qC qD, mas Marta (qE, sin cuenta) y Z (qF, con un
 -- periodo cerrado, para la elegibilidad).
@@ -292,7 +293,9 @@ insert into core.participant (id, scope_id, display_name) values
   ('b0000000-0000-4000-8000-0000000000b5','a0000000-0000-4000-8000-0000000000f5','B'),
   ('b0000000-0000-4000-8000-0000000000c5','a0000000-0000-4000-8000-0000000000f5','C'),
   ('b0000000-0000-4000-8000-0000000000a6','a0000000-0000-4000-8000-0000000000f6','A'),
-  ('b0000000-0000-4000-8000-0000000000b6','a0000000-0000-4000-8000-0000000000f6','B');
+  ('b0000000-0000-4000-8000-0000000000b6','a0000000-0000-4000-8000-0000000000f6','B'),
+  ('b0000000-0000-4000-8000-0000000000a7','a0000000-0000-4000-8000-0000000000f7','A'),
+  ('b0000000-0000-4000-8000-0000000000b7','a0000000-0000-4000-8000-0000000000f7','B');
 
 insert into core.membership (scope_id, user_id) values
   ('a0000000-0000-4000-8000-0000000000f1','11111111-1111-4111-8111-111111111111'),
@@ -308,7 +311,9 @@ insert into core.membership (scope_id, user_id) values
   ('a0000000-0000-4000-8000-0000000000f5','22222222-2222-4222-8222-222222222222'),
   ('a0000000-0000-4000-8000-0000000000f5','33333333-3333-4333-8333-333333333333'),
   ('a0000000-0000-4000-8000-0000000000f6','11111111-1111-4111-8111-111111111111'),
-  ('a0000000-0000-4000-8000-0000000000f6','22222222-2222-4222-8222-222222222222');
+  ('a0000000-0000-4000-8000-0000000000f6','22222222-2222-4222-8222-222222222222'),
+  ('a0000000-0000-4000-8000-0000000000f7','11111111-1111-4111-8111-111111111111'),
+  ('a0000000-0000-4000-8000-0000000000f7','22222222-2222-4222-8222-222222222222');
 
 -- El vinculo. `core.participant_user_link` no tiene ruta de escritura en 3.C
 -- —la prueba de autorizacion es F10— pero SI existe, y la frontera lo usa para
@@ -329,7 +334,9 @@ insert into core.participant_user_link (participant_id, scope_id, user_id) value
   ('b0000000-0000-4000-8000-0000000000b5','a0000000-0000-4000-8000-0000000000f5','22222222-2222-4222-8222-222222222222'),
   ('b0000000-0000-4000-8000-0000000000c5','a0000000-0000-4000-8000-0000000000f5','33333333-3333-4333-8333-333333333333'),
   ('b0000000-0000-4000-8000-0000000000a6','a0000000-0000-4000-8000-0000000000f6','11111111-1111-4111-8111-111111111111'),
-  ('b0000000-0000-4000-8000-0000000000b6','a0000000-0000-4000-8000-0000000000f6','22222222-2222-4222-8222-222222222222');
+  ('b0000000-0000-4000-8000-0000000000b6','a0000000-0000-4000-8000-0000000000f6','22222222-2222-4222-8222-222222222222'),
+  ('b0000000-0000-4000-8000-0000000000a7','a0000000-0000-4000-8000-0000000000f7','11111111-1111-4111-8111-111111111111'),
+  ('b0000000-0000-4000-8000-0000000000b7','a0000000-0000-4000-8000-0000000000f7','22222222-2222-4222-8222-222222222222');
 
 -- Periodos de presencia. Z tiene uno CERRADO a proposito.
 insert into core.participant_period (participant_id, valid_from, valid_until) values
@@ -350,7 +357,9 @@ insert into core.participant_period (participant_id, valid_from, valid_until) va
   ('b0000000-0000-4000-8000-0000000000b5','2020-01-01',null),
   ('b0000000-0000-4000-8000-0000000000c5','2020-01-01',null),
   ('b0000000-0000-4000-8000-0000000000a6','2020-01-01',null),
-  ('b0000000-0000-4000-8000-0000000000b6','2020-01-01',null);
+  ('b0000000-0000-4000-8000-0000000000b6','2020-01-01',null),
+  ('b0000000-0000-4000-8000-0000000000a7','2020-01-01',null),
+  ('b0000000-0000-4000-8000-0000000000b7','2020-01-01',null);
 
 -- ================== B · gasto de grupo, en positivo =========================
 do $grupo$
@@ -1030,6 +1039,192 @@ begin
 end
 $correccion$;
 
+-- ========= E bis · una correccion no puede dejar deuda sobreliquidada =======
+-- `data-model.md` §3: una liquidacion nunca supera el importe pendiente de esa
+-- deuda. `record_debt_settlement` lo comprueba al liquidar; una CORRECCION que
+-- reduce el gasto puede violar el MISMO invariante desde el otro lado, sin que
+-- ninguna liquidacion nueva ocurra.
+--
+--   deuda original 5000 · ya liquidado 4000 · nueva deuda 3000  ->  -1000
+--
+-- En producto las liquidaciones se hacen al cerrar el grupo, con los gastos ya
+-- revisados, de modo que esto es el caso raro. Se RECHAZA y nada mas: sin deuda
+-- inversa, sin compensacion automatica, sin reapertura y sin estados de cierre.
+do $sobreliquidado$
+declare
+  fallos text[] := '{}';
+  EUR constant text := 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  G7  constant text := 'a0000000-0000-4000-8000-0000000000f7';
+  QA  constant text := 'b0000000-0000-4000-8000-0000000000a7';
+  QB  constant text := 'b0000000-0000-4000-8000-0000000000b7';
+  A   constant uuid := '11111111-1111-4111-8111-111111111111';
+  r jsonb; v_op uuid; v_v1 uuid; v_vigente uuid; v_got bigint;
+  v_ops int; v_vers int; v_efs int; v_cmds int; v_splits int;
+  v_ops2 int; v_vers2 int; v_efs2 int; v_cmds2 int; v_splits2 int;
+begin
+  -- Gasto de 100,00 entre A y B, paga A: B le debe 50,00.
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
+  r := api.record_group_expense(jsonb_build_object(
+        'client_operation_id','67000000-0000-4000-8000-000000000001',
+        'command_contract_version',1,'effective_date','2026-11-01',
+        'scope_id',G7,'currency_definition_id',EUR,'total','10000',
+        'payer_participant_id',QA,
+        'participants', jsonb_build_array(QA,QB),
+        'split_method', jsonb_build_object('kind','equal')));
+  v_op := (r ->> 'operation_id')::uuid;
+
+  -- B liquida 40,00 de los 50,00. Quedan 10,00 pendientes.
+  perform api.record_debt_settlement(jsonb_build_object(
+        'client_operation_id','67000000-0000-4000-8000-000000000002',
+        'command_contract_version',1,'effective_date','2026-11-02',
+        'scope_id',G7,'currency_definition_id',EUR,'amount','4000',
+        'debtor_participant_id',QB,'creditor_participant_id',QA));
+  reset role;
+
+  select o.current_version_id into v_v1 from core.operation o where o.id = v_op;
+
+  set local role nomey_writer;
+  perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
+  v_got := sec.pending_debt(G7::uuid, QB::uuid, QA::uuid, null);
+  reset role;
+  if v_got <> 1000 then
+    fallos := array_append(fallos, format('Ebis0: el pendiente de partida es %s y deberia ser 1000', v_got));
+  end if;
+
+  select count(*) into v_ops    from core.operation;
+  select count(*) into v_vers   from core.operation_version;
+  select count(*) into v_efs    from core.effect;
+  select count(*) into v_cmds   from core.client_command;
+  select count(*) into v_splits from core.split_participant;
+
+  -- EL CASO: corregir el gasto a 60,00 dejaria la deuda en 30,00, y ya se
+  -- liquidaron 40,00. Pendiente resultante -10,00.
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
+  begin
+    perform api.record_group_expense(jsonb_build_object(
+      'client_operation_id','67000000-0000-4000-8000-000000000003',
+      'command_contract_version',1,'effective_date','2026-11-01',
+      'operation_id', v_op, 'expected_version_id', v_v1,
+      'scope_id',G7,'currency_definition_id',EUR,'total','6000',
+      'payer_participant_id',QA,
+      'participants', jsonb_build_array(QA,QB),
+      'split_method', jsonb_build_object('kind','equal')));
+    fallos := array_append(fallos,
+      'Ebis1: se acepto una correccion que deja la deuda con pendiente negativo por liquidaciones ya realizadas');
+  exception when sqlstate 'PGRST' then
+    if sqlerrm not like '%SETTLEMENT_EXCEEDS_DEBT%' then
+      fallos := array_append(fallos, format('Ebis1b: codigo inesperado: %s', sqlerrm));
+    end if;
+  end;
+  reset role;
+
+  -- CERO ESCRITURAS PARCIALES, y ningun comando huerfano.
+  select count(*) into v_ops2    from core.operation;
+  select count(*) into v_vers2   from core.operation_version;
+  select count(*) into v_efs2    from core.effect;
+  select count(*) into v_cmds2   from core.client_command;
+  select count(*) into v_splits2 from core.split_participant;
+  if (v_ops2, v_vers2, v_efs2, v_cmds2, v_splits2) is distinct from (v_ops, v_vers, v_efs, v_cmds, v_splits) then
+    fallos := array_append(fallos, format(
+      'Ebis2: el rechazo escribio: operaciones %s->%s, versiones %s->%s, efectos %s->%s, comandos %s->%s, reparto %s->%s',
+      v_ops, v_ops2, v_vers, v_vers2, v_efs, v_efs2, v_cmds, v_cmds2, v_splits, v_splits2));
+  end if;
+
+  -- LA DEUDA PERMANECE en 1000.
+  set local role nomey_writer;
+  perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
+  v_got := sec.pending_debt(G7::uuid, QB::uuid, QA::uuid, null);
+  reset role;
+  if v_got <> 1000 then
+    fallos := array_append(fallos, format('Ebis3: la deuda quedo en %s y debia permanecer en 1000', v_got));
+  end if;
+
+  -- Y LA VERSION VIGENTE DEL GASTO NO CAMBIA.
+  select o.current_version_id into v_vigente from core.operation o where o.id = v_op;
+  if v_vigente is distinct from v_v1 then
+    fallos := array_append(fallos, 'Ebis4: el puntero de vigencia se movio pese al rechazo');
+  end if;
+
+  -- El limite es EXACTO, no una prohibicion de corregir a la baja: bajar hasta
+  -- justo lo liquidado —deuda 4000, liquidado 4000, pendiente 0— SI se acepta.
+  -- Sin este positivo, la regla podria estar rechazando de mas y el negativo de
+  -- arriba seguiria en verde.
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
+  begin
+    perform api.record_group_expense(jsonb_build_object(
+      'client_operation_id','67000000-0000-4000-8000-000000000004',
+      'command_contract_version',1,'effective_date','2026-11-01',
+      'operation_id', v_op, 'expected_version_id', v_v1,
+      'scope_id',G7,'currency_definition_id',EUR,'total','8000',
+      'payer_participant_id',QA,
+      'participants', jsonb_build_array(QA,QB),
+      'split_method', jsonb_build_object('kind','equal')));
+  exception when others then
+    fallos := array_append(fallos,
+      format('Ebis5: se rechazo una correccion que deja el pendiente exactamente en cero: %s', sqlerrm));
+  end;
+  reset role;
+
+  set local role nomey_writer;
+  perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
+  v_got := sec.pending_debt(G7::uuid, QB::uuid, QA::uuid, null);
+  reset role;
+  if v_got <> 0 then
+    fallos := array_append(fallos, format('Ebis6: tras corregir a 8000 el pendiente es %s y deberia ser 0', v_got));
+  end if;
+
+  -- Y sacar a B del gasto tampoco vale: su aportacion pasaria a cero y los
+  -- 4000 liquidados se quedarian sin nada que respaldar. Es el mismo invariante
+  -- para el par que DESAPARECE del reparto nuevo.
+  select o.current_version_id into v_vigente from core.operation o where o.id = v_op;
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
+  begin
+    perform api.record_group_expense(jsonb_build_object(
+      'client_operation_id','67000000-0000-4000-8000-000000000005',
+      'command_contract_version',1,'effective_date','2026-11-01',
+      'operation_id', v_op, 'expected_version_id', v_vigente,
+      'scope_id',G7,'currency_definition_id',EUR,'total','8000',
+      'payer_participant_id',QA,
+      'participants', jsonb_build_array(QA),
+      'split_method', jsonb_build_object('kind','equal')));
+    fallos := array_append(fallos,
+      'Ebis7: se saco del gasto a un participante cuya deuda ya estaba liquidada');
+  exception when sqlstate 'PGRST' then
+    if sqlerrm not like '%SETTLEMENT_EXCEEDS_DEBT%' then
+      fallos := array_append(fallos, format('Ebis7b: codigo inesperado: %s', sqlerrm));
+    end if;
+  end;
+  reset role;
+
+  -- Lo que NO cambia: liquidar sigue funcionando igual. El pendiente es 0, asi
+  -- que cualquier importe lo excede, exactamente como antes de este bloque.
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
+  begin
+    perform api.record_debt_settlement(jsonb_build_object(
+      'client_operation_id','67000000-0000-4000-8000-000000000006',
+      'command_contract_version',1,'effective_date','2026-11-03',
+      'scope_id',G7,'currency_definition_id',EUR,'amount','1',
+      'debtor_participant_id',QB,'creditor_participant_id',QA));
+    fallos := array_append(fallos, 'Ebis8: se liquido sobre una deuda ya saldada');
+  exception when sqlstate 'PGRST' then
+    if sqlerrm not like '%SETTLEMENT_EXCEEDS_DEBT%' then
+      fallos := array_append(fallos, format('Ebis8b: codigo inesperado: %s', sqlerrm));
+    end if;
+  end;
+  reset role;
+
+  if array_length(fallos, 1) is not null then
+    raise exception E'FALLOS DE CORRECCION SOBRELIQUIDADA:\n  - %', array_to_string(fallos, E'\n  - ');
+  end if;
+  raise notice 'OK · E bis · una correccion no deja deuda con pendiente negativo, y el limite es exacto';
+end
+$sobreliquidado$;
+
 -- ================== F · idempotencia ========================================
 do $idem$
 declare
@@ -1366,23 +1561,36 @@ begin
     fallos := array_append(fallos, format('I1: %s vistas se saltan la proyeccion canonica', v_n));
   end if;
 
-  -- I2 · los dos helpers de deuda del writer SI dejan dependencia analizable
-  -- hacia la proyeccion, porque tienen cuerpo `BEGIN ATOMIC`. Es lo que
-  -- ADR-013 §9 pide para que la guarda estructural los cubra, y lo que
-  -- distingue «lee la proyeccion» de «lee la tabla» sin mirar el texto.
+  -- I2 · los helpers de deuda del writer SI dejan dependencia analizable, porque
+  -- tienen cuerpo `BEGIN ATOMIC`. Es lo que ADR-013 §9 pide para que la guarda
+  -- estructural los cubra, y lo que distingue «lee la proyeccion» de «lee la
+  -- tabla» sin mirar el texto.
+  --
+  -- El neteo esta en UN SOLO sitio, `sec.net_debt`, que es quien toca la
+  -- proyeccion; `sec.pending_debt` solo lo acota a cero. La cadena tiene dos
+  -- eslabones y se comprueban los dos, porque E19 midio que las dependencias
+  -- del catalogo son DIRECTAS y no transitivas.
   if not exists (
     select 1 from pg_depend d join pg_class c on c.oid = d.refobjid
-    where d.objid = 'sec.pending_debt(uuid, uuid, uuid, uuid)'::regprocedure
+    where d.objid = 'sec.net_debt(uuid, uuid, uuid, uuid)'::regprocedure
       and d.classid = 'pg_proc'::regclass and c.relname = 'current_effect') then
     fallos := array_append(fallos,
-      'I2: sec.pending_debt no deja dependencia hacia la proyeccion canonica; podria estar leyendo core.effect');
+      'I2: sec.net_debt no deja dependencia hacia la proyeccion canonica; podria estar leyendo core.effect');
+  end if;
+  if not exists (
+    select 1 from pg_depend d
+    where d.objid = 'sec.pending_debt(uuid, uuid, uuid, uuid)'::regprocedure
+      and d.classid = 'pg_proc'::regclass
+      and d.refobjid = 'sec.net_debt(uuid, uuid, uuid, uuid)'::regprocedure) then
+    fallos := array_append(fallos,
+      'I2b: sec.pending_debt dejo de derivar de sec.net_debt, asi que el neteo vive en dos sitios');
   end if;
   if not exists (
     select 1 from pg_depend d join pg_class c on c.oid = d.refobjid
     where d.objid = 'sec.debt_scopes_of_version(uuid)'::regprocedure
       and d.classid = 'pg_proc'::regclass and c.relname = 'current_effect') then
     fallos := array_append(fallos,
-      'I2b: sec.debt_scopes_of_version no deja dependencia hacia la proyeccion canonica');
+      'I2c: sec.debt_scopes_of_version no deja dependencia hacia la proyeccion canonica');
   end if;
 
   if array_length(fallos, 1) is not null then

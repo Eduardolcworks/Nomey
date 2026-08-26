@@ -159,6 +159,40 @@ revoke execute on function sec.debt_scopes_of_version(uuid) from public;
 -- `p_exclude_version` es la version que una correccion SUPERSEDE. Sin ella,
 -- corregir una liquidacion de 3000 a 4000 se validaria contra una deuda que
 -- todavia incluye los 3000 que esa misma correccion esta a punto de retirar.
+-- El neteo es UNO SOLO, y vive aqui. `pending_debt` lo acota a cero para
+-- validar una liquidacion; la validacion de las correcciones necesita el signo
+-- REAL, porque un pendiente negativo es exactamente lo que tiene que detectar.
+-- Dos implementaciones del mismo neteo serian dos sitios donde equivocarse.
+create function sec.net_debt(
+  p_scope           uuid,
+  p_debtor          uuid,
+  p_creditor        uuid,
+  p_exclude_version uuid
+)
+returns bigint
+language sql
+stable
+set search_path = ''
+begin atomic
+  select coalesce(sum(
+           case
+             when e.debt_debtor_participant_id   = p_debtor
+              and e.debt_creditor_participant_id = p_creditor then  e.debt_amount
+             when e.debt_debtor_participant_id   = p_creditor
+              and e.debt_creditor_participant_id = p_debtor   then -e.debt_amount
+             else 0
+           end), 0)
+    from core.current_effect e
+   where e.scope_id = p_scope
+     and e.debt_amount is not null
+     and (p_exclude_version is null or e.operation_version_id <> p_exclude_version);
+end;
+
+comment on function sec.net_debt(uuid, uuid, uuid, uuid) is
+  'Neteo con signo del par en un ambito, sobre la proyeccion canonica. Negativo = se liquido mas de lo debido (ADR-013 §9).';
+
+revoke execute on function sec.net_debt(uuid, uuid, uuid, uuid) from public;
+
 create function sec.pending_debt(
   p_scope           uuid,
   p_debtor          uuid,
@@ -170,24 +204,92 @@ language sql
 stable
 set search_path = ''
 begin atomic
-  select greatest(coalesce(sum(
-           case
-             when e.debt_debtor_participant_id   = p_debtor
-              and e.debt_creditor_participant_id = p_creditor then  e.debt_amount
-             when e.debt_debtor_participant_id   = p_creditor
-              and e.debt_creditor_participant_id = p_debtor   then -e.debt_amount
-             else 0
-           end), 0), 0)
-    from core.current_effect e
-   where e.scope_id = p_scope
-     and e.debt_amount is not null
-     and (p_exclude_version is null or e.operation_version_id <> p_exclude_version);
+  select greatest(sec.net_debt(p_scope, p_debtor, p_creditor, p_exclude_version), 0);
 end;
 
 comment on function sec.pending_debt(uuid, uuid, uuid, uuid) is
-  'Deuda pendiente del par en un ambito, neteada en ambas direcciones y acotada a cero, sobre la proyeccion canonica (ADR-002, ADR-013 §9).';
+  'Deuda pendiente del par, acotada a cero, de modo que liquidar en la direccion contraria devuelva 0 igual que pendingDebt del dominio.';
 
 revoke execute on function sec.pending_debt(uuid, uuid, uuid, uuid) from public;
+
+-- ============ 1 bis · la correccion no puede dejar deuda sobreliquidada =====
+-- `data-model.md` §3 fija que **una liquidacion nunca supera el importe
+-- pendiente de esa deuda**. `record_debt_settlement` lo comprueba al liquidar,
+-- pero una CORRECCION que reduce el gasto puede violar el mismo invariante
+-- desde el otro lado, sin que ninguna liquidacion nueva ocurra:
+--
+--   deuda original 5000 · ya liquidado 4000 · nueva deuda 3000  ->  -1000
+--
+-- Es el MISMO invariante en otro momento, asi que reutiliza su codigo de
+-- dominio —`SETTLEMENT_EXCEEDS_DEBT`— y no inventa uno nuevo. En producto las
+-- liquidaciones se hacen al cerrar el grupo, con los gastos ya revisados, de
+-- modo que este rechazo es el caso raro y no el camino normal.
+--
+-- Se comprueban los pares del reparto NUEVO **y** los que llevaban deuda en la
+-- version vigente: si la correccion saca a alguien del gasto, su aportacion
+-- pasa a cero y lo ya liquidado se queda sin nada que respaldar. Por eso los
+-- viejos entran con delta 0 y con SU PROPIO ambito, que puede no ser el nuevo
+-- si la correccion cambia de ambito.
+--
+-- No introduce deuda inversa, ni compensacion, ni reapertura, ni ningun estado
+-- de cierre: solo rechaza.
+create function sec.assert_correction_leaves_no_oversettled_debt(
+  p_scope            uuid,
+  p_expected_version uuid,
+  p_participants     uuid[],
+  p_resolved         bigint[],
+  p_payer            uuid
+)
+returns void
+language plpgsql
+stable
+set search_path = ''
+as $fn$
+declare
+  r record;
+begin
+  for r in
+    with nuevos as (
+      select p_scope           as scope_id,
+             u.participante    as debtor,
+             p_payer           as creditor,
+             u.importe         as delta
+        from unnest(p_participants, p_resolved) as u(participante, importe)
+       where u.participante <> p_payer
+         and u.importe > 0
+    ),
+    viejos as (
+      select distinct
+             e.scope_id,
+             e.debt_debtor_participant_id   as debtor,
+             e.debt_creditor_participant_id as creditor,
+             0::bigint                      as delta
+        from core.current_effect e
+       where e.operation_version_id = p_expected_version
+         and e.debt_amount is not null
+    ),
+    pares as (
+      select scope_id, debtor, creditor, max(delta) as delta
+        from (select * from nuevos union all select * from viejos) t
+       group by 1, 2, 3
+    )
+    select pares.scope_id, pares.debtor, pares.creditor, pares.delta,
+           sec.net_debt(pares.scope_id, pares.debtor, pares.creditor, p_expected_version) as ya
+      from pares
+  loop
+    if r.ya + r.delta < 0 then
+      perform sec.raise_boundary('SETTLEMENT_EXCEEDS_DEBT',
+        format('la correccion dejaria la deuda de %s hacia %s con un pendiente de %s: ya se liquidaron %s y la version corregida solo sostiene %s (data-model.md §3)',
+               r.debtor, r.creditor, r.ya + r.delta, - r.ya, r.delta), 422);
+    end if;
+  end loop;
+end
+$fn$;
+
+comment on function sec.assert_correction_leaves_no_oversettled_debt(uuid, uuid, uuid[], bigint[], uuid) is
+  'Una correccion no puede dejar una deuda con pendiente negativo por liquidaciones ya realizadas. Mismo invariante que data-model.md §3, en otro momento.';
+
+revoke execute on function sec.assert_correction_leaves_no_oversettled_debt(uuid, uuid, uuid[], bigint[], uuid) from public;
 
 -- ======================= 2 · autorizacion e identidad contextual ===========
 -- La membresia ACTUAL del ambito. `core.membership` es presencia pura, no
@@ -657,7 +759,9 @@ revoke execute on function sec.persist_split(uuid, uuid, jsonb, uuid[], uuid, bi
 -- El writer invoca estos helpers directamente, asi que necesita EXECUTE.
 grant execute on function sec.lock_debt_scopes(uuid[])                                   to nomey_writer;
 grant execute on function sec.debt_scopes_of_version(uuid)                               to nomey_writer;
+grant execute on function sec.net_debt(uuid, uuid, uuid, uuid)                           to nomey_writer;
 grant execute on function sec.pending_debt(uuid, uuid, uuid, uuid)                       to nomey_writer;
+grant execute on function sec.assert_correction_leaves_no_oversettled_debt(uuid, uuid, uuid[], bigint[], uuid) to nomey_writer;
 grant execute on function sec.assert_member(uuid, uuid)                                  to nomey_writer;
 grant execute on function sec.assert_scope_kind(uuid, text)                              to nomey_writer;
 grant execute on function sec.participant_personal_scope(uuid)                           to nomey_writer;
@@ -820,6 +924,13 @@ begin
   -- 7 · lock de la operacion y CAS.
   if v_correction then
     select * into v_version_no, v_supersedes from sec.lock_and_cas(v_operation, v_expected);
+
+    -- 8 y 9 · leer la deuda autoritativa DESPUES de los locks, y validar. Un
+    -- alta no necesita esta comprobacion: solo suma deuda. Una correccion puede
+    -- restarla por debajo de lo ya liquidado, y eso viola el mismo invariante
+    -- que `record_debt_settlement` protege al liquidar.
+    perform sec.assert_correction_leaves_no_oversettled_debt(
+      v_scope, v_expected, v_participants, v_resolved, v_payer);
   else
     v_version_no := 1; v_supersedes := null;
   end if;

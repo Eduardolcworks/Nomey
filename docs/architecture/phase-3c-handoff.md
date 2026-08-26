@@ -1630,14 +1630,17 @@ que la cuenta del actor sea la vinculada al participante deudor: sin eso, quien
 recibe podría registrar «me han pagado» y provocar una salida en el Modo Personal
 de un tercero, que es la primitiva de apropiación que el invariante 14 impide.
 
-> **Una limitación real, y se dice.** `data-model.md` §7 matiza que corrige
-> «cualquier integrante, **sobre operaciones posteriores a su incorporación** o
-> anteriores en las que ya figuraba como participante». Esa segunda mitad **no es
-> derivable hoy**: `core.membership` es presencia pura y **no es un historial**,
-> y usar su `created_at` como fecha de incorporación sería reinterpretar la
-> relación exactamente como §13 quater prohíbe. Se implementa «cualquier
-> integrante actual», y el matiz temporal queda pendiente de que exista una
-> relación que responda esa pregunta.
+> **La regla de corrección quedó cerrada por producto el 2026-08-26**, y la
+> implementación de 7b ya era la correcta: **cualquier miembro actual del ámbito
+> corrige cualquier gasto de ese ámbito**, sin condición temporal ni de autoría
+> ni de participación. `data-model.md` §7 se actualizó: la redacción anterior
+> —«sobre operaciones posteriores a su incorporación»— **queda derogada**, y
+> además no era derivable, porque `core.membership` es presencia y no historial.
+>
+> **Los periodos de presencia NO participan en la autorización de correcciones.**
+> Conservan su única función: la elegibilidad de un participante para figurar en
+> una operación en su fecha efectiva (ADR-012 §7). Colapsar las dos preguntas es
+> el error que ADR-012 existe para evitar.
 
 ### Un solo importe en la liquidación por transferencia
 
@@ -1660,19 +1663,50 @@ elegir, y ambas elecciones quedan escritas:
 - **un participante sin ningún periodo no es elegible en ninguna fecha.** La
   ausencia de periodos no es un comodín: es no haber estado nunca.
 
-### Lo que 7b deliberadamente NO valida
+### Una corrección no puede dejar deuda sobreliquidada
 
-> **Una corrección que reduce un gasto por debajo de lo ya liquidado se acepta**,
-> y puede dejar la deuda pendiente en negativo.
+> **Cerrado por producto el 2026-08-26**, y añadido a `data-model.md` §3. Antes
+> de esa decisión 7b lo aceptaba, porque ningún ADR lo fijaba y el dominio no lo
+> modela: `deriveDebtSettlement` valida al liquidar, no al corregir el gasto que
+> originó la deuda.
 
-Participa en el protocolo —toma el lock, de modo que ninguna liquidación
-concurrente lee un estado a medias— pero **no gana una validación nueva**. El
-motivo es que ningún ADR la fija y el dominio no la modela: `deriveDebtSettlement`
-valida al liquidar, no al corregir el gasto que la originó. Añadirla sería
-introducir una regla de producto desde una migración.
+```
+deuda original 5000 · ya liquidado 4000 · nueva deuda 3000  ->  -1000  ->  rechazo
+```
 
-**Lo que sí garantiza el lock** es que la comprobación y el consumo se
-serialicen, que es literalmente el invariante de ADR-013 §11.
+Es el **mismo invariante** que `data-model.md` §3 ya fijaba —lo liquidado nunca
+supera lo debido— comprobado en otro momento, así que **reutiliza su código de
+dominio, `SETTLEMENT_EXCEEDS_DEBT`**, y no estrena uno. Duplicar el código
+convertiría una regla en dos.
+
+La comprobación vive **dentro del protocolo**: después de los locks y del CAS, y
+leyendo la deuda autoritativa. Alcanza a los pares del reparto nuevo **y** a los
+que llevaban deuda en la versión vigente —cada uno con **su propio ámbito**, que
+puede no ser el nuevo si la corrección cambia de ámbito—, de modo que **sacar a
+alguien del reparto** cuenta igual: su aportación pasa a cero y lo ya liquidado
+se queda sin nada que respaldar.
+
+**Solo en correcciones.** Un alta únicamente suma deuda, así que no puede
+violarlo, y comprobarlo allí sería trabajo sin caso.
+
+**Lo que la decisión descarta expresamente** es tan importante como lo que fija:
+no hay deuda inversa automática, ni compensación automática, ni reapertura, ni
+estados adicionales de cierre, ni maquinaria de lifecycle en 3.C. Se rechaza y ya.
+En producto las liquidaciones se hacen al cerrar el grupo, con los gastos
+revisados, así que este choque es el caso raro y no el camino normal.
+
+**El límite es exacto y el check lo prueba en positivo:** corregir hasta dejar el
+pendiente en **cero** se acepta. Sin ese caso, una regla que rechazara toda
+corrección a la baja pasaría el negativo igual.
+
+**El neteo vive en un solo sitio.** `sec.net_debt` es quien lee la proyección
+canónica y devuelve el signo real; `sec.pending_debt` solo lo acota a cero para
+validar liquidaciones. La guarda de catálogo comprueba **los dos eslabones** de
+esa cadena, porque E19 midió que las dependencias son directas y no transitivas.
+
+**Lo que no cambia:** el comportamiento normal de las liquidaciones es idéntico,
+y el lock sigue garantizando lo que ADR-013 §11 pide — que la comprobación y el
+consumo se serialicen.
 
 ### Concurrencia: probada con sesiones simultáneas, no simulada
 
