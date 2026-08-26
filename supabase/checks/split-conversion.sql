@@ -70,12 +70,13 @@ begin
     fallos := array_append(fallos, format('A4b: hay %s policies de cliente sobre las relaciones nuevas', v_n));
   end if;
 
-  -- A5 · grants EXACTOS del writer: SELECT sobre las tres, y NADA mas.
+  -- A5 · grants EXACTOS del writer.
   --
   -- El `INSERT` que este bloque concedio lo REVOCO 7a, porque ninguna funcion
   -- autoritativa lo ejercia: el principio «cada privilegio corresponde a una
-  -- ruta concreta» tambien se aplica hacia atras. `split` y `split_participant`
-  -- lo recuperan en 7b con `record_group_expense`; `frozen_conversion` cuando
+  -- ruta concreta» tambien se aplica hacia atras. **`split` y
+  -- `split_participant` lo RECUPERARON en 7b**, cuando `record_group_expense`
+  -- paso a ejercerlo. `frozen_conversion` sigue sin el, y seguira hasta que
   -- exista una regla de resolucion de FX (ADR-009 §8).
   select count(*) into v_n
   from information_schema.table_privileges
@@ -87,14 +88,36 @@ begin
     fallos := array_append(fallos, format('A5: el writer tiene %s de los 3 grants SELECT esperados', v_n));
   end if;
 
+  -- El INSERT esperado son exactamente DOS: los que 7b devolvio porque tienen
+  -- ruta. No se relaja a «al menos»: lo que este test protege es que cada
+  -- privilegio corresponda a una ruta concreta, en las dos direcciones.
+  select count(*) into v_n
+  from information_schema.table_privileges
+  where table_schema = 'core'
+    and table_name in ('split','split_participant')
+    and grantee = 'nomey_writer'
+    and privilege_type = 'INSERT';
+  if v_n <> 2 then
+    fallos := array_append(fallos,
+      format('A5b: el writer tiene %s de los 2 INSERT que record_group_expense ejerce', v_n));
+  end if;
+
   select count(*) into v_n
   from information_schema.table_privileges
   where table_schema = 'core'
     and table_name in ('split','split_participant','frozen_conversion')
     and grantee = 'nomey_writer'
-    and privilege_type <> 'SELECT';
+    and privilege_type not in ('SELECT','INSERT');
   if v_n <> 0 then
-    fallos := array_append(fallos, format('A5b: el writer tiene %s privilegios sin ruta autoritativa que los ejerza', v_n));
+    fallos := array_append(fallos,
+      format('A5e: el writer tiene %s privilegios distintos de SELECT e INSERT (ADR-011 §14)', v_n));
+  end if;
+
+  -- Y `frozen_conversion` sigue SIN ruta: sin regla de FX no hay funcion que la
+  -- escriba, asi que tampoco privilegio.
+  if has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert') then
+    fallos := array_append(fallos,
+      'A5f: el writer recupero INSERT sobre core.frozen_conversion y ninguna ruta lo ejerce');
   end if;
 
   -- A5c · y nadie distinto del propietario puede mutarlas (ADR-011 §14).
@@ -712,29 +735,38 @@ begin
   set local role nomey_writer;
   perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
 
-  -- F1 · EL WRITER NO PUEDE ESCRIBIR ESTAS TRES. 7a revoco el `INSERT` porque
-  -- ninguna funcion autoritativa lo ejercia; `split` y `split_participant` lo
-  -- recuperan en 7b, y `frozen_conversion` cuando exista la regla de FX.
-  --
-  -- Lo que lo impide es la AUSENCIA DE GRANT, no una policy: por eso el
-  -- sqlstate es 42501 y no una fila rechazada en silencio.
+  -- F1 · EL REPARTO YA TIENE RUTA. 7a revoco el `INSERT` porque ninguna funcion
+  -- autoritativa lo ejercia; 7b se lo devolvio a `split` y `split_participant`
+  -- cuando `record_group_expense` paso a escribirlos. Aqui se comprueba lo que
+  -- ese grant significa de verdad: el writer escribe, pero SOLO bajo la RLS.
   begin
     insert into core.split (operation_version_id, scope_id, split_method, payer_participant_id)
     values (V4, S2, 'equal', PX);
-    fallos := array_append(fallos, 'F1: el writer inserto una cabecera de reparto sin ruta autoritativa que lo justifique');
-  exception when insufficient_privilege then null;
-    when others then fallos := array_append(fallos, format('F1: sqlstate inesperado %s', sqlstate));
-  end;
-
-  begin
     insert into core.split_participant
       (operation_version_id, scope_id, participant_id, ordinal, split_method, resolved_amount)
     values (V4, S2, PX, 0, 'equal', 10000);
-    fallos := array_append(fallos, 'F1b: el writer inserto una fila de reparto');
-  exception when insufficient_privilege then null;
+  exception when others then
+    fallos := array_append(fallos,
+      format('F1: el writer no pudo escribir el reparto de su propia version: %s', sqlerrm));
+  end;
+
+  -- F1b · y la segunda barrera sigue mordiendo: colgar un reparto de la version
+  -- de OTRO actor lo detiene el `WITH CHECK` de ADR-013 §10, no el codigo. Es la
+  -- garantia que E16 midio y que se perderia si el writer poseyera las tablas.
+  begin
+    insert into core.split (operation_version_id, scope_id, split_method)
+    values (U1, S2, 'equal');
+    fallos := array_append(fallos, 'F1b: el writer colgo un reparto de la version de otro actor');
+  exception when insufficient_privilege then
+    if sqlerrm not like '%row-level security%' then
+      fallos := array_append(fallos, format('F1b: el rechazo no vino de la RLS sino de: %s', sqlerrm));
+    end if;
     when others then fallos := array_append(fallos, format('F1b: sqlstate inesperado %s', sqlstate));
   end;
 
+  -- F1c · `frozen_conversion` sigue SIN ruta, y lo que lo impide es la AUSENCIA
+  -- DE GRANT y no una policy: mientras el FX cross-currency no tenga regla de
+  -- resolucion, ninguna funcion la escribe (ADR-009 §8).
   begin
     insert into core.frozen_conversion
       (operation_version_id, scope_id, source_currency_definition_id,
@@ -811,7 +843,7 @@ begin
   if array_length(fallos, 1) is not null then
     raise exception E'FALLOS DEL WRITER:\n  - %', array_to_string(fallos, E'\n  - ');
   end if;
-  raise notice 'OK · F · el writer lee lo ajeno, no muta nada, y ya no puede escribir lo que 7a revoco';
+  raise notice 'OK · F · el writer escribe el reparto bajo la RLS, lee lo ajeno, no muta nada y sigue sin poder congelar un tipo';
 end
 $writer$;
 

@@ -31,9 +31,12 @@ export type Database = {
         }[];
       };
       record_adjustment: { Args: { payload: Json }; Returns: Json };
+      record_debt_settlement: { Args: { payload: Json }; Returns: Json };
       record_external_transfer: { Args: { payload: Json }; Returns: Json };
+      record_group_expense: { Args: { payload: Json }; Returns: Json };
       record_internal_transfer: { Args: { payload: Json }; Returns: Json };
       record_personal_expense: { Args: { payload: Json }; Returns: Json };
+      record_settlement_by_transfer: { Args: { payload: Json }; Returns: Json };
     };
     Enums: {
       [_ in never]: never;

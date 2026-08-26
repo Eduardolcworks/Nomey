@@ -22,12 +22,15 @@ declare
   v_fn text;
   v_n int;
 begin
-  -- A1 · las cuatro funciones publicas existen, y SOLO esas cuatro escriben.
+  -- A1 · la superficie de escritura completa, y nada mas. Eran cuatro con 7a;
+  -- son SIETE desde 7b, que anadio las tres clases con deuda. La cifra se
+  -- actualiza aqui a proposito en vez de relajar la comprobacion a «al menos»:
+  -- lo que este test protege es que la superficie sea ENUMERABLE.
   select count(*) into v_n
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.proname like 'record\_%';
-  if v_n <> 4 then
-    fallos := array_append(fallos, format('A1: hay %s funciones api.record_* y deberian ser 4', v_n));
+  if v_n <> 7 then
+    fallos := array_append(fallos, format('A1: hay %s funciones api.record_* y deberian ser 7', v_n));
   end if;
 
   -- A2 · atributos exigidos por ADR-009 §4 y §5, una por una.
@@ -74,12 +77,17 @@ begin
     fallos := array_append(fallos, format('A3b: nomey_writer posee %s tablas de core', v_n));
   end if;
 
-  -- A4 · REVOCACIONES de 7a: privilegios sin ruta autoritativa.
-  foreach v_fn in array array['core.frozen_conversion','core.split','core.split_participant'] loop
-    if has_table_privilege('nomey_writer', v_fn, 'insert') then
-      fallos := array_append(fallos, format('A4: nomey_writer conserva INSERT sobre %s y ninguna ruta lo ejerce', v_fn));
-    end if;
-  end loop;
+  -- A4 · REVOCACIONES que siguen vivas: privilegios sin ruta autoritativa.
+  --
+  -- 7a revoco el INSERT sobre `frozen_conversion`, `split` y
+  -- `split_participant`. Los dos ultimos VOLVIERON en 7b, porque
+  -- `api.record_group_expense` los ejerce; el primero no vuelve mientras el FX
+  -- cross-currency siga sin regla de resolucion (ADR-009 §8). Comprobar hoy los
+  -- tres seria comprobar que 7b no existe.
+  if has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert') then
+    fallos := array_append(fallos,
+      'A4: nomey_writer tiene INSERT sobre core.frozen_conversion y ninguna ruta autoritativa lo ejerce');
+  end if;
 
   -- A4b · pero las policies de INSERT ya disenadas siguen intactas: son
   -- decisiones razonadas de ADR-013 §10 y volveran a hacer falta en 7b.
@@ -114,10 +122,17 @@ begin
     fallos := array_append(fallos, 'A6: sec.begin_command es alcanzable por PUBLIC o por el cliente');
   end if;
 
-  -- A7 · el writer no gano UPDATE sobre core.scope. Ese ensanchamiento es de
-  -- 7b, y solo por el lock de deuda.
-  if has_table_privilege('nomey_writer', 'core.scope', 'update') then
-    fallos := array_append(fallos, 'A7: nomey_writer ya tiene UPDATE sobre core.scope; eso es de 7b');
+  -- A7 · el UPDATE sobre `core.scope` llego con 7b y SOLO por el lock de deuda,
+  -- asi que aqui se comprueba que sigue acotado a una sola columna. Su
+  -- inocuidad real —que `WITH CHECK (false)` impide la modificacion— la mide el
+  -- check de 7b, que es donde vive la decision.
+  select count(*) into v_n
+  from information_schema.column_privileges
+  where table_schema = 'core' and table_name = 'scope'
+    and grantee = 'nomey_writer' and privilege_type = 'UPDATE';
+  if v_n <> 1 then
+    fallos := array_append(fallos,
+      format('A7: el writer tiene UPDATE sobre %s columnas de core.scope y deberia ser 1, la del lock', v_n));
   end if;
 
   -- A8 · el UPDATE del writer sigue acotado por columna al puntero de vigencia.
