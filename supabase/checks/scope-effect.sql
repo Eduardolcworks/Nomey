@@ -223,6 +223,7 @@ declare
   EUR constant uuid := 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
   JPY constant uuid := 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   A   constant uuid := '11111111-1111-4111-8111-111111111111';
+  B   constant uuid := '22222222-2222-4222-8222-222222222222';
   S1  constant uuid := '51000000-0000-4000-8000-000000000000'; -- grupo EUR de A
   S2  constant uuid := '52000000-0000-4000-8000-000000000000'; -- personal EUR de B
   S3  constant uuid := '53000000-0000-4000-8000-000000000000'; -- personal EUR de A
@@ -237,11 +238,16 @@ begin
   insert into core.currency_definition (id, code, scale)
   values (EUR, 'EUR', 2), (JPY, 'JPY', 0);
 
+  -- Los Modo Personal llevan dueno desde la migracion de atribucion: la
+  -- constraint `scope_dueno_solo_en_personal` hace estructural que `personal`
+  -- y propiedad vayan juntos, asi que un fixture sin dueno ya no es
+  -- representable (ADR-016).
   insert into core.scope (id, kind, base_currency_definition_id) values
     (S1, 'group',    EUR),
-    (S2, 'personal', EUR),
-    (S3, 'personal', EUR),
     (S4, 'group',    JPY);
+  insert into core.scope (id, kind, base_currency_definition_id, owner_user_id) values
+    (S2, 'personal', EUR, B),
+    (S3, 'personal', EUR, A);
 
   insert into core.participant (id, scope_id, display_name) values
     (P1A, S1, 'Marta'),
