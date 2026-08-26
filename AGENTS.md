@@ -596,10 +596,40 @@ DEFINER` owned by `postgres`, takes no parameters, and filters by link **in
 - **`src/types/database.ts` is generated over `api`**, never hand-written. Every
   monetary field comes out as `string`.
 
-**Next up, and the last of 3.C:** the authoritative writer. The debt lock of
-ADR-013 §11 will need both an `UPDATE` policy **and** an `UPDATE` privilege on
-`core.scope`: PostgreSQL requires `UPDATE` on at least one column for `SELECT …
-FOR UPDATE`, and E20 measured that a missing policy returns zero rows without
-erroring.
+**The authoritative writer exists, in its first half.** `api.record_adjustment`,
+`record_personal_expense`, `record_external_transfer` and
+`record_internal_transfer` are the only way anything gets written. They are
+`SECURITY DEFINER` **owned by `nomey_writer`** — the opposite of
+`api.claimed_dimension()`, and deliberately so: a read boundary must cross RLS,
+a write boundary must stay under it (E16). Do not unify them.
+
+- **One public function per operation class**, per ADR-009 §1 — whose own
+  examples share an accounting class, which is what proves `operation_class` is
+  the _type_ of operation (ADR-013 §2), not the accounting class of ADR-002 §3.
+  They are different vocabularies in different columns; the fixtures that
+  conflated them were corrected.
+- **Create and correct share a function**, distinguished by `operation_id` +
+  `expected_version_id` in the payload and by `command_type` for idempotency.
+- **Claim the idempotency key before the CAS** (ADR-011 §13), and authorize
+  after the claim (ADR-010 §5). A replay never re-derives, re-authorizes or
+  creates a version.
+- **The only permitted exception handler is the claim's `unique_violation`.**
+  Any other turns a failure into a partial write.
+- **Cross-currency is refused**, with `CURRENCY_CONVERSION_UNSUPPORTED` (422),
+  until the FX resolution rule exists. `core.frozen_conversion` therefore has
+  no write route, and 7a revoked the writer's `INSERT` on it — as it did on
+  `split` and `split_participant`, which return in 7b.
+- **Parity with `src/domain/` is the shared vectors, not shared code**
+  (ADR-009 §1). `scripts/vectors-prelude.sh` pipes `tests/vectors/*.json` into
+  the check, because psql runs inside the container and cannot read the
+  checkout.
+
+**Next, and the last of 3.C — 7b:** `record_group_expense`,
+`record_debt_settlement` and `record_settlement_by_transfer`, with the debt
+serialization protocol of ADR-013 §11. That lock needs both an `UPDATE` policy
+**and** an `UPDATE` privilege on `core.scope`: PostgreSQL requires `UPDATE` on
+at least one column for `SELECT … FOR UPDATE`, and E20 measured that a missing
+policy returns zero rows without erroring. It is the only privilege widening
+left, which is why it is isolated in its own migration.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.

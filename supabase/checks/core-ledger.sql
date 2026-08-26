@@ -108,7 +108,7 @@ begin
   -- B1 · una operacion valida con su V1.
   begin
     insert into core.operation (id, operation_class, created_by, current_version_id)
-    values ('a1000000-0000-4000-8000-000000000000','expense', A,
+    values ('a1000000-0000-4000-8000-000000000000','personal_expense', A,
             'b1000000-0000-4000-8000-000000000000');
     insert into core.operation_version
       (id, operation_id, version_no, supersedes_version_id, created_by,
@@ -170,7 +170,7 @@ begin
   -- B6 · el puntero no puede apuntar a la version de OTRA operacion.
   begin
     insert into core.operation (id, operation_class, created_by, current_version_id)
-    values ('a6000000-0000-4000-8000-000000000000','expense', A,
+    values ('a6000000-0000-4000-8000-000000000000','personal_expense', A,
             'b1000000-0000-4000-8000-000000000000');
     set constraints core.operation_current_version_fk immediate;
     fallos := array_append(fallos, 'B6: el puntero acepto la version de otra operacion');
@@ -197,7 +197,7 @@ begin
   -- ADR-011 §11 a la frontera autoritativa.
   begin
     insert into core.operation (id, operation_class, created_by, current_version_id)
-    values ('a8000000-0000-4000-8000-000000000000','expense', A,
+    values ('a8000000-0000-4000-8000-000000000000','personal_expense', A,
             'b8000000-0000-4000-8000-000000000000');
     insert into core.operation_version
       (id, operation_id, version_no, supersedes_version_id, created_by,
@@ -252,7 +252,7 @@ begin
   -- distintas.
   begin
     insert into core.operation (id, operation_class, created_by, current_version_id)
-    values ('a3000000-0000-4000-8000-000000000000','expense', A,
+    values ('a3000000-0000-4000-8000-000000000000','personal_expense', A,
             'b3300000-0000-4000-8000-000000000000');
     insert into core.operation_version
       (id, operation_id, version_no, supersedes_version_id, created_by,
@@ -299,7 +299,7 @@ begin
   -- todavia; si esto se rechaza, lo rechaza la RLS.
   begin
     insert into core.operation (id, operation_class, created_by, current_version_id)
-    values ('d1000000-0000-4000-8000-000000000000','expense', B::uuid,
+    values ('d1000000-0000-4000-8000-000000000000','personal_expense', B::uuid,
             'd1100000-0000-4000-8000-000000000000');
     fallos := array_append(fallos, 'D1: la RLS acepto una operacion atribuida a otro actor');
   exception when insufficient_privilege then null;
@@ -401,7 +401,7 @@ begin
   perform set_config('request.jwt.claims', '', true);
   begin
     insert into core.operation (id, operation_class, created_by, current_version_id)
-    values ('d9000000-0000-4000-8000-000000000000','expense', A::uuid,
+    values ('d9000000-0000-4000-8000-000000000000','personal_expense', A::uuid,
             'd9900000-0000-4000-8000-000000000000');
     fallos := array_append(fallos, 'D9: se acepto una escritura sin identidad en la peticion');
   exception when insufficient_privilege then null;
@@ -412,7 +412,7 @@ begin
   perform set_config('request.jwt.claims', '{"sub":"no-soy-un-uuid"}', true);
   begin
     insert into core.operation (id, operation_class, created_by, current_version_id)
-    values ('da000000-0000-4000-8000-000000000000','expense', A::uuid,
+    values ('da000000-0000-4000-8000-000000000000','personal_expense', A::uuid,
             'daa00000-0000-4000-8000-000000000000');
     fallos := array_append(fallos, 'D10: se acepto una escritura con un sub malformado');
   exception when insufficient_privilege then null;

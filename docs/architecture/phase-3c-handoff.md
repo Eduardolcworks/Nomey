@@ -21,18 +21,18 @@ completo de la fase.
 Checkpoint **durable**: describe qué hay decidido y consolidado, no una foto del
 índice de Git. **La verdad del árbol es `git status`**, no esta tabla.
 
-|                            |                                                                                                                                               |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                                                                                    |
-| **D11**                    | **Cerrado y mergeado a `main`** (`d672246`): ADR-013 y `supabase/e19/`                                                                        |
-| **E20**                    | **Cerrada y mergeada a `main`** (`afe50ab`): `supabase/e20/` y ADR-013 §10                                                                    |
-| **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                                                                             |
-| **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                                                                                 |
-| **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                                                                              |
-| **`supabase/migrations/`** | **Seis migraciones**: bootstrap · operación/versión · ámbito y efecto · identidad y periodos · reparto y conversión · proyección y atribución |
-| **`npm test`**             | **116/116** en verde                                                                                                                          |
-| **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                                                                              |
-| **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio**                                                              |
+|                            |                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                       |
+| **D11**                    | **Cerrado y mergeado a `main`** (`d672246`): ADR-013 y `supabase/e19/`           |
+| **E20**                    | **Cerrada y mergeada a `main`** (`afe50ab`): `supabase/e20/` y ADR-013 §10       |
+| **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                |
+| **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                    |
+| **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                 |
+| **`supabase/migrations/`** | **Siete migraciones**. La última es la primera mitad del writer autoritativo     |
+| **`npm test`**             | **116/116** en verde                                                             |
+| **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                 |
+| **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio** |
 
 **Cómo comprobarlo en una sesión nueva**, sin depender de esta tabla:
 
@@ -41,7 +41,7 @@ git log --oneline main..HEAD
 git status --porcelain -uall
 ```
 
-**Las migraciones ya han empezado.** `supabase/migrations/` contiene seis:
+**Las migraciones ya han empezado.** `supabase/migrations/` contiene siete:
 
 1. **`bootstrap_data_boundary`** — los tres schemas, los revokes explícitos y el
    saneamiento de default privileges (§13 bis);
@@ -59,15 +59,18 @@ git status --porcelain -uall
    `core.split_participant` y `core.frozen_conversion` (§13 sexies);
 6. **`canonical_projection_and_attribution`** — `core.scope.owner_user_id`,
    `core.current_effect`, `api.personal_effect` y `api.claimed_dimension()`
-   (§13 septies).
+   (§13 septies);
+7. **`authoritative_writer_boundary`** — la infraestructura común del writer y
+   **las cuatro clases que no producen deuda** (§13 octies). Es **7a**: la
+   primera mitad.
 
-**Todavía no existe el writer autoritativo como función.** Es lo único que le
-queda a 3.C.
+**Lo único que le queda a 3.C es 7b**: las tres clases que crean o consumen
+deuda, con el protocolo de serialización de ADR-013 §11.
 
 > **Con la quinta migración, el inventario de persistido autoritativo de
-> ADR-013 §1 quedó COMPLETO**, y **con la sexta existe la primera superficie
-> `api` real y `src/types/database.ts` generado**. Lo que falta de 3.C es la
-> **frontera de escritura**, no hechos ni superficies de lectura.
+> ADR-013 §1 quedó COMPLETO**; **con la sexta existe la primera superficie `api`
+> real y `src/types/database.ts` generado**; y **con la séptima el cliente ya
+> puede escribir**, aunque solo por cuatro rutas y sin conversión.
 
 > **Cambio de etapa.** `supabase/e11`–`e20` eran evidencia desechable sobre
 > maquetas y **nunca deben convertirse en migración**. A partir de aquí,
@@ -113,12 +116,15 @@ nuevas**; consultar [`product/roadmap.md`](../product/roadmap.md).
 (§13 ter) · ámbito, participante, membresía y efecto (§13 quater) · vínculo con
 la cuenta y periodos de presencia (§13 quinquies) · reparto contextual y
 conversión congelada (§13 sexies) · proyección canónica y atribución económica
-(§13 septies).
+(§13 septies) · **frontera autoritativa de escritura, primera mitad**
+(§13 octies).
 
-**Siguiente y último bloque físico de 3.C:**
+**Siguiente y último bloque de 3.C — 7b:**
 
 ```
-writer autoritativo
+record_group_expense · record_debt_settlement · record_settlement_by_transfer
+  + protocolo de serializacion de la deuda (ADR-013 §11)
+  + UPDATE sobre core.scope, unico ensanchamiento de privilegio del writer
 ```
 
 **El gate de §11 ter está cerrado** por
@@ -1321,6 +1327,188 @@ nada**: con una fila por tabla el planificador elige `Seq Scan` por tamaño, no
 por falta de índice. Añadirlos ahora sería exactamente lo especulativo que el
 grupo 3 de §11 bis aplaza. Los dos puntos de arriba quedan como **los primeros
 candidatos a medir** cuando haya volumen.
+
+---
+
+## 13 octies · La frontera autoritativa de escritura · 7a
+
+Séptima migración real y **primera mitad del writer**. Trae la infraestructura
+común del protocolo autoritativo y las **cuatro clases que no producen deuda**.
+Verificado con **dos `db reset`** por la vía canónica, de 35,3 s y 32,4 s, con
+los **siete** checks en verde tras cada uno.
+
+### La costura con 7b no es de tamaño
+
+Es la de **ADR-013 §11**, que decide quién participa en el protocolo de
+serialización de la deuda «por qué efectos produce, no por el nombre de la
+clase». Ninguna de estas cuatro toca deuda, así que **7a no necesita el lock
+sobre `core.scope` ni el ensanchamiento de privilegio que ese lock exige**. Eso
+queda aislado en 7b para que se revise solo.
+
+### Una función por clase, y cuántas clases hay
+
+ADR-009 §1 pide «una función pública por clase de operación», y sus **propios
+ejemplos** —`record_personal_expense` y `record_group_expense`— **comparten
+clase contable**. Eso demuestra que «clase de operación» **no es** la clase
+contable de ADR-002 §3, sino el **tipo** de operación de ADR-013 §2, que además
+es vocabulario **abierto**. Son dos columnas distintas y el esquema ya las
+separa:
+
+| Columna                          | Vocabulario                                             |
+| -------------------------------- | ------------------------------------------------------- |
+| `core.effect.accounting_class`   | `income · expense · transfer · adjustment · settlement` |
+| `core.operation.operation_class` | el **tipo** de operación, abierto                       |
+
+**Los fixtures de los checks anteriores escribían el vocabulario contable en la
+columna de la clase de operación.** No violaba ninguna constraint —el
+vocabulario es abierto— pero era un precedente engañoso, y **7a lo corrige**.
+
+Los valores van en `snake_case` y se corresponden uno a uno con los `kind` en
+`camelCase` de los vectores. **La correspondencia se comprueba en las dos
+direcciones** en la sección G del check, porque es la única pieza que vive en
+dos sitios.
+
+### Alta y corrección comparten función
+
+La variante la marca el payload —`operation_id` + `expected_version_id`— y la
+distingue el `command_type` (`<clase>.create` / `<clase>.correct`), de modo que
+reutilizar la clave de un alta para corregir sea **conflicto** y no replay.
+Corregir un gasto personal sigue siendo la misma clase de operación, y ADR-013
+§7 obliga a derivar la corrección con las reglas vigentes **igual que un alta**:
+compartir el cuerpo es lo correcto, y duplicarlo sería la fuente de deriva.
+
+### El orden del protocolo, y por qué no es negociable
+
+```
+1 actor · 2 forma · 3 RECLAMO de la clave · 4 replay o conflicto
+5 autorizacion actual · 6 lock de la operacion · 7 CAS
+8 derivacion · 9 operacion/version/efectos · 10 puntero · 11 retorno
+```
+
+**Reclamar antes del CAS** (ADR-011 §13): sin eso, un reintento tardío de una
+corrección —después de que otra persona confirmara la suya— fallaría como
+edición obsoleta, el cliente concluiría que no se aplicó y podría generar una
+intención nueva. Es justo el duplicado que ADR-010 existe para impedir, y el
+check lo prueba en D5.
+
+**Autorizar después del reclamo** (ADR-010 §5): el replay debe funcionar aunque
+el actor haya perdido la autorización.
+
+**Bloquear antes de comprobar**: si se insertara la versión primero, un
+competidor que ya hubiera creado N+1 haría saltar `UNIQUE (operation_id,
+version_no)` y el fallo se reportaría como violación de restricción en vez de
+como conflicto. Y es lo que **resuelve el invariante que ADR-011 §11 reservó a
+la frontera**: `supersedes_version_id` sale de la fila **bloqueada**, así que es
+exactamente la vigente anterior.
+
+**El puntero se mueve después de insertar la versión**, porque su `WITH CHECK`
+exige que la versión referida esté atribuida al actor y E20 midió que la
+subconsulta ve las filas insertadas y aún no confirmadas.
+
+### La única captura de excepción permitida
+
+El `unique_violation` del reclamo. Cualquier otra convertiría un fallo en
+escritura parcial. El check comprueba que ninguno de los nueve rechazos de la
+sección E deja efectos ni **comandos huérfanos**.
+
+### La canonicalización no reformatea los valores exactos
+
+ADR-011 §8 dice que la canonicalización «no degrada ni **reformatea** los valores
+exactos», y redondear `"0050000"` a `"50000"` es reformatear: no pierde
+exactitud, pero cambia la representación de precisamente el dato que ADR-003
+protege. **El importe entra tal como llegó**, así que dos reintentos que lo
+escriban de forma distinta son intenciones **distintas** y producen conflicto.
+
+Es el lado correcto en el que equivocarse: un conflicto es ruidoso, mientras que
+ADR-010 §3 llama a devolver el original ante una intención distinta «lo peor de
+las tres opciones». Y ADR-010 §1 obliga al cliente a reenviar exactamente la
+misma intención.
+
+**Lo que sí converge** son el ámbito, la moneda y la fecha, porque no son
+«valores exactos» en el sentido de ADR-003 —son identidades y una fecha— y
+normalizarlos es «materializar los defaults semánticos», que es la primera
+cláusula del mismo §8. Un UUID en mayúsculas es el mismo replay. Ambas caras
+están probadas, en C1c y C1d.
+
+### Owner opuesto al de la frontera de lectura, y es deliberado
+
+|        | Escritura             | `api.claimed_dimension()` |
+| ------ | --------------------- | ------------------------- |
+| Owner  | **`nomey_writer`**    | `postgres`                |
+| Efecto | **sigue bajo la RLS** | **atraviesa la RLS**      |
+
+E16 midió que con un writer no propietario y `NOBYPASSRLS` una policy
+`WITH CHECK` **detuvo una escritura que el código habría dejado pasar**.
+Unificar los dos owners rompería una de las dos garantías.
+
+Ceder la propiedad tiene la mecánica delicada que ADR-009 registra como coste
+medido: el nuevo owner necesita `CREATE` sobre el schema, y **el cambio de
+propiedad pierde los `GRANT` explícitos**, así que los grants van después.
+
+### FX: rechazo explícito, no silencio
+
+3.C no resuelve conversión: ADR-009 §8 deja la regla como decisión de producto y
+ADR-003 §4 niega autoridad al tipo que aporte el cliente, de modo que el
+servidor **no tiene con qué resolverla**. Las cuatro rutas exigen que la moneda
+original sea la base de todos los ámbitos alcanzados y, si no, devuelven
+**`CURRENCY_CONVERSION_UNSUPPORTED` · 422**.
+
+El código es propio y no `PAYLOAD_INVALID` porque **la intención es válida y el
+actor está autorizado**: lo que falta es una capacidad. Reportarlo como payload
+inválido haría que el cliente corrigiera algo que no está mal.
+
+### Privilegios retirados
+
+7a **revoca** el `INSERT` del writer sobre `frozen_conversion`, `split` y
+`split_participant`: ninguna función los ejercía. El principio «cada privilegio
+corresponde a una ruta concreta» **también se aplica hacia atrás**. Los dos
+últimos vuelven en 7b; el primero, cuando exista una regla de FX. **Las policies
+de `INSERT` no se borran**: son decisiones razonadas de ADR-013 §10 y volverán a
+hacer falta intactas.
+
+### La paridad con los vectores, y cómo se ejecuta
+
+ADR-002 §7 obliga a reproducir los vectores **exactamente**, y ADR-009 §1 asume
+que el cálculo se escribe por segunda vez porque **la paridad se garantiza con
+los vectores, no compartiendo código**.
+
+`psql` corre **dentro** del contenedor y no ve el checkout, así que los vectores
+no pueden leerse con `\copy`: viajan por la misma entrada estándar mediante
+`scripts/vectors-prelude.sh`. **No añade ninguna dependencia.**
+
+> Se comprobó que muerde: introducir un céntimo de error en el ajuste hizo que
+> la sección F fallara contra el escenario 4.11 con «saldo de personal-A = 54998
+> y el vector espera 55000».
+
+**Tres escenarios son alcanzables por 7a.** `externalTransfer` **no tiene ningún
+vector propio**: su único caso, 4.7, es compuesto y necesita `group_expense` y
+`debt_settlement`, así que su vector se ejercita en 7b. Es una limitación real y
+está dicha, no rellenada.
+
+### El replay se resuelve antes que la autorización, y está probado
+
+ADR-010 §5 distingue dos casos: una operación **nueva** exige la autorización
+actual completa, mientras que una intención **ya procesada** puede devolver su
+envelope «aunque el actor haya perdido después el acceso al ámbito». Aplicar la
+autorización actual también al replay «rompería la idempotencia».
+
+La sección F del check lo **prueba en vez de inferirlo del orden del código**:
+retira la propiedad del Modo Personal que permitió la primera ejecución, repite
+la misma clave e intención, y comprueba que el replay sigue devolviendo el mismo
+`operation_id` con `already_processed: true`, que no escribe ni una fila, y que
+un comando **nuevo** del mismo actor **sí** se rechaza.
+
+> Se comprobó que muerde: al invertir el orden —autorizar antes de reclamar— la
+> sección falla con exactamente el síntoma que ADR-010 §5 describe, un
+> `NOT_AUTHORIZED` sobre un reintento legítimo.
+
+### Lo que 7a NO puede probar todavía
+
+**La corrección cross-author no es alcanzable.** Es una capacidad real —ADR-013
+§10, medida en E20— pero **ninguna de las cuatro clases la ejercita**, porque las
+cuatro se anclan a un Modo Personal cuyo dueño es el actor. Aparece con
+`group_expense`, en 7b. Lo que sí se comprueba es que el rechazo es de
+**autorización** y no de autoría, y que `operation.created_by` es inmutable.
 
 ---
 

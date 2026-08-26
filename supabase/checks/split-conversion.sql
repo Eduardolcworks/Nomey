@@ -70,15 +70,21 @@ begin
     fallos := array_append(fallos, format('A4b: hay %s policies de cliente sobre las relaciones nuevas', v_n));
   end if;
 
-  -- A5 · grants EXACTOS del writer: SELECT e INSERT sobre las tres, y nada mas.
+  -- A5 · grants EXACTOS del writer: SELECT sobre las tres, y NADA mas.
+  --
+  -- El `INSERT` que este bloque concedio lo REVOCO 7a, porque ninguna funcion
+  -- autoritativa lo ejercia: el principio «cada privilegio corresponde a una
+  -- ruta concreta» tambien se aplica hacia atras. `split` y `split_participant`
+  -- lo recuperan en 7b con `record_group_expense`; `frozen_conversion` cuando
+  -- exista una regla de resolucion de FX (ADR-009 §8).
   select count(*) into v_n
   from information_schema.table_privileges
   where table_schema = 'core'
     and table_name in ('split','split_participant','frozen_conversion')
     and grantee = 'nomey_writer'
-    and privilege_type in ('SELECT','INSERT');
-  if v_n <> 6 then
-    fallos := array_append(fallos, format('A5: el writer tiene %s de los 6 grants SELECT/INSERT esperados', v_n));
+    and privilege_type = 'SELECT';
+  if v_n <> 3 then
+    fallos := array_append(fallos, format('A5: el writer tiene %s de los 3 grants SELECT esperados', v_n));
   end if;
 
   select count(*) into v_n
@@ -86,9 +92,9 @@ begin
   where table_schema = 'core'
     and table_name in ('split','split_participant','frozen_conversion')
     and grantee = 'nomey_writer'
-    and privilege_type not in ('SELECT','INSERT');
+    and privilege_type <> 'SELECT';
   if v_n <> 0 then
-    fallos := array_append(fallos, format('A5b: el writer tiene %s privilegios que este bloque no le concede', v_n));
+    fallos := array_append(fallos, format('A5b: el writer tiene %s privilegios sin ruta autoritativa que los ejerza', v_n));
   end if;
 
   -- A5c · y nadie distinto del propietario puede mutarlas (ADR-011 §14).
@@ -176,7 +182,7 @@ insert into core.participant (id, scope_id, display_name) values
 -- OP1, del actor A. Cinco versiones para no tener que reutilizar pares
 -- (version, ambito), que son clave primaria en las tres relaciones nuevas.
 insert into core.operation (id, operation_class, created_by, current_version_id)
-values ('01000000-0000-4000-8000-000000000000','expense',
+values ('01000000-0000-4000-8000-000000000000','group_expense',
         '11111111-1111-4111-8111-111111111111','0f100000-0000-4000-8000-000000000000');
 insert into core.operation_version
   (id, operation_id, version_no, supersedes_version_id, created_by,
@@ -196,7 +202,7 @@ values
 
 -- OP2, del actor A, declarada en USD: la que necesita conversion.
 insert into core.operation (id, operation_class, created_by, current_version_id)
-values ('02000000-0000-4000-8000-000000000000','expense',
+values ('02000000-0000-4000-8000-000000000000','group_expense',
         '11111111-1111-4111-8111-111111111111','0fa00000-0000-4000-8000-000000000000');
 insert into core.operation_version
   (id, operation_id, version_no, supersedes_version_id, created_by,
@@ -206,7 +212,7 @@ values ('0fa00000-0000-4000-8000-000000000000','02000000-0000-4000-8000-00000000
 
 -- OP3, del actor B: para la barrera cross-actor del writer.
 insert into core.operation (id, operation_class, created_by, current_version_id)
-values ('03000000-0000-4000-8000-000000000000','expense',
+values ('03000000-0000-4000-8000-000000000000','group_expense',
         '22222222-2222-4222-8222-222222222222','0fb00000-0000-4000-8000-000000000000');
 insert into core.operation_version
   (id, operation_id, version_no, supersedes_version_id, created_by,
@@ -706,61 +712,63 @@ begin
   set local role nomey_writer;
   perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
 
-  -- F1 · POSITIVO. El actor de la peticion creo la version, asi que puede
-  -- colgar de ella una cabecera, sus filas y su conversion.
+  -- F1 · EL WRITER NO PUEDE ESCRIBIR ESTAS TRES. 7a revoco el `INSERT` porque
+  -- ninguna funcion autoritativa lo ejercia; `split` y `split_participant` lo
+  -- recuperan en 7b, y `frozen_conversion` cuando exista la regla de FX.
+  --
+  -- Lo que lo impide es la AUSENCIA DE GRANT, no una policy: por eso el
+  -- sqlstate es 42501 y no una fila rechazada en silencio.
   begin
     insert into core.split (operation_version_id, scope_id, split_method, payer_participant_id)
     values (V4, S2, 'equal', PX);
+    fallos := array_append(fallos, 'F1: el writer inserto una cabecera de reparto sin ruta autoritativa que lo justifique');
+  exception when insufficient_privilege then null;
+    when others then fallos := array_append(fallos, format('F1: sqlstate inesperado %s', sqlstate));
+  end;
+
+  begin
     insert into core.split_participant
       (operation_version_id, scope_id, participant_id, ordinal, split_method, resolved_amount)
     values (V4, S2, PX, 0, 'equal', 10000);
-    set constraints all immediate;
-    set constraints all deferred;
-  exception when others then
-    fallos := array_append(fallos, format('F1: el writer no pudo escribir el reparto de su propia version: %s', sqlerrm));
-  end;
-
-  -- F2 · el actor pasa a ser B, que NO creo esa version.
-  perform set_config('request.jwt.claims', json_build_object('sub', B)::text, true);
-
-  begin
-    insert into core.split (operation_version_id, scope_id, split_method, payer_participant_id)
-    values (V4, '51000000-0000-4000-8000-000000000000', 'equal', null);
-    fallos := array_append(fallos, 'F2: el writer colgo una cabecera de la version de otro actor');
+    fallos := array_append(fallos, 'F1b: el writer inserto una fila de reparto');
   exception when insufficient_privilege then null;
-    when others then fallos := array_append(fallos, format('F2: sqlstate inesperado %s', sqlstate));
-  end;
-
-  begin
-    insert into core.split_participant
-      (operation_version_id, scope_id, participant_id, ordinal, split_method, resolved_amount)
-    values (V4, S2, PX, 9, 'equal', 0);
-    fallos := array_append(fallos, 'F2b: el writer colgo una fila de la version de otro actor');
-  exception when insufficient_privilege then null;
-    when others then fallos := array_append(fallos, format('F2b: sqlstate inesperado %s', sqlstate));
+    when others then fallos := array_append(fallos, format('F1b: sqlstate inesperado %s', sqlstate));
   end;
 
   begin
     insert into core.frozen_conversion
       (operation_version_id, scope_id, source_currency_definition_id,
        target_currency_definition_id, rate_coefficient, rate_scale, resolved_for_date)
-    values (V4, S2, EUR, EUR, 1, 0, date '2026-01-15');
-    fallos := array_append(fallos, 'F2c: el writer colgo una conversion de la version de otro actor');
+    values (V4, S2, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', EUR, 1, 0, date '2026-01-15');
+    fallos := array_append(fallos, 'F1c: el writer congelo una conversion sin regla de FX que la resuelva');
   exception when insufficient_privilege then null;
-    when check_violation then null;  -- source = target tambien la rechaza
-    when others then fallos := array_append(fallos, format('F2c: sqlstate inesperado %s', sqlstate));
+    when others then fallos := array_append(fallos, format('F1c: sqlstate inesperado %s', sqlstate));
   end;
+
+  -- F2 · pero las policies de INSERT siguen INTACTAS: son decisiones razonadas
+  -- de ADR-013 §10 y volveran a hacer falta sin cambios.
+  select count(*) into v_n
+  from pg_policy p join pg_class c on c.oid = p.polrelid
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'core'
+    and c.relname in ('split','split_participant','frozen_conversion')
+    and p.polcmd = 'a';
+  if v_n <> 3 then
+    fallos := array_append(fallos, format('F2: quedan %s policies de INSERT de las 3 que deben conservarse', v_n));
+  end if;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', B)::text, true);
 
   -- F3 · pero B SI puede LEER el reparto y la conversion de A. Sin esa lectura
   -- no puede construir V2: el reparto anterior cuelga de (version, ambito) y el
   -- FX congelado se hereda. E20 midio que la lectura estrecha devuelve NULL sin
   -- error, y la frontera concluiria que no hay predecesor.
   select count(*) into v_n from core.split;
-  if v_n < 4 then
+  if v_n < 3 then
     fallos := array_append(fallos, format('F3: el writer solo alcanza %s cabeceras; no puede construir una correccion', v_n));
   end if;
   select count(*) into v_n from core.split_participant;
-  if v_n < 9 then
+  if v_n < 8 then
     fallos := array_append(fallos, format('F3b: el writer solo alcanza %s filas de reparto', v_n));
   end if;
   select count(*) into v_n from core.frozen_conversion;
@@ -803,7 +811,7 @@ begin
   if array_length(fallos, 1) is not null then
     raise exception E'FALLOS DEL WRITER:\n  - %', array_to_string(fallos, E'\n  - ');
   end if;
-  raise notice 'OK · F · el writer escribe lo suyo, lee lo ajeno y no muta nada';
+  raise notice 'OK · F · el writer lee lo ajeno, no muta nada, y ya no puede escribir lo que 7a revoco';
 end
 $writer$;
 

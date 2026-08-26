@@ -30,6 +30,10 @@ export type Database = {
           effective_date: string;
         }[];
       };
+      record_adjustment: { Args: { payload: Json }; Returns: Json };
+      record_external_transfer: { Args: { payload: Json }; Returns: Json };
+      record_internal_transfer: { Args: { payload: Json }; Returns: Json };
+      record_personal_expense: { Args: { payload: Json }; Returns: Json };
     };
     Enums: {
       [_ in never]: never;

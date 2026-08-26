@@ -308,7 +308,7 @@ insert into core.membership (scope_id,user_id) values
 
 -- OP1 en G, corregida: V1 historica, V2 vigente.
 insert into core.operation (id,operation_class,created_by,current_version_id)
-values ('c0000000-0000-4000-8000-000000000001','expense',
+values ('c0000000-0000-4000-8000-000000000001','group_expense',
         '22222222-2222-4222-8222-222222222222','d0000000-0000-4000-8000-000000000002');
 insert into core.operation_version
   (id,operation_id,version_no,supersedes_version_id,created_by,effective_date,
@@ -356,7 +356,7 @@ values
 
 -- OP2 · gasto personal de A en SPA: saldo -2000 y economica SIN participante.
 insert into core.operation (id,operation_class,created_by,current_version_id)
-values ('c0000000-0000-4000-8000-000000000002','expense',
+values ('c0000000-0000-4000-8000-000000000002','personal_expense',
         '11111111-1111-4111-8111-111111111111','d0000000-0000-4000-8000-000000000003');
 insert into core.operation_version
   (id,operation_id,version_no,supersedes_version_id,created_by,effective_date,
@@ -373,7 +373,7 @@ values ('e0000000-0000-4000-8000-000000000005','d0000000-0000-4000-8000-00000000
 
 -- OP3 · saldo del Modo Pareja. NO se atribuye a nadie individualmente.
 insert into core.operation (id,operation_class,created_by,current_version_id)
-values ('c0000000-0000-4000-8000-000000000003','expense',
+values ('c0000000-0000-4000-8000-000000000003','personal_expense',
         '11111111-1111-4111-8111-111111111111','d0000000-0000-4000-8000-000000000004');
 insert into core.operation_version
   (id,operation_id,version_no,supersedes_version_id,created_by,effective_date,
@@ -388,7 +388,7 @@ values ('e0000000-0000-4000-8000-000000000006','d0000000-0000-4000-8000-00000000
 
 -- OP4 · saldo en el Modo Personal de B. No es de A aunque compartan Pareja.
 insert into core.operation (id,operation_class,created_by,current_version_id)
-values ('c0000000-0000-4000-8000-000000000004','expense',
+values ('c0000000-0000-4000-8000-000000000004','personal_expense',
         '22222222-2222-4222-8222-222222222222','d0000000-0000-4000-8000-000000000005');
 insert into core.operation_version
   (id,operation_id,version_no,supersedes_version_id,created_by,effective_date,

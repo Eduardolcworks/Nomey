@@ -255,7 +255,7 @@ begin
     (P2,  S2, 'B');
 
   insert into core.operation (id, operation_class, created_by, current_version_id)
-  values (OP1, 'expense', A, V1);
+  values (OP1, 'group_expense', A, V1);
   insert into core.operation_version
     (id, operation_id, version_no, supersedes_version_id, created_by,
      effective_date, original_amount, original_currency_definition_id, economic_rules_version)
@@ -453,7 +453,7 @@ insert into core.membership (scope_id, user_id) values
   ('52000000-0000-4000-8000-000000000000', '22222222-2222-4222-8222-222222222222');
 
 insert into core.operation (id, operation_class, created_by, current_version_id)
-values ('02000000-0000-4000-8000-000000000000', 'transfer',
+values ('02000000-0000-4000-8000-000000000000', 'internal_transfer',
         '11111111-1111-4111-8111-111111111111',
         '0f200000-0000-4000-8000-000000000000');
 insert into core.operation_version
@@ -478,7 +478,7 @@ values
 -- de versiones (E4) tenga algo que revelar; sin ella A veria todas las
 -- versiones legitimamente y la regresion pasaria sin probar nada.
 insert into core.operation (id, operation_class, created_by, current_version_id)
-values ('03000000-0000-4000-8000-000000000000', 'expense',
+values ('03000000-0000-4000-8000-000000000000', 'personal_expense',
         '22222222-2222-4222-8222-222222222222',
         '0f300000-0000-4000-8000-000000000000');
 insert into core.operation_version

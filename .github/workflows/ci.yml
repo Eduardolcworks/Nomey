@@ -109,6 +109,17 @@ jobs:
       - name: Canonical projection and attribution checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/canonical-attribution.sql
 
+      # Authoritative writer, first half. This one is piped through the vector
+      # prelude: psql runs inside the container and cannot read the checkout,
+      # so tests/vectors/*.json travel on the same stdin. ADR-002 §7 requires
+      # the PL/pgSQL implementation to reproduce them exactly, and ADR-009 §1
+      # accepts that the calculation is written a second time precisely because
+      # the vectors — not shared code — are what detect drift.
+      - name: Authoritative writer checks
+        run: |
+          { ./scripts/vectors-prelude.sh ; cat supabase/checks/authoritative-writer.sql ; } \
+            | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
       - name: Stop
         if: always()
         run: ./scripts/supabase-cli.sh stop --no-backup
