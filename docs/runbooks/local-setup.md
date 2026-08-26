@@ -244,11 +244,23 @@ docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
   -X -q -v ON_ERROR_STOP=1 < supabase/checks/canonical-attribution.sql
 ```
 
+```bash
+{ ./scripts/vectors-prelude.sh ; cat supabase/checks/authoritative-writer.sql ; } \
+  | docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
+      -X -q -v ON_ERROR_STOP=1
+```
+
+> **El último se encadena con el prólogo de vectores.** `psql` corre dentro del
+> contenedor y no ve el checkout, así que `tests/vectors/*.json` viajan por la
+> misma entrada estándar. ADR-002 §7 exige que la implementación de PL/pgSQL
+> reproduzca esos vectores exactamente, y esa comprobación es el único detector
+> de deriva frente a `src/domain/`.
+
 Fallan con código distinto de cero en la primera violación, y **no dejan datos**:
 lo que insertan ocurre dentro de una transacción que termina en `ROLLBACK`. La
 configuración versionada la comprueba `npm test`, en `tests/infra/`.
 
-**CI ejecuta estos mismos seis ficheros** en el job `Migrations rebuilt from
+**CI ejecuta estos mismos siete ficheros** en el job `Migrations rebuilt from
 zero`, sobre un stack levantado desde cero.
 
 > ### `auth.uid()` no depende de GoTrue
