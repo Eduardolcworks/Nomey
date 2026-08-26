@@ -115,10 +115,34 @@ jobs:
       # the PL/pgSQL implementation to reproduce them exactly, and ADR-009 §1
       # accepts that the calculation is written a second time precisely because
       # the vectors — not shared code — are what detect drift.
+      # `shell: bash` is not decoration: it adds `-o pipefail`, and without it
+      # the failure of the prelude is INVISIBLE. The default shell is `bash -e`,
+      # so a prelude that dies takes the brace group with it, `cat` never runs,
+      # psql reads EOF and exits 0 -and the step passes having checked nothing.
+      # Measured: that is exactly what happened on main until the scripts got
+      # their executable bit, and the step reported success.
       - name: Authoritative writer checks
+        shell: bash
         run: |
           { ./scripts/vectors-prelude.sh ; cat supabase/checks/authoritative-writer.sql ; } \
             | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # Authoritative writer, second half: the three classes that create or
+      # consume debt. Also piped through the vector prelude, because this one
+      # reproduces the 19 reachable scenarios and all 22 split vectors.
+      - name: Authoritative writer debt checks
+        shell: bash
+        run: |
+          { ./scripts/vectors-prelude.sh ; cat supabase/checks/authoritative-writer-debt.sql ; } \
+            | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # Real concurrency. A single psql session has none, so the debt
+      # serialization protocol of ADR-013 §11 cannot be proven by a check: this
+      # opens simultaneous sessions, the way E15-C did. It runs LAST because it
+      # writes committed rows -a row lock only exists between transactions- and
+      # it removes them again, asserting that nothing is left behind.
+      - name: Debt serialization under real concurrency
+        run: ./scripts/writer-debt-concurrency.sh
 
       - name: Stop
         if: always()

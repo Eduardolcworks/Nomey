@@ -115,6 +115,28 @@ deuda pendiente**, y liquidar **en la dirección contraria** a la deuda existent
 > Consecuencia para la frontera de escritura: validar exige **derivar la deuda
 > pendiente antes de aceptar la operación**, dentro de la misma transacción.
 
+#### La corrección de un gasto tampoco puede sobrepasarlo
+
+> **Una corrección no puede dejar ninguna deuda derivada con pendiente negativo
+> por liquidaciones ya realizadas.**
+
+Deuda original 50,00 · ya liquidado 40,00 · corregir el gasto hasta una deuda de
+30,00 dejaría **−10,00** pendientes. Se **rechaza**.
+
+Es el **mismo invariante**, comprobado en otro momento: lo liquidado nunca puede
+superar lo debido, se descubra al liquidar o al corregir. Por eso comparte su
+código de error y no estrena uno.
+
+**Decisión de producto del 2026-08-26**, y lo que fija es tan importante como lo
+que descarta. Las liquidaciones se hacen **al cerrar el grupo**, con los gastos
+ya revisados, así que este choque es el caso raro. **No** se introduce deuda
+inversa automática, ni compensación automática, ni reapertura, ni estados
+adicionales de cierre: la corrección simplemente no se acepta, y quien quiera
+hacerla corrige antes la liquidación.
+
+**Alcanza también a sacar a alguien del reparto**: si su participación pasa a
+cero, lo que ya liquidó se queda sin nada que respaldar, y es el mismo rechazo.
+
 ---
 
 ## 4. Escenarios resueltos
@@ -456,8 +478,31 @@ operación, de modo que corregir deja de aplicar los efectos de la versión
 anterior y aplica los de la nueva, sin operaciones de reversión separadas.
 
 - Elegibilidad de participantes: los válidos **en la fecha efectiva original**.
-- Quien corrige: cualquier integrante, sobre operaciones posteriores a su
-  incorporación o anteriores en las que ya figuraba como participante.
+- **Quien corrige: cualquier miembro actual del ámbito, sin más condiciones.**
+
+> **Decisión de producto del 2026-08-26.** La redacción anterior —«sobre
+> operaciones posteriores a su incorporación o anteriores en las que ya figuraba
+> como participante»— **queda derogada**. Un miembro actual de un Grupo puede
+> corregir **cualquier** gasto de ese Grupo, con independencia de cuándo entró,
+> de quién creó la operación y de si participó en ese gasto.
+>
+> No es solo una simplificación: la mitad temporal de la regla anterior **no era
+> derivable**. La relación de membresía es **presencia**, no historial, y leer su
+> instante de creación como «fecha de incorporación» la reinterpretaría —alguien
+> que sale y vuelve perdería el acceso a su propio historial—.
+>
+> **Los periodos de presencia no participan en esta autorización.** Conservan su
+> única función: determinar si un participante es **elegible para figurar en una
+> operación** en su fecha efectiva ([ADR-012](../adr/ADR-012-participant-identity.md)
+> §7). Son dos preguntas distintas y colapsarlas es el error que ADR-012 existe
+> para evitar.
+>
+> Lo que sostiene la regla no es una restricción de acceso, sino las cinco capas
+> de §8: **permisos del ámbito · atribución · historial · notificación ·
+> corrección**. La autoría no se pierde —`created_by` de la operación es para
+> siempre y cada versión queda atribuida a quien la crea—, de modo que una
+> corrección indebida es visible, imputable y a su vez corregible.
+
 - Un **reparto final ejecutado** es inmutable: se compensa, no se edita, y la
   compensación conserva la bilateralidad.
 - Toda corrección queda atribuida y notificada a los afectados. **La atribución

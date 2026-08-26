@@ -466,12 +466,14 @@ test vectors in `tests/vectors/` and a Vitest suite — 116 tests. **The
 authoritative server write boundary will have to reproduce those vectors
 exactly** (ADR-002 §7).
 
-**What does not exist yet.** No authoritative writer, no view of any kind, no
-generated types and no screens — that is deliberate, not an oversight. The
-visible app is still an intentionally blank screen, and part of the physical
-model of 3.C still lives in ADRs.
+**What does not exist yet.** No provisioning — nothing creates a scope, a
+participant, a membership, a participant-account link or a presence period — and
+no screens. That is deliberate, not an oversight: the visible app is still an
+intentionally blank screen, and the writer assumes those rows exist because the
+phase that creates them is a later one. The database checks seed them as
+`postgres`, which is exactly what provisioning will do.
 
-**Migrations have started.** `supabase/migrations/` holds three. The first is the
+**Migrations have started.** `supabase/migrations/` holds eight. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is ADR-014: `api` is served and `public`, `core` and `sec`
@@ -596,10 +598,11 @@ DEFINER` owned by `postgres`, takes no parameters, and filters by link **in
 - **`src/types/database.ts` is generated over `api`**, never hand-written. Every
   monetary field comes out as `string`.
 
-**The authoritative writer exists, in its first half.** `api.record_adjustment`,
-`record_personal_expense`, `record_external_transfer` and
-`record_internal_transfer` are the only way anything gets written. They are
-`SECURITY DEFINER` **owned by `nomey_writer`** — the opposite of
+**The authoritative writer is complete.** Seven functions — `record_adjustment`,
+`record_personal_expense`, `record_external_transfer`,
+`record_internal_transfer`, `record_group_expense`, `record_debt_settlement` and
+`record_settlement_by_transfer` — are the only way anything gets written. They
+are `SECURITY DEFINER` **owned by `nomey_writer`** — the opposite of
 `api.claimed_dimension()`, and deliberately so: a read boundary must cross RLS,
 a write boundary must stay under it (E16). Do not unify them.
 
@@ -617,19 +620,49 @@ a write boundary must stay under it (E16). Do not unify them.
   Any other turns a failure into a partial write.
 - **Cross-currency is refused**, with `CURRENCY_CONVERSION_UNSUPPORTED` (422),
   until the FX resolution rule exists. `core.frozen_conversion` therefore has
-  no write route, and 7a revoked the writer's `INSERT` on it — as it did on
-  `split` and `split_participant`, which return in 7b.
+  no write route, and the writer has no `INSERT` on it.
 - **Parity with `src/domain/` is the shared vectors, not shared code**
   (ADR-009 §1). `scripts/vectors-prelude.sh` pipes `tests/vectors/*.json` into
-  the check, because psql runs inside the container and cannot read the
-  checkout.
+  the checks, because psql runs inside the container and cannot read the
+  checkout. **22 of 22** split vectors and **19 of 20** scenarios are
+  reproduced; the one left out needs FX and is refused, not faked.
 
-**Next, and the last of 3.C — 7b:** `record_group_expense`,
-`record_debt_settlement` and `record_settlement_by_transfer`, with the debt
-serialization protocol of ADR-013 §11. That lock needs both an `UPDATE` policy
-**and** an `UPDATE` privilege on `core.scope`: PostgreSQL requires `UPDATE` on
-at least one column for `SELECT … FOR UPDATE`, and E20 measured that a missing
-policy returns zero rows without erroring. It is the only privilege widening
-left, which is why it is isolated in its own migration.
+**The three classes that touch debt follow ADR-013 §11**, and five things about
+them are easy to get wrong later:
+
+- **The scopes are locked before the operation row**, and before the debt is
+  read. That order is what keeps the global lock ordering identical across all
+  seven functions, so no cycle is possible.
+- **A correction locks the union** of the new intention's scopes and the scopes
+  that carried debt in the current version. A partial serialization serializes
+  nothing.
+- **The lock needs two things, and they fail differently.** Measured against the
+  real stack: with no `UPDATE` privilege, `SELECT … FOR UPDATE` errors with
+  `42501`; with the privilege but no `UPDATE` policy, it returns **zero rows
+  without erroring**. `GRANT UPDATE (base_currency_definition_id)` plus a policy
+  `USING (true) WITH CHECK (false)` grants exactly "may lock" and no write at
+  all — a real `UPDATE`, even to the same value, is refused.
+- **The payer's cash scope and both ends of a settlement-by-transfer are
+  derived** from `core.participant_user_link`, never taken from the payload.
+  There is no other datum with which to check that a personal scope is the
+  payer's, and accepting one blindly would let any member post a false cash
+  charge in someone else's Modo Personal.
+- **A correction may not leave any debt with a negative pending balance** —
+  debt 5000, already settled 4000, corrected down to 3000 is refused. It is the
+  same invariant `data-model.md` §3 already fixed, checked at a different
+  moment, so it reuses `SETTLEMENT_EXCEEDS_DEBT` instead of minting a code.
+  Checked after the locks, on corrections only, and it covers dropping someone
+  from the split. It refuses and nothing else: no reverse debt, no automatic
+  offset, no reopening, no closing states.
+- **Who may correct is current membership, and nothing else** — not when they
+  joined, not who authored it, not whether they were in that expense.
+  `core.membership` is presence, not history, so its `created_at` is not a
+  joining date. `participant_period` is eligibility to appear in an operation,
+  never authorization.
+
+**Concurrency is proven with real simultaneous sessions**, not simulated:
+`scripts/writer-debt-concurrency.sh`, which CI runs last because it writes
+committed rows and removes them again. Removing the lock reproduces exactly the
+`−1000` overpay E15 measured.
 
 Consult `docs/README.md` before assuming anything about scope or roadmap.
