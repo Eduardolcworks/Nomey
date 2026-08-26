@@ -568,10 +568,35 @@ absence of branching — is reserved to the authoritative boundary by ADR-011 §
 Do not describe the lineage as "linear" on the strength of the constraints
 alone.
 
-**Next up inside 3.C:** the canonical projection of current effects and the
-`api` read views with their text cast, then the authoritative writer. **Before
-the canonical projection**, the delegation ADR-013 never picked up — which
-effects are "mine" — has to be closed (handoff §11 ter). The debt lock of
+**The canonical projection and economic attribution are migrated too, and with
+them `api` finally has a real client surface.** `core.current_effect` is the
+canonical projection of ADR-013 §9 — the only relation allowed to depend
+directly on `core.effect`, enforced by a catalogue check. On top of it,
+`api.personal_effect` and `api.claimed_dimension()` answer **who an amount
+belongs to**, per [ADR-016](docs/adr/ADR-016-economic-attribution.md).
+
+- **Attribution is per dimension, never per row.** Balance and participant-less
+  economic belong to the **owner** of the personal scope; economic with a
+  participant and both sides of a debt belong to whoever is **linked** to that
+  participant, with debtor negative and creditor positive.
+- **`core.scope.owner_user_id` is durable ownership, not membership.**
+  `kind = 'personal' ⇔ owner_user_id IS NOT NULL` plus a unique index. Using
+  membership as ownership would erase history the moment someone leaves.
+- **`participant_period` never filters at read time.** It validates eligibility
+  when writing, against `operation_version.effective_date`. Neither does
+  `linked_at`: filtering by it would erase exactly the history a claim exists to
+  recover.
+- **`api.claimed_dimension()` deliberately crosses RLS.** It is `SECURITY
+DEFINER` owned by `postgres`, takes no parameters, and filters by link **in
+  its own body** — measured: inside a definer, the canonical projection is not a
+  privacy boundary. Its column list _is_ the privacy boundary; widening it is a
+  privacy decision. `FORCE ROW LEVEL SECURITY` on `core.effect` would break it.
+- **The two attribution routes are disjoint by construction**, so nothing is
+  double counted. The check verifies it rather than trusting it.
+- **`src/types/database.ts` is generated over `api`**, never hand-written. Every
+  monetary field comes out as `string`.
+
+**Next up, and the last of 3.C:** the authoritative writer. The debt lock of
 ADR-013 §11 will need both an `UPDATE` policy **and** an `UPDATE` privilege on
 `core.scope`: PostgreSQL requires `UPDATE` on at least one column for `SELECT …
 FOR UPDATE`, and E20 measured that a missing policy returns zero rows without

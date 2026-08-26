@@ -103,6 +103,12 @@ jobs:
       - name: Split and conversion checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/split-conversion.sql
 
+      # Canonical projection and economic attribution. Also enforces the
+      # catalogue guard of ADR-013 §9 -only the canonical projection may depend
+      # directly on core.effect- and that no bigint crosses the api surface.
+      - name: Canonical projection and attribution checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/canonical-attribution.sql
+
       - name: Stop
         if: always()
         run: ./scripts/supabase-cli.sh stop --no-backup
