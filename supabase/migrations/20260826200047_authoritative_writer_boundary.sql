@@ -592,13 +592,24 @@ begin
   v_delta    := sec.payload_amount(payload, 'delta');
   v_date     := sec.payload_date(payload, 'effective_date');
 
-  -- Canonicalizacion: la hace SOLO el servidor (ADR-011 §8) y NORMALIZA por
-  -- construccion, porque cada valor pasa por su tipo. Sin ello, un cliente que
-  -- rellenara el importe con ceros a la izquierda veria un conflicto falso.
+  -- Canonicalizacion: la hace SOLO el servidor (ADR-011 §8).
+  --
+  -- El IMPORTE ENTRA TAL COMO LLEGO. ADR-011 §8 dice que la canonicalizacion
+  -- «no degrada ni REFORMATEA los valores exactos», y redondear "00100" a "100"
+  -- es reformatear: no pierde exactitud, pero cambia la representacion de
+  -- precisamente el dato que ADR-003 protege. Consecuencia asumida: dos
+  -- reintentos que escriban el mismo importe de forma distinta son intenciones
+  -- DISTINTAS y producen conflicto, no replay. Es un fallo ruidoso, y ADR-010
+  -- §1 obliga al cliente a reenviar la misma intencion.
+  --
+  -- El ambito, la moneda y la fecha SI se normalizan al pasar por su tipo: no
+  -- son «valores exactos» en el sentido de ADR-003 —son identidades y una
+  -- fecha— y normalizarlos es «materializar los defaults semanticos», que es
+  -- la primera clausula del mismo §8.
   v_canonical := jsonb_build_object(
     'operation_id',           (sec.payload_uuid(payload,'operation_id',false))::text,
     'scope_id',               v_scope::text,
-    'delta',                  v_delta::text,
+    'delta',                  payload ->> 'delta',
     'currency_definition_id', v_currency::text,
     'effective_date',         v_date::text);
 
@@ -666,7 +677,7 @@ begin
   v_canonical := jsonb_build_object(
     'operation_id',           (sec.payload_uuid(payload,'operation_id',false))::text,
     'scope_id',               v_scope::text,
-    'amount',                 v_amount::text,
+    'amount',                 payload ->> 'amount',
     'currency_definition_id', v_currency::text,
     'effective_date',         v_date::text);
 
@@ -730,7 +741,7 @@ begin
   v_canonical := jsonb_build_object(
     'operation_id',           (sec.payload_uuid(payload,'operation_id',false))::text,
     'scope_id',               v_scope::text,
-    'delta',                  v_delta::text,
+    'delta',                  payload ->> 'delta',
     'currency_definition_id', v_currency::text,
     'effective_date',         v_date::text);
 
@@ -814,7 +825,7 @@ begin
     'operation_id',           (sec.payload_uuid(payload,'operation_id',false))::text,
     'from_scope_id',          v_from::text,
     'to_scope_id',            v_to::text,
-    'amount',                 v_amount::text,
+    'amount',                 payload ->> 'amount',
     'currency_definition_id', v_currency::text,
     'effective_date',         v_date::text);
 

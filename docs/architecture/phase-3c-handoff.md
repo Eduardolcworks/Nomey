@@ -1411,11 +1411,24 @@ El `unique_violation` del reclamo. Cualquier otra convertiría un fallo en
 escritura parcial. El check comprueba que ninguno de los nueve rechazos de la
 sección E deja efectos ni **comandos huérfanos**.
 
-### La canonicalización normaliza por construcción
+### La canonicalización no reformatea los valores exactos
 
-Cada valor pasa por su tipo antes de entrar en `canonical_intent`, así que
-`"0050000"` y `"50000"` son la misma intención. Sin eso, un cliente que rellenara
-el importe con ceros vería un **conflicto falso**. Está probado en C1c.
+ADR-011 §8 dice que la canonicalización «no degrada ni **reformatea** los valores
+exactos», y redondear `"0050000"` a `"50000"` es reformatear: no pierde
+exactitud, pero cambia la representación de precisamente el dato que ADR-003
+protege. **El importe entra tal como llegó**, así que dos reintentos que lo
+escriban de forma distinta son intenciones **distintas** y producen conflicto.
+
+Es el lado correcto en el que equivocarse: un conflicto es ruidoso, mientras que
+ADR-010 §3 llama a devolver el original ante una intención distinta «lo peor de
+las tres opciones». Y ADR-010 §1 obliga al cliente a reenviar exactamente la
+misma intención.
+
+**Lo que sí converge** son el ámbito, la moneda y la fecha, porque no son
+«valores exactos» en el sentido de ADR-003 —son identidades y una fecha— y
+normalizarlos es «materializar los defaults semánticos», que es la primera
+cláusula del mismo §8. Un UUID en mayúsculas es el mismo replay. Ambas caras
+están probadas, en C1c y C1d.
 
 ### Owner opuesto al de la frontera de lectura, y es deliberado
 
@@ -1471,6 +1484,23 @@ no pueden leerse con `\copy`: viajan por la misma entrada estándar mediante
 vector propio**: su único caso, 4.7, es compuesto y necesita `group_expense` y
 `debt_settlement`, así que su vector se ejercita en 7b. Es una limitación real y
 está dicha, no rellenada.
+
+### El replay se resuelve antes que la autorización, y está probado
+
+ADR-010 §5 distingue dos casos: una operación **nueva** exige la autorización
+actual completa, mientras que una intención **ya procesada** puede devolver su
+envelope «aunque el actor haya perdido después el acceso al ámbito». Aplicar la
+autorización actual también al replay «rompería la idempotencia».
+
+La sección F del check lo **prueba en vez de inferirlo del orden del código**:
+retira la propiedad del Modo Personal que permitió la primera ejecución, repite
+la misma clave e intención, y comprueba que el replay sigue devolviendo el mismo
+`operation_id` con `already_processed: true`, que no escribe ni una fila, y que
+un comando **nuevo** del mismo actor **sí** se rechaza.
+
+> Se comprobó que muerde: al invertir el orden —autorizar antes de reclamar— la
+> sección falla con exactamente el síntoma que ADR-010 §5 describe, un
+> `NOT_AUTHORIZED` sobre un reintento legítimo.
 
 ### Lo que 7a NO puede probar todavía
 

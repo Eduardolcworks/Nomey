@@ -278,15 +278,36 @@ begin
   set local role authenticated;
   perform set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
 
-  -- C1c · y el importe con ceros a la izquierda SIGUE siendo el mismo replay:
-  -- la canonicalizacion normaliza por construccion, asi que no hay conflicto
-  -- falso (ADR-011 §8).
+  -- C1c · UN IMPORTE ESCRITO DE OTRA FORMA ES OTRA INTENCION. ADR-011 §8 dice
+  -- que la canonicalizacion «no degrada ni REFORMATEA los valores exactos», asi
+  -- que "0050000" y "50000" no convergen: el importe entra tal como llego.
+  --
+  -- Es un fallo ruidoso y no silencioso, que es el lado correcto en el que
+  -- equivocarse: ADR-010 §3 dice que devolver el original ante una intencion
+  -- distinta seria «lo peor de las tres opciones». Y ADR-010 §1 obliga al
+  -- cliente a reenviar exactamente la misma intencion.
+  begin
+    r := api.record_adjustment(jsonb_build_object(
+          'client_operation_id','10000000-0000-4000-8000-000000000001',
+          'command_contract_version',1,'effective_date','2026-01-10',
+          'scope_id',SPA,'delta','0050000','currency_definition_id',EUR));
+    fallos := array_append(fallos,
+      'C1c: un importe con otra representacion textual se acepto como replay; la canonicalizacion esta reformateando valores exactos');
+  exception when sqlstate 'PGRST' then
+    if sqlerrm not like '%IDEMPOTENCY_KEY_REUSED%' then
+      fallos := array_append(fallos, format('C1c: codigo inesperado: %s', sqlerrm));
+    end if;
+  end;
+
+  -- C1d · lo que SI converge son las identidades y la fecha, porque no son
+  -- «valores exactos» en el sentido de ADR-003 y normalizarlas es materializar
+  -- los defaults semanticos. Un UUID en mayusculas es el mismo replay.
   r := api.record_adjustment(jsonb_build_object(
         'client_operation_id','10000000-0000-4000-8000-000000000001',
         'command_contract_version',1,'effective_date','2026-01-10',
-        'scope_id',SPA,'delta','0050000','currency_definition_id',EUR));
+        'scope_id',upper(SPA),'delta','50000','currency_definition_id',EUR));
   if not (r ->> 'already_processed')::boolean then
-    fallos := array_append(fallos, 'C1c: un importe equivalente con ceros a la izquierda produjo conflicto falso');
+    fallos := array_append(fallos, 'C1d: un UUID en mayusculas produjo conflicto falso');
   end if;
 
   -- C2 · misma clave, INTENCION distinta -> conflicto, nunca sobrescritura.
@@ -654,7 +675,122 @@ begin
 end
 $hostil$;
 
--- ============================ F · paridad con los vectores =================
+-- ============================ F · replay tras perder la autorizacion =======
+-- ADR-010 §5 distingue dos casos y prohibe aplicarles la misma regla: una
+-- operacion NUEVA exige la autorizacion actual completa, mientras que una
+-- intencion YA PROCESADA puede devolver su envelope «aunque el actor haya
+-- perdido despues el acceso al ambito».
+--
+-- Aplicar la autorizacion actual tambien al replay «romperia la idempotencia:
+-- el reintento fallaria, el cliente seguiria sin saber si la operacion se
+-- proceso, y podria acabar generando una intencion nueva».
+--
+-- Esto lo PRUEBA, en vez de inferirlo del orden del codigo: se retira la
+-- autorizacion que permitio la primera ejecucion y se comprueba que el replay
+-- sigue funcionando y que un comando nuevo del mismo actor ya no.
+do $perdida$
+declare
+  fallos text[] := '{}';
+  EUR constant text := 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  SPA constant text := 'a0000000-0000-4000-8000-0000000000a1';
+  A   constant uuid := '11111111-1111-4111-8111-111111111111';
+  C   constant uuid := '33333333-3333-4333-8333-333333333333';
+  K   constant text := '50000000-0000-4000-8000-000000000001';
+  r jsonb; v_op uuid; v_op2 uuid;
+  v_ops int; v_vers int; v_efs int; v_cmds int;
+  v_ops2 int; v_vers2 int; v_efs2 int; v_cmds2 int;
+begin
+  -- 1 · A ejecuta correctamente y obtiene su operation_id.
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
+  r := api.record_adjustment(jsonb_build_object(
+        'client_operation_id', K,
+        'command_contract_version', 1, 'effective_date', '2026-05-01',
+        'scope_id', SPA, 'delta', '12345', 'currency_definition_id', EUR));
+  v_op := (r ->> 'operation_id')::uuid;
+  if (r ->> 'already_processed')::boolean then
+    fallos := array_append(fallos, 'F1: la primera ejecucion se marco como replay');
+  end if;
+  reset role;
+
+  select count(*) into v_ops  from core.operation;
+  select count(*) into v_vers from core.operation_version;
+  select count(*) into v_efs  from core.effect;
+  select count(*) into v_cmds from core.client_command;
+
+  -- 2 · Se RETIRA la autorizacion que permitio esa ejecucion. Para estas cuatro
+  -- clases la autorizacion es la PROPIEDAD del Modo Personal (ADR-016), asi que
+  -- se transfiere a un tercero. A deja de estar autorizado sobre ese ambito.
+  update core.scope set owner_user_id = C where id = SPA::uuid;
+
+  -- 3 · A repite EXACTAMENTE la misma clave y la misma intencion.
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
+  begin
+    r := api.record_adjustment(jsonb_build_object(
+          'client_operation_id', K,
+          'command_contract_version', 1, 'effective_date', '2026-05-01',
+          'scope_id', SPA, 'delta', '12345', 'currency_definition_id', EUR));
+  exception when others then
+    r := null;
+    fallos := array_append(fallos,
+      format('F3: el replay fallo tras perder la autorizacion, lo que rompe la idempotencia de ADR-010 §5: %s', sqlerrm));
+  end;
+
+  -- 4 · Mismo operation_id, y marcado como ya procesado.
+  if r is not null then
+    if (r ->> 'operation_id')::uuid is distinct from v_op then
+      fallos := array_append(fallos, 'F4: el replay devolvio otra operacion');
+    end if;
+    if not (r ->> 'already_processed')::boolean then
+      fallos := array_append(fallos, 'F4b: el replay no se marco como ya procesado');
+    end if;
+    -- El envelope no lleva nada mas: ADR-010 §5 acota lo que puede devolverse a
+    -- quien ya no tiene acceso al contenido.
+    if (select count(*) from jsonb_object_keys(r)) <> 2 then
+      fallos := array_append(fallos,
+        format('F4c: el envelope del replay lleva %s campos y debe llevar exactamente 2',
+               (select count(*) from jsonb_object_keys(r))));
+    end if;
+  end if;
+
+  -- 6 · un comando NUEVO del mismo actor, ya sin autorizacion, SI se rechaza.
+  begin
+    r := api.record_adjustment(jsonb_build_object(
+          'client_operation_id','50000000-0000-4000-8000-000000000002',
+          'command_contract_version', 1, 'effective_date', '2026-05-02',
+          'scope_id', SPA, 'delta', '999', 'currency_definition_id', EUR));
+    v_op2 := (r ->> 'operation_id')::uuid;
+    fallos := array_append(fallos,
+      'F6: un comando NUEVO se acepto pese a que el actor ya no esta autorizado');
+  exception when sqlstate 'PGRST' then
+    if sqlerrm not like '%NOT_AUTHORIZED%' then
+      fallos := array_append(fallos, format('F6: codigo inesperado: %s', sqlerrm));
+    end if;
+  end;
+  reset role;
+
+  -- 5 · ni el replay ni el rechazo escribieron nada.
+  select count(*) into v_ops2  from core.operation;
+  select count(*) into v_vers2 from core.operation_version;
+  select count(*) into v_efs2  from core.effect;
+  select count(*) into v_cmds2 from core.client_command;
+  if (v_ops2, v_vers2, v_efs2, v_cmds2) is distinct from (v_ops, v_vers, v_efs, v_cmds) then
+    fallos := array_append(fallos, format(
+      'F5: el replay o el rechazo escribieron: operaciones %s->%s, versiones %s->%s, efectos %s->%s, comandos %s->%s',
+      v_ops, v_ops2, v_vers, v_vers2, v_efs, v_efs2, v_cmds, v_cmds2));
+  end if;
+
+  update core.scope set owner_user_id = A where id = SPA::uuid;
+
+  if array_length(fallos, 1) is not null then
+    raise exception E'FALLOS DE REPLAY SIN AUTORIZACION:\n  - %', array_to_string(fallos, E'\n  - ');
+  end if;
+  raise notice 'OK · F · el replay se resuelve ANTES de la autorizacion actual, y un comando nuevo no';
+end
+$perdida$;
+
+-- ============================ G · paridad con los vectores =================
 -- ADR-002 §7 obliga a que la frontera reproduzca EXACTAMENTE los vectores
 -- compartidos, y ADR-009 §1 asume que el calculo se escribe por segunda vez y
 -- que **la paridad se garantiza con los vectores, no compartiendo codigo**.
@@ -722,7 +858,7 @@ begin
         -- expresable todavia y hay que verlo, no ignorarlo.
         if (v_op ->> 'fromAmount') is distinct from (v_op ->> 'toAmount') then
           fallos := array_append(fallos,
-            format('F: el escenario %s tiene importes distintos por extremo y 7a no soporta conversion', v_case ->> 'id'));
+            format('G: el escenario %s tiene importes distintos por extremo y 7a no soporta conversion', v_case ->> 'id'));
           continue;
         end if;
         perform api.record_internal_transfer(jsonb_build_object(
@@ -746,7 +882,7 @@ begin
        where e.scope_id = (v_ids ->> (v_exp ->> 'scope'))::uuid
          and ov.effective_date = v_fecha;
       if v_got <> v_want then
-        fallos := array_append(fallos, format('F/%s: saldo de %s = %s y el vector espera %s',
+        fallos := array_append(fallos, format('G/%s: saldo de %s = %s y el vector espera %s',
           v_case ->> 'id', v_exp ->> 'scope', v_got, v_want));
       end if;
     end loop;
@@ -761,7 +897,7 @@ begin
          and e.economic_amount is not null
          and ov.effective_date = v_fecha;
       if v_got <> v_want then
-        fallos := array_append(fallos, format('F/%s: economica de %s = %s y el vector espera %s',
+        fallos := array_append(fallos, format('G/%s: economica de %s = %s y el vector espera %s',
           v_case ->> 'id', v_exp ->> 'scope', v_got, v_want));
       end if;
     end loop;
@@ -775,17 +911,17 @@ begin
   -- propio: su unico caso, 4.7, es compuesto y necesita `group_expense` y
   -- `debt_settlement`, asi que su vector se ejercita en 7b.
   if v_seen <> 3 then
-    fallos := array_append(fallos, format('F: se ejercitaron %s escenarios de vectores y deberian ser 3', v_seen));
+    fallos := array_append(fallos, format('G: se ejercitaron %s escenarios de vectores y deberian ser 3', v_seen));
   end if;
 
   if array_length(fallos, 1) is not null then
     raise exception E'FALLOS DE PARIDAD CON LOS VECTORES:\n  - %', array_to_string(fallos, E'\n  - ');
   end if;
-  raise notice 'OK · F · la implementacion de PostgreSQL reproduce los vectores compartidos';
+  raise notice 'OK · G · la implementacion de PostgreSQL reproduce los vectores compartidos';
 end
 $vectores$;
 
--- ============================ G · correspondencia de vocabulario ===========
+-- ============================ H · correspondencia de vocabulario ===========
 -- La union entre los `kind` en camelCase de los vectores y los
 -- `operation_class` en snake_case que persiste el writer. Es la unica pieza que
 -- vive en dos sitios, asi que se comprueba en vez de confiarse.
@@ -809,7 +945,7 @@ begin
   loop
     if v_map ->> v_kind is null then
       fallos := array_append(fallos,
-        format('G: el vector usa el kind %s y no hay operation_class que le corresponda', v_kind));
+        format('H: el vector usa el kind %s y no hay operation_class que le corresponda', v_kind));
     end if;
   end loop;
 
@@ -818,14 +954,14 @@ begin
     if not (v_kind = any(array(select jsonb_array_elements_text(
               (select jsonb_agg(value) from jsonb_each_text(v_map)))))) then
       fallos := array_append(fallos,
-        format('G2: se persistio la clase %s y no corresponde a ningun kind de los vectores', v_kind));
+        format('H2: se persistio la clase %s y no corresponde a ningun kind de los vectores', v_kind));
     end if;
   end loop;
 
   if array_length(fallos, 1) is not null then
     raise exception E'FALLOS DE VOCABULARIO:\n  - %', array_to_string(fallos, E'\n  - ');
   end if;
-  raise notice 'OK · G · la correspondencia kind camelCase <-> operation_class snake_case es completa';
+  raise notice 'OK · H · la correspondencia kind camelCase <-> operation_class snake_case es completa';
 end
 $vocab$;
 
