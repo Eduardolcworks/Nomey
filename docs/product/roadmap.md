@@ -125,7 +125,7 @@ aceptación, que se ejecuta en F3.
 
 ### Fase 3 — Persistencia y frontera de datos
 
-`FUNDAMENTO` · **abierta** · 3.A **cerrada** · 3.B **cerrada** · 3.C pendiente
+`FUNDAMENTO` · **CERRADA el 2026-08-27** · 3.A, 3.B y 3.C **cerradas**
 
 **Objetivo.** Construir la primera capa de persistencia real, segura y
 reproducible, y cerrar la puerta de aceptación de ADR-003.
@@ -172,6 +172,34 @@ para `supabase init`, exigida por `.claude/agents/data-architect.md`.
 8. `npm run verify` en verde y CI ejecutando migraciones desde cero.
 9. Cada concepto de `data-model.md` mapeado a: hecho persistido · derivable ·
    vista · temporal · o **decisión aplazada con su motivo**.
+
+**Los nueve quedaron cumplidos el 2026-08-27**, con `main` en `3787901`:
+
+| #   | Evidencia                                                                                           |
+| --- | --------------------------------------------------------------------------------------------------- |
+| 1   | Dos `db reset` consecutivos por la vía del runbook, resultado idéntico, sin pasos manuales          |
+| 2   | [`supabase/e11/`](../../supabase/e11/README.md) · ADR-003 `Aceptado`, con ADR-015 superseding su §4 |
+| 3   | `split-conversion.sql` A2 recorre **todas** las tablas de `core` por catálogo                       |
+| 4   | Sección G de `split-conversion.sql` y las regresiones deliberadas de los checks del writer          |
+| 5   | `authoritative-writer-debt.sql` A7, y el check HTTP comprueba además que `core` no tiene ruta       |
+| 6   | **22/22** vectores de reparto y **19/20** escenarios; el restante, aplazado por diseño (§ FX)       |
+| 7   | `src/types/database.ts` generado sobre `api`, con las siete funciones                               |
+| 8   | `npm run verify` verde y CI reconstruyendo desde cero en cada PR                                    |
+| 9   | [`model-coverage.md`](../architecture/model-coverage.md), la auditoría completa                     |
+
+> **El criterio 6 se satisface con 19 ejecutables + 1 aplazado justificadamente,
+> y no se presenta como 20/20.** El escenario restante exige una resolución
+> autoritativa de FX que **ADR-003 §4 deja fuera de alcance y ADR-009 §8 declara
+> decisión de producto pendiente**. La frontera lo **rechaza** explícitamente con
+> `CURRENCY_CONVERSION_UNSUPPORTED · 422` en vez de resolverlo mal, y el check
+> falla si el recuento deja de ser exactamente 19.
+
+**Añadido al cerrar, y no estaba en la lista:** la frontera completa se ejerce
+**por HTTP con JWT real** —Kong, GoTrue, PostgREST, `api`, writer y RLS— en
+[`scripts/http-boundary-check.sh`](../../scripts/http-boundary-check.sh). Todo lo
+demás simula la identidad con `set_config`, que no puede demostrar que un token
+emitido por Auth resuelva a `authenticated`. Es la única razón por la que el
+stack de CI dejó de excluir GoTrue.
 
 **Puertas.**
 

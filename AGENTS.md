@@ -453,10 +453,29 @@ the `adr` skill to draft one.
 
 ## Current state
 
-The project is in **Phase 3** (persistence and data boundary), inside **3.C**.
-Phases 0, 1 and 2 are closed, and so are **3.A** and **3.B**. **ADR-002 through
-ADR-014 are accepted**; ADR-003 met its E11 gate against a real local Supabase
-stack.
+> **Start here: [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md).** It is the
+> compressed state of the project — current phase, live architecture, the `api`
+> surface, the invariants a future phase must not break, and what is deferred.
+> This section keeps the detail that only matters while touching the data layer.
+
+**Phase 3 (persistence and data boundary) is CLOSED**, on 2026-08-27 — 3.A, 3.B
+and 3.C. Phases 0, 1 and 2 were already closed. **ADR-001 through ADR-016 are
+accepted**; ADR-003 met its E11 gate against a real local Supabase stack.
+
+**The next entry point is Phase 4** — UX architecture and internationalisation.
+It does not depend on Phase 3 and does not touch the backend.
+
+Two artefacts closed the phase and are worth knowing about:
+
+- [`docs/architecture/model-coverage.md`](docs/architecture/model-coverage.md) —
+  every concept of `data-model.md` mapped to persisted, derivable, projection,
+  runtime, or **deferred with its reason and its destination**. Nothing is left
+  in no-man's-land.
+- [`scripts/http-boundary-check.sh`](scripts/http-boundary-check.sh) — the whole
+  boundary over **HTTP with a real JWT**: Kong, GoTrue, PostgREST, `api`, the
+  writer and RLS. It is the one thing no SQL check can prove, because every
+  other check simulates identity with `set_config`. It is why the CI stack no
+  longer excludes GoTrue.
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
 and ten reproducible probes that measured the decisions of this phase

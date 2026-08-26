@@ -1,5 +1,15 @@
 # Traspaso de la Fase 3.C
 
+> ✅ **FASE 3 CERRADA el 2026-08-27**, con `main` en `3787901`. Los nueve
+> criterios de cierre del roadmap están cumplidos; la auditoría del modelo vive
+> en [`model-coverage.md`](model-coverage.md) y el estado comprimido del proyecto
+> en [`../PROJECT_STATE.md`](../PROJECT_STATE.md).
+>
+> **Este documento pasa a ser histórico.** Se conserva porque explica **por qué**
+> cada pieza es como es, y eso sigue siendo útil; pero una sesión nueva debería
+> empezar por `AGENTS.md` y `PROJECT_STATE.md`, y venir aquí solo a por el
+> detalle. **El siguiente punto de entrada es la Fase 4.**
+
 > ⚠️ **NO NORMATIVO.** Es el documento de **continuidad entre sesiones** de la
 > Fase 3.C. No decide nada: las decisiones normativas viven en
 > [`docs/adr/`](../adr/README.md), en [`data-model.md`](data-model.md) y en
@@ -70,6 +80,16 @@ git status --porcelain -uall
 **Con 7b, el writer autoritativo está completo** y no queda ningún bloque de
 implementación abierto en 3.C. Lo que sigue vivo son limitaciones dichas —FX
 cross-currency, provisioning— y ninguna de ellas pertenece a esta fase.
+
+**El cierre formal añadió dos piezas que no eran migraciones**, y con ellas la
+fase quedó cerrada el 2026-08-27:
+
+- [`model-coverage.md`](model-coverage.md) — la auditoría del criterio 9: cada
+  concepto de `data-model.md` mapeado a persistido, derivable, proyección,
+  runtime o **aplazado con su motivo y su destino**;
+- [`scripts/http-boundary-check.sh`](../../scripts/http-boundary-check.sh) — la
+  frontera completa por **HTTP con JWT real**, que es lo único que ningún check
+  SQL podía demostrar, porque todos simulan la identidad.
 
 > **Con la quinta migración, el inventario de persistido autoritativo de
 > ADR-013 §1 quedó COMPLETO**; **con la sexta existe la primera superficie `api`
