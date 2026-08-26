@@ -67,6 +67,47 @@ suma de un reparto, la simetría de signo, que una liquidación no mueve saldo�
 `errors.test.ts` comprueba que todo código esperado por un vector existe en el
 contrato de `DomainError`.
 
+### Un escenario que el servidor no reproduce, y por qué
+
+Las dos implementaciones **no cubren lo mismo, y la diferencia está medida**:
+
+| Fichero          | `src/domain/` | Frontera autoritativa               |
+| ---------------- | ------------- | ----------------------------------- |
+| `split.json`     | 22 / 22       | **22 / 22**                         |
+| `scenarios.json` | 20 / 20       | **19 / 20 · 1 aplazado por diseño** |
+
+El que falta es **`gasto-de-grupo-con-tres-monedas`**, y no es una laguna de
+cobertura: es una **capacidad que no existe todavía**.
+
+```
+qué es
+  un gasto declarado en JPY, con el Grupo en EUR y el Modo Personal
+  del pagador en USD: un importe original y DOS conversiones derivadas
+
+→ por qué no pertenece a F3
+  ADR-003 §4 deja expresamente fuera de alcance el proveedor, la
+  granularidad, la regla de selección y qué ocurre si no hay tipo para una
+  fecha; ADR-009 §8 lo declara decisión de producto pendiente y añade que
+  la frontera de escritura NO tiene atribuida una resolución por catálogo.
+  El servidor no tiene con qué resolverlo, y el tipo que aporte el cliente
+  no es autoritativo.
+
+→ dónde queda pendiente
+  decisión de producto sobre la regla de resolución del FX, sin fase
+  asignada. Ver docs/architecture/model-coverage.md §9.
+```
+
+**`src/domain/` sí lo ejecuta** porque recibe los importes **ya convertidos**:
+convertir no es su trabajo. La frontera **lo rechaza explícitamente** con
+`CURRENCY_CONVERSION_UNSUPPORTED · 422` y sin escribir nada, y eso también está
+comprobado.
+
+> **No se maquilla como 20/20.** El check de la frontera cuenta los escenarios
+> que ejercita y **falla si no son exactamente 19**, y el filtro que excluye el
+> restante mira la **forma** del vector —lleva moneda del pagador distinta— y no
+> su identificador, de modo que un escenario nuevo con FX tampoco se colaría en
+> silencio.
+
 ## Demostrar una regresión
 
 Una suite que solo pasa no demuestra nada: hay que comprobar que **falla cuando

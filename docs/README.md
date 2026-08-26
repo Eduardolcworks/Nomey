@@ -3,37 +3,19 @@
 Wiki técnica y de producto. **En español**; el código y los commits van en
 inglés.
 
-> **Estado: Fase 3 — persistencia y frontera de datos.** En curso.
+> **Estado: Fase 3 — persistencia y frontera de datos. CERRADA el 2026-08-27.**
 >
-> - **Fases 0, 1 y 2:** cerradas.
->   [ADR-002](adr/ADR-002-accounting-model.md) está **aceptado**, y
->   `architecture/data-model.md` y `product/glossary.md` existen.
-> - **Fase 3:** abierta, con **3.A y 3.B cerradas**.
->   [ADR-003](adr/ADR-003-money-representation.md) está **aceptado**: su puerta
->   **E11** se cumplió contra un stack Supabase local real, y `src/domain/` ya
->   contiene la implementación de referencia con sus vectores compartidos.
-> - **En curso: 3.C** —esquema, grants, RLS y frontera de escritura—, que
->   arranca con análisis y no con SQL. Ver
->   [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) y el
->   análisis en curso, no normativo, de
->   [`architecture/phase-3c-design.md`](architecture/phase-3c-design.md).
->   Ya han salido de él once decisiones aceptadas:
->   [ADR-004](adr/ADR-004-currency-definition-identity.md) —identidad física de
->   la definición monetaria—, [ADR-005](adr/ADR-005-schema-topology.md)
->   —topología de schemas—, [ADR-006](adr/ADR-006-privilege-model.md) —modelo de
->   privilegios y lectura `api → core`—,
->   [ADR-007](adr/ADR-007-membership-rls.md) —membresía y RLS—,
->   [ADR-008](adr/ADR-008-exact-data-boundary.md) —frontera de datos exactos—,
->   [ADR-009](adr/ADR-009-authoritative-write-boundary.md) —frontera
->   autoritativa de escritura— y
->   [ADR-010](adr/ADR-010-client-operation-idempotency.md) —idempotencia de
->   operaciones cliente—, [ADR-011](adr/ADR-011-operation-version-model.md)
->   —operaciones, versiones y comandos cliente—,
->   [ADR-012](adr/ADR-012-participant-identity.md) —identidad de participantes
->   sin cuenta—, [ADR-013](adr/ADR-013-persisted-vs-derived.md) —persistido
->   frente a derivado, reparto contextual y proyección canónica— y
->   [ADR-014](adr/ADR-014-data-api-schema-exposure.md) —exposición de schemas de
->   la Data API—. **Todavía no se ha autorizado SQL definitivo.**
+> - **Fases 0, 1, 2 y 3:** cerradas. **ADR-001 … ADR-016 aceptados.**
+> - **El siguiente punto de entrada es la Fase 4** — arquitectura UX e
+>   internacionalización—, que **no depende de la Fase 3** y no toca el backend.
+> - **Para reconstruir el estado del proyecto, empieza por
+>   [`PROJECT_STATE.md`](PROJECT_STATE.md)**, que es la memoria comprimida: fase
+>   actual, arquitectura vigente, superficie `api`, invariantes que no se deben
+>   romper y decisiones aplazadas. Con `AGENTS.md` y ese documento basta para
+>   empezar; el resto se consulta bajo demanda.
+> - La auditoría que cerró el criterio 9 —cada concepto del modelo mapeado a
+>   persistido, derivable, proyección, runtime o aplazado con su motivo— está en
+>   [`architecture/model-coverage.md`](architecture/model-coverage.md).
 >
 > El plan por fases, con sus hitos y criterios de cierre, está en
 > [`product/roadmap.md`](product/roadmap.md).
@@ -62,13 +44,15 @@ se han escrito.
 
 | Documento                        | Estado            |
 | -------------------------------- | ----------------- |
+| `PROJECT_STATE.md`               | Existe            |
 | `architecture/data-model.md`     | Existe            |
+| `architecture/model-coverage.md` | Existe            |
 | `product/glossary.md`            | Existe            |
 | `product/design-direction.md`    | Existe            |
 | `architecture/code-structure.md` | **Previsto**      |
 | `database/rls-policies.md`       | **Previsto**      |
 | `security/threat-model.md`       | **Previsto**      |
-| Todos los ADR **aceptados**      | ADR-002 a ADR-014 |
+| Todos los ADR **aceptados**      | ADR-001 a ADR-016 |
 
 ## Documentos de trabajo — no normativos
 
@@ -78,7 +62,7 @@ lo es el ADR correspondiente, cuando se acepta.
 | Documento                                                                      | Fase | Qué es                                                                                                           |
 | ------------------------------------------------------------------------------ | ---- | ---------------------------------------------------------------------------------------------------------------- |
 | [`architecture/money-representation.md`](architecture/money-representation.md) | 2    | Evidencia medida, decisiones confirmadas y alternativas descartadas que preceden a **ADR-003**. **No normativo** |
-| [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md)         | 3    | Traspaso de 3.B a 3.C: estado de entrada, decisiones cerradas y pendientes de 3.C. **No normativo**              |
+| [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md)         | 3    | Continuidad de 3.C y **el porqué** de cada pieza. **Histórico** desde el cierre de F3, y no normativo            |
 | [`architecture/phase-3c-design.md`](architecture/phase-3c-design.md)           | 3    | Análisis de 3.C por bloques: D1–D11, evidencia E12 y alternativas. **No normativo**, también para lo ya aprobado |
 
 Al aceptarse el ADR que lo cierra, se decide si el documento se conserva como

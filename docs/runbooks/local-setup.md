@@ -299,6 +299,46 @@ Comprueba cuatro cosas, y todas se verificaron capaces de fallar sustituyendo
 
 Con el lock desactivado reaparece exactamente el `−1000` que E15-C midió.
 
+### La frontera completa, por HTTP y con JWT real
+
+```bash
+./scripts/http-boundary-check.sh
+```
+
+Recorre la ruta entera, sin simular nada:
+
+```
+cliente HTTP → Kong → GoTrue (JWT real) → PostgREST → api.* → writer → RLS/core
+```
+
+**Exige que GoTrue esté arrancado.** Todos los demás checks simulan la identidad
+con `set_config('request.jwt.claims', …)`, que es suficiente para la RLS pero
+**no puede demostrar** que un token emitido por Auth resuelva a `authenticated`.
+Si el stack se levantó excluyendo `gotrue`, el script aborta con instrucciones en
+vez de dar un falso verde.
+
+```bash
+./scripts/supabase-cli.sh start \
+  -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+```
+
+> **Mailpit sigue excluido a propósito.** `config.toml` tiene
+> `enable_confirmations = false`, así que el alta devuelve sesión sin enviar
+> ningún correo. Medido con esta topología exacta, que es la misma que usa CI.
+
+Comprueba: el JWT resuelve al rol correcto y su `sub` acaba en la atribución de
+la operación · sin JWT la escritura se rechaza con `401` · un importe enviado
+como **number** se rechaza y uno por encima de 2^53 cruza y se persiste exacto ·
+**las siete funciones** responden `200` · el replay devuelve el mismo
+`operation_id` con `already_processed` · los seis códigos de error viajan con su
+estado HTTP · ninguna tabla de `core` es alcanzable y `api.personal_effect` sí,
+con su caso positivo y su caso negativo · los importes salen como string JSON.
+
+> **Escribe filas confirmadas y crea dos usuarios reales**, porque una petición
+> HTTP es su propia transacción. Los retira al terminar y comprueba que no queda
+> ninguno — ni datos ni usuarios. **Sin secretos en el repositorio:** la clave
+> publicable se lee en ejecución de la configuración del Kong en marcha.
+
 > ### `auth.uid()` no depende de GoTrue
 >
 > `scope-effect.sql` ejerce la RLS del rol cliente, que necesita `auth.uid()`.

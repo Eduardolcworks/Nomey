@@ -62,8 +62,8 @@ jobs:
       # Linux binary to the npm cache, never into node_modules. `npm ci` is
       # deliberately NOT run here: this job needs no project dependencies.
       #
-      # Only postgres, kong and postgrest are started. PostgREST is kept on
-      # purpose: if the api schema stopped existing it would fail its health
+      # Only postgres, kong, postgrest and gotrue are started. PostgREST is kept
+      # on purpose: if the api schema stopped existing it would fail its health
       # check, and that is the ADR-014 bootstrap guard for free.
       #
       # Kong cannot be excluded while postgrest is kept. The CLI probes
@@ -72,10 +72,19 @@ jobs:
       # published port. Without Kong, PostgREST starts and serves correctly but
       # the probe cannot reach it, so `start` fails with a transport error.
       # Measured: it reproduces locally with this exact command.
+      #
+      # GOTRUE WAS ADDED when phase 3 closed, and it is the only stack change
+      # the closure needed. Every other check simulates identity with
+      # `set_config('request.jwt.claims', ...)`, which cannot prove that a JWT
+      # actually issued by Auth resolves to `authenticated`. The HTTP boundary
+      # check below needs real users, and real users need Auth. Mailpit stays
+      # excluded: `enable_confirmations = false` in config.toml, so signup
+      # returns a session without sending any mail. Measured locally with this
+      # exact topology.
       - name: Start Supabase, applying every migration from zero
         run: >
           ./scripts/supabase-cli.sh start
-          -x gotrue,realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
 
       - name: Bootstrap checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/bootstrap.sql
@@ -143,6 +152,19 @@ jobs:
       # it removes them again, asserting that nothing is left behind.
       - name: Debt serialization under real concurrency
         run: ./scripts/writer-debt-concurrency.sh
+
+      # The whole boundary, end to end, over HTTP:
+      #   client -> Kong -> GoTrue (real JWT) -> PostgREST -> api.* -> writer -> RLS/core
+      #
+      # This is the one thing no SQL check can prove, because every other check
+      # simulates identity. It signs up real users, calls the seven public
+      # functions over HTTP with their tokens, and asserts the error contract of
+      # ADR-009 §9 against the real functions rather than E15's probes.
+      #
+      # No secrets: the publishable key is read at run time from the running
+      # Kong's own configuration, so nothing is committed.
+      - name: HTTP boundary with real JWT
+        run: ./scripts/http-boundary-check.sh
 
       - name: Stop
         if: always()

@@ -1,0 +1,523 @@
+#!/usr/bin/env bash
+#
+# La frontera COMPLETA, extremo a extremo y por HTTP · cierre de la Fase 3.
+#
+#   cliente HTTP -> Kong -> GoTrue (JWT real) -> PostgREST -> api.* -> writer -> RLS/core
+#
+# Por que existe, y por que no puede ser un fichero de `supabase/checks/`: todo
+# lo demas mide a nivel SQL con `set_config('request.jwt.claims', ...)`, que
+# SIMULA la identidad. Eso deja sin comprobar cuatro cosas que solo existen en la
+# ruta real:
+#
+#   1. que un JWT emitido por Auth resuelve al rol `authenticated`;
+#   2. que PostgREST entrega el `jsonb` CONSERVANDO EL TIPO JSON ORIGINAL, que
+#      es lo que ADR-008 §3 exige y E14 midio sobre una maqueta;
+#   3. que `RAISE sqlstate 'PGRST'` viaja como el estado HTTP y el cuerpo que
+#      ADR-009 §9 fija, contra las funciones REALES y no las de E15;
+#   4. que `core` no es alcanzable por la Data API, en comportamiento.
+#
+# Uso, con el stack levantado Y con GoTrue arrancado:
+#
+#   ./scripts/http-boundary-check.sh
+#
+# SIN SECRETOS EN EL REPOSITORIO. La clave publicable se lee EN EJECUCION de la
+# configuracion del Kong que esta corriendo, de modo que aqui no hay ninguna
+# credencial escrita. Es ademas la clave compartida por defecto del stack local,
+# que el propio `supabase start` imprime y declara no apta para produccion.
+#
+# Escribe filas confirmadas —una peticion HTTP es su propia transaccion— y las
+# retira al terminar, comprobando que no queda ninguna. NO ES UNA MIGRACION.
+
+set -uo pipefail
+
+API=http://127.0.0.1:54321
+DB=(docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=0)
+DBQ=(docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -t -A -v ON_ERROR_STOP=0)
+
+fallos=0
+fallo() { echo "  FALLO: $*"; fallos=$((fallos + 1)); }
+ok()    { echo "  ok: $*"; }
+
+need() { command -v "$1" >/dev/null 2>&1 || { echo "error: falta $1 en el PATH" >&2; exit 127; }; }
+need curl
+need node
+need docker
+
+# Extrae un campo anidado de un JSON que llega por stdin. Vacio si no esta.
+jget() {
+  node -e '
+    let s = "";
+    process.stdin.on("data", d => s += d).on("end", () => {
+      try {
+        let v = JSON.parse(s);
+        for (const k of process.argv[1].split(".")) v = (v === null || v === undefined) ? undefined : v[k];
+        console.log(v === undefined || v === null ? "" : String(v));
+      } catch { console.log(""); }
+    });' "$1"
+}
+
+# ------------------------------------------------------------- la clave -----
+# De la configuracion del Kong en marcha, no del repositorio.
+# El `sh -c` no es adorno: Git Bash reescribe las rutas absolutas del comando
+# antes de pasarlas a Docker, y `/home/kong/kong.yml` se convertiria en una ruta
+# de Windows. Dentro de comillas para la shell del contenedor, no la toca.
+KEY=$(docker exec supabase_kong_Nomey \
+        sh -c "grep -o 'sb_publishable_[A-Za-z0-9_-]*' /home/kong/kong.yml | head -1" 2>/dev/null)
+if [ -z "${KEY}" ]; then
+  echo "error: no se pudo leer la clave publicable del Kong en marcha." >&2
+  echo "       Levanta el stack SIN excluir gotrue:" >&2
+  echo "       ./scripts/supabase-cli.sh start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor" >&2
+  exit 1
+fi
+
+if ! curl -fsS -o /dev/null "${API}/auth/v1/health" 2>/dev/null; then
+  echo "error: GoTrue no responde en ${API}/auth/v1/health." >&2
+  echo "       Este check EXIGE Auth real: no simula identidad." >&2
+  exit 1
+fi
+
+# -------------------------------------------------------------- peticion ----
+# Imprime "<estado> <cuerpo-en-una-linea>". `tok` vacio = sin JWT.
+rpc() {
+  local fn="$1" tok="$2" body="$3" cuerpo estado
+  cuerpo=$(mktemp)
+  if [ -n "${tok}" ]; then
+    estado=$(curl -s -o "${cuerpo}" -w '%{http_code}' \
+      -X POST "${API}/rest/v1/rpc/${fn}" \
+      -H "apikey: ${KEY}" -H "Authorization: Bearer ${tok}" \
+      -H 'Content-Type: application/json' --data-binary "${body}")
+  else
+    estado=$(curl -s -o "${cuerpo}" -w '%{http_code}' \
+      -X POST "${API}/rest/v1/rpc/${fn}" \
+      -H "apikey: ${KEY}" \
+      -H 'Content-Type: application/json' --data-binary "${body}")
+  fi
+  printf '%s %s\n' "${estado}" "$(tr -d '\n' <"${cuerpo}")"
+  rm -f "${cuerpo}"
+}
+
+estado_de() { printf '%s' "${1%% *}"; }
+cuerpo_de() { printf '%s' "${1#* }"; }
+
+# El payload de una intencion viaja SIEMPRE dentro de `payload`, porque
+# ADR-009 §2 fija un unico parametro `jsonb` por funcion.
+env_payload() { printf '{"payload":%s}' "$1"; }
+
+# ------------------------------------------------------------- usuarios -----
+# Reales, emitidos por GoTrue. `enable_confirmations = false` en config.toml, asi
+# que el alta devuelve sesion directamente y no hace falta mailpit.
+EMAIL_A=nomey-http-a@example.test
+EMAIL_B=nomey-http-b@example.test
+PASS='Nomey-http-check-2026!'
+
+borrar_usuarios() {
+  "${DB[@]}" >/dev/null 2>&1 <<SQL
+delete from auth.users where email in ('${EMAIL_A}','${EMAIL_B}');
+SQL
+}
+
+alta() {
+  curl -s -X POST "${API}/auth/v1/signup" \
+    -H "apikey: ${KEY}" -H 'Content-Type: application/json' \
+    --data-binary "{\"email\":\"$1\",\"password\":\"${PASS}\"}"
+}
+
+# --------------------------------------------------------------- fixture ----
+EUR=cccccccc-cccc-4ccc-8ccc-cccccccccccc
+USD=dddddddd-dddd-4ddd-8ddd-dddddddddddd
+PA=a0000000-0000-4000-8000-00000000aa01
+PB=a0000000-0000-4000-8000-00000000bb01
+GX=a0000000-0000-4000-8000-00000000ff01
+GY=a0000000-0000-4000-8000-00000000ff02
+XA=b0000000-0000-4000-8000-00000000aa01
+XB=b0000000-0000-4000-8000-00000000bb01
+YA=b0000000-0000-4000-8000-00000000aa02
+YB=b0000000-0000-4000-8000-00000000bb02
+
+retirar() {
+  "${DB[@]}" >/dev/null 2>&1 <<'SQL'
+begin;
+set constraints all deferred;
+delete from core.client_command;
+delete from core.split_participant;
+delete from core.split;
+delete from core.effect;
+delete from core.operation_version;
+delete from core.operation;
+delete from core.participant_period;
+delete from core.participant_user_link;
+delete from core.membership;
+delete from core.participant;
+delete from core.scope;
+delete from core.currency_definition;
+commit;
+SQL
+}
+
+# El estado previo se siembra como `postgres`, que es exactamente lo que hara el
+# provisioning cuando exista (F4+). Lo que este check exige que sea REAL es la
+# llamada del cliente, el JWT, PostgREST, los permisos y la RLS.
+sembrar() {
+  local ua="$1" ub="$2"
+  "${DB[@]}" >/dev/null 2>&1 <<SQL
+begin;
+insert into core.currency_definition (id, code, scale) values ('${EUR}','EUR',2), ('${USD}','USD',2);
+insert into core.scope (id,kind,base_currency_definition_id,owner_user_id) values
+  ('${PA}','personal','${EUR}','${ua}'), ('${PB}','personal','${EUR}','${ub}');
+insert into core.scope (id,kind,base_currency_definition_id) values
+  ('${GX}','group','${EUR}'), ('${GY}','group','${EUR}');
+insert into core.participant (id, scope_id, display_name) values
+  ('${XA}','${GX}','A'), ('${XB}','${GX}','B'),
+  ('${YA}','${GY}','A'), ('${YB}','${GY}','B');
+-- La membresia del PROPIO Modo Personal no es redundante con la propiedad, y
+-- descubrirlo costo un fallo de este check: `owner_user_id` es ATRIBUCION
+-- economica durable (ADR-016) y `core.membership` es AUTORIZACION actual
+-- (ADR-007). La policy de lectura de `core.effect` se resuelve por membresia,
+-- asi que sin esta fila el dueno no ve sus propios efectos. Son dos preguntas
+-- distintas a proposito, y el provisioning tendra que crear las dos.
+insert into core.membership (scope_id, user_id) values
+  ('${PA}','${ua}'), ('${PB}','${ub}'),
+  ('${GX}','${ua}'), ('${GX}','${ub}'), ('${GY}','${ua}'), ('${GY}','${ub}');
+insert into core.participant_user_link (participant_id, scope_id, user_id) values
+  ('${XA}','${GX}','${ua}'), ('${XB}','${GX}','${ub}'),
+  ('${YA}','${GY}','${ua}'), ('${YB}','${GY}','${ub}');
+insert into core.participant_period (participant_id, valid_from, valid_until) values
+  ('${XA}','2020-01-01',null), ('${XB}','2020-01-01',null),
+  ('${YA}','2020-01-01',null), ('${YB}','2020-01-01',null);
+commit;
+SQL
+}
+
+echo "== preparando =="
+retirar
+borrar_usuarios
+
+RA=$(alta "${EMAIL_A}")
+RB=$(alta "${EMAIL_B}")
+TOK_A=$(printf '%s' "${RA}" | jget access_token)
+TOK_B=$(printf '%s' "${RB}" | jget access_token)
+UID_A=$(printf '%s' "${RA}" | jget user.id)
+UID_B=$(printf '%s' "${RB}" | jget user.id)
+
+if [ -z "${TOK_A}" ] || [ -z "${UID_A}" ] || [ -z "${TOK_B}" ] || [ -z "${UID_B}" ]; then
+  echo "  FALLO: GoTrue no emitio sesion. Respuesta A: $(printf '%s' "${RA}" | head -c 300)"
+  exit 1
+fi
+ok "dos usuarios reales dados de alta por GoTrue, con JWT de sesion"
+sembrar "${UID_A}" "${UID_B}"
+
+# ============================================================================
+echo ""
+echo "== 1 · el JWT real resuelve al rol authenticated =="
+# El `sub` del token es lo que `sec.request_actor_id()` lee del GUC, y es lo que
+# acaba en `operation.created_by`. Si el JWT no llegara, o llegara como `anon`,
+# no habria identidad y la operacion no existiria.
+r=$(rpc record_adjustment "${TOK_A}" "$(env_payload "{
+  \"client_operation_id\":\"a0000000-0000-4000-8000-000000000001\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-01-10\",
+  \"scope_id\":\"${PA}\",\"delta\":\"50000\",\"currency_definition_id\":\"${EUR}\"}")")
+est=$(estado_de "${r}"); cue=$(cuerpo_de "${r}")
+OP_AJUSTE=$(printf '%s' "${cue}" | jget operation_id)
+[ "${est}" = "200" ] && ok "record_adjustment por HTTP: 200" || fallo "record_adjustment devolvio ${est}: ${cue}"
+
+atribuida=$("${DBQ[@]}" <<SQL 2>/dev/null
+select count(*) from core.operation where id = '${OP_AJUSTE}' and created_by = '${UID_A}';
+SQL
+)
+[ "$(tr -d '[:space:]' <<<"${atribuida}")" = "1" ] \
+  && ok "la operacion quedo atribuida al sub del JWT, no a un actor simulado" \
+  || fallo "la operacion no quedo atribuida al usuario del token"
+
+rol=$("${DBQ[@]}" <<'SQL' 2>/dev/null
+select count(*) from information_schema.role_routine_grants
+ where routine_schema='api' and routine_name like 'record\_%' and grantee='authenticated';
+SQL
+)
+[ "$(tr -d '[:space:]' <<<"${rol}")" = "7" ] \
+  && ok "las siete funciones estan concedidas a authenticated y a ningun otro rol cliente" \
+  || fallo "los grants de api.record_* a authenticated son $(tr -d '[:space:]' <<<"${rol}") y deben ser 7"
+
+# ============================================================================
+echo ""
+echo "== 2 · sin JWT no se escribe =="
+r=$(rpc record_adjustment "" "$(env_payload "{
+  \"client_operation_id\":\"a0000000-0000-4000-8000-0000000000f0\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-01-10\",
+  \"scope_id\":\"${PA}\",\"delta\":\"1\",\"currency_definition_id\":\"${EUR}\"}")")
+est=$(estado_de "${r}")
+case "${est}" in
+  200|201) fallo "se acepto una escritura SIN JWT (${est})" ;;
+  *)       ok "sin JWT la llamada se rechaza con ${est}, y el rol anon no llega a la funcion" ;;
+esac
+
+# ============================================================================
+echo ""
+echo "== 3 · el payload jsonb conserva el tipo JSON original =="
+# ADR-008 §3. E14 midio sobre una maqueta que un parametro `text` NO lo conserva
+# y que `jsonb` SI; esto lo comprueba contra la funcion real, por la ruta real.
+r=$(rpc record_adjustment "${TOK_A}" "$(env_payload "{
+  \"client_operation_id\":\"a0000000-0000-4000-8000-000000000002\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-01-10\",
+  \"scope_id\":\"${PA}\",\"delta\":50000,\"currency_definition_id\":\"${EUR}\"}")")
+est=$(estado_de "${r}"); cue=$(cuerpo_de "${r}")
+if [ "${est}" = "400" ] && printf '%s' "${cue}" | grep -q PAYLOAD_INVALID; then
+  ok "un importe enviado como NUMBER se rechaza con PAYLOAD_INVALID · 400"
+else
+  fallo "el number JSON no se distinguio del string: ${est} ${cue}"
+fi
+
+r=$(rpc record_adjustment "${TOK_A}" "$(env_payload "{
+  \"client_operation_id\":\"a0000000-0000-4000-8000-000000000003\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-01-10\",
+  \"scope_id\":\"${PA}\",\"delta\":\"9007199254740993\",\"currency_definition_id\":\"${EUR}\"}")")
+est=$(estado_de "${r}")
+guardado=$("${DBQ[@]}" <<'SQL' 2>/dev/null
+select original_amount from core.operation_version where original_amount > 9007199254740000;
+SQL
+)
+if [ "${est}" = "200" ] && [ "$(tr -d '[:space:]' <<<"${guardado}")" = "9007199254740993" ]; then
+  ok "un entero por encima de 2^53 cruza HTTP y se persiste EXACTO"
+else
+  fallo "el entero grande se degrado: estado ${est}, persistido '$(tr -d '[:space:]' <<<"${guardado}")'"
+fi
+
+# ============================================================================
+echo ""
+echo "== 4 · las SIETE funciones publicas, por HTTP y con JWT real =="
+
+# El cuerpo sale por una GLOBAL y no por stdout: `ok` y `fallo` tambien escriben
+# ahi, y capturarlo con $( ) mezclaria el diagnostico con el JSON.
+ULTIMO_CUERPO=''
+llamada() {
+  local nombre="$1" fn="$2" tok="$3" intencion="$4" esperado="${5:-200}"
+  local rr ee cc
+  rr=$(rpc "${fn}" "${tok}" "$(env_payload "${intencion}")")
+  ee=$(estado_de "${rr}"); cc=$(cuerpo_de "${rr}")
+  ULTIMO_CUERPO="${cc}"
+  if [ "${ee}" = "${esperado}" ]; then
+    ok "${nombre}: ${ee}"
+  else
+    fallo "${nombre} devolvio ${ee} y se esperaba ${esperado}: ${cc}"
+  fi
+}
+
+llamada "record_adjustment" record_adjustment "${TOK_A}" "{
+  \"client_operation_id\":\"a1000000-0000-4000-8000-000000000001\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-02-01\",
+  \"scope_id\":\"${PA}\",\"delta\":\"100000\",\"currency_definition_id\":\"${EUR}\"}"
+
+llamada "record_personal_expense" record_personal_expense "${TOK_A}" "{
+  \"client_operation_id\":\"a1000000-0000-4000-8000-000000000002\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-02-02\",
+  \"scope_id\":\"${PA}\",\"amount\":\"2000\",\"currency_definition_id\":\"${EUR}\"}"
+
+llamada "record_external_transfer" record_external_transfer "${TOK_A}" "{
+  \"client_operation_id\":\"a1000000-0000-4000-8000-000000000003\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-02-03\",
+  \"scope_id\":\"${PA}\",\"delta\":\"-3000\",\"currency_definition_id\":\"${EUR}\"}"
+
+llamada "record_internal_transfer" record_internal_transfer "${TOK_A}" "{
+  \"client_operation_id\":\"a1000000-0000-4000-8000-000000000004\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-02-04\",
+  \"from_scope_id\":\"${PA}\",\"to_scope_id\":\"${PB}\",\"amount\":\"10000\",
+  \"currency_definition_id\":\"${EUR}\"}"
+
+llamada "record_group_expense" record_group_expense "${TOK_A}" "{
+  \"client_operation_id\":\"a1000000-0000-4000-8000-000000000005\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-02-05\",
+  \"scope_id\":\"${GX}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"10000\",
+  \"payer_participant_id\":\"${XA}\",
+  \"participants\":[\"${XA}\",\"${XB}\"],
+  \"split_method\":{\"kind\":\"equal\"}}"
+OP_GASTO=$(printf '%s' "${ULTIMO_CUERPO}" | jget operation_id)
+
+# B debe 5000 a A en GX. Marca 3000 como saldados: la liquidacion la puede
+# registrar cualquier integrante, y aqui la registra el propio deudor.
+llamada "record_debt_settlement" record_debt_settlement "${TOK_B}" "{
+  \"client_operation_id\":\"a1000000-0000-4000-8000-000000000006\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-02-06\",
+  \"scope_id\":\"${GX}\",\"currency_definition_id\":\"${EUR}\",\"amount\":\"3000\",
+  \"debtor_participant_id\":\"${XB}\",\"creditor_participant_id\":\"${XA}\"}"
+
+# En GY paga B, asi que A es el deudor y SOLO A puede pagar por transferencia.
+llamada "gasto previo en GY" record_group_expense "${TOK_B}" "{
+  \"client_operation_id\":\"a1000000-0000-4000-8000-000000000007\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-02-07\",
+  \"scope_id\":\"${GY}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"6000\",
+  \"payer_participant_id\":\"${YB}\",
+  \"participants\":[\"${YB}\",\"${YA}\"],
+  \"split_method\":{\"kind\":\"equal\"}}"
+
+llamada "record_settlement_by_transfer" record_settlement_by_transfer "${TOK_A}" "{
+  \"client_operation_id\":\"a1000000-0000-4000-8000-000000000008\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-02-08\",
+  \"debt_scope_id\":\"${GY}\",\"currency_definition_id\":\"${EUR}\",\"amount\":\"3000\",
+  \"debtor_participant_id\":\"${YA}\",\"creditor_participant_id\":\"${YB}\"}"
+
+ejercitadas=$("${DBQ[@]}" <<'SQL' 2>/dev/null
+select count(distinct operation_class) from core.operation;
+SQL
+)
+[ "$(tr -d '[:space:]' <<<"${ejercitadas}")" = "7" ] \
+  && ok "las SIETE clases de operacion quedaron escritas por la ruta HTTP" \
+  || fallo "solo $(tr -d '[:space:]' <<<"${ejercitadas}") clases distintas llegaron a persistirse"
+
+# ============================================================================
+echo ""
+echo "== 5 · replay por HTTP =="
+r=$(rpc record_group_expense "${TOK_A}" "$(env_payload "{
+  \"client_operation_id\":\"a1000000-0000-4000-8000-000000000005\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-02-05\",
+  \"scope_id\":\"${GX}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"10000\",
+  \"payer_participant_id\":\"${XA}\",
+  \"participants\":[\"${XA}\",\"${XB}\"],
+  \"split_method\":{\"kind\":\"equal\"}}")")
+est=$(estado_de "${r}"); cue=$(cuerpo_de "${r}")
+op_repetida=$(printf '%s' "${cue}" | jget operation_id)
+proc=$(printf '%s' "${cue}" | jget already_processed)
+if [ "${est}" = "200" ] && [ "${op_repetida}" = "${OP_GASTO}" ] && [ "${proc}" = "true" ]; then
+  ok "mismo operation_id y already_processed=true"
+else
+  fallo "el replay por HTTP devolvio ${est} ${cue}"
+fi
+
+# ============================================================================
+echo ""
+echo "== 6 · los codigos de error viajan con su estado HTTP =="
+# ADR-009 §9 y E15: el codigo propio va en el CUERPO y el estado en `detail`.
+# Esto lo comprueba contra las funciones reales, no contra las de la sonda.
+
+comprobar_error() {
+  local nombre="$1" fn="$2" tok="$3" intencion="$4" codigo="$5" estado="$6"
+  local rr ee cc
+  rr=$(rpc "${fn}" "${tok}" "$(env_payload "${intencion}")")
+  ee=$(estado_de "${rr}"); cc=$(cuerpo_de "${rr}")
+  if [ "${ee}" = "${estado}" ] && printf '%s' "${cc}" | grep -q "${codigo}"; then
+    ok "${nombre}: ${codigo} · ${ee}"
+  else
+    fallo "${nombre}: se esperaba ${codigo} · ${estado} y llego ${ee} ${cc}"
+  fi
+}
+
+comprobar_error "campo desconocido" record_adjustment "${TOK_A}" "{
+  \"client_operation_id\":\"a2000000-0000-4000-8000-000000000001\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-03-01\",
+  \"scope_id\":\"${PA}\",\"delta\":\"1\",\"currency_definition_id\":\"${EUR}\",\"ordinal\":\"3\"}" \
+  PAYLOAD_INVALID 400
+
+comprobar_error "actor suplantado" record_adjustment "${TOK_A}" "{
+  \"client_operation_id\":\"a2000000-0000-4000-8000-000000000002\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-03-02\",
+  \"scope_id\":\"${PA}\",\"delta\":\"1\",\"currency_definition_id\":\"${EUR}\",
+  \"created_by\":\"${UID_B}\"}" \
+  PAYLOAD_INVALID 400
+
+# B no es dueno del Modo Personal de A, y la propiedad es la autorizacion.
+comprobar_error "ambito ajeno" record_adjustment "${TOK_B}" "{
+  \"client_operation_id\":\"a2000000-0000-4000-8000-000000000003\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-03-03\",
+  \"scope_id\":\"${PA}\",\"delta\":\"1\",\"currency_definition_id\":\"${EUR}\"}" \
+  NOT_AUTHORIZED 403
+
+# La misma clave con OTRA intencion.
+comprobar_error "clave reutilizada" record_adjustment "${TOK_A}" "{
+  \"client_operation_id\":\"a1000000-0000-4000-8000-000000000001\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-02-01\",
+  \"scope_id\":\"${PA}\",\"delta\":\"999999\",\"currency_definition_id\":\"${EUR}\"}" \
+  IDEMPOTENCY_KEY_REUSED 409
+
+# Correccion contra una version que no es la vigente.
+comprobar_error "CAS obsoleto" record_group_expense "${TOK_A}" "{
+  \"client_operation_id\":\"a2000000-0000-4000-8000-000000000005\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-02-05\",
+  \"operation_id\":\"${OP_GASTO}\",
+  \"expected_version_id\":\"a9999999-9999-4999-8999-999999999999\",
+  \"scope_id\":\"${GX}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"8000\",
+  \"payer_participant_id\":\"${XA}\",
+  \"participants\":[\"${XA}\",\"${XB}\"],
+  \"split_method\":{\"kind\":\"equal\"}}" \
+  VERSION_CONFLICT 409
+
+# La moneda de la operacion no es la base del ambito alcanzado.
+comprobar_error "FX sin regla" record_adjustment "${TOK_A}" "{
+  \"client_operation_id\":\"a2000000-0000-4000-8000-000000000006\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-03-06\",
+  \"scope_id\":\"${PA}\",\"delta\":\"1\",\"currency_definition_id\":\"${USD}\"}" \
+  CURRENCY_CONVERSION_UNSUPPORTED 422
+
+# Y un codigo de DOMINIO, que conserva el suyo (ADR-009 §9).
+comprobar_error "sobrepago" record_debt_settlement "${TOK_B}" "{
+  \"client_operation_id\":\"a2000000-0000-4000-8000-000000000007\",
+  \"command_contract_version\":1,\"effective_date\":\"2026-03-07\",
+  \"scope_id\":\"${GX}\",\"currency_definition_id\":\"${EUR}\",\"amount\":\"999999\",
+  \"debtor_participant_id\":\"${XB}\",\"creditor_participant_id\":\"${XA}\"}" \
+  SETTLEMENT_EXCEEDS_DEBT 422
+
+# ============================================================================
+echo ""
+echo "== 7 · el cliente no alcanza core, y si alcanza api =="
+sonda() {
+  curl -s -o /dev/null -w '%{http_code}' \
+    "${API}/rest/v1/$1?select=*&limit=1" \
+    -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}"
+}
+for rel in effect operation scope participant membership client_command; do
+  e=$(sonda "${rel}")
+  case "${e}" in
+    200|201|206) fallo "el cliente alcanzo core.${rel} por la Data API (${e})" ;;
+    *)           : ;;
+  esac
+done
+ok "ninguna tabla de core es alcanzable por la Data API"
+
+e=$(sonda personal_effect)
+case "${e}" in
+  200|206) ok "la superficie api.personal_effect si responde (${e})" ;;
+  *)       fallo "api.personal_effect devolvio ${e}" ;;
+esac
+
+# Y la lectura pasa por la RLS: A ve lo suyo y nada de B.
+ajenos=$(curl -s "${API}/rest/v1/personal_effect?select=scope_id" \
+  -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);console.log(a.filter(x=>x.scope_id!=="'"${PA}"'").length)}catch{console.log("err")}})')
+[ "${ajenos}" = "0" ] \
+  && ok "por HTTP, A solo ve efectos de su propio Modo Personal" \
+  || fallo "A alcanzo ${ajenos} efectos de otro ambito"
+
+propios=$(curl -s "${API}/rest/v1/personal_effect?select=id" \
+  -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).length)}catch{console.log(0)}})')
+[ "${propios}" -gt 0 ] 2>/dev/null \
+  && ok "y el caso POSITIVO tambien: ve ${propios} efectos suyos, asi que no es una tabla vacia" \
+  || fallo "A no ve ninguno de sus propios efectos: el test de aislamiento seria vacio"
+
+# Los importes salen como TEXTO, nunca como number JSON (ADR-008 §1).
+tipos=$(curl -s "${API}/rest/v1/personal_effect?select=balance_amount&limit=5" \
+  -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);console.log(a.every(x=>x.balance_amount===null||typeof x.balance_amount==="string")?"ok":"number")}catch{console.log("err")}})')
+[ "${tipos}" = "ok" ] \
+  && ok "los importes cruzan HTTP como string JSON, nunca como number" \
+  || fallo "algun importe salio como number JSON (${tipos})"
+
+# ============================================================================
+echo ""
+echo "== retirada =="
+retirar
+borrar_usuarios
+resto=$("${DBQ[@]}" <<'SQL' 2>/dev/null
+select (select count(*) from core.operation) + (select count(*) from core.effect)
+     + (select count(*) from core.scope) + (select count(*) from core.participant)
+     + (select count(*) from core.client_command)
+     + (select count(*) from auth.users where email like 'nomey-http-%');
+SQL
+)
+resto=$(tr -d '[:space:]' <<<"${resto}")
+[ "${resto}" = "0" ] && ok "sin residuos, ni de datos ni de usuarios" || fallo "quedaron ${resto} filas"
+
+echo ""
+if [ "${fallos}" -eq 0 ]; then
+  echo "OK · la frontera completa funciona por HTTP con JWT real: Kong, Auth, PostgREST, api, writer y RLS"
+  exit 0
+fi
+echo "FALLOS DE LA FRONTERA HTTP: ${fallos}"
+exit 1
