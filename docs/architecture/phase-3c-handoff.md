@@ -21,18 +21,18 @@ completo de la fase.
 Checkpoint **durable**: describe qué hay decidido y consolidado, no una foto del
 índice de Git. **La verdad del árbol es `git status`**, no esta tabla.
 
-|                            |                                                                                                                      |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                                                           |
-| **D11**                    | **Cerrado y mergeado a `main`** (`d672246`): ADR-013 y `supabase/e19/`                                               |
-| **E20**                    | **Cerrada y mergeada a `main`** (`afe50ab`): `supabase/e20/` y ADR-013 §10                                           |
-| **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                                                    |
-| **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                                                        |
-| **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                                                     |
-| **`supabase/migrations/`** | **Cinco migraciones**: bootstrap · operación/versión · ámbito y efecto · identidad y periodos · reparto y conversión |
-| **`npm test`**             | **116/116** en verde                                                                                                 |
-| **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                                                     |
-| **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio**                                     |
+|                            |                                                                                                                                               |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                                                                                    |
+| **D11**                    | **Cerrado y mergeado a `main`** (`d672246`): ADR-013 y `supabase/e19/`                                                                        |
+| **E20**                    | **Cerrada y mergeada a `main`** (`afe50ab`): `supabase/e20/` y ADR-013 §10                                                                    |
+| **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                                                                             |
+| **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                                                                                 |
+| **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                                                                              |
+| **`supabase/migrations/`** | **Seis migraciones**: bootstrap · operación/versión · ámbito y efecto · identidad y periodos · reparto y conversión · proyección y atribución |
+| **`npm test`**             | **116/116** en verde                                                                                                                          |
+| **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                                                                              |
+| **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio**                                                              |
 
 **Cómo comprobarlo en una sesión nueva**, sin depender de esta tabla:
 
@@ -41,7 +41,7 @@ git log --oneline main..HEAD
 git status --porcelain -uall
 ```
 
-**Las migraciones ya han empezado.** `supabase/migrations/` contiene cinco:
+**Las migraciones ya han empezado.** `supabase/migrations/` contiene seis:
 
 1. **`bootstrap_data_boundary`** — los tres schemas, los revokes explícitos y el
    saneamiento de default privileges (§13 bis);
@@ -56,15 +56,18 @@ git status --porcelain -uall
 4. **`participant_identity_periods`** — `core.participant_user_link`,
    `core.participant_period` y la extensión `btree_gist` (§13 quinquies);
 5. **`contextual_split_and_conversion`** — `core.split`,
-   `core.split_participant` y `core.frozen_conversion` (§13 sexies).
+   `core.split_participant` y `core.frozen_conversion` (§13 sexies);
+6. **`canonical_projection_and_attribution`** — `core.scope.owner_user_id`,
+   `core.current_effect`, `api.personal_effect` y `api.claimed_dimension()`
+   (§13 septies).
 
-**Todavía no existen** la proyección canónica, las vistas de `api` ni el writer
-autoritativo como función.
+**Todavía no existe el writer autoritativo como función.** Es lo único que le
+queda a 3.C.
 
 > **Con la quinta migración, el inventario de persistido autoritativo de
-> ADR-013 §1 queda COMPLETO.** Todo lo que ese ADR declara hecho persistido
-> tiene ya su relación. Lo que falta de 3.C es **superficie derivada y frontera
-> de escritura**, no hechos nuevos.
+> ADR-013 §1 quedó COMPLETO**, y **con la sexta existe la primera superficie
+> `api` real y `src/types/database.ts` generado**. Lo que falta de 3.C es la
+> **frontera de escritura**, no hechos ni superficies de lectura.
 
 > **Cambio de etapa.** `supabase/e11`–`e20` eran evidencia desechable sobre
 > maquetas y **nunca deben convertirse en migración**. A partir de aquí,
@@ -109,17 +112,17 @@ nuevas**; consultar [`product/roadmap.md`](../product/roadmap.md).
 **Migrado hasta aquí:** bootstrap (§13 bis) · núcleo de operación y versión
 (§13 ter) · ámbito, participante, membresía y efecto (§13 quater) · vínculo con
 la cuenta y periodos de presencia (§13 quinquies) · reparto contextual y
-conversión congelada (§13 sexies).
+conversión congelada (§13 sexies) · proyección canónica y atribución económica
+(§13 septies).
 
-**Siguiente bloque físico**, y en este orden:
+**Siguiente y último bloque físico de 3.C:**
 
 ```
-proyección canónica de efectos vigentes + vistas `api` con cast a texto
-  → writer autoritativo
+writer autoritativo
 ```
 
-Todo **dentro de 3.C**. **Antes de la proyección canónica** hay que resolver la
-delegación que ADR-013 no llegó a recoger (§11 ter). F10 construirá el claim, las
+**El gate de §11 ter está cerrado** por
+[ADR-016](../adr/ADR-016-economic-attribution.md). F10 construirá el claim, las
 invitaciones y la fusión **sobre relaciones que ya existen**, no creándolas.
 
 ### Las seis puertas de 3.C
@@ -151,7 +154,7 @@ ADR-006 §7 fija su saneamiento explícito.
 
 ## 3 · ADR aceptados
 
-Los quince están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
+Los dieciséis están en estado `Aceptado`. **Una frase cada uno; el ADR manda.**
 
 | ADR                                                          | Decisión principal                                                                                                               |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -639,11 +642,16 @@ UUID explícitamente** en vez de dejarlo al cast. No hace falta medir nada más.
 
 ---
 
-## 11 ter · Una delegación que se quedó sin recoger
+## 11 ter · Una delegación que se quedó sin recoger — CERRADA
+
+> **Cerrada el 2026-08-26 por
+> [ADR-016](../adr/ADR-016-economic-attribution.md).** Se conserva el
+> planteamiento porque explica **por qué** hizo falta un ADR propio y no bastaba
+> con documentarlo aquí. Lo que sigue describe el hueco tal como se encontró.
 
 Detectada el 2026-08-25 al migrar el vínculo participante↔usuario. **No es una
-contradicción entre ADR** y no bloquea nada de lo ya migrado, pero hay que
-resolverla **antes de la proyección canónica**, que es el bloque siguiente.
+contradicción entre ADR** y no bloqueaba nada de lo ya migrado, pero había que
+resolverla antes de la proyección canónica.
 
 [ADR-012](../adr/ADR-012-participant-identity.md), en su «Fuera de alcance»,
 delega expresamente:
@@ -1203,6 +1211,116 @@ propio procedimiento, no una revisión:
 **Aislar cada negativo contra la restricción que pretende probar no es
 cosmético**: un negativo que pasa por el motivo equivocado es un test que no
 prueba nada y que seguirá en verde cuando la garantía real desaparezca.
+
+---
+
+## 13 septies · La proyección canónica y la atribución económica
+
+Sexta migración real, `canonical_projection_and_attribution`. Cierra el gate de
+§11 ter y crea **la primera superficie `api` realmente útil para el cliente**,
+que es lo que hace que `src/types/database.ts` exista por fin. Verificado con
+**dos `db reset`** por la vía canónica.
+
+**La decisión normativa está en
+[ADR-016](../adr/ADR-016-economic-attribution.md)**; aquí solo lo físico.
+
+### Las cuatro piezas
+
+|                            | Qué es                                                        |
+| -------------------------- | ------------------------------------------------------------- |
+| `core.scope.owner_user_id` | **Propiedad durable** del Modo Personal. No es membresía      |
+| `core.current_effect`      | **Proyección canónica** de ADR-013 §9. `security_invoker`     |
+| `api.personal_effect`      | Atribución **por ámbito**: saldo y económica sin participante |
+| `api.claimed_dimension()`  | Atribución **por participante**: frontera privilegiada        |
+
+### La propiedad, en una columna y no en una tabla
+
+`kind = 'personal' ⇔ owner_user_id IS NOT NULL`, más un índice único sobre la
+columna. Eso hace **estructurales las tres cardinalidades**: todo `personal`
+tiene exactamente un dueño, `group` y `couple` no pueden tenerlo, y un usuario
+tiene como máximo un Modo Personal.
+
+Una tabla dedicada habría sido **más débil**: no puede exigir que la fila exista,
+así que «todo Modo Personal tiene dueño» habría pasado a ser invariante del
+writer. Es el mismo límite que la cabecera de reparto vacía.
+
+> **No es una marcha atrás sobre `scope.created_by`.** Aquella columna se
+> descartó porque el creador no participa en autorización, propiedad, moneda,
+> efectos ni identidad. La propiedad económica **sí** participa: es portante de
+> la atribución del saldo.
+
+### Las dos rutas son disjuntas por construcción
+
+```
+por ambito       -> saldo · economica SIN participante   -> api.personal_effect
+por participante -> economica CON participante · deuda   -> api.claimed_dimension()
+```
+
+Las de ámbito **no nombran participante** y solo aparecen en el Modo Personal;
+las de participante **nunca aparecen** en un Modo Personal, porque el dominio
+produce ahí `participant: null`. **Cada dimensión tiene exactamente un camino**,
+así que no hay doble contabilización. El sexto check lo comprueba en cada
+ejecución en vez de confiar en ello.
+
+### Por qué la frontera privilegiada, y por qué en `api`
+
+Medido antes de escribirla: con la RLS actual, un usuario vinculado a un
+participante de un grupo del que no es miembro alcanza **cero** efectos. Sin
+frontera, la reclamación retroactiva de `data-model.md` §6 no recupera nada.
+
+**Ampliar la RLS de `core.effect` no vale, y se midió la fuga.** Con una policy
+de pertenencia por dimensión, quien es **solo el deudor** de una fila mixta
+obtiene además el importe económico de un participante ajeno, la identidad del
+acreedor y el `scope_id`. No es un defecto de la policy: la RLS acota **filas, no
+columnas**, como E20 ya había medido.
+
+**Vive en `api` y no en `sec` por una razón medida:** el rol cliente **no puede
+invocar funciones de `sec` por nombre** —`permission denied for schema sec`—
+porque ADR-007 §3 le niega el `USAGE` a propósito. Lo que sí puede una vista
+`security_invoker` es llamarlas desde su cuerpo; eso también se midió, y responde
+la incógnita que quedaba abierta del bloque anterior.
+
+> **La frontera NO puede confiar en la proyección canónica.** Se midió: dentro de
+> un `SECURITY DEFINER` cuyo owner es el propietario de las tablas, la proyección
+> devuelve **todas** las filas. La guarda de ADR-013 §9 protege el camino de
+> lectura normal, **no** el interior de un definer. Por eso el filtro por vínculo
+> está en el `WHERE` del cuerpo, antes de proyectar nada.
+
+**Su lista de columnas ES la frontera de privacidad**, y el check la comprueba
+contra la firma: nada de `scope_id`, identificadores de participante, efecto,
+operación o versión, ni las otras dimensiones de la fila.
+
+### `database.ts`, y lo que demuestra
+
+Generado sobre **`api`**, como fija ADR-008 §7, con la CLI del wrapper. El
+resultado confirma el objetivo estructural de ese ADR: **todos los importes
+aparecen como `string`**, nunca `number`.
+
+```ts
+balance_amount: string | null;
+economic_amount: string | null;
+amount: string;
+```
+
+No es una convención que haya que recordar: en `api` no hay ningún `int8`
+alcanzable, y el sexto check lo verifica por catálogo.
+
+### Rendimiento: medido, y sin índices nuevos
+
+- **`auth.uid()` se evalúa una sola vez por consulta**, como `InitPlan`. El
+  `(select auth.uid())` funciona.
+- **`sec.is_member` se evalúa más de una vez por fila de efecto**, porque las
+  policies de `operation` y `operation_version` vuelven a derivar de los
+  efectos. Es visible en el plan como subplanes anidados.
+- **`core.participant_user_link` se une por su clave primaria** pero se filtra
+  por `user_id`, y no hay índice sobre esa columna sola: `UNIQUE (scope_id,
+user_id)` no sirve para esa búsqueda.
+
+**No se añade ningún índice**, y el motivo es que **la medición no demuestra
+nada**: con una fila por tabla el planificador elige `Seq Scan` por tamaño, no
+por falta de índice. Añadirlos ahora sería exactamente lo especulativo que el
+grupo 3 de §11 bis aplaza. Los dos puntos de arriba quedan como **los primeros
+candidatos a medir** cuando haya volumen.
 
 ---
 

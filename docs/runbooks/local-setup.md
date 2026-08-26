@@ -239,11 +239,16 @@ docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
   -X -q -v ON_ERROR_STOP=1 < supabase/checks/split-conversion.sql
 ```
 
+```bash
+docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
+  -X -q -v ON_ERROR_STOP=1 < supabase/checks/canonical-attribution.sql
+```
+
 Fallan con código distinto de cero en la primera violación, y **no dejan datos**:
 lo que insertan ocurre dentro de una transacción que termina en `ROLLBACK`. La
 configuración versionada la comprueba `npm test`, en `tests/infra/`.
 
-**CI ejecuta estos mismos cinco ficheros** en el job `Migrations rebuilt from
+**CI ejecuta estos mismos seis ficheros** en el job `Migrations rebuilt from
 zero`, sobre un stack levantado desde cero.
 
 > ### `auth.uid()` no depende de GoTrue
