@@ -5,8 +5,13 @@
 > [`data-model.md`](architecture/data-model.md) o el
 > [roadmap](product/roadmap.md), mandan ellos.
 >
-> **Léelo después de [`AGENTS.md`](../AGENTS.md).** Con esos dos y el handoff de
-> la fase en curso basta para empezar; el resto se consulta **bajo demanda**.
+> **Léelo después de [`AGENTS.md`](../AGENTS.md).** Con esos dos, y la
+> documentación específica de la fase en curso cuando exista, basta para empezar;
+> el resto se consulta **bajo demanda**.
+>
+> **Cómo se mantiene:** [`runbooks/project-context.md`](runbooks/project-context.md).
+> En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
+> apila debajo de lo nuevo.**
 
 Actualizado el **2026-08-27**, al cerrar la Fase 3.
 
@@ -14,15 +19,13 @@ Actualizado el **2026-08-27**, al cerrar la Fase 3.
 
 ## Dónde estamos
 
-|                         |                                                                 |
-| ----------------------- | --------------------------------------------------------------- |
-| **Última fase cerrada** | **Fase 3 — Persistencia y frontera de datos** (3.A · 3.B · 3.C) |
-| **Siguiente**           | **Fase 4 — Arquitectura UX e internacionalización**             |
-| **ADR aceptados**       | ADR-001 … ADR-016                                               |
-| **Migraciones**         | **8**, reconstruibles desde cero                                |
-| **Checks de base**      | 8 ficheros SQL + 2 scripts (concurrencia y HTTP)                |
-| **Tests**               | 116 en Vitest, sobre `src/domain/` y `tests/infra/`             |
-| **App visible**         | Pantalla intencionadamente en blanco                            |
+|                         |                                                                     |
+| ----------------------- | ------------------------------------------------------------------- |
+| **Última fase cerrada** | **Fase 3 — Persistencia y frontera de datos** (3.A · 3.B · 3.C)     |
+| **Siguiente**           | **Fase 4 — Arquitectura UX e internacionalización**                 |
+| **ADR aceptados**       | ADR-001 … ADR-016                                                   |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR |
+| **App visible**         | Pantalla intencionadamente en blanco                                |
 
 **Fase 4 no depende de la Fase 3** —el roadmap lo dice expresamente— y no toca el
 backend: navegación, wireframes, tokens de tema, estados de carga/vacío/error e

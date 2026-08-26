@@ -451,6 +451,26 @@ the `adr` skill to draft one.
 
 ---
 
+## Project context
+
+- **`docs/PROJECT_STATE.md` is current state, not history.** It says where Nomey
+  is, never how it got there.
+- **Obsolete information is replaced or deleted, never stacked underneath the
+  new.** It must not grow by accumulation; the history lives in Git, the ADRs,
+  the handoffs and the roadmap.
+- **Update it only when the globally relevant state changes** — a phase opens or
+  closes, a stable public surface changes, a cross-cutting invariant changes, an
+  architectural decision with future impact is accepted, a deferred decision
+  moves, or a global technical limitation appears or disappears. Not per task,
+  commit, branch, PR, test or internal refactor.
+- **Load further context on demand**, driven by the task at hand: the relevant
+  ADR, migration, domain module, check or section — not whole families of
+  documentation up front.
+- **The full protocol is
+  [`docs/runbooks/project-context.md`](docs/runbooks/project-context.md).**
+
+---
+
 ## Current state
 
 > **Start here: [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md).** It is the
