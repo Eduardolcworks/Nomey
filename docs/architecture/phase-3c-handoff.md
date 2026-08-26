@@ -21,18 +21,18 @@ completo de la fase.
 Checkpoint **durable**: describe qué hay decidido y consolidado, no una foto del
 índice de Git. **La verdad del árbol es `git status`**, no esta tabla.
 
-|                            |                                                                                  |
-| -------------------------- | -------------------------------------------------------------------------------- |
-| **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                       |
-| **D11**                    | **Cerrado y mergeado a `main`** (`d672246`): ADR-013 y `supabase/e19/`           |
-| **E20**                    | **Cerrada y mergeada a `main`** (`afe50ab`): `supabase/e20/` y ADR-013 §10       |
-| **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                |
-| **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                    |
-| **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                 |
-| **`supabase/migrations/`** | **Siete migraciones**. La última es la primera mitad del writer autoritativo     |
-| **`npm test`**             | **116/116** en verde                                                             |
-| **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                 |
-| **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio** |
+|                            |                                                                                   |
+| -------------------------- | --------------------------------------------------------------------------------- |
+| **D10**                    | **Cerrado y mergeado a `main`**: ADR-012 y `supabase/e18/`                        |
+| **D11**                    | **Cerrado y mergeado a `main`** (`d672246`): ADR-013 y `supabase/e19/`            |
+| **E20**                    | **Cerrada y mergeada a `main`** (`afe50ab`): `supabase/e20/` y ADR-013 §10        |
+| **Transversales**          | **Cerrados** el 2026-08-25 (§11 bis). Checklist de entrada en §14                 |
+| **`main`**                 | Contiene toda la fase 3.C decidida hasta aquí                                     |
+| **`src/`**                 | **Intacto.** No se ha tocado en toda la fase 3.C                                  |
+| **`supabase/migrations/`** | **Ocho migraciones**. Las dos últimas son las dos mitades del writer autoritativo |
+| **`npm test`**             | **116/116** en verde                                                              |
+| **`npm run verify`**       | Verde — typecheck de app y tests, lint y formato                                  |
+| **E18 · E19 · E20**        | Reproducidos de extremo a extremo contra el stack local, con **teardown limpio**  |
 
 **Cómo comprobarlo en una sesión nueva**, sin depender de esta tabla:
 
@@ -41,7 +41,7 @@ git log --oneline main..HEAD
 git status --porcelain -uall
 ```
 
-**Las migraciones ya han empezado.** `supabase/migrations/` contiene siete:
+**Las migraciones ya han empezado.** `supabase/migrations/` contiene ocho:
 
 1. **`bootstrap_data_boundary`** — los tres schemas, los revokes explícitos y el
    saneamiento de default privileges (§13 bis);
@@ -63,14 +63,19 @@ git status --porcelain -uall
 7. **`authoritative_writer_boundary`** — la infraestructura común del writer y
    **las cuatro clases que no producen deuda** (§13 octies). Es **7a**: la
    primera mitad.
+8. **`authoritative_writer_debt`** — **las tres clases que crean o consumen
+   deuda**, el protocolo de serialización de ADR-013 §11 y el único
+   ensanchamiento de privilegio que quedaba (§13 nonies). Es **7b**.
 
-**Lo único que le queda a 3.C es 7b**: las tres clases que crean o consumen
-deuda, con el protocolo de serialización de ADR-013 §11.
+**Con 7b, el writer autoritativo está completo** y no queda ningún bloque de
+implementación abierto en 3.C. Lo que sigue vivo son limitaciones dichas —FX
+cross-currency, provisioning— y ninguna de ellas pertenece a esta fase.
 
 > **Con la quinta migración, el inventario de persistido autoritativo de
 > ADR-013 §1 quedó COMPLETO**; **con la sexta existe la primera superficie `api`
-> real y `src/types/database.ts` generado**; y **con la séptima el cliente ya
-> puede escribir**, aunque solo por cuatro rutas y sin conversión.
+> real y `src/types/database.ts` generado**; **con la séptima el cliente ya
+> puede escribir**, y **con la octava la superficie de escritura son siete
+> funciones y ninguna más**.
 
 > **Cambio de etapa.** `supabase/e11`–`e20` eran evidencia desechable sobre
 > maquetas y **nunca deben convertirse en migración**. A partir de aquí,
@@ -117,9 +122,9 @@ nuevas**; consultar [`product/roadmap.md`](../product/roadmap.md).
 la cuenta y periodos de presencia (§13 quinquies) · reparto contextual y
 conversión congelada (§13 sexies) · proyección canónica y atribución económica
 (§13 septies) · **frontera autoritativa de escritura, primera mitad**
-(§13 octies).
+(§13 octies) · **segunda mitad, con la deuda serializada** (§13 nonies).
 
-**Siguiente y último bloque de 3.C — 7b:**
+**No queda ningún bloque de implementación de 3.C.** El último fue 7b:
 
 ```
 record_group_expense · record_debt_settlement · record_settlement_by_transfer
@@ -1509,6 +1514,284 @@ un comando **nuevo** del mismo actor **sí** se rechaza.
 cuatro se anclan a un Modo Personal cuyo dueño es el actor. Aparece con
 `group_expense`, en 7b. Lo que sí se comprueba es que el rechazo es de
 **autorización** y no de autoría, y que `operation.created_by` es inmutable.
+
+---
+
+## 13 nonies · La frontera autoritativa de escritura · 7b
+
+Octava migración real y **segunda mitad del writer**. Trae las tres clases que
+crean o consumen deuda —`record_group_expense`, `record_debt_settlement` y
+`record_settlement_by_transfer`—, el protocolo de serialización de ADR-013 §11 y
+el único ensanchamiento de privilegio que quedaba pendiente en toda la fase.
+
+**Con ella la superficie de escritura son SIETE funciones de `api` y ninguna
+más**, y no queda ningún bloque de implementación abierto en 3.C.
+
+### El lock, medido antes de escribirlo
+
+El handoff anterior anticipaba que bloquear la fila estable de un ámbito exigía
+**dos cosas** —el `GRANT UPDATE` por columna y la policy de `UPDATE`— y proponía
+estudiar `GRANT UPDATE (base_currency_definition_id)` con una policy
+`USING (true) WITH CHECK (false)`. **No se dio por buena: se midió**, en una
+transacción desechable contra el stack local, antes de tocar la migración.
+
+| Configuración                   | `SELECT … FOR UPDATE` de `nomey_writer`       |
+| ------------------------------- | --------------------------------------------- |
+| Sin privilegio y sin policy     | **`42501 permission denied for table scope`** |
+| Sin privilegio y **con** policy | **`42501`** — el privilegio manda             |
+| **Con** privilegio y sin policy | **0 filas, sin error**                        |
+| Con privilegio **y** con policy | La fila, incluida la de un ámbito ajeno       |
+
+Y la capacidad concedida es exactamente esa, ninguna otra:
+
+| Intento del writer                                    | Resultado                                             |
+| ----------------------------------------------------- | ----------------------------------------------------- |
+| `UPDATE base_currency_definition_id` a **otro** valor | `new row violates row-level security policy`          |
+| `UPDATE base_currency_definition_id` **al mismo**     | El mismo rechazo: `WITH CHECK (false)` no admite nada |
+| `UPDATE kind` · `UPDATE owner_user_id`                | `42501`, por el `GRANT` **por columna**               |
+| `DELETE` · `INSERT`                                   | `42501`                                               |
+| Roles cliente                                         | Sin `UPDATE`, y ninguna policy aplicable a `PUBLIC`   |
+
+> **Esto precisa lo que midió E20, no lo contradice.** El fallo **silencioso**
+> —cero filas sin error— es el de la **policy** ausente. El del **privilegio**
+> ausente es ruidoso. Hacen falta las dos cosas, y por motivos distintos: el
+> privilegio abre la puerta y la policy decide qué filas se ven.
+
+`sec.lock_debt_scopes` convierte el silencio en ruido: si el bloqueo devuelve
+cero filas **levanta excepción**, porque continuar sería validar y escribir sobre
+datos que la transacción cree haber protegido.
+
+### El orden del protocolo, y por qué los ámbitos van antes que la operación
+
+```
+1 forma y reparto (solo payload)   4 replay o conflicto
+2 actor                            5 autorizacion actual
+3 RECLAMO de la clave              6 LOCK de los ambitos de deuda
+7 lock de la operacion y CAS       8 leer la deuda
+9 validar   10 derivar   11 escribir   12 puntero   13 retorno
+```
+
+Los pasos 1-5 y 7 son los de 7a, intactos. Lo nuevo es **6 y 8**:
+
+- **6 antes que 8**, porque ADR-013 §11 dice que invertirlos «reintroduce
+  exactamente la carrera»;
+- **6 antes que 7**, para que el orden global de adquisición sea el mismo en las
+  tres clases y no exista ciclo posible. 7a solo toma el lock de la operación y
+  nunca espera por un ámbito, así que tampoco puede cerrar uno con 7b.
+
+**El conjunto bloqueado de una corrección es una unión**: los ámbitos de la
+intención nueva **más** los que llevaban deuda en la versión vigente. Sin la
+segunda mitad, sacar un ámbito de una corrección lo dejaría fuera del lock justo
+cuando su deuda cambia — la «serialización parcial» que ADR-013 §11 declara
+equivalente a no serializar nada.
+
+Ese conjunto se calcula desde `expected_version_id` y **no** desde una lectura de
+`current_version_id`, de modo que no existe lectura obsoleta: si la vigente ya no
+es esa, el CAS del paso 7 rechaza con `VERSION_CONFLICT` y no se escribe nada.
+
+### El ámbito de caja del pagador se DERIVA, y no viaja en el payload
+
+`data-model.md` §4.3 exige que «B pagó 120» registrado por A produzca un −120 en
+el Modo Personal **de A**. La pregunta es cómo sabe el servidor cuál es.
+
+La cadena es **participante → cuenta → Modo Personal**, y cada eslabón ya existía:
+ADR-012 §2 pone el vínculo en su propia relación, y ADR-016 hace de
+`owner_user_id` propiedad durable con un índice único, de modo que una cuenta
+tiene **como mucho un** Modo Personal.
+
+> **Aceptar un `payer_scope_id` del cliente habría sido inventar una regla.** Sin
+> el vínculo no hay ningún dato con el que comprobar que un ámbito personal es el
+> del pagador, y aceptarlo a ciegas dejaría a cualquier miembro colocar un cargo
+> de caja falso en el Modo Personal de otro. Derivarlo no concede nada: ADR-012
+> §8 dice que el vínculo establece **identidad**, y esto es exactamente una
+> pregunta de identidad.
+
+**Devolver `NULL` es un resultado legítimo**: es el pagador sin cuenta de
+`data-model.md` §4.7, que el dominio modela con `payerCashMovement` **opcional**.
+No se le inventa ningún ámbito.
+
+`record_settlement_by_transfer` usa la misma derivación para los **dos** extremos
+—salida del deudor, entrada del acreedor— y por eso su payload **no nombra ningún
+ámbito de saldo**. Si el acreedor no tiene Modo Personal la clase no es la que
+corresponde: ese caso es transferencia **externa** más liquidación, que son dos
+operaciones, y se rechaza con `CREDITOR_WITHOUT_PERSONAL_SCOPE`.
+
+### Autorización de cada clase
+
+| Clase                    | Quién                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `group_expense`          | **Cualquier integrante** del ámbito. Alta y corrección                          |
+| `debt_settlement`        | **Cualquier integrante**: es una afirmación sobre una obligación ya determinada |
+| `settlement_by_transfer` | **Solo el deudor**, comprobado por el vínculo (`data-model.md` §4.6)            |
+
+Las dos primeras son «inmediatas» en la tabla de `data-model.md` §8, que no las
+restringe a las partes. La tercera **sí** está restringida, y su comprobación es
+que la cuenta del actor sea la vinculada al participante deudor: sin eso, quien
+recibe podría registrar «me han pagado» y provocar una salida en el Modo Personal
+de un tercero, que es la primitiva de apropiación que el invariante 14 impide.
+
+> **Una limitación real, y se dice.** `data-model.md` §7 matiza que corrige
+> «cualquier integrante, **sobre operaciones posteriores a su incorporación** o
+> anteriores en las que ya figuraba como participante». Esa segunda mitad **no es
+> derivable hoy**: `core.membership` es presencia pura y **no es un historial**,
+> y usar su `created_at` como fecha de incorporación sería reinterpretar la
+> relación exactamente como §13 quater prohíbe. Se implementa «cualquier
+> integrante actual», y el matiz temporal queda pendiente de que exista una
+> relación que responda esa pregunta.
+
+### Un solo importe en la liquidación por transferencia
+
+`operation_version` lleva **exactamente un** importe original (ADR-013 §3), así
+que lo transferido y lo liquidado son el mismo número. No es una simplificación
+de conveniencia: transferir más de lo debido **no** es una liquidación mayor —el
+exceso es una transferencia entre usuarios, que es otro hecho (`data-model.md`
+§3)—, y representarlo exigiría dos importes en una sola versión.
+
+### Elegibilidad: dos lecturas fijadas
+
+ADR-012 §7 dice que «un participante solo puede figurar en una operación cuando
+sea elegible según uno de sus periodos válidos». Al implementarlo hubo que
+elegir, y ambas elecciones quedan escritas:
+
+- **la fecha es la efectiva de la versión que se escribe**, no el instante de
+  escritura. `data-model.md` §7 lo dice para las correcciones —«los válidos en la
+  fecha efectiva original»— y el contraste que traza es con el momento de
+  corregir;
+- **un participante sin ningún periodo no es elegible en ninguna fecha.** La
+  ausencia de periodos no es un comodín: es no haber estado nunca.
+
+### Lo que 7b deliberadamente NO valida
+
+> **Una corrección que reduce un gasto por debajo de lo ya liquidado se acepta**,
+> y puede dejar la deuda pendiente en negativo.
+
+Participa en el protocolo —toma el lock, de modo que ninguna liquidación
+concurrente lee un estado a medias— pero **no gana una validación nueva**. El
+motivo es que ningún ADR la fija y el dominio no la modela: `deriveDebtSettlement`
+valida al liquidar, no al corregir el gasto que la originó. Añadirla sería
+introducir una regla de producto desde una migración.
+
+**Lo que sí garantiza el lock** es que la comprobación y el consumo se
+serialicen, que es literalmente el invariante de ADR-013 §11.
+
+### Concurrencia: probada con sesiones simultáneas, no simulada
+
+Una sola sesión de `psql` no tiene concurrencia, así que esto **no puede** vivir
+en `supabase/checks/`: una simulación secuencial pasaría también con el lock
+quitado. `scripts/writer-debt-concurrency.sh` abre sesiones de verdad, como hizo
+E15-C, y CI lo ejecuta al final del job de base de datos.
+
+| Escenario                                         | Resultado medido                                                      |
+| ------------------------------------------------- | --------------------------------------------------------------------- |
+| Dos liquidaciones de 3000 sobre una deuda de 5000 | Una aceptada, una `SETTLEMENT_EXCEEDS_DEBT`, pendiente **2000**       |
+| Dos correcciones cruzando los mismos dos ámbitos  | Cinco intentos, **cero deadlocks**                                    |
+| Corrección a la baja frente a liquidación         | La liquidación **espera** y se valida contra la deuda ya corregida    |
+| Control negativo sin lock                         | Lee **5000** obsoletos: leer antes de bloquear reintroduce la carrera |
+| La misma carrera cinco veces                      | Siempre **2000**                                                      |
+
+> **Se comprobó que muerde.** Sustituyendo `sec.lock_debt_scopes` por una función
+> vacía reaparece **exactamente el `−1000`** que E15-C midió sin ningún lock, en
+> tres de cinco carreras y en el escenario de la corrección. El script sale con
+> código distinto de cero.
+
+Escribe filas **confirmadas** —un bloqueo de fila solo existe entre transacciones
+distintas—, las retira al terminar y comprueba que no queda ninguna. Por eso va
+**después** de los checks: sus recuentos son absolutos.
+
+### La paridad con los vectores
+
+| Vectores         | Cobertura                                |
+| ---------------- | ---------------------------------------- |
+| `split.json`     | **22 de 22**, contra `sec.resolve_split` |
+| `scenarios.json` | **19 de 20**                             |
+
+El que falta es **`gasto-de-grupo-con-tres-monedas`**, y es una limitación real:
+exige conversión, y ADR-009 §8 deja la regla de resolución como decisión de
+producto pendiente. **No se rellena**: la sección H del check comprueba que ese
+caso se **rechaza** con `CURRENCY_CONVERSION_UNSUPPORTED · 422` en vez de
+resolverse mal, y el filtro que lo excluye mira la **forma** del vector —lleva
+moneda del pagador distinta— y no su identificador, de modo que un escenario
+nuevo con FX tampoco se colaría en silencio.
+
+**Cada escenario estrena su propio Grupo**, con sus participantes, su membresía,
+su vínculo y su periodo. Dos motivos, y el primero es un error que costó
+descubrir:
+
+- **la deuda de un ámbito es acumulada y no se filtra por fecha.** Los saldos sí
+  se aíslan por fecha efectiva, que es lo que hacía 7a; la deuda no. Compartir
+  Grupo mezclaba escenarios y una validación de sobrepago dejaba de probar nada;
+- **el mismo nombre significa cosas distintas según el escenario**: la «M» de 4.4
+  tiene Modo Personal y la de 4.7 no. El vector lo dice en su propia forma —lleva
+  `payerScope` o no lo lleva— y de ahí sale si el participante se vincula.
+
+Por la misma razón, **cada sección del check tiene su propio Grupo**.
+
+### La corrección cross-author, por fin ejercitada
+
+7a la dejó explícitamente sin probar: sus cuatro clases se anclan a un Modo
+Personal cuyo dueño es el actor, así que la capacidad de ADR-013 §10 —medida en
+E20— no tenía ruta. Con `record_group_expense` sí la tiene, y la sección E la
+comprueba entera: **C corrige la operación que creó A**, sin ser el pagador; la
+operación sigue atribuida a A y la V2 queda atribuida a C; `supersedes_version_id`
+apunta **exactamente** a la vigente anterior, que es el invariante que ADR-011 §11
+reserva a la frontera y que sale de haber leído la fila **bloqueada**.
+
+### Lo que el check tuvo que sembrar como `postgres`
+
+`core.participant`, `core.membership`, `core.participant_user_link` y
+`core.participant_period` **no tienen ruta de escritura en 3.C**, ni la ganan
+aquí: el provisioning está fuera de alcance y la prueba de autorización del claim
+es F10. El check las siembra como `postgres`, que es exactamente lo que hará el
+provisioning cuando exista, y la sección A comprueba que **el writer sigue con
+solo `SELECT`** sobre las cuatro.
+
+> **Consecuencia práctica que conviene no olvidar:** hoy ninguna de las tres
+> clases de 7b es alcanzable de extremo a extremo por un cliente real, porque no
+> hay forma de crear un Grupo ni sus participantes. Eso no es un defecto de 7b: es
+> el alcance de 3.C.
+
+### Privilegios: dos vuelven, uno no
+
+`INSERT` sobre `core.split` y `core.split_participant` **vuelven**, porque
+`record_group_expense` los ejerce. `core.frozen_conversion` **no vuelve**:
+ninguna función escribe una conversión mientras el FX cross-currency siga sin
+regla de resolución. Se añade `SELECT` sobre `core.current_effect`, que es la
+única vía por la que el writer deriva deuda.
+
+### Cinco aserciones anteriores que hubo que actualizar
+
+No es deriva: es que 7b existe. Se actualizan **con su motivo escrito**, nunca
+relajándolas a «al menos», porque lo que esos tests protegen es que cada
+privilegio corresponda a una ruta concreta y que la superficie sea **enumerable**.
+
+En `authoritative-writer.sql` (7a):
+
+- `A1` pasa de «cuatro funciones `api.record_*`» a **siete**;
+- `A4` comprobaba que el writer no tuviera `INSERT` sobre las tres tablas que 7a
+  revocó. Ahora comprueba **solo `frozen_conversion`**: las otras dos tienen ruta;
+- `A7` comprobaba que el writer **no** tuviera `UPDATE` sobre `core.scope`. Ahora
+  comprueba que lo tiene **acotado a una sola columna**; su inocuidad la mide el
+  check de 7b, que es donde vive la decisión.
+
+En `split-conversion.sql` (bloque del reparto):
+
+- `A5b` pasa de «cero privilegios distintos de `SELECT`» a **exactamente dos
+  `INSERT`**, más una comprobación aparte de que `frozen_conversion` sigue sin él;
+- `F1` comprobaba que el writer **no podía** escribir el reparto. Ahora comprueba
+  las dos mitades de lo que ese grant significa: **escribe el de su propia
+  versión**, y colgar uno de la versión de otro actor lo **detiene el
+  `WITH CHECK`** de ADR-013 §10 —no el código—, que es la garantía que E16 midió.
+
+### Que el check puede fallar, comprobado
+
+Cuatro regresiones deliberadas, cada una contra la garantía que dice proteger:
+
+| Regresión                                            | Qué la detecta                                              |
+| ---------------------------------------------------- | ----------------------------------------------------------- |
+| Desempate sin prioridad al pagador                   | `B1b: el pagador se quedo con 333 y el desempate le da 334` |
+| Reparto que ignora el método declarado               | El `CHECK` de `exact_amounts` de la propia tabla            |
+| `sec.pending_debt` sin excluir la versión superseded | `E4: corregir una liquidacion a la baja fallo`              |
+| Sin la policy de `UPDATE` de `core.scope`            | `A5c`, con el motivo de E20 en el mensaje                   |
 
 ---
 

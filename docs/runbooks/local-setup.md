@@ -250,18 +250,54 @@ docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
       -X -q -v ON_ERROR_STOP=1
 ```
 
-> **El último se encadena con el prólogo de vectores.** `psql` corre dentro del
-> contenedor y no ve el checkout, así que `tests/vectors/*.json` viajan por la
-> misma entrada estándar. ADR-002 §7 exige que la implementación de PL/pgSQL
-> reproduzca esos vectores exactamente, y esa comprobación es el único detector
-> de deriva frente a `src/domain/`.
+```bash
+{ ./scripts/vectors-prelude.sh ; cat supabase/checks/authoritative-writer-debt.sql ; } \
+  | docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
+      -X -q -v ON_ERROR_STOP=1
+```
+
+> **Los dos últimos se encadenan con el prólogo de vectores.** `psql` corre
+> dentro del contenedor y no ve el checkout, así que `tests/vectors/*.json`
+> viajan por la misma entrada estándar. ADR-002 §7 exige que la implementación
+> de PL/pgSQL reproduzca esos vectores exactamente, y esa comprobación es el
+> único detector de deriva frente a `src/domain/`.
 
 Fallan con código distinto de cero en la primera violación, y **no dejan datos**:
 lo que insertan ocurre dentro de una transacción que termina en `ROLLBACK`. La
 configuración versionada la comprueba `npm test`, en `tests/infra/`.
 
-**CI ejecuta estos mismos siete ficheros** en el job `Migrations rebuilt from
+**CI ejecuta estos mismos ocho ficheros** en el job `Migrations rebuilt from
 zero`, sobre un stack levantado desde cero.
+
+### Concurrencia real de la deuda
+
+Hay una comprobación que **no puede ser un fichero de `supabase/checks/`**: una
+sola sesión de `psql` no tiene concurrencia, y una simulación secuencial pasaría
+también con el lock quitado. El protocolo de serialización de
+[ADR-013](../adr/ADR-013-persisted-vs-derived.md) §11 se comprueba con sesiones
+simultáneas de verdad, igual que hizo E15-C:
+
+```bash
+./scripts/writer-debt-concurrency.sh
+```
+
+> **Este sí escribe filas confirmadas**, porque un bloqueo de fila solo existe
+> entre transacciones distintas. Las retira al terminar y comprueba que no queda
+> ninguna. Ejecútalo **después** de los checks: si algo lo interrumpiera a
+> mitad, los datos que dejaría cambiarían los recuentos de los demás. Un
+> `db reset` los borra igualmente.
+
+Comprueba cuatro cosas, y todas se verificaron capaces de fallar sustituyendo
+`sec.lock_debt_scopes` por una función vacía:
+
+| Escenario                                      | Qué demuestra                                                |
+| ---------------------------------------------- | ------------------------------------------------------------ |
+| Dos liquidaciones simultáneas                  | Una aceptada, una rechazada, y **ningún sobrepago**          |
+| Dos correcciones que cruzan los mismos ámbitos | El orden ascendente por identificador **evita el deadlock**  |
+| Corrección que reduce la deuda vs. liquidación | La liquidación **espera** y valida contra la deuda corregida |
+| La misma carrera cinco veces                   | El resultado contable es **determinista**                    |
+
+Con el lock desactivado reaparece exactamente el `−1000` que E15-C midió.
 
 > ### `auth.uid()` no depende de GoTrue
 >
