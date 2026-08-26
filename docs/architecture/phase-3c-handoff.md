@@ -1782,6 +1782,37 @@ En `split-conversion.sql` (bloque del reparto):
   versión**, y colgar uno de la versión de otro actor lo **detiene el
   `WITH CHECK`** de ADR-013 §10 —no el código—, que es la garantía que E16 midió.
 
+### Un fallo silencioso de CI que apareció al enchufar el check
+
+Al añadir el paso de 7b se revisó el de 7a en los logs reales, y **no estaba
+comprobando nada**:
+
+```
+./scripts/vectors-prelude.sh: Permission denied
+```
+
+`scripts/vectors-prelude.sh` estaba versionado con modo `644`. El paso seguía
+dando **verde**, y la cadena de causas es la que conviene recordar: el shell por
+defecto de GitHub Actions es `bash -e`, así que el fallo del prólogo mata el
+grupo `{ … }` **entero**, el `cat` nunca llega a ejecutarse, `psql` lee EOF y
+**sale con 0** habiendo comprobado cero. El estado de una tubería es el de su
+**último** comando, no el del primero.
+
+Dos correcciones, y hacen falta las dos:
+
+- **el bit de ejecución**, en `vectors-prelude.sh` y en el script de
+  concurrencia;
+- **`shell: bash` en los dos pasos**, que es lo que añade `-o pipefail`. Sin él,
+  cualquier fallo futuro del prólogo volvería a ser invisible.
+
+Comprobado en ambos sentidos: con el prólogo roto a propósito, el paso pasa de
+salir `0` a salir `127`.
+
+> **Es una trampa general de este repositorio, no un detalle de CI.** Un check
+> que no se ejecuta y un check que pasa son indistinguibles desde el resumen del
+> job. Cuando un paso encadena varios comandos, el verde solo significa algo si
+> la tubería propaga el fallo.
+
 ### Que el check puede fallar, comprobado
 
 Cuatro regresiones deliberadas, cada una contra la garantía que dice proteger:
@@ -1867,6 +1898,11 @@ Cosas que ya costaron una corrección.
   con el puntero de vigencia exige hacerlo **dentro de una transacción**.
 - **Ceder la propiedad de un objeto exige ser miembro del rol destino**, y
   `postgres` **no es superusuario** en este stack. E16 y E17 lo midieron.
+- **Un paso de CI en verde no significa que se ejecutara.** `vectors-prelude.sh`
+  estuvo versionado con modo `644` y el paso del writer daba verde sin comprobar
+  nada: con `bash -e`, el fallo del prólogo mata el grupo, `psql` lee EOF y sale
+  con `0`, y **el estado de una tubería es el de su último comando**. La
+  corrección es el bit de ejecución **más** `shell: bash`, que añade `pipefail`.
 - **Vitest no comprueba tipos.** El typecheck de `tests/` es una invocación
   aparte de `tsc`; `npm run typecheck` ejecuta las dos.
 - **La suite debe poder fallar.** El procedimiento de regresión deliberada está
