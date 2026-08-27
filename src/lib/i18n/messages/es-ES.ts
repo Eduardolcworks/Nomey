@@ -56,6 +56,16 @@ export const esES = {
 
   'dev.states': 'Estados comunes',
   'dev.statesHint': 'Solo en desarrollo. Sirve para comprobarlos en el dispositivo.',
+  'dev.sessionProbe': 'Sonda de sesión',
+
+  'probe.hint': 'Comprueba en el dispositivo lo que Vitest no puede comprobar.',
+  'probe.secureStore': 'SecureStore disponible',
+  'probe.largeValue': 'Valor grande, ida y vuelta',
+  'probe.cleared': 'Borrado completo',
+  'probe.client': 'Cliente Supabase creado',
+  'probe.session': 'Sin sesión, responde vacío',
+  'probe.run': 'Ejecutar',
+  'probe.rerun': 'Repetir',
 
   'foundation.caption': 'Base visual',
   'foundation.palette': 'Paleta',

@@ -51,6 +51,12 @@ export default function ProfileScreen() {
                 router.push('/states');
               }}
             />
+            <Row
+              label={t('dev.sessionProbe')}
+              onPress={() => {
+                router.push('/session-probe');
+              }}
+            />
           </View>
           <ThemedText variant="caption" themeColor="textTertiary">
             {t('dev.statesHint')}
