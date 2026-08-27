@@ -9,10 +9,16 @@ import { Spacing } from '@/ui/theme';
 /**
  * A pushed screen with a title, a back control and whatever the caller shows.
  *
- * Shared by the surfaces that exist to prove the hierarchy navigates rather
- * than to do anything: notifications and profile. Keeping them identical is
- * the point - it makes it obvious on a device that they are the same kind of
- * place, one level down from a root destination.
+ * Shared by every surface one level down from a root destination. Keeping
+ * them identical is the point: it makes it obvious on a device that they are
+ * the same kind of place.
+ *
+ * **The name is now older than the fact.** It was written when notifications
+ * and profile existed only to prove the hierarchy navigated; since F5.D,
+ * Perfil and Cuenta do real work on it. Renaming it would touch every
+ * consumer for no behavioural gain, so the name stays and this note carries
+ * the correction - what it provides is pushed-screen chrome, not a
+ * placeholder.
  *
  * It lives in the shell feature and not in `ui/` because it reads the
  * catalogue, and `ui/` may not import `lib/`.

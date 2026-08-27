@@ -8,8 +8,9 @@
 
 ## 1 · Dónde está la fase
 
-**La Fase 5 está EN CURSO.** F5.A, F5.B y F5.C1 están cerrados y validados en
-iPhone físico. **Ya se puede entrar en Nomey**, pero la fase no cierra.
+**La Fase 5 está EN CURSO.** F5.A, F5.B, F5.C1 y F5.D están cerrados y validados
+en iPhone físico. **Ya se puede entrar en Nomey y salir**, pero la fase no
+cierra.
 
 | Bloque    | Qué es                           | Estado                            |
 | --------- | -------------------------------- | --------------------------------- |
@@ -17,9 +18,9 @@ iPhone físico. **Ya se puede entrar en Nomey**, pero la fase no cierra.
 | **F5.B**  | Estado de sesión y guardas       | **Cerrado**, en iPhone            |
 | **F5.C1** | Email y contraseña               | **Cerrado**, de extremo a extremo |
 | **F5.C2** | Google y Apple                   | **Pendiente** · bloqueo externo   |
-| **F5.D**  | Cierre de sesión y Perfil        | Sin empezar                       |
-| **F5.E**  | Recuperación de acceso           | Sin empezar                       |
-| **F5.F**  | Cierre de fase                   | Sin empezar                       |
+| **F5.D**  | Cierre de sesión y Perfil        | **Cerrado**, validado en iPhone   |
+| **F5.E**  | Recuperación de acceso           | **Siguiente bloque**, sin empezar |
+| **F5.F**  | Cierre de fase                   | El último                         |
 
 **Por qué C está partido en dos.** El requisito de producto creció a mitad del
 bloque: Nomey debe permitir entrar con **email y contraseña, Google y Apple**.
@@ -32,13 +33,15 @@ peor que no tenerla.
 
 - **F5.C2 está parcialmente bloqueado por capacidad externa.** Se desbloquea con
   el Apple Developer Program; el resto está resuelto sobre el papel.
-- **F5.D y F5.E se pueden evaluar de forma independiente**, porque consumen la
-  **misma sesión de Supabase que ya está construida** y no dependen de qué
-  proveedor la haya creado. Cerrar sesión es cerrar sesión venga de donde venga.
-- **La Fase 5 NO puede cerrarse mientras C2 siga pendiente.** F5.F es lo último.
+- **F5.E es el siguiente bloque implementable, y NO depende de C2.** Opera sobre
+  la **misma sesión de Supabase que ya está construida** y no le importa qué
+  proveedor la creó — igual que le dio igual a F5.D, que ya está cerrado.
+- **La Fase 5 NO puede cerrarse mientras C2 siga pendiente.** Que F5.E se pueda
+  hacer antes no adelanta el cierre: sin Google y Apple el acceso está
+  incompleto, y F5.F es lo último de todo.
 
-Qué se hace a continuación es una decisión de producto, y este documento no la
-toma.
+El orden en el que se atacan C2 y E es una decisión de producto, y este
+documento no la toma. Lo que sí fija es que **E no está bloqueado** y **C2 sí**.
 
 Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 [`PROJECT_STATE.md`](../PROJECT_STATE.md) · este documento.
@@ -58,9 +61,9 @@ import { useSession } from '@/features/session'; // restoring | signed-out | sig
 
 **Ningún bloque siguiente tiene que tocar ninguna de las dos.** Está medido en
 dispositivo: `signInWithPassword` provoca el evento y la app cambia de rama sola,
-sin `router.replace` en ningún sitio. Lo mismo al revés cuando F5.D añada el
-cierre de sesión, y lo mismo para Google y Apple, que también acaban en una
-sesión de Supabase.
+sin `router.replace` en ningún sitio. **F5.D lo confirmó al revés** —`signOut`
+emite el evento y el árbol vuelve a la rama pública igual de solo—, y lo mismo
+valdrá para Google y Apple, que también acaban en una sesión de Supabase.
 
 Tres reglas que **no se deben deshacer** al construir encima:
 
@@ -109,13 +112,17 @@ global:    +  flotante y contextual, fuera de la barra
 | `app/(tabs)/groups.tsx`  | Grupos                                                 |
 | `app/add.tsx`            | La superficie del `+`, en modal                        |
 | `app/notifications.tsx`  | Placeholder                                            |
-| `app/profile.tsx`        | Cuenta, idioma y apariencia, aún inertes               |
+| `app/profile.tsx`        | **F5.D.** Identidad, General, Planes y la fila Cuenta  |
+| `app/account.tsx`        | **F5.D.** Nombre, email y cerrar sesión                |
 | `app/diagnostics.tsx`    | `Intl` en el dispositivo. **Solo `__DEV__`**           |
 | `app/states.tsx`         | Los tres estados comunes. **Solo `__DEV__`**           |
 | `app/session-probe.tsx`  | La sonda de F5.A. **Solo `__DEV__`**                   |
 
-**Perfil es donde aterrizará la cuenta.** Sus filas ya existen y no hacen nada,
-que es exactamente el hueco que la Fase 5 viene a llenar.
+**Perfil ya es la cuenta.** F5.D lo llenó: cabecera de identidad con el hueco de
+la foto y el nombre editable, **General con sus tres opciones a la vista** —
+idioma y divisa, apariencia, atajos, las tres inertes—, Planes y suscripciones, y
+la fila Cuenta, que es la que lleva al cierre de sesión. Lo que sigue inerte lo
+está por decisión ajena a este bloque, no por olvido.
 
 ---
 
@@ -130,6 +137,7 @@ que es exactamente el hueco que la Fase 5 viene a llenar.
 | `lib/i18n/`, `lib/format/`  | Catálogos, `t()`, y formateo exacto y localizado                           |
 | `lib/supabase/`, `lib/env/` | **F5.A**: cliente sobre `api`, entorno validado, sesión en el llavero      |
 | `features/session/`         | **F5.B**: `useSession()`, los cuatro estados, y las guardas ya puestas     |
+| `features/auth/`            | **F5.C1 y F5.D**: entrar, salir y editar el nombre. Ver abajo              |
 
 ```ts
 const { t } = useTranslation();   // texto  -> catálogo activo
@@ -141,6 +149,15 @@ const theme = useTheme();         // color  -> token, nunca un hex
 
 **Una sesión que carga y un login que falla ya tienen componente.** No hace
 falta inventar la forma de esos dos momentos.
+
+```ts
+import { signIn, signOut, updateDisplayName } from '@/features/auth';
+import { useAuthSubmit } from '@/features/auth'; // un envío a la vez, y su error
+```
+
+**Todo lo que habla con `supabase.auth` vive en `features/auth/auth-service.ts`,
+y sólo ahí.** F5.E añadirá sus llamadas a ese mismo módulo; una segunda puerta
+al cliente de auth es cómo se pierde la cuenta de quién escribe qué.
 
 ---
 
@@ -165,6 +182,21 @@ Aprobado en iPhone físico y fuera de discusión salvo defecto material:
   almacenamiento troceado con su manifiesto, la configuración del cliente y el
   polyfill de `URL` en un único punto de arranque —
   [ADR-017](../adr/ADR-017-secure-session-storage.md).
+- **Lo cerrado en F5.D**, validado en iPhone. La arquitectura del cierre de
+  sesión **no se reabre**:
+  - `signOut({ scope: 'local' })`, explícito. El defecto de la librería es
+    `'global'` y cerraría la sesión en **todos** los dispositivos de la persona.
+  - **El logout normal cierra la sesión de este dispositivo**, y la revoca en el
+    servidor.
+  - **La purga normal del almacenamiento es de `auth-js`**, a través del
+    adaptador troceado. Nomey **no** escribe una segunda purga.
+  - **Sin navegación imperativa.** Ni al entrar ni al salir.
+  - **`SessionProvider` mueve el árbol**, como único suscriptor.
+  - **`ScopeProvider` se resetea por cambio de identidad**, en render, con la
+    identidad pasada desde `app/_layout.tsx`.
+  - **El fallback local explícito** —«Cerrar sesión solo en este dispositivo»—
+    existe **sólo** para el caso en que no se pudo confirmar la revocación
+    remota, lo elige la persona, y nunca es automático.
 
 ---
 
@@ -202,14 +234,14 @@ inaccesibles sin sesión; y **ninguna credencial de backend está en el bundle**
 [ADR-017](../adr/ADR-017-secure-session-storage.md), F5.A—. Cualquier decisión
 nueva de la misma clase sigue pasando por ADR antes de escribirse.
 
-**Tres de los cuatro criterios de cierre ya están cumplidos y validados en
-dispositivo:** un usuario puede registrarse y entrar —salir y recuperar el
-acceso son F5.D y F5.E—, la sesión sobrevive al reinicio y se renueva sola, las
-rutas protegidas son inaccesibles sin sesión, y ninguna credencial de backend
-está en el bundle.
+**Del roadmap sólo queda un criterio por cumplir: recuperar el acceso, que es
+F5.E.** Registrarse, entrar y **salir** están hechos y validados en dispositivo;
+la sesión sobrevive al reinicio y se renueva sola; las rutas protegidas son
+inaccesibles sin sesión; y ninguna credencial de backend está en el bundle.
 
-Lo que impide cerrar la fase no es un criterio del roadmap, sino **el requisito
-de producto que creció**: sin Google y Apple, el acceso está incompleto.
+Pero cumplir ese último criterio **tampoco cerrará la fase**. Lo que lo impide
+no es el roadmap sino **el requisito de producto que creció**: sin Google y
+Apple, el acceso está incompleto.
 
 ---
 
@@ -276,14 +308,53 @@ ADR aceptado es inmutable.
 
 Captura de correo local: `[local_smtp]`, interfaz en el puerto **54324**.
 
-**Sigue fuera:** el cierre de sesión es **F5.D** y la recuperación de acceso es
-**F5.E**.
+**Sigue fuera:** la recuperación de acceso es **F5.E**.
+
+### Lo que F5.D cerró, y no se vuelve a abrir
+
+Cierre de sesión real con confirmación previa · la superficie de Cuenta con
+nombre, email y la acción de salir · el rediseño de Perfil —identidad arriba,
+General con sus tres opciones visibles, Planes y suscripciones, y Cuenta aparte—
+· **`display_name` editable desde Perfil**, escrito con `updateUser` en
+`user_metadata` y propagado por `USER_UPDATED` sin que nadie lo empuje, de modo
+que el saludo de Inicio se actualiza solo · **reset de `ScopeProvider` al cambiar
+la identidad**, en render y por encima del navegador.
+
+Tres cosas que conviene no volver a deducir:
+
+- **Un error de `signOut` no significa «sigues dentro».** Medido en
+  `@supabase/auth-js@2.112.4`: si falla la llamada remota, la librería borra la
+  sesión local **primero** y devuelve el error después. Y un refresh token
+  realmente rechazado ya lo purga `_callRefreshToken` antes de que `signOut` lo
+  vea.
+- **Sólo un camino deja dentro**: token de acceso caducado y refresh
+  inalcanzable. Ahí el token no fue rechazado sino no alcanzado, así que no se
+  puede demostrar que la sesión esté muerta — y por eso la salida local es una
+  elección de la persona con su coste dicho, nunca un automatismo.
+- **La escritura del nombre no es optimista.** El campo se cierra con la
+  respuesta del servidor, no antes.
+
+### La foto de perfil, deuda registrada
+
+**La affordance está terminada y aprobada en dispositivo**: hueco circular con
+iniciales —o silueta si no hay nombre—, insignia de cámara, e interacción que
+informa de que todavía no está disponible. **La subida real no existe, y es una
+función diferida, no un defecto de F5.D.**
+
+Hacerla real es un **bloque posterior con decisión propia** sobre: picker ·
+Supabase Storage · bucket y ruta · RLS del bucket · reemplazo y borrado ·
+límites y compresión. **Esa solución no está diseñada, y no se diseña aquí.**
+
+Descartado ya, para que nadie lo reproponga: **la imagen no va en
+`user_metadata`**. Viajaría dentro del JWT y de la sesión guardada —2285 B en 5
+chunks hoy— y rompería el inicio de sesión, no sólo el avatar.
 
 ### Registrada, no para resolver salvo que la fase la toque de frente
 
 | Deuda                                    | Dónde se resuelve                  |
 | ---------------------------------------- | ---------------------------------- |
 | **Provisioning del ámbito Personal**     | **Fuera de la Fase 5.** Ver abajo  |
+| **Subida real de la foto de perfil**     | Bloque posterior. Ver arriba       |
 | **Timeout de autenticación**             | Deuda abierta. Ver abajo           |
 | Persistencia de la preferencia de idioma | **Diferida**, con la UI de Ajustes |
 | UI funcional del selector de idioma      | Igual que la anterior              |
@@ -301,11 +372,13 @@ petición viva: en un registro, el usuario vería un fallo, reintentaría, y la
 primera llamada terminaría después — dos altas y una respuesta que nadie sabe
 interpretar. Sin ADR: es una deuda, no una decisión de arquitectura.
 
-**Por qué el idioma sigue diferido aunque F5.D toque Perfil:** la preferencia
-**no es un secreto**, así que meterla en SecureStore sería usar el llavero para
-lo que no es, y guardarla bien obligaría a una segunda tecnología de
-almacenamiento que la Fase 5 no necesita para nada más. Llega con Ajustes, con
-su propia decisión de almacenamiento.
+**Por qué el idioma sigue diferido aunque F5.D ya haya rehecho Perfil:** la
+preferencia **no es un secreto**, así que meterla en SecureStore sería usar el
+llavero para lo que no es, y guardarla bien obligaría a una segunda tecnología
+de almacenamiento que la Fase 5 no necesita para nada más. Llega con Ajustes,
+con su propia decisión de almacenamiento. Por eso «Idioma y divisa» está a la
+vista en Perfil **y marcada como inerte**: enseñar dónde vivirá cuesta nada,
+y hacerla funcionar a medias costaría una decisión que no toca aquí.
 
 **Provisioning, y por qué importa saberlo ahora:** la Fase 5 termina con
 cuentas que **no tienen ámbito Personal**. Sin `scope` con `owner_user_id`
