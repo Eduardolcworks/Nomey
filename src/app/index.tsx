@@ -3,26 +3,33 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { currencyDefinition, money, moneyFromMinorString } from '@/domain';
-import { intlReport, useFormat } from '@/lib/format';
-import { deviceLanguageTag, useTranslation } from '@/lib/i18n';
+import { type IntlStatus, intlReport, useFormat } from '@/lib/format';
+import { deviceLanguageTag, type MessageKey, useTranslation } from '@/lib/i18n';
 import { ThemedText, ThemedView } from '@/ui/components';
-import { Colors, Radius, Spacing, useTheme } from '@/ui/theme';
+import { Colors, Radius, Spacing, type TextColor, useTheme } from '@/ui/theme';
 
 /**
- * Holding screen.
+ * Holding screen, and the diagnostic F4.B is validated through.
  *
  * TEMPORARY, and replaced wholesale by the navigation shell in F4.C. It exists
  * so the foundation can be checked on a real device, which is the only place a
  * black is actually black, a yellow is the brand yellow, and `Intl` either has
- * the locale data or does not.
+ * a capability or does not.
  *
- * It renders no product surface and fakes no feature: the amounts below are
- * fixed samples that prove the formatter, not anybody's money. The swatch
- * labels are token identifiers rather than interface copy, which is why they
- * stay literal; every actual string comes from the catalogues.
+ * **Nothing here may take the app down.** Every formatted sample renders
+ * through `Safe`, which shows the failure instead of unmounting the tree. That
+ * is not defensive habit leaking into product code: a screen whose whole job
+ * is to report what a runtime cannot do is useless if a missing capability
+ * blanks it, which is exactly what happened the first time this ran on an
+ * iPhone.
  *
- * `Section` is local and unexported on purpose. Reusable primitives are F4.D,
- * against a real consumer.
+ * It renders no product surface and fakes no feature: the amounts are fixed
+ * samples that exercise the formatter, not anybody's money. Swatch and
+ * capability labels are identifiers rather than interface copy, which is why
+ * they stay literal; every actual string comes from the catalogues.
+ *
+ * `Section`, `Row` and `Safe` are local and unexported on purpose. Reusable
+ * primitives are F4.D, against a real consumer.
  */
 
 const EUR = currencyDefinition({ id: 'sample-eur', code: 'EUR', scale: 2 });
@@ -38,12 +45,19 @@ const PROBE: readonly (keyof typeof Colors.dark)[] = [
   'negative',
 ];
 
+const STATUS: Readonly<Record<IntlStatus, { key: MessageKey; colour: TextColor; mark: string }>> = {
+  ok: { key: 'runtime.available', colour: 'positive', mark: '✓' },
+  'optional-absent': { key: 'runtime.fallbackOk', colour: 'accent', mark: '•' },
+  failed: { key: 'runtime.missing', colour: 'negative', mark: '✕' },
+};
+
 export default function HoldingScreen() {
   const theme = useTheme();
   const { t, locale } = useTranslation();
   const format = useFormat();
 
   const checks = intlReport();
+  const exactness = checks.find((entry) => entry.id === 'exactitud > 2^53');
 
   return (
     <ThemedView style={styles.container}>
@@ -67,27 +81,27 @@ export default function HoldingScreen() {
 
           <Section title={t('foundation.formatting')} theme={theme}>
             <Row label={t('sample.income')}>
-              <ThemedText variant="amountRow" themeColor="positive">
-                {format.money(money(125050n, EUR), { sign: 'always' })}
-              </ThemedText>
+              <Safe variant="amountRow" colour="positive">
+                {() => format.money(money(125050n, EUR), { sign: 'always' })}
+              </Safe>
             </Row>
             <Row label={t('sample.expense')}>
-              <ThemedText variant="amountRow" themeColor="negative">
-                {format.money(money(-4280n, EUR), { sign: 'always' })}
-              </ThemedText>
+              <Safe variant="amountRow" colour="negative">
+                {() => format.money(money(-4280n, EUR), { sign: 'always' })}
+              </Safe>
             </Row>
             <Row label="JPY">
-              <ThemedText variant="amountRow">{format.money(money(5000n, JPY))}</ThemedText>
+              <Safe variant="amountRow">{() => format.money(money(5000n, JPY))}</Safe>
             </Row>
             <Row label={t('sample.large')}>
-              <ThemedText variant="bodySmall">
-                {format.money(moneyFromMinorString('123456789012345678901', EUR))}
-              </ThemedText>
+              <Safe variant="bodySmall">
+                {() => format.money(moneyFromMinorString('123456789012345678901', EUR))}
+              </Safe>
             </Row>
             <Row label="2026-08-27">
-              <ThemedText variant="bodySmall" themeColor="textSecondary">
-                {format.date('2026-08-27', 'long')}
-              </ThemedText>
+              <Safe variant="bodySmall" colour="textSecondary">
+                {() => format.date('2026-08-27', 'long')}
+              </Safe>
             </Row>
           </Section>
 
@@ -100,28 +114,30 @@ export default function HoldingScreen() {
           </Section>
 
           <Section title={t('foundation.typography')} theme={theme}>
-            <ThemedText variant="title">Aa</ThemedText>
             <ThemedText variant="body">Aa · body</ThemedText>
-            <ThemedText variant="amountHero" themeColor="accent">
-              {format.money(money(245830n, EUR))}
-            </ThemedText>
+            <Safe variant="amountHero" colour="accent">
+              {() => format.money(money(245830n, EUR))}
+            </Safe>
           </Section>
 
           <Section title={t('foundation.runtime')} theme={theme}>
-            {checks.map((entry) => (
-              <Row key={entry.id} label={entry.id}>
-                <ThemedText
-                  variant="caption"
-                  themeColor={entry.ok ? 'positive' : 'negative'}
-                  style={styles.checkValue}>
-                  {(entry.ok ? '✓ ' : '✕ ') + t(entry.ok ? 'runtime.available' : 'runtime.missing')}
-                </ThemedText>
-              </Row>
-            ))}
+            {checks.map((entry) => {
+              const status = STATUS[entry.status];
+              return (
+                <View key={entry.id} style={styles.check}>
+                  <Row label={entry.id}>
+                    <ThemedText variant="caption" themeColor={status.colour}>
+                      {`${status.mark} ${t(status.key)}`}
+                    </ThemedText>
+                  </Row>
+                  <ThemedText variant="caption" themeColor="textTertiary" numberOfLines={2}>
+                    {entry.detail}
+                  </ThemedText>
+                </View>
+              );
+            })}
             <ThemedText variant="caption" themeColor="textTertiary">
-              {t('runtime.exactPath', {
-                path: checks.find((entry) => entry.id === 'exact > 2^53')?.detail ?? '',
-              })}
+              {t('runtime.exactPath', { path: exactness?.detail ?? '' })}
             </ThemedText>
           </Section>
         </ScrollView>
@@ -158,6 +174,39 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** Renders a formatted value, or the reason it could not be formatted. */
+function Safe({
+  variant,
+  colour,
+  children,
+}: {
+  variant: 'amountRow' | 'amountHero' | 'bodySmall';
+  colour?: TextColor;
+  children: () => string;
+}) {
+  // Sólo el cálculo va dentro del try. Envolver el JSX no capturaría nada: un
+  // elemento es un objeto, y el render de sus hijos ocurre después, fuera de
+  // este bloque. Es lo que señala `react-hooks/error-boundaries`.
+  let text: string;
+  let failed = false;
+
+  try {
+    text = children();
+  } catch (error) {
+    text = error instanceof Error ? error.message : String(error);
+    failed = true;
+  }
+
+  return (
+    <ThemedText
+      variant={failed ? 'bodySmall' : variant}
+      themeColor={failed ? 'negative' : colour}
+      style={styles.value}>
+      {text}
+    </ThemedText>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -187,8 +236,12 @@ const styles = StyleSheet.create({
   rowLabel: {
     flexShrink: 1,
   },
-  checkValue: {
-    flexShrink: 0,
+  check: {
+    gap: Spacing.xxs,
+  },
+  value: {
+    flexShrink: 1,
+    textAlign: 'right',
   },
   swatch: {
     width: Spacing.lg,

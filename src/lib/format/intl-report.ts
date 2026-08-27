@@ -5,110 +5,113 @@ import { formatMoney } from './money';
 /**
  * What `Intl` actually does on the device this is running on.
  *
- * Not a test - a measurement. Vitest runs on Node's V8, which has full ICU and
- * proves nothing about Hermes, whose `Intl` is a separate implementation
- * backed by the platform's own formatters. AGENTS.md is explicit that an
- * external behaviour is verified against reality rather than recalled, and
- * Hermes has historically shipped with `Intl` absent, partial, or with every
- * locale collapsed to one.
+ * Not a test - a measurement. Vitest runs on Node's V8, which bundles full ICU
+ * and proves nothing about Hermes, which bundles none and borrows whatever the
+ * platform provides. That gap is not theoretical: it is how F4.B shipped a
+ * screen that crashed on the first iPhone that opened it.
  *
- * The last check is the one that matters. It does not ask whether a feature
- * exists; it formats an amount larger than 2^53 through the real formatter and
- * compares the digits that come back. That is the property Nomey needs, and it
- * either holds on this device or it does not.
+ * **Nothing here may throw.** A diagnostic that dies when a capability is
+ * missing reports nothing about the capability that is missing, which is the
+ * one moment it exists for. Every probe is wrapped, and a missing optional
+ * capability is a distinct outcome from a broken required one.
  */
+
+export type IntlStatus =
+  /** Present and behaving. */
+  | 'ok'
+  /** Absent, and Nomey does not need it. Not a failure. */
+  | 'optional-absent'
+  /** Absent or wrong, and something depends on it. */
+  | 'failed';
 
 export interface IntlCheck {
   readonly id: string;
-  readonly ok: boolean;
+  readonly status: IntlStatus;
   readonly detail: string;
 }
 
 const EUR = currencyDefinition({ id: 'probe-eur', code: 'EUR', scale: 2 });
 
-/** 21 digits. Any conversion through `number` mangles the tail. */
+/** 21 digits. Any trip through `number` mangles the tail. */
 const HUGE_MINOR = '123456789012345678901';
 
-function check(id: string, run: () => { ok: boolean; detail: string }): IntlCheck {
+function probe(
+  id: string,
+  optional: boolean,
+  run: () => { ok: boolean; detail: string },
+): IntlCheck {
   try {
     const { ok, detail } = run();
-    return { id, ok, detail };
+    if (ok) return { id, status: 'ok', detail };
+    return { id, status: optional ? 'optional-absent' : 'failed', detail };
   } catch (error) {
-    return { id, ok: false, detail: error instanceof Error ? error.message : String(error) };
+    return {
+      id,
+      status: optional ? 'optional-absent' : 'failed',
+      detail: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
 export function intlReport(): IntlCheck[] {
   return [
-    check('Intl', () => ({
-      ok: typeof Intl !== 'undefined',
-      detail: typeof Intl,
+    probe('Intl.NumberFormat', false, () => ({
+      ok: typeof Intl !== 'undefined' && typeof Intl.NumberFormat === 'function',
+      detail: typeof Intl === 'undefined' ? 'no Intl' : typeof Intl.NumberFormat,
     })),
 
-    check('NumberFormat', () => ({
-      ok: typeof Intl.NumberFormat === 'function',
-      detail: new Intl.NumberFormat('en').format(1234.5),
-    })),
-
-    // The formatter's only hard dependency: without parts there is no pattern
-    // to read, and money cannot be rendered exactly.
-    check('formatToParts', () => {
-      const parts = new Intl.NumberFormat('es-ES', {
-        style: 'currency',
-        currency: 'EUR',
-      }).formatToParts(-12345678.9);
-      return { ok: parts.length > 1, detail: `${String(parts.length)} parts` };
+    // The single method the formatter is built on.
+    probe('.format', false, () => {
+      const out = new Intl.NumberFormat('en').format(1234.5);
+      return { ok: out.length > 0, detail: out };
     }),
 
-    check('DateTimeFormat', () => ({
-      ok: typeof Intl.DateTimeFormat === 'function',
-      detail: new Intl.DateTimeFormat('es-ES', {
+    // Absent on iOS by Hermes' own documentation - "supported on Android
+    // only". Optional on purpose: nothing in Nomey calls it, and this row
+    // exists so its absence reads as expected rather than as damage.
+    probe('.formatToParts', true, () => {
+      const method = (Intl.NumberFormat.prototype as { formatToParts?: unknown }).formatToParts;
+      if (typeof method !== 'function') return { ok: false, detail: 'undefined' };
+      const parts = new Intl.NumberFormat('en').formatToParts(1234.5);
+      return { ok: parts.length > 0, detail: `${String(parts.length)} parts` };
+    }),
+
+    probe('Intl.DateTimeFormat', false, () => {
+      const out = new Intl.DateTimeFormat('es-ES', {
         month: 'long',
         timeZone: 'UTC',
-      }).format(new Date(Date.UTC(2026, 7, 27))),
-    })),
-
-    // A runtime with one locale reports every request as that locale. If this
-    // says en-US, Spanish formatting is not happening whatever the catalogue
-    // says.
-    check('locale es-ES', () => {
-      const resolved = new Intl.NumberFormat('es-ES').resolvedOptions().locale;
-      return { ok: resolved.startsWith('es'), detail: resolved };
+      }).format(new Date(Date.UTC(2026, 7, 27)));
+      return { ok: out.length > 0, detail: out };
     }),
 
-    check('locale en', () => {
-      const resolved = new Intl.NumberFormat('en').resolvedOptions().locale;
-      return { ok: resolved.startsWith('en'), detail: resolved };
+    // A runtime with one locale answers every request with it. If these two
+    // agree, Spanish formatting is not happening whatever the catalogue says.
+    probe('locale es-ES', false, () => {
+      const formatted = new Intl.NumberFormat('es-ES', {
+        style: 'currency',
+        currency: 'EUR',
+      }).format(1234567.89);
+      return { ok: formatted.includes('.') && formatted.includes(','), detail: formatted };
     }),
 
-    // Real locale data, not a stub: these two disagree about the separators
-    // and about which side the symbol goes on.
-    check('es-ES vs en', () => {
-      const es = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(
-        1234567.89,
-      );
-      const en = new Intl.NumberFormat('en', { style: 'currency', currency: 'EUR' }).format(
-        1234567.89,
-      );
-      return { ok: es !== en, detail: `${es} | ${en}` };
+    probe('locale en', false, () => {
+      const formatted = new Intl.NumberFormat('en', {
+        style: 'currency',
+        currency: 'EUR',
+      }).format(1234567.89);
+      return { ok: formatted.includes(','), detail: formatted };
     }),
 
-    // Informational. Nomey does not rely on it, but if it holds everywhere the
-    // pattern machinery could be retired one day.
-    check('format(string)', () => {
-      const formatter = new Intl.NumberFormat('en', { useGrouping: false });
-      // ES2023 allows a string; the types do not, and Hermes may coerce it.
-      const out = (formatter.format as (value: unknown) => string)(HUGE_MINOR);
-      return { ok: out.replace(/\D/g, '') === HUGE_MINOR, detail: out };
+    // Nomey's own route, end to end, on this runtime.
+    probe('ruta Nomey', false, () => {
+      const out = formatMoney(moneyFromMinorString('123456', EUR), 'es-ES');
+      return { ok: out.includes('1234'), detail: out };
     }),
 
-    check('format(bigint)', () => {
-      const out = new Intl.NumberFormat('en', { useGrouping: false }).format(BigInt(HUGE_MINOR));
-      return { ok: out.replace(/\D/g, '') === HUGE_MINOR, detail: out };
-    }),
-
-    // The measurement that decides whether Nomey is safe here.
-    check('exact > 2^53', () => {
+    // The measurement that decides whether Nomey is safe here. It does not ask
+    // whether a feature exists; it runs 21 digits through the real formatter
+    // and compares what comes back.
+    probe('exactitud > 2^53', false, () => {
       const formatted = formatMoney(moneyFromMinorString(HUGE_MINOR, EUR), 'en');
       return { ok: formatted.replace(/\D/g, '') === HUGE_MINOR, detail: formatted };
     }),

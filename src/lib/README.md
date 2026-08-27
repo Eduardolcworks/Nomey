@@ -38,8 +38,19 @@ selector de idioma de Ajustes: **no hay UI todavía, y ese es el punto**.
 
 - **Ningún importe se convierte a `number`.** `Intl.NumberFormat.format` recibe
   un `number` y por encima de 2^53 pierde dígitos en silencio. Por eso se le
-  pregunta a `Intl` por la **forma** del locale con `formatToParts` sobre una
-  sonda segura, y los dígitos se ponen desde el `bigint` exacto.
+  pregunta a `Intl` por la **forma** del locale —separadores, agrupación,
+  símbolo, signo— con sondas de magnitud fija, y los dígitos se ponen desde el
+  `bigint` exacto.
+- **Solo se usa `format()`, nunca `formatToParts`.** Hermes no empaqueta ICU:
+  toma el formateador de cada plataforma, y su documentación dice que
+  `formatToParts` está «supported on Android only». En iOS no existe, y la
+  primera versión de esta capa reventó en un iPhone por depender de él. Tampoco
+  se usa `signDisplay`, que en iOS **se ignora en vez de fallar** —peor que un
+  crash, porque el `+` desaparece en silencio—.
+- **Una sola vía en todos los runtimes.** No hay rama para el dispositivo que sí
+  tiene `formatToParts`: dos vías significan que los tests ejercitan una
+  implementación y el teléfono ejecuta otra, que es justo como llegó ese fallo a
+  producción.
 - **La escala sale de la definición monetaria.** EUR 2, JPY 0, BHD 3. Nunca un 2
   fijo.
 - **Aquí no se hace aritmética.** `domain` calcula, `lib/format` presenta.

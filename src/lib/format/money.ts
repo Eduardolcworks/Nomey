@@ -1,6 +1,6 @@
 import type { Money } from '@/domain';
 
-import { applyPattern, groupDigits, numberPattern } from './pattern';
+import { groupDigits, numberPattern, renderPattern } from './pattern';
 
 export interface MoneyFormatOptions {
   /**
@@ -51,8 +51,9 @@ export function formatMoney(
   const integerDigits = padded.slice(0, padded.length - scale);
   const fractionDigits = scale === 0 ? '' : padded.slice(padded.length - scale);
 
-  return applyPattern(pattern, {
-    sign: negative ? pattern.minusSign : sign === 'always' ? pattern.plusSign : '',
+  return renderPattern(pattern, {
+    negative,
+    forceSign: sign === 'always',
     integer: groupDigits(integerDigits, pattern),
     fraction: fractionDigits,
   });

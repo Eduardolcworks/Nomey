@@ -19,6 +19,7 @@ export const en: Record<MessageKey, string> = {
 
   'runtime.available': 'Available',
   'runtime.missing': 'Unavailable',
+  'runtime.fallbackOk': 'Absent · fallback OK',
   'runtime.exactPath': 'Exact path: {path}',
 
   'sample.income': 'Income',

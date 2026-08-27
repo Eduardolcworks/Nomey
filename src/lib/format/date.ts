@@ -40,7 +40,14 @@ export function formatDate(date: string, locale: string, style: DateStyle = 'med
   const utc = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
   if (Number.isNaN(utc.getTime())) return date;
 
-  return new Intl.DateTimeFormat(locale, { ...STYLES[style], timeZone: 'UTC' }).format(utc);
+  try {
+    return new Intl.DateTimeFormat(locale, { ...STYLES[style], timeZone: 'UTC' }).format(utc);
+  } catch {
+    // Hermes borrows each platform's date formatter rather than bundling ICU,
+    // so an option combination can be rejected on a device and nowhere else.
+    // The ISO date is still readable; a screen that will not render is not.
+    return date;
+  }
 }
 
 /** The locale's own month names, for a picker or a chart axis. */

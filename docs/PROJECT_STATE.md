@@ -123,6 +123,18 @@ dominio de `src/domain/errors.ts`, también 422.
 
 ---
 
+## Limitaciones técnicas vigentes
+
+**El `Intl` de Hermes no es el de Node.** Hermes no empaqueta ICU: toma el
+formateador de cada plataforma, así que **iOS no tiene
+`Intl.NumberFormat.prototype.formatToParts` y descarta `signDisplay`**. Lo
+primero revienta; lo segundo se ignora en silencio, que es peor. `src/lib/format`
+solo usa `format()` y deriva la forma del locale con sondas, en una única vía
+para todos los runtimes. **Nada que se ejecute en el dispositivo se da por
+verificado porque pase en Vitest**, que corre sobre V8.
+
+---
+
 ## Decisiones aplazadas relevantes
 
 Ninguna bloquea la Fase 4. El detalle completo, con motivo y destino de cada una,

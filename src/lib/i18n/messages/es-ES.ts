@@ -22,6 +22,7 @@ export const esES = {
 
   'runtime.available': 'Disponible',
   'runtime.missing': 'No disponible',
+  'runtime.fallbackOk': 'Ausente · fallback OK',
   'runtime.exactPath': 'Ruta exacta: {path}',
 
   'sample.income': 'Ingreso',
