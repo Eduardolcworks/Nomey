@@ -7,8 +7,8 @@
 > [`design-direction.md`](../product/design-direction.md), que **este documento
 > no redefine**.
 >
-> Aprobado el 2026-08-27, al abrir la fase. **F4.A y F4.B están cerradas y
-> mergeadas; el bloque siguiente es F4.C.** El estado vivo lo lleva
+> Aprobado el 2026-08-27, al abrir la fase. **F4.A, F4.B y F4.C están cerradas;
+> el bloque siguiente es F4.D.** El estado vivo lo lleva
 > [`PROJECT_STATE.md`](../PROJECT_STATE.md); esto es el plan, no un registro de
 > avance.
 
@@ -22,8 +22,8 @@ Cuatro, con fronteras claras. **No se subdivide más salvo necesidad material.**
 | -------- | ------------------------------------------------------------------------ | ------------- |
 | **F4.A** | Fundación visual y marca: tokens, tipografía, profundidad, icono, splash | **Cerrado**   |
 | **F4.B** | i18n (`es-ES`, `en`) y fundación de formateo localizado                  | **Cerrado**   |
-| **F4.C** | App shell y navegación                                                   | **Siguiente** |
-| **F4.D** | Primitives mínimos, estados de carga/vacío/error y wireframes            | Pendiente     |
+| **F4.C** | App shell y navegación                                                   | **Cerrado**   |
+| **F4.D** | Primitives mínimos, estados de carga/vacío/error y wireframes            | **Siguiente** |
 
 **Dependencias.** F4.A y F4.B pueden solaparse. F4.C exige ambos —y ya los
 tiene—. F4.D exige F4.C. **Orden: A → B → C → D**, una rama por bloque.
@@ -114,31 +114,30 @@ valores exactos que fijó la Fase 3 son intocables.
 
 ---
 
-## 3 · Navegación — dirección provisional, no decisión congelada
+## 3 · Navegación — cerrada y validada en dispositivo
 
-**Cerrado conceptualmente:** `Grupos` es sección propia · `Ajustes` es sección
-propia · Personal y Pareja son **dos contextos distintos** · el Modo Pareja **no
-se implementa** en F4 y la arquitectura debe admitirlo después **sin rehacer la
-navegación raíz** · la acción `+` es una acción destacada, **no una pestaña** ·
-no se finge ninguna funcionalidad futura.
-
-**Candidata a probar en F4.C**, sin acoplarse a ella:
+La hipótesis de cuatro elementos —`Inicio | Grupos | + | Ajustes`— **queda
+descartada**. Se probó en iPhone y la estructura vigente es:
 
 ```
-barra inferior:  Inicio | Grupos | + | Ajustes
-dentro de Inicio: selector  Personal | Pareja
+raíz:      Inicio | Grupos          y nada más
+Inicio:    Personal | Pareja        como contexto, no como destino
+global:    +  flotante y contextual, fuera de la barra
+           campana y perfil, en la cabecera de ambos destinos
 ```
 
-> **La navegación se cierra viéndola en un iPhone real, no razonándola antes.**
-> F4.C debe permitir cambiar etiquetas, la posición del selector, el número y la
-> disposición de destinos y la barra inferior **sin rehacer el router**. Eso no
-> autoriza varias implementaciones simultáneas ni una abstracción capaz de
-> soportar cualquier navegación imaginable: solo que la primera implementación
-> sea razonablemente reversible.
+**El `+` no pertenece a las tabs**: no es un `TabTrigger`, no tiene ruta en el
+grupo de tabs y no tiene estado seleccionado. Añade al sitio donde estás, y
+desde Grupos no preselecciona ningún grupo. **Crear un grupo es otra acción**, y
+vive en el contenido de Grupos.
 
-Si mostrar `Pareja` activa induce a creer que existe funcionalmente, puede
-quedar **preparado y deshabilitado** hasta su fase. Los wireframes de F4.D sí
-contemplan cómo convive ese cambio de contexto con la navegación principal.
+**Ajustes no es un destino raíz.** Perfil y Notificaciones cuelgan de la
+cabecera, que es idéntica en Inicio y en Grupos porque las notificaciones de una
+app de gastos compartidos nacen en Grupos.
+
+El Modo Pareja **sigue sin implementarse**, y eso no se representa degradando el
+selector: los dos ámbitos se ven iguales, y la ausencia se dice en la superficie
+que abriría el `+`.
 
 ---
 

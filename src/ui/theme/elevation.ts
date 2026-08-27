@@ -38,8 +38,6 @@ export const MinGlassTintAlpha = 0.72;
 type GlassToken = {
   /** Fallback and tint colour. Opaque enough to keep text legible alone. */
   readonly tint: string;
-  /** Backdrop blur radius, for the platforms that can blur. */
-  readonly blurRadius: number;
   /** The rim. On a black ground this is most of what separates the object. */
   readonly border: string;
   /** Light along the top edge, applied as an inset by `GlassSurface`. */
@@ -56,18 +54,14 @@ type GlassToken = {
 /**
  * **The tints are lifted charcoals, not near-blacks.**
  *
- * They used to be `rgba(10, 10, 10, …)`, which over a pure black ground
- * composites to `#070707` - a measured 1.04:1 against the background. That is
- * the same colour as the background. The surfaces were not subtle, they were
- * absent, and the only thing separating a control from the void was a 10%
- * hairline. It is why the whole dock read as flat at rest while the pressed
- * state - an inner dark shadow, which needs a lighter surface to show against
- * - read fine.
+ * A near-black tint over a pure black ground composites to itself: `rgba(10,
+ * 10, 10, 0.88)` measures 1.04:1 against the background, which is to say the
+ * surface is the background and a hairline is all that separates a control
+ * from the void. Lifted, these compose to `#1a1a1c` and up - 1.2-1.3:1 - which
+ * is what makes an object look like it is in front of something.
  *
- * Lifted, they compose to `#1a1a1c` and up: 1.2-1.3:1 against the ground,
- * which is what makes an object look like it is in front of something. White
- * text on them still measures 16-17:1 over black and 11.5:1 over white, so
- * nothing was traded away for it.
+ * Nothing was traded for it: white text on them still measures 16-17:1 over
+ * black and 11.5:1 over the worst backdrop tested.
  */
 export type GlassLevel = 'regular' | 'bar' | 'heavy' | 'action';
 
@@ -75,21 +69,18 @@ export const Glass: Record<GlassLevel, GlassToken> = {
   /** Cards, panels, controls at rest. */
   regular: {
     tint: 'rgba(30, 30, 32, 0.88)',
-    blurRadius: 20,
     border: 'rgba(255, 255, 255, 0.14)',
     highlight: 'rgba(255, 255, 255, 0.16)',
   },
   /** Floating elements that pass over scrolling content. */
   bar: {
     tint: 'rgba(24, 24, 27, 0.90)',
-    blurRadius: 28,
     border: 'rgba(255, 255, 255, 0.10)',
     highlight: 'rgba(255, 255, 255, 0.10)',
   },
   /** Sheets, modals, menus: they must dominate whatever they cover. */
   heavy: {
     tint: 'rgba(25, 25, 25, 0.96)',
-    blurRadius: 36,
     border: 'rgba(255, 255, 255, 0.16)',
     highlight: 'rgba(255, 255, 255, 0.18)',
   },
@@ -118,7 +109,6 @@ export const Glass: Record<GlassLevel, GlassToken> = {
    */
   action: {
     tint: 'rgba(90, 74, 32, 0.80)',
-    blurRadius: 24,
     /**
      * The lit edge. Deliberately dimmer than the glyph: a rim as bright as
      * the mark on it reads as a ring or a toggle, and an outlined circle is

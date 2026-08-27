@@ -38,7 +38,7 @@ export function NomeyTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View
-      style={[styles.dock, { paddingBottom: insets.bottom + Spacing.sm }]}
+      style={[styles.dock, { paddingBottom: insets.bottom + DOCK.edge }]}
       pointerEvents="box-none">
       <AddButton activeRoute={activeRoute} />
 

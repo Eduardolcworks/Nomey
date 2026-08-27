@@ -13,19 +13,19 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-27**, al cerrar el bloque F4.B.
+Actualizado el **2026-08-27**, al cerrar el bloque F4.C.
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                                                                        |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Fase actual**         | **Fase 4 — Arquitectura UX e internacionalización**. F4.A y F4.B cerradas y mergeadas; **el siguiente bloque es F4.C** |
-| **Última fase cerrada** | **Fase 3 — Persistencia y frontera de datos** (3.A · 3.B · 3.C)                                                        |
-| **ADR aceptados**       | ADR-001 … ADR-016                                                                                                      |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR                                                    |
-| **App visible**         | Una pantalla técnica de diagnóstico, dark, ya localizada. **Sin navegación**                                           |
+|                         |                                                                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Fase actual**         | **Fase 4 — Arquitectura UX e internacionalización**. F4.A, F4.B y F4.C cerradas; **el siguiente bloque es F4.D** |
+| **Última fase cerrada** | **Fase 3 — Persistencia y frontera de datos** (3.A · 3.B · 3.C)                                                  |
+| **ADR aceptados**       | ADR-001 … ADR-016                                                                                                |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR                                              |
+| **App visible**         | Shell navegable: Inicio y Grupos, acción `+`, cabecera y superficies estructurales                               |
 
 **F4 no toca el backend** ni depende de la Fase 3 —el roadmap lo dice
 expresamente—: navegación, wireframes, tokens de tema, estados de carga, vacío y
@@ -167,20 +167,22 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 | -------- | -------------------------------- | ---------------------- |
 | **F4.A** | Fundación visual y marca         | **Cerrado y mergeado** |
 | **F4.B** | i18n y formateo localizado       | **Cerrado y mergeado** |
-| **F4.C** | App shell y navegación           | **Siguiente**          |
-| **F4.D** | Primitives, estados y wireframes | Pendiente              |
+| **F4.C** | App shell y navegación           | **Cerrado y validado** |
+| **F4.D** | Primitives, estados y wireframes | **Siguiente**          |
 
 El plan, sus criterios de cierre y la navegación propuesta están en
 [`ux/phase-4-plan.md`](ux/phase-4-plan.md); el punto de entrada operativo del
-bloque siguiente, en [`ux/phase-4c-handoff.md`](ux/phase-4c-handoff.md).
+bloque siguiente, en [`ux/phase-4d-handoff.md`](ux/phase-4d-handoff.md).
 
 **Lo visual.** Nomey es **dark-only**: `app.config.ts` fija
 `userInterfaceStyle: 'dark'` y la paleta se resuelve en un único sitio,
 `src/ui/theme/use-theme.ts`. El amarillo de marca es `#FDC506`, acento
 minoritario. **Ningún color, rol tipográfico ni token de profundidad vive fuera
 de `src/ui/theme/`**, y el contraste de la paleta está medido y anotado allí.
-Los tokens de **glass y de profundidad táctil existen**; su primer consumo real
-es F4.C/F4.D, así que su render en dispositivo **todavía no está verificado**.
+Los tokens de **glass y de profundidad táctil tienen consumidores reales** —la
+barra, el botón de acción, el pulsador de ámbito, las cards y las sheets— y su
+render **está validado en iPhone físico**. El suelo de opacidad del glass lo
+comprueba un test.
 
 **Idioma y formato se resuelven por separado, y son tipos distintos** —
 `MessageLocale` y `FormatLocale`— para que confundirlos no compile.
@@ -200,8 +202,25 @@ es F4.C/F4.D, así que su render en dispositivo **todavía no está verificado**
 - **La exactitud se conserva.** Los dígitos salen del `bigint`; `Intl` solo
   recibe sondas de magnitud fija.
 
-**La navegación NO está cerrada.** Se decide viéndola en un iPhone real durante
-F4.C, no razonándola antes.
+**El shell vigente.** Dos destinos raíz y nada más: **Inicio** y **Grupos**.
+
+- **`+` es una acción contextual, no navegación**: flota sobre los destinos,
+  fuera de la barra, y añade al sitio donde estás — en Inicio al ámbito activo,
+  en Grupos a un grupo, sin preseleccionar ninguno.
+- **Personal y Pareja son contextos dentro de Inicio**, con un pulsador único y
+  el estado por encima de las tabs, así que sobrevive a cambiar de destino.
+  Visualmente son equivalentes; lo que falta de Pareja es funcionalidad, y se
+  dice donde faltaría.
+- **Perfil y Notificaciones cuelgan de la cabecera**, no de la barra, y ambos
+  destinos raíz comparten ese grupo de acciones.
+- **Crear un grupo no es el `+`**: vive en el contenido de Grupos.
+
+**Glass y profundidad táctil ya tienen consumidores reales** —barra, botón de
+acción, pulsador de ámbito, cards y sheets— y se validaron en iPhone físico.
+El suelo de opacidad del glass lo comprueba un test.
+
+**La pantalla de diagnóstico de F4.B ya no es el home.** Vive fuera de producto,
+en su propia ruta, alcanzable solo desde Perfil bajo `__DEV__`.
 
 **Antes de tocar UI, leer
 [`design-direction.md`](product/design-direction.md)**: es la fuente de verdad de
@@ -232,7 +251,7 @@ una feature escribible real.
 | Vocabulario                                  | [`product/glossary.md`](product/glossary.md)                                       |
 | Estética, antes de cualquier UI              | [`product/design-direction.md`](product/design-direction.md)                       |
 | Bloques y decisiones de la fase en curso     | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                         |
-| **Empezar F4.C**                             | [`ux/phase-4c-handoff.md`](ux/phase-4c-handoff.md)                                 |
+| **Empezar F4.D**                             | [`ux/phase-4d-handoff.md`](ux/phase-4d-handoff.md)                                 |
 | Cómo se usan i18n y el formateo              | [`src/lib/README.md`](../src/lib/README.md)                                        |
 | Levantar el entorno, migrar, ejecutar checks | [`runbooks/local-setup.md`](runbooks/local-setup.md)                               |
 | **Por qué** la Fase 3 quedó como quedó       | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico |
