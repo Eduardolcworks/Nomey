@@ -3,8 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { currencyDefinition, money, moneyFromMinorString } from '@/domain';
-import { intlReport } from '@/lib/format/intl-report';
-import { useFormat } from '@/lib/format';
+import { intlReport, useFormat } from '@/lib/format';
 import { deviceLanguageTag, useTranslation } from '@/lib/i18n';
 import { ThemedText, ThemedView } from '@/ui/components';
 import { Colors, Radius, Spacing, useTheme } from '@/ui/theme';
