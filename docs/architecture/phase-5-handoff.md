@@ -8,21 +8,37 @@
 
 ## 1 · Dónde está la fase
 
-**La Fase 5 está EN CURSO. F5.A y F5.B están cerrados y validados en iPhone
-físico. El siguiente bloque es F5.C.**
+**La Fase 5 está EN CURSO.** F5.A, F5.B y F5.C1 están cerrados y validados en
+iPhone físico. **Ya se puede entrar en Nomey**, pero la fase no cierra.
 
-| Bloque   | Qué es                                  | Estado                     |
-| -------- | --------------------------------------- | -------------------------- |
-| **F5.A** | Frontera con el backend y sesión segura | **Cerrado**, 5/5 en iPhone |
-| **F5.B** | Estado de sesión y guardas de ruta      | **Cerrado**, en iPhone     |
-| **F5.C** | Registro e inicio de sesión             | **Siguiente**              |
-| **F5.D** | Cierre de sesión y Perfil               | Pendiente                  |
-| **F5.E** | Recuperación de acceso                  | Pendiente                  |
-| **F5.F** | Cierre de fase                          | Pendiente                  |
+| Bloque    | Qué es                           | Estado                            |
+| --------- | -------------------------------- | --------------------------------- |
+| **F5.A**  | Frontera con el backend y sesión | **Cerrado**, 5/5 en iPhone        |
+| **F5.B**  | Estado de sesión y guardas       | **Cerrado**, en iPhone            |
+| **F5.C1** | Email y contraseña               | **Cerrado**, de extremo a extremo |
+| **F5.C2** | Google y Apple                   | **Pendiente** · bloqueo externo   |
+| **F5.D**  | Cierre de sesión y Perfil        | Sin empezar                       |
+| **F5.E**  | Recuperación de acceso           | Sin empezar                       |
+| **F5.F**  | Cierre de fase                   | Sin empezar                       |
 
-**Nadie puede entrar todavía.** La app ya sabe si hay sesión y protege el árbol
-en consecuencia, pero **no hay registro ni login**: el arranque termina en la
-rama pública, que es una superficie provisional a la espera de F5.C.
+**Por qué C está partido en dos.** El requisito de producto creció a mitad del
+bloque: Nomey debe permitir entrar con **email y contraseña, Google y Apple**.
+Lo primero está hecho y validado; lo segundo no, y no por falta de diseño —
+está investigado y decidido en §7— sino porque **no hay Apple Developer Program
+disponible**, y una implementación provisional que luego haya que sustituir es
+peor que no tenerla.
+
+### Qué puede continuar, y qué no
+
+- **F5.C2 está parcialmente bloqueado por capacidad externa.** Se desbloquea con
+  el Apple Developer Program; el resto está resuelto sobre el papel.
+- **F5.D y F5.E se pueden evaluar de forma independiente**, porque consumen la
+  **misma sesión de Supabase que ya está construida** y no dependen de qué
+  proveedor la haya creado. Cerrar sesión es cerrar sesión venga de donde venga.
+- **La Fase 5 NO puede cerrarse mientras C2 siga pendiente.** F5.F es lo último.
+
+Qué se hace a continuación es una decisión de producto, y este documento no la
+toma.
 
 Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 [`PROJECT_STATE.md`](../PROJECT_STATE.md) · este documento.
@@ -40,10 +56,11 @@ import { supabase } from '@/lib/supabase'; // cliente sobre el schema `api`
 import { useSession } from '@/features/session'; // restoring | signed-out | signed-in | unavailable
 ```
 
-**F5.C no tiene que tocar ninguna de las dos.** Un login que llame a
-`signInWithPassword` ya provoca el evento que mueve la app a la rama protegida:
-el provider está suscrito, y ni el estado ni el enrutado necesitan un empujón
-manual. Lo mismo al revés cuando F5.D añada el cierre de sesión.
+**Ningún bloque siguiente tiene que tocar ninguna de las dos.** Está medido en
+dispositivo: `signInWithPassword` provoca el evento y la app cambia de rama sola,
+sin `router.replace` en ningún sitio. Lo mismo al revés cuando F5.D añada el
+cierre de sesión, y lo mismo para Google y Apple, que también acaban en una
+sesión de Supabase.
 
 Tres reglas que **no se deben deshacer** al construir encima:
 
@@ -52,8 +69,10 @@ Tres reglas que **no se deben deshacer** al construir encima:
   carrera «restauración lenta pisa un evento nuevo», que hoy no puede ocurrir.
 - **No suscribirse otra vez a `onAuthStateChange`.** Hay un único suscriptor, y
   dos son dos respuestas a «quién ha entrado» que pueden discrepar.
-- **No copiar el token.** El provider expone `userId` y `email`; quien llame a la
-  API usa `supabase`, que lo adjunta y lo refresca él.
+- **No copiar el token.** El provider expone `userId`, `email` y `displayName`;
+  quien llame a la API usa `supabase`, que lo adjunta y lo refresca él.
+- **No tratar `displayName` como identidad.** Es `user_metadata`, editable por el
+  propio titular: sirve para saludar y para nada más.
 
 El detalle está en [`PROJECT_STATE.md`](../PROJECT_STATE.md) §«Frontera de sesión
 en el cliente» y en [ADR-017](../adr/ADR-017-secure-session-storage.md).
@@ -169,7 +188,8 @@ Aprobado en iPhone físico y fuera de discusión salvo defecto material:
 ## 6 · Alcance de la Fase 5
 
 Del roadmap: **registro, inicio de sesión, recuperación, perfil, ciclo de vida
-de la sesión sobre almacenamiento seguro y rutas protegidas.**
+de la sesión sobre almacenamiento seguro y rutas protegidas** — y, añadido
+durante la fase como requisito de producto, **entrar con Google y con Apple**.
 
 Cierra cuando un usuario puede registrarse, entrar, salir y recuperar el acceso;
 la sesión sobrevive al reinicio y se renueva sola; las rutas protegidas son
@@ -182,76 +202,89 @@ inaccesibles sin sesión; y **ninguna credencial de backend está en el bundle**
 [ADR-017](../adr/ADR-017-secure-session-storage.md), F5.A—. Cualquier decisión
 nueva de la misma clase sigue pasando por ADR antes de escribirse.
 
-**De los cuatro criterios de cierre, F5.A cumple entero el cuarto** —ninguna
-credencial de backend en el bundle, con un test que lo comprueba sobre el
-fuente y una validación en tiempo de arranque— y **deja preparado el segundo**:
-la sesión se persiste, pero que sobreviva a un reinicio no se puede comprobar
-hasta que exista una sesión real, en F5.C.
+**Tres de los cuatro criterios de cierre ya están cumplidos y validados en
+dispositivo:** un usuario puede registrarse y entrar —salir y recuperar el
+acceso son F5.D y F5.E—, la sesión sobrevive al reinicio y se renueva sola, las
+rutas protegidas son inaccesibles sin sesión, y ninguna credencial de backend
+está en el bundle.
+
+Lo que impide cerrar la fase no es un criterio del roadmap, sino **el requisito
+de producto que creció**: sin Google y Apple, el acceso está incompleto.
 
 ---
 
 ## 7 · Deuda abierta
 
-### Lo que F5.C tiene que construir
+### F5.C2 — Google y Apple, lo único que falta del acceso
 
-**El acceso en sí**, que es lo único que falta para que alguien pueda usar la
-app: registro y login con **email y contraseña** —sin magic link, sin social,
-sin anónimo—, con el **nombre** guardado como `display_name` en la metadata de
-presentación de Auth, y **nada de tabla de usuario ni de perfil**.
+**Está investigado y decidido; lo que falta es una capacidad externa.** No hay
+Apple Developer Program disponible, y una implementación provisional que luego
+haya que sustituir es peor que no tenerla. Nada de esto está instalado ni
+configurado.
 
-Sustituye el cuerpo de `app/(auth)/sign-in.tsx`, que existe justo para eso. No
-hace falta mover el estado ni el enrutado: un `signInWithPassword` correcto ya
-dispara el evento que cambia de rama.
+**La dirección, ya elegida:**
 
-### Y lo que F5.C tiene que cerrar, sin excepción
+- **Apple: autenticación nativa.** `expo-apple-authentication` →
+  `identityToken` → `supabase.auth.signInWithIdToken({ provider: 'apple' })`.
+  Funciona en Expo Go añadiendo `host.exp.Exponent` a los Client IDs de
+  Supabase. Para nativo **no** hacen falta Services ID, signing key ni Team ID.
+- **Google: preferencia por autenticación nativa**, que es lo que Supabase
+  recomienda hoy para React Native — `@react-native-google-signin/google-signin`
+  → `signInWithIdToken`. **No funciona en Expo Go**: exige development build.
+- **Los dos acaban en una sesión de Supabase**, así que el cambio de rama lo
+  sigue haciendo el provider de F5.B. Sin `router.replace`.
+- **Nada de OAuth provisional por navegador.** Obligaría a fijar `flowType:
+'pkce'`, y eso cambia también los enlaces de correo de confirmación y
+  recuperación — es decir, tocaría F5.C1 ya cerrado y condicionaría F5.E.
+- **`flowType` y `detectSessionInUrl` se quedan como están.**
+  `signInWithIdToken` no usa ninguno de los dos.
 
-**Cuatro cosas, y ninguna es opcional.**
+**Nonce de Apple.** Dirección pendiente: **Apple deberá usar nonce si la
+implementación final y las APIs reales permiten hacerlo correctamente** — el
+crudo a Supabase y su SHA-256 a Apple, lo que añadiría `expo-crypto`. El detalle
+técnico no se cierra aquí.
 
-**1 · Confirmación de email obligatoria, y el check HTTP que rompe al activarla.**
-Hoy `supabase/config.toml` tiene `enable_confirmations = false`. Ponerlo en
-`true` **rompe CI**, y conviene saber exactamente por qué antes de tocarlo:
-`scripts/http-boundary-check.sh` da de alta usuarios con `POST /auth/v1/signup`
-y **exige que la respuesta traiga `access_token`** (línea 197); con confirmación
-activa GoTrue no devuelve sesión, y el check falla con «GoTrue no emitió
-sesión». Lo ejecuta `.github/workflows/ci.yml`. **El flag y la adaptación del
-check van en el mismo PR**: confirmar el usuario por SQL tras el alta —el script
-ya tiene acceso a la base como `postgres`— y pedir el JWT con
-`grant_type=password`. No se adelantó a F5.A porque sin registro no hay forma
-de ejercitar la confirmación, y romper una verificación de la Fase 3 sin
-obtener nada a cambio no es un intercambio.
+**Identidad, sin cambios.** El proveedor produce un usuario de Supabase y la
+identidad interna sigue siendo `auth.users.id` / el `sub` del JWT. **Sin manual
+identity linking** — `enable_manual_linking` sigue en `false`. El enlace
+automático por email verificado sí opera, así que email/contraseña y Google con
+el mismo correo confirmado acaban en la misma cuenta.
 
-Hay captura de correo local: `[local_smtp]`, interfaz en el puerto **54324**.
-No hace falta SMTP externo. Ojo con `[auth.rate_limit] email_sent = 2` por
-hora, cuyo comentario dice que requiere `auth.email.smtp` — habrá que
-comprobar si aplica en local.
+**Limitación registrada, sin resolver:** «Hide My Email» de Apple entrega un
+relay distinto del email real, así que **puede producir una cuenta separada**.
 
-**2 · La primera sesión real, y todo lo que solo ella puede probar.** Cuatro
-cosas quedaron cubiertas por tests estructurales en F5.B y **esperan evidencia de
-extremo a extremo**: la transición real `signed-out` → `signed-in`, que el árbol
-cambia de rama, que **la sesión sobrevive al reinicio de la app** —criterio 2 del
-cierre de la fase— y que la rama protegida se comporta con una sesión auténtica.
-No se construyó ningún bypass ni sesión falsa para adelantarlo, y no debe
-construirse.
+**Seguridad.** Ningún secreto de proveedor entra en el bundle: los Client ID de
+iOS y Android son identificadores públicos; el client secret de Google y la
+private key de Apple no hacen falta para el flujo nativo y no deben aparecer
+nunca en `EXPO_PUBLIC_*`.
 
-**3 · La medición del payload real de sesión.**
-[ADR-017](../adr/ADR-017-secure-session-storage.md) la exige documentada
-**antes de cerrar la Fase 5**. No bloqueaba a F5.A porque no existía ninguna
-sesión auténtica que medir, y **no puede cambiar el diseño**: el almacén trocea
-siempre, por decisión, y si la cifra resultara caber en un solo chunk la
-decisión sigue siendo la misma.
+### Lo que F5.C1 cerró, y no se vuelve a abrir
 
-**4 · `flowType`, si la implementación real lo pide.** Se dejó sin fijar a
-propósito: solo afecta a los enlaces de correo, y su forma la decide quien
-construya la confirmación y la recuperación.
+Registro con nombre, email y contraseña · `display_name` en `user_metadata` ·
+**confirmación de email obligatoria** (`enable_confirmations = true`) con
+`scripts/http-boundary-check.sh` adaptado —alta, confirmación por SQL y
+`grant_type=password`, con una aserción nueva que falla si el alta vuelve a
+emitir sesión— · login real y transición automática a la rama protegida ·
+persistencia y restauración · la UI de auth · la corrección del teclado · el
+saludo con el nombre real.
 
-**Sigue fuera de F5.C:** el cierre de sesión es **F5.D** y la recuperación de
-acceso es **F5.E**.
+**La medición del payload real está RESUELTA**: 2285 B · 5 chunks · máximo 512 B,
+sobre una sesión auténtica en iPhone. Supera el umbral de ~2 KB de Expo, así que
+valida el troceado de ADR-017 contra un caso real. La cifra vive en
+[`PROJECT_STATE.md`](../PROJECT_STATE.md); **ADR-017 no se modifica**, porque un
+ADR aceptado es inmutable.
+
+Captura de correo local: `[local_smtp]`, interfaz en el puerto **54324**.
+
+**Sigue fuera:** el cierre de sesión es **F5.D** y la recuperación de acceso es
+**F5.E**.
 
 ### Registrada, no para resolver salvo que la fase la toque de frente
 
 | Deuda                                    | Dónde se resuelve                  |
 | ---------------------------------------- | ---------------------------------- |
 | **Provisioning del ámbito Personal**     | **Fuera de la Fase 5.** Ver abajo  |
+| **Timeout de autenticación**             | Deuda abierta. Ver abajo           |
 | Persistencia de la preferencia de idioma | **Diferida**, con la UI de Ajustes |
 | UI funcional del selector de idioma      | Igual que la anterior              |
 | Plurales en i18n                         | Cuando aparezca el primer uso real |
@@ -259,6 +292,14 @@ acceso es **F5.E**.
 | Tabla de `Intl` sin revisar fila a fila  | Cuando aporte algo                 |
 | Modo Pareja funcional                    | Su fase                            |
 | Grupos funcionales y Quick Entry         | F7 y siguientes                    |
+
+**El timeout de autenticación, y por qué no se ha puesto:** las operaciones de
+autenticación dependen hoy del timeout del transporte. Nomey **no** añade un
+timeout superficial mientras no pueda abortar de verdad la petición subyacente
+sin generar carreras ni resultados ambiguos. Un `Promise.race` dejaría la
+petición viva: en un registro, el usuario vería un fallo, reintentaría, y la
+primera llamada terminaría después — dos altas y una respuesta que nadie sabe
+interpretar. Sin ADR: es una deuda, no una decisión de arquitectura.
 
 **Por qué el idioma sigue diferido aunque F5.D toque Perfil:** la preferencia
 **no es un secreto**, así que meterla en SecureStore sería usar el llavero para
