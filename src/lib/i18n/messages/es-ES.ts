@@ -100,7 +100,8 @@ export const esES = {
   'probe.largeValue': 'Valor grande, ida y vuelta',
   'probe.cleared': 'Borrado completo',
   'probe.client': 'Cliente Supabase creado',
-  'probe.session': 'Sin sesión, responde vacío',
+  'probe.session': 'La sesión responde sin error',
+  'probe.payload': 'Payload real de la sesión',
   'probe.run': 'Ejecutar',
   'probe.rerun': 'Repetir',
 

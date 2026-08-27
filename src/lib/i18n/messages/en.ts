@@ -97,7 +97,8 @@ export const en: Record<MessageKey, string> = {
   'probe.largeValue': 'Large value, round trip',
   'probe.cleared': 'Cleared completely',
   'probe.client': 'Supabase client created',
-  'probe.session': 'With no session, answers empty',
+  'probe.session': 'The session answers without error',
+  'probe.payload': 'Real session payload',
   'probe.run': 'Run',
   'probe.rerun': 'Run again',
 
