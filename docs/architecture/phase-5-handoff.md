@@ -103,20 +103,21 @@ global:    +  flotante y contextual, fuera de la barra
            campana y perfil, en la cabecera de ambos destinos
 ```
 
-| Ruta                     | Qué es                                                |
-| ------------------------ | ----------------------------------------------------- |
-| `app/(auth)/sign-in.tsx` | **Pública. F5.C1.** Entrar con email y contraseña     |
-| `app/_layout.tsx`        | Sesión, guardas, `ScopeProvider` y el Stack raíz      |
-| `app/(tabs)/_layout.tsx` | Los dos destinos, con la barra propia                 |
-| `app/(tabs)/index.tsx`   | Inicio                                                |
-| `app/(tabs)/groups.tsx`  | Grupos                                                |
-| `app/add.tsx`            | La superficie del `+`, en modal                       |
-| `app/notifications.tsx`  | Placeholder                                           |
-| `app/profile.tsx`        | **F5.D.** Identidad, General, Planes y la fila Cuenta |
-| `app/account.tsx`        | **F5.D.** Nombre, email y cerrar sesión               |
-| `app/diagnostics.tsx`    | `Intl` en el dispositivo. **Solo `__DEV__`**          |
-| `app/states.tsx`         | Los tres estados comunes. **Solo `__DEV__`**          |
-| `app/session-probe.tsx`  | La sonda de F5.A. **Solo `__DEV__`**                  |
+| Ruta                     | Qué es                                                                            |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| `app/(auth)/sign-in.tsx` | **Pública. F5.C1.** Entrar con email y contraseña                                 |
+| `app/(auth)/sign-up.tsx` | **Pública. F5.C1.** Nombre, email y contraseña. Confirmación de email obligatoria |
+| `app/_layout.tsx`        | Sesión, guardas, `ScopeProvider` y el Stack raíz                                  |
+| `app/(tabs)/_layout.tsx` | Los dos destinos, con la barra propia                                             |
+| `app/(tabs)/index.tsx`   | Inicio                                                                            |
+| `app/(tabs)/groups.tsx`  | Grupos                                                                            |
+| `app/add.tsx`            | La superficie del `+`, en modal                                                   |
+| `app/notifications.tsx`  | Placeholder                                                                       |
+| `app/profile.tsx`        | **F5.D.** Identidad, General, Planes y la fila Cuenta                             |
+| `app/account.tsx`        | **F5.D.** Nombre, email y cerrar sesión                                           |
+| `app/diagnostics.tsx`    | `Intl` en el dispositivo. **Solo `__DEV__`**                                      |
+| `app/states.tsx`         | Los tres estados comunes. **Solo `__DEV__`**                                      |
+| `app/session-probe.tsx`  | La sonda de F5.A. **Solo `__DEV__`**                                              |
 
 **Perfil ya es la cuenta.** F5.D lo llenó: cabecera de identidad con el hueco de
 la foto y el nombre editable, **General con sus tres opciones a la vista** —
