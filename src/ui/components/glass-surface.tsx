@@ -54,10 +54,16 @@ export function GlassSurface({
       backgroundColor: token.tint,
       borderColor: token.border,
       borderRadius: radius,
-      // The light lands on the top edge first, then the state's own shading.
+      /*
+       * Order matters: the first entry paints on top. The rim catch stays
+       * visible in every state, the state's own shading comes next so a press
+       * overrides the resting light, and the level's lens sits underneath as
+       * the material the states act on.
+       */
       boxShadow: [
         { offsetX: 0, offsetY: 1, blurRadius: 0, color: token.highlight, inset: true },
         ...(depth === 'flat' ? [] : Tactile[depth]),
+        ...(token.lens ?? []),
       ],
     },
     style,

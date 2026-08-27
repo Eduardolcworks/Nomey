@@ -164,7 +164,7 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
       {({ pressed }) => (
         <GlassSurface
           level="action"
-          depth={pressed ? 'pressed' : 'raised'}
+          depth={pressed ? 'pressed' : 'flat'}
           radius={Radius.full}
           style={styles.addSurface}>
           <SymbolView
@@ -211,6 +211,9 @@ const styles = StyleSheet.create({
   addSurface: {
     width: DOCK.add,
     height: DOCK.add,
+    // A full point rather than a hairline: on a 56pt disc a half-pixel rim is
+    // not a rim, and the rim is most of what says "surface" instead of "fill".
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

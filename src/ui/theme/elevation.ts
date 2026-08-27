@@ -44,6 +44,13 @@ type GlassToken = {
   readonly border: string;
   /** Light along the top edge, applied as an inset by `GlassSurface`. */
   readonly highlight: string;
+  /**
+   * Broad inner shading, for a surface meant to read as a lens rather than a
+   * fill. Only the levels that need volume carry one; a hairline highlight is
+   * enough for a flat panel, and spreading light across a card would look like
+   * a bevel rather than like glass.
+   */
+  readonly lens?: readonly BoxShadowValue[];
 };
 
 /**
@@ -62,7 +69,9 @@ type GlassToken = {
  * text on them still measures 16-17:1 over black and 11.5:1 over white, so
  * nothing was traded away for it.
  */
-export const Glass = {
+export type GlassLevel = 'regular' | 'bar' | 'heavy' | 'action';
+
+export const Glass: Record<GlassLevel, GlassToken> = {
   /** Cards, panels, controls at rest. */
   regular: {
     tint: 'rgba(30, 30, 32, 0.88)',
@@ -87,22 +96,54 @@ export const Glass = {
   /**
    * The primary action, and the only glass that is not neutral.
    *
-   * The brand yellow at 0.90 rather than flat: measured, near-black on it
-   * clears 10:1 against a black backdrop and 13:1 against a white one, so the
-   * translucency costs nothing legible while letting the button belong to the
-   * same material as the controls beside it. The rim and the highlight are
-   * stronger here than anywhere else - it is the one object meant to read as
-   * lit from above rather than merely present.
+   * The brand yellow at 0.86 rather than flat: measured, near-black on it
+   * clears 9:1 against a black backdrop, so the translucency costs nothing
+   * legible while letting the button belong to the same material as the
+   * controls beside it. The rim and the highlight are stronger here than
+   * anywhere else - it is the one object meant to read as lit from above
+   * rather than merely present.
    */
   action: {
-    tint: 'rgba(253, 197, 6, 0.90)',
+    tint: 'rgba(253, 197, 6, 0.86)',
     blurRadius: 24,
-    border: 'rgba(255, 255, 255, 0.42)',
+    border: 'rgba(255, 255, 255, 0.38)',
     highlight: 'rgba(255, 255, 255, 0.55)',
+    /**
+     * What turns the disc into a lens.
+     *
+     * Measured first, because the obvious move is wrong: over a pure black
+     * ground, lowering the yellow's alpha does not make it look like glass, it
+     * makes it olive - 0.72 composites to #b68e04 and 0.55 to #8b6c03, which
+     * is a loss of the brand rather than a gain in material. Translucency is
+     * kept real but modest at 0.86, and what actually reads as glass is done
+     * here: a wide wash of light down from the top and a contained shade up
+     * from the bottom, so the surface varies across its own diameter instead
+     * of being one flat value.
+     *
+     * Three things keep it from becoming a 2008 gel button, and all three are
+     * about asymmetry:
+     *
+     * - **The light is small and high, the shade is large and low.** A
+     *   highlight and a shade of equal size meeting at the equator is the
+     *   signature of a 2010 bevel. Here the light covers roughly an eighth of
+     *   the disc and the shade about a third.
+     * - **The lower pole deepens towards amber, not towards black.** Darkening
+     *   with black desaturates and drags the brand yellow to olive; darkening
+     *   with hue reads as the material absorbing light and keeps it vivid.
+     * - **The outer shadow is warm.** A black shadow on a pure black ground
+     *   renders nothing at all - the pixel is already off - so the only way
+     *   this object can separate itself from the void outside its own edge is
+     *   to carry a trace of its own colour. It is kept small and low-alpha on
+     *   purpose: the direction rules out filling the interface with glows, and
+     *   this has to read as contact, not as neon.
+     */
+    lens: [
+      { offsetX: 0, offsetY: 9, blurRadius: 12, color: 'rgba(255, 255, 255, 0.26)', inset: true },
+      { offsetX: 0, offsetY: -16, blurRadius: 22, color: 'rgba(120, 84, 0, 0.42)', inset: true },
+      { offsetX: 0, offsetY: 6, blurRadius: 14, color: 'rgba(120, 84, 0, 0.55)' },
+    ],
   },
-} as const satisfies Record<string, GlassToken>;
-
-export type GlassLevel = keyof typeof Glass;
+};
 
 /**
  * Tactile depth, as inner shading.
