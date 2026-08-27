@@ -84,7 +84,7 @@ jobs:
       - name: Start Supabase, applying every migration from zero
         run: >
           ./scripts/supabase-cli.sh start
-          -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          -x realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
 
       - name: Bootstrap checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/bootstrap.sql

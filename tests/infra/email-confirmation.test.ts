@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import CONFIG from '../../supabase/config.toml?raw';
 import BOUNDARY_CHECK from '../../scripts/http-boundary-check.sh?raw';
+import WORKFLOW from '../../.github/workflows/ci.yml?raw';
 
 /**
  * La confirmación de correo es obligatoria, y el check de la Fase 3 lo sabe.
@@ -91,5 +92,47 @@ describe('el check HTTP de la Fase 3 sobrevive a la confirmación obligatoria', 
     expect(BOUNDARY_CHECK).not.toMatch(/sb_secret_[A-Za-z0-9_-]{8,}/);
     expect(BOUNDARY_CHECK).not.toMatch(/service_role/);
     expect(BOUNDARY_CHECK).toContain("grep -o 'sb_publishable_");
+  });
+});
+
+describe('CI arranca el servicio de correo que la confirmación obligatoria necesita', () => {
+  /**
+   * El fallo que esto evita, y que ya ocurrió una vez.
+   *
+   * El workflow arranca un Supabase reducido con `-x` y excluía el servicio de
+   * correo. Con confirmación obligatoria eso no es una optimización: **GoTrue
+   * envía el correo durante el propio alta**, y sin destino responde
+   * `500 unexpected_failure: Error sending confirmation email` sin llegar a
+   * crear al usuario. Confirmar después por SQL no ayuda — el alta ya falló.
+   *
+   * Es sutil precisamente porque el check NO lee el buzón. Es fácil concluir
+   * que el correo no hace falta, excluirlo, y romper CI con un error que no
+   * menciona la lista de exclusión por ningún sitio.
+   *
+   * `[auth.email.smtp]` está comentado entero, así que `[local_smtp]` es el
+   * único destino que GoTrue tiene.
+   */
+  const exclusions = WORKFLOW.match(/-x\s+([a-z0-9,-]+)/i)?.[1].split(',') ?? [];
+
+  it('el workflow sigue arrancando un stack reducido con `-x`', () => {
+    // Si esto deja de encontrarse, la aserción de abajo pasaría sin mirar nada.
+    expect(exclusions.length).toBeGreaterThan(3);
+  });
+
+  it('y NO excluye el servicio de correo', () => {
+    expect(exclusions).not.toContain('mailpit');
+    expect(exclusions).not.toContain('inbucket');
+  });
+
+  it('tampoco excluye lo que el boundary check necesita de verdad', () => {
+    // GoTrue emite el JWT, Kong es la puerta, PostgREST la superficie `api` y
+    // la base lo sostiene todo. Ninguno es opcional para este check.
+    for (const required of ['auth', 'gotrue', 'kong', 'rest', 'db']) {
+      expect(exclusions).not.toContain(required);
+    }
+  });
+
+  it('el único destino de correo configurado sigue siendo el local', () => {
+    expect(CONFIG).toMatch(/^#\s*\[auth\.email\.smtp\]/m);
   });
 });

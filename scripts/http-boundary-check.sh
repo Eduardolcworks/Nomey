@@ -66,7 +66,7 @@ KEY=$(docker exec supabase_kong_Nomey \
 if [ -z "${KEY}" ]; then
   echo "error: no se pudo leer la clave publicable del Kong en marcha." >&2
   echo "       Levanta el stack SIN excluir gotrue:" >&2
-  echo "       ./scripts/supabase-cli.sh start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor" >&2
+  echo "       ./scripts/supabase-cli.sh start -x realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor" >&2
   exit 1
 fi
 
@@ -111,9 +111,20 @@ env_payload() { printf '{"payload":%s}' "$1"; }
 #
 # Asi que el JWT se obtiene en tres pasos en vez de uno: alta, confirmacion y
 # password grant. La confirmacion se hace por SQL como `postgres` —el mismo
-# camino que ya usaba `borrar_usuarios`— en vez de leer el buzon de Mailpit:
-# depende de menos piezas, no exige que el servicio de correo este arrancado, y
-# no cambia lo que este check mide, que es la frontera HTTP y no el correo.
+# camino que ya usaba `borrar_usuarios`— en vez de leer el buzon: depende de
+# menos piezas y no cambia lo que este check mide, que es la frontera HTTP y no
+# el correo.
+#
+# PERO el servicio de correo TIENE que estar arrancado, y la distincion importa
+# porque costo un CI en rojo: este check no lee el buzon, pero **GoTrue envia el
+# correo de confirmacion durante el propio alta** y, si no tiene a donde
+# entregarlo, responde `500 unexpected_failure: Error sending confirmation
+# email` y no llega a crear al usuario. Confirmar despues por SQL no ayuda,
+# porque el alta ya ha fallado. Reproducido excluyendo el servicio y volviendo a
+# incluirlo.
+#
+# `[auth.email.smtp]` esta comentado entero, asi que `[local_smtp]` es el UNICO
+# destino que GoTrue tiene. Por eso no se excluye del arranque, ni aqui ni en CI.
 #
 # Lo que NO se hace, y conviene que se vea: no se desactivan las confirmaciones
 # durante el test, no se inventa una identidad y no se toca la aplicacion. El
