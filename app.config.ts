@@ -117,6 +117,27 @@ const config: ExpoConfig = {
         imageWidth: 120,
       },
     ],
+    [
+      /*
+       * The session lives in SecureStore, and this plugin is what makes the
+       * Android half of "this device only" true.
+       *
+       * `configureAndroidBackup` points `android:fullBackupContent` and
+       * `android:dataExtractionRules` at the rules shipped by the module,
+       * which exclude the SecureStore entries from Android Auto Backup and
+       * from device-to-device transfer. Without it the refresh token is a
+       * candidate for both. iOS gets the equivalent from the keychain
+       * accessibility constant instead - see ADR-017.
+       *
+       * `faceIDPermission: false` deletes NSFaceIDUsageDescription rather than
+       * accepting the module's default string. Nomey never passes
+       * `requireAuthentication`, and shipping a Face ID purpose string for a
+       * capability the binary does not use is a question at review time with
+       * no answer.
+       */
+      'expo-secure-store',
+      { configureAndroidBackup: true, faceIDPermission: false },
+    ],
   ],
 
   experiments: {
