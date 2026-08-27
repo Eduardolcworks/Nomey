@@ -1,8 +1,7 @@
-import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { useTranslation } from '@/lib/i18n';
-import { GlassSurface, ThemedText } from '@/ui/components';
+import { GlassSurface, Icon, ThemedText } from '@/ui/components';
 import { Radius, Spacing, useTheme } from '@/ui/theme';
 
 import { SCOPE_LABEL, type Scope, useScope } from './scope-context';
@@ -64,12 +63,7 @@ export function ScopeSwitch() {
           <ThemedText variant="label" themeColor="text">
             {t(SCOPE_LABEL[scope])}
           </ThemedText>
-          <SymbolView
-            name="arrow.left.arrow.right"
-            size={13}
-            tintColor={theme.textTertiary}
-            fallback={<View style={[styles.fallback, { borderColor: theme.textTertiary }]} />}
-          />
+          <Icon name="arrow.left.arrow.right" size={13} colour={theme.textTertiary} />
         </GlassSurface>
       )}
     </Pressable>
@@ -90,11 +84,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     minHeight: 44,
-  },
-  fallback: {
-    width: 11,
-    height: 11,
-    borderWidth: 2,
-    borderRadius: Radius.sm,
   },
 });

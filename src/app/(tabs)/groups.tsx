@@ -1,29 +1,21 @@
-import { SymbolView } from 'expo-symbols';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader, DOCK_HEIGHT } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
-import { ThemedText, ThemedView } from '@/ui/components';
-import { Radius, Spacing, Tactile, useTheme } from '@/ui/theme';
+import { EmptyState, ThemedView } from '@/ui/components';
+import { Spacing } from '@/ui/theme';
 
 /**
  * Grupos: the second root world.
  *
- * **"Crear grupo" lives in the content, not in the action button.** The `+`
- * adds a movement to where you are; it does not create the place. With no
- * groups yet that would leave the first-run screen - the one every tester sees
- * - as an empty page whose only prominent control cannot do the one thing
- * needed at that moment. So the empty state carries the primary action, and
- * the `+` keeps its single meaning everywhere.
- *
- * The header keeps the same right-hand cluster as Inicio. Notifications in a
- * shared-expense app are born here, so a bell that only existed on Inicio
- * would turn reading them into a detour through the tab bar.
+ * **"Crear grupo" is the empty state's own action, not the floating `+`.** The
+ * `+` adds a movement to where you are; it does not create the place. Leaving
+ * it there would make the first-run screen - the one every tester sees - a
+ * blank page whose only prominent control cannot do the one thing needed.
  */
 export default function GroupsScreen() {
   const { t } = useTranslation();
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
 
   return (
@@ -36,34 +28,17 @@ export default function GroupsScreen() {
             styles.content,
             { paddingBottom: DOCK_HEIGHT + insets.bottom + Spacing.lg },
           ]}>
-          <View style={[styles.empty, { borderColor: theme.border }]}>
-            <SymbolView
-              name="person.2"
-              size={32}
-              tintColor={theme.textTertiary}
-              fallback={<View style={[styles.fallback, { borderColor: theme.textTertiary }]} />}
-            />
-            <ThemedText variant="body" themeColor="textSecondary">
-              {t('groups.empty')}
-            </ThemedText>
-            <ThemedText variant="bodySmall" themeColor="textTertiary">
-              {t('groups.emptyHint')}
-            </ThemedText>
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('groups.create')}
-            style={({ pressed }) => [
-              styles.create,
-              {
-                borderColor: theme.borderInteractive,
-                backgroundColor: pressed ? theme.surfaceSunken : theme.surface,
-                boxShadow: pressed ? Tactile.pressed : Tactile.raised,
+          <EmptyState
+            symbol="person.2"
+            title={t('groups.empty')}
+            description={t('groups.emptyHint')}
+            action={{
+              label: t('groups.create'),
+              onPress: () => {
+                // F4.D is structure. Creating a group belongs to its own phase.
               },
-            ]}>
-            <ThemedText variant="label">{t('groups.create')}</ThemedText>
-          </Pressable>
+            }}
+          />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -77,27 +52,5 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.lg,
-  },
-  empty: {
-    alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderStyle: 'dashed',
-    borderRadius: Radius.lg,
-    paddingVertical: Spacing.xxl,
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  create: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Radius.full,
-  },
-  fallback: {
-    width: 28,
-    height: 28,
-    borderWidth: 2,
-    borderRadius: Radius.sm,
   },
 });

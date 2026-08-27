@@ -7,10 +7,10 @@
 > [`design-direction.md`](../product/design-direction.md), que **este documento
 > no redefine**.
 >
-> Aprobado el 2026-08-27, al abrir la fase. **F4.A, F4.B y F4.C están cerradas;
-> el bloque siguiente es F4.D.** El estado vivo lo lleva
-> [`PROJECT_STATE.md`](../PROJECT_STATE.md); esto es el plan, no un registro de
-> avance.
+> Aprobado el 2026-08-27, al abrir la fase. **La Fase 4 está completa: los
+> cuatro bloques cerraron y se validaron en iPhone físico.** La fase siguiente
+> es la 5. El estado vivo lo lleva [`PROJECT_STATE.md`](../PROJECT_STATE.md);
+> esto es el plan, no un registro de avance.
 
 ---
 
@@ -18,19 +18,20 @@
 
 Cuatro, con fronteras claras. **No se subdivide más salvo necesidad material.**
 
-| Bloque   | Objetivo                                                                 | Estado        |
-| -------- | ------------------------------------------------------------------------ | ------------- |
-| **F4.A** | Fundación visual y marca: tokens, tipografía, profundidad, icono, splash | **Cerrado**   |
-| **F4.B** | i18n (`es-ES`, `en`) y fundación de formateo localizado                  | **Cerrado**   |
-| **F4.C** | App shell y navegación                                                   | **Cerrado**   |
-| **F4.D** | Primitives mínimos, estados de carga/vacío/error y wireframes            | **Siguiente** |
+| Bloque   | Objetivo                                                                 | Estado      |
+| -------- | ------------------------------------------------------------------------ | ----------- |
+| **F4.A** | Fundación visual y marca: tokens, tipografía, profundidad, icono, splash | **Cerrado** |
+| **F4.B** | i18n (`es-ES`, `en`) y fundación de formateo localizado                  | **Cerrado** |
+| **F4.C** | App shell y navegación                                                   | **Cerrado** |
+| **F4.D** | Primitives mínimos, estados de carga/vacío/error y wireframes            | **Cerrado** |
 
-**Dependencias.** F4.A y F4.B pueden solaparse. F4.C exige ambos —y ya los
-tiene—. F4.D exige F4.C. **Orden: A → B → C → D**, una rama por bloque.
+**Dependencias.** F4.A y F4.B pueden solaparse. F4.C exige ambos. F4.D exige
+F4.C. **Orden: A → B → C → D**, una rama por bloque. Los cuatro se ejecutaron en
+ese orden y cada uno se validó en dispositivo antes de cerrarse.
 
-**Primer hito visualmente útil en iPhone: el cierre de F4.C.** F4.A ya da señal
-en dispositivo —fondo, paleta, tipografía y el amarillo real en OLED—, pero no
-es todavía una app navegable.
+**El primer hito visualmente útil fue el cierre de F4.C**, cuando Nomey pasó a
+ser una app navegable. F4.D la dejó construida sobre primitives con estados
+comunes reutilizables.
 
 ### Qué se puede validar y cuándo
 

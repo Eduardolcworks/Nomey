@@ -13,23 +13,23 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-27**, al cerrar el bloque F4.C.
+Actualizado el **2026-08-27**, al cerrar la Fase 4.
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                                                                  |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Fase actual**         | **Fase 4 — Arquitectura UX e internacionalización**. F4.A, F4.B y F4.C cerradas; **el siguiente bloque es F4.D** |
-| **Última fase cerrada** | **Fase 3 — Persistencia y frontera de datos** (3.A · 3.B · 3.C)                                                  |
-| **ADR aceptados**       | ADR-001 … ADR-016                                                                                                |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR                                              |
-| **App visible**         | Shell navegable: Inicio y Grupos, acción `+`, cabecera y superficies estructurales                               |
+|                         |                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| **Última fase cerrada** | **Fase 4 — Arquitectura UX e internacionalización** (4.A · 4.B · 4.C · 4.D)       |
+| **Siguiente**           | **Fase 5 — Identidad y sesión**                                                   |
+| **ADR aceptados**       | ADR-001 … ADR-016                                                                 |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR               |
+| **App visible**         | Shell navegable con primitives y estados comunes. **Sin funcionalidad económica** |
 
-**F4 no toca el backend** ni depende de la Fase 3 —el roadmap lo dice
-expresamente—: navegación, wireframes, tokens de tema, estados de carga, vacío y
-error, e infraestructura de i18n.
+**La Fase 4 está completa.** Dejó la fundación visual, la de idioma y formato,
+el shell navegable y las primitives con sus estados comunes. **No introdujo
+ninguna funcionalidad económica**, que era su alcance.
 
 ---
 
@@ -137,7 +137,7 @@ verificado porque pase en Vitest**, que corre sobre V8.
 
 ## Decisiones aplazadas relevantes
 
-Ninguna bloquea la Fase 4. El detalle completo, con motivo y destino de cada una,
+Ninguna bloquea la Fase 5. El detalle completo, con motivo y destino de cada una,
 está en [`model-coverage.md`](architecture/model-coverage.md).
 
 | Aplazado                                        | Dónde queda             |
@@ -159,20 +159,13 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 
 ---
 
-## Fase en curso
+## Fundación de interfaz
 
-**Fase 4 — Arquitectura UX e internacionalización**, en cuatro bloques:
-
-| Bloque   | Qué es                           | Estado                 |
-| -------- | -------------------------------- | ---------------------- |
-| **F4.A** | Fundación visual y marca         | **Cerrado y mergeado** |
-| **F4.B** | i18n y formateo localizado       | **Cerrado y mergeado** |
-| **F4.C** | App shell y navegación           | **Cerrado y validado** |
-| **F4.D** | Primitives, estados y wireframes | **Siguiente**          |
-
-El plan, sus criterios de cierre y la navegación propuesta están en
-[`ux/phase-4-plan.md`](ux/phase-4-plan.md); el punto de entrada operativo del
-bloque siguiente, en [`ux/phase-4d-handoff.md`](ux/phase-4d-handoff.md).
+**La Fase 4 cerró en cuatro bloques**, todos validados en iPhone físico:
+**F4.A** fundación visual y marca · **F4.B** i18n y formateo · **F4.C** app
+shell y navegación · **F4.D** primitives y estados comunes. El detalle está en
+[`ux/phase-4-plan.md`](ux/phase-4-plan.md); el punto de entrada de la fase
+siguiente, en [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md).
 
 **Lo visual.** Nomey es **dark-only**: `app.config.ts` fija
 `userInterfaceStyle: 'dark'` y la paleta se resuelve en un único sitio,
@@ -219,8 +212,15 @@ comprueba un test.
 acción, pulsador de ámbito, cards y sheets— y se validaron en iPhone físico.
 El suelo de opacidad del glass lo comprueba un test.
 
-**La pantalla de diagnóstico de F4.B ya no es el home.** Vive fuera de producto,
-en su propia ruta, alcanzable solo desde Perfil bajo `__DEV__`.
+**Las primitives son pocas y todas tienen consumidor**: `Icon`, `IconButton`,
+`ActionButton`, `Section`, `GlassSurface`, `ThemedText` y `ThemedView`, más los
+tres estados comunes —**carga, vacío y error**— reutilizables y ya consumidos
+por Inicio, Grupos y Notificaciones. Un test falla si alguna deja de tener quien
+la use.
+
+**Dos pantallas viven fuera del producto**, alcanzables solo desde Perfil bajo
+`__DEV__`: el diagnóstico de `Intl` de F4.B y la vista de estados comunes.
+Ninguna es una feature.
 
 **Antes de tocar UI, leer
 [`design-direction.md`](product/design-direction.md)**: es la fuente de verdad de
@@ -251,7 +251,7 @@ una feature escribible real.
 | Vocabulario                                  | [`product/glossary.md`](product/glossary.md)                                       |
 | Estética, antes de cualquier UI              | [`product/design-direction.md`](product/design-direction.md)                       |
 | Bloques y decisiones de la fase en curso     | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                         |
-| **Empezar F4.D**                             | [`ux/phase-4d-handoff.md`](ux/phase-4d-handoff.md)                                 |
+| **Empezar F5**                               | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)               |
 | Cómo se usan i18n y el formateo              | [`src/lib/README.md`](../src/lib/README.md)                                        |
 | Levantar el entorno, migrar, ejecutar checks | [`runbooks/local-setup.md`](runbooks/local-setup.md)                               |
 | **Por qué** la Fase 3 quedó como quedó       | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico |

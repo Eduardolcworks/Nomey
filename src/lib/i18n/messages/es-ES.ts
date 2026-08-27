@@ -30,6 +30,11 @@ export const esES = {
 
   'home.greeting': 'Hola, {name}',
   'home.namePlaceholder': 'tu nombre',
+  'state.loading': 'Cargando…',
+  'state.errorTitle': 'No se ha podido cargar',
+  'state.errorBody': 'Vuelve a intentarlo en un momento.',
+  'state.retry': 'Reintentar',
+
   'home.available': 'Disponible',
   'home.activity': 'Actividad reciente',
   'home.activityEmpty': 'Todavía no hay movimientos.',
@@ -41,11 +46,16 @@ export const esES = {
   'groups.create': 'Crear grupo',
 
   'notifications.empty': 'No hay notificaciones.',
+  'notifications.emptyHint': 'Los avisos de tus grupos aparecerán aquí.',
 
+  'profile.section': 'Ajustes',
   'profile.account': 'Cuenta',
   'profile.language': 'Idioma',
   'profile.appearance': 'Apariencia',
   'profile.diagnostics': 'Diagnóstico',
+
+  'dev.states': 'Estados comunes',
+  'dev.statesHint': 'Solo en desarrollo. Sirve para comprobarlos en el dispositivo.',
 
   'foundation.caption': 'Base visual',
   'foundation.palette': 'Paleta',
