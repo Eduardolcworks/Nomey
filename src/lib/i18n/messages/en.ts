@@ -63,7 +63,7 @@ export const en: Record<MessageKey, string> = {
   'session.unavailableBody': 'It may be the connection. Try again.',
 
   'home.greeting': 'Hi, {name}',
-  'home.namePlaceholder': 'your name',
+  'home.greetingPlain': 'Hi',
   'state.loading': 'Loading…',
   'state.errorTitle': 'Could not load',
   'state.errorBody': 'Give it another try in a moment.',

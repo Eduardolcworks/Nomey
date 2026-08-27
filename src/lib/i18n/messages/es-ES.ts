@@ -66,7 +66,7 @@ export const esES = {
   'session.unavailableBody': 'Puede ser cosa de la conexión. Inténtalo de nuevo.',
 
   'home.greeting': 'Hola, {name}',
-  'home.namePlaceholder': 'tu nombre',
+  'home.greetingPlain': 'Hola',
   'state.loading': 'Cargando…',
   'state.errorTitle': 'No se ha podido cargar',
   'state.errorBody': 'Vuelve a intentarlo en un momento.',

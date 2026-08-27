@@ -29,7 +29,25 @@ const MARK = require('../../../assets/splash/splash-icon.png') as number;
  * that identifies the app and the row that says whose money is on screen never
  * compete for the same line.
  */
-export function AppHeader({ title, greeting }: { title?: MessageKey; greeting?: boolean }) {
+export type AppHeaderProps = {
+  title?: MessageKey;
+  greeting?: boolean;
+  /**
+   * The name to greet, when there is one.
+   *
+   * It arrives as a prop rather than being read here, and that is the
+   * architecture rather than a preference: `features/shell` may not import
+   * `features/session` - ESLint enforces cross-feature isolation - so the
+   * route composes the two. That is what `src/app/` is for.
+   *
+   * `null` or empty means greet without a name. It must NOT fall back to a
+   * placeholder: showing an invented name to someone who is signed in is
+   * worse than greeting them plainly.
+   */
+  greetingName?: string | null;
+};
+
+export function AppHeader({ title, greeting, greetingName }: AppHeaderProps) {
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -77,7 +95,9 @@ export function AppHeader({ title, greeting }: { title?: MessageKey; greeting?: 
       {greeting === true ? (
         <View style={styles.greetingRow}>
           <ThemedText variant="title" style={styles.greeting} numberOfLines={1}>
-            {t('home.greeting', { name: t('home.namePlaceholder') })}
+            {greetingName === null || greetingName === undefined || greetingName === ''
+              ? t('home.greetingPlain')
+              : t('home.greeting', { name: greetingName })}
           </ThemedText>
           <ScopeSwitch />
         </View>
