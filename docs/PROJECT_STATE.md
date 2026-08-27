@@ -21,7 +21,7 @@ Actualizado el **2026-08-27**, al abrir la Fase 4.
 
 |                         |                                                                     |
 | ----------------------- | ------------------------------------------------------------------- |
-| **Fase actual**         | **Fase 4 — Arquitectura UX e internacionalización**, en F4.A        |
+| **Fase actual**         | **Fase 4 — Arquitectura UX e internacionalización**, en F4.B        |
 | **Última fase cerrada** | **Fase 3 — Persistencia y frontera de datos** (3.A · 3.B · 3.C)     |
 | **ADR aceptados**       | ADR-001 … ADR-016                                                   |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR |

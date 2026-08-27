@@ -11,7 +11,7 @@
  * putting it in a catalogue would invite someone to translate it.
  */
 export const esES = {
-  'foundation.caption': 'Fundación visual',
+  'foundation.caption': 'Base visual',
   'foundation.palette': 'Paleta',
   'foundation.typography': 'Tipografía',
   'foundation.formatting': 'Formato',
@@ -22,7 +22,7 @@ export const esES = {
 
   'runtime.available': 'Disponible',
   'runtime.missing': 'No disponible',
-  'runtime.exactPath': 'Vía exacta: {path}',
+  'runtime.exactPath': 'Ruta exacta: {path}',
 
   'sample.income': 'Ingreso',
   'sample.expense': 'Gasto',
