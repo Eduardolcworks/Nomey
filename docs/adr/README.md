@@ -97,6 +97,7 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [014](ADR-014-data-api-schema-exposure.md)            | Exposición de schemas de la Data API         | Aceptado  |
 | [015](ADR-015-frozen-rate-physical-representation.md) | Representación física del tipo congelado     | Aceptado  |
 | [016](ADR-016-economic-attribution.md)                | Atribución económica de efectos a un usuario | Aceptado  |
+| [017](ADR-017-secure-session-storage.md)              | Persistencia segura de la sesión             | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
