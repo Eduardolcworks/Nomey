@@ -11,6 +11,37 @@
  * putting it in a catalogue would invite someone to translate it.
  */
 export const esES = {
+  'nav.home': 'Inicio',
+  'nav.groups': 'Grupos',
+  'nav.notifications': 'Notificaciones',
+  'nav.profile': 'Perfil',
+
+  'scope.personal': 'Personal',
+  'scope.couple': 'Pareja',
+  'scope.label': 'Ámbito',
+
+  'action.addTo': 'Añadir a {scope}',
+  'action.addToGroups': 'Añadir a un grupo',
+  'action.close': 'Cerrar',
+  'action.soon': 'Próximamente',
+
+  'home.available': 'Disponible',
+  'home.activity': 'Actividad reciente',
+  'home.activityEmpty': 'Todavía no hay movimientos.',
+  'home.activityHint': 'Usa el botón de añadir para registrar el primero.',
+
+  'groups.title': 'Grupos',
+  'groups.empty': 'Todavía no tienes grupos.',
+  'groups.emptyHint': 'Aquí aparecerán los viajes, pisos y gastos compartidos.',
+  'groups.create': 'Crear grupo',
+
+  'notifications.empty': 'No hay notificaciones.',
+
+  'profile.account': 'Cuenta',
+  'profile.language': 'Idioma',
+  'profile.appearance': 'Apariencia',
+  'profile.diagnostics': 'Diagnóstico',
+
   'foundation.caption': 'Base visual',
   'foundation.palette': 'Paleta',
   'foundation.typography': 'Tipografía',

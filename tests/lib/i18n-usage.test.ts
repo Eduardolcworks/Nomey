@@ -50,7 +50,12 @@ describe('claves de traducción', () => {
   });
 
   it.each(keys)('«%s» se usa en algún sitio', (key) => {
-    expect(consumers.some((file) => file.text.includes(`'${key}'`))).toBe(true);
+    // Comillas simples en llamadas a `t()`, dobles en atributos JSX. Las dos
+    // son usos reales; reconocer sólo una da por muerta una clave viva.
+    const used = consumers.some(
+      (file) => file.text.includes(`'${key}'`) || file.text.includes(`"${key}"`),
+    );
+    expect(used).toBe(true);
   });
 });
 
