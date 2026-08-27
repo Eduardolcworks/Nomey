@@ -1,11 +1,10 @@
 import { useRouter } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/tabs';
-import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTranslation } from '@/lib/i18n';
-import { GlassSurface, ThemedText } from '@/ui/components';
+import { GlassSurface, Icon, ThemedText } from '@/ui/components';
 import { Radius, Spacing, useTheme } from '@/ui/theme';
 
 import { DESTINATIONS, type Destination, destinationFor } from './destinations';
@@ -103,18 +102,10 @@ function DestinationButton({
           depth={pressed ? 'pressed' : focused ? 'selected' : 'well'}
           radius={Radius.full}
           style={styles.pill}>
-          <SymbolView
+          <Icon
             name={destination.symbol}
             size={20}
-            tintColor={focused ? theme.text : theme.textSecondary}
-            fallback={
-              <View
-                style={[
-                  styles.fallback,
-                  { borderColor: focused ? theme.text : theme.textSecondary },
-                ]}
-              />
-            }
+            colour={focused ? theme.text : theme.textSecondary}
           />
           <ThemedText
             variant="label"
@@ -172,12 +163,7 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
            * It is the brightest thing in the dock, which is what keeps this
            * an action rather than a third destination.
            */}
-          <SymbolView
-            name="plus"
-            size={28}
-            tintColor={theme.accent}
-            fallback={<View style={[styles.plusFallback, { backgroundColor: theme.accent }]} />}
-          />
+          <Icon name="plus" size={28} colour={theme.accent} />
         </GlassSurface>
       )}
     </Pressable>
@@ -221,16 +207,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  fallback: {
-    width: 18,
-    height: 18,
-    borderWidth: 2,
-    borderRadius: Radius.sm,
-  },
-  plusFallback: {
-    width: 22,
-    height: 3,
-    borderRadius: Radius.sm,
   },
 });

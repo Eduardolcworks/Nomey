@@ -1,10 +1,9 @@
 import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { PlaceholderScreen } from '@/features/shell';
 import { type MessageKey, useTranslation } from '@/lib/i18n';
-import { ThemedText } from '@/ui/components';
+import { Icon, Section, ThemedText } from '@/ui/components';
 import { Radius, Spacing, Tactile, useTheme } from '@/ui/theme';
 
 /**
@@ -17,33 +16,47 @@ import { Radius, Spacing, Tactile, useTheme } from '@/ui/theme';
  * that changed the language until the next launch would be worse than one that
  * does nothing.
  *
- * The diagnostics row is the only one that navigates, and only in development.
+ * `Row` stays local. It has exactly one screen using it, so lifting it into
+ * the design system would be a guess about a second consumer rather than a
+ * solution to a duplication that exists.
  */
 const ROWS: readonly MessageKey[] = ['profile.account', 'profile.language', 'profile.appearance'];
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
-  const theme = useTheme();
   const router = useRouter();
 
   return (
     <PlaceholderScreen title="nav.profile">
-      <View style={styles.rows}>
-        {ROWS.map((row) => (
-          <Row key={row} label={t(row)} hint={t('action.soon')} />
-        ))}
+      <Section title={t('profile.section')}>
+        <View style={styles.rows}>
+          {ROWS.map((row) => (
+            <Row key={row} label={t(row)} hint={t('action.soon')} />
+          ))}
+        </View>
+      </Section>
 
-        {__DEV__ ? (
-          <Row
-            label={t('profile.diagnostics')}
-            onPress={() => {
-              router.push('/diagnostics');
-            }}
-          />
-        ) : null}
-      </View>
-
-      <View style={[styles.note, { borderColor: theme.border }]} />
+      {__DEV__ ? (
+        <Section title={t('dev.states')}>
+          <View style={styles.rows}>
+            <Row
+              label={t('profile.diagnostics')}
+              onPress={() => {
+                router.push('/diagnostics');
+              }}
+            />
+            <Row
+              label={t('dev.states')}
+              onPress={() => {
+                router.push('/states');
+              }}
+            />
+          </View>
+          <ThemedText variant="caption" themeColor="textTertiary">
+            {t('dev.statesHint')}
+          </ThemedText>
+        </Section>
+      ) : null}
     </PlaceholderScreen>
   );
 }
@@ -56,6 +69,7 @@ function Row({ label, hint, onPress }: { label: string; hint?: string; onPress?:
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled: !interactive }}
       disabled={!interactive}
       onPress={onPress}
       style={({ pressed }) => [
@@ -70,12 +84,7 @@ function Row({ label, hint, onPress }: { label: string; hint?: string; onPress?:
         {label}
       </ThemedText>
       {hint === undefined ? (
-        <SymbolView
-          name="chevron.right"
-          size={16}
-          tintColor={theme.textTertiary}
-          fallback={<View style={[styles.chevron, { borderColor: theme.textTertiary }]} />}
-        />
+        <Icon name="chevron.right" size={16} colour={theme.textTertiary} />
       ) : (
         <ThemedText variant="caption" themeColor="textDisabled">
           {hint}
@@ -97,15 +106,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: Radius.md,
-  },
-  note: {
-    marginTop: Spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  chevron: {
-    width: 12,
-    height: 12,
-    borderWidth: 2,
-    borderRadius: Radius.sm,
   },
 });

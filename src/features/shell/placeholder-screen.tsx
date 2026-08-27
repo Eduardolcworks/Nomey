@@ -1,11 +1,10 @@
 import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type MessageKey, useTranslation } from '@/lib/i18n';
-import { ThemedText, ThemedView } from '@/ui/components';
-import { Radius, Spacing, useTheme } from '@/ui/theme';
+import { IconButton, ThemedText, ThemedView } from '@/ui/components';
+import { Spacing } from '@/ui/theme';
 
 /**
  * A pushed screen with a title, a back control and whatever the caller shows.
@@ -28,28 +27,20 @@ export function PlaceholderScreen({
   children?: React.ReactNode;
 }) {
   const { t } = useTranslation();
-  const theme = useTheme();
   const router = useRouter();
 
   return (
     <ThemedView style={styles.screen}>
       <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('action.close')}
-            hitSlop={Spacing.sm}
+          <IconButton
+            name="chevron.left"
+            label={t('action.close')}
+            size={20}
             onPress={() => {
               router.back();
             }}
-            style={styles.back}>
-            <SymbolView
-              name="chevron.left"
-              size={20}
-              tintColor={theme.text}
-              fallback={<View style={[styles.fallback, { borderColor: theme.text }]} />}
-            />
-          </Pressable>
+          />
           <ThemedText variant="title">{t(title)}</ThemedText>
         </View>
 
@@ -77,22 +68,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.md,
   },
-  back: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: Radius.full,
-  },
   content: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxl,
     gap: Spacing.md,
-  },
-  fallback: {
-    width: 16,
-    height: 16,
-    borderWidth: 2,
-    borderRadius: Radius.sm,
   },
 });

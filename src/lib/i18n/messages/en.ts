@@ -27,6 +27,11 @@ export const en: Record<MessageKey, string> = {
 
   'home.greeting': 'Hi, {name}',
   'home.namePlaceholder': 'your name',
+  'state.loading': 'Loading…',
+  'state.errorTitle': 'Could not load',
+  'state.errorBody': 'Give it another try in a moment.',
+  'state.retry': 'Try again',
+
   'home.available': 'Available',
   'home.activity': 'Recent activity',
   'home.activityEmpty': 'No movements yet.',
@@ -38,11 +43,16 @@ export const en: Record<MessageKey, string> = {
   'groups.create': 'Create group',
 
   'notifications.empty': 'Nothing to see here.',
+  'notifications.emptyHint': 'Alerts from your groups will show up here.',
 
+  'profile.section': 'Settings',
   'profile.account': 'Account',
   'profile.language': 'Language',
   'profile.appearance': 'Appearance',
   'profile.diagnostics': 'Diagnostics',
+
+  'dev.states': 'Common states',
+  'dev.statesHint': 'Development only. For checking them on the device.',
 
   'foundation.caption': 'Visual foundation',
   'foundation.palette': 'Palette',

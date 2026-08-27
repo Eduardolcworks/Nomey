@@ -1,11 +1,10 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { type MessageKey, useTranslation } from '@/lib/i18n';
-import { ThemedText } from '@/ui/components';
-import { Radius, Spacing, useTheme } from '@/ui/theme';
+import { IconButton, ThemedText } from '@/ui/components';
+import { Spacing } from '@/ui/theme';
 
 import { ScopeSwitch } from './scope-switch';
 
@@ -32,7 +31,6 @@ const MARK = require('../../../assets/splash/splash-icon.png') as number;
  */
 export function AppHeader({ title, greeting }: { title?: MessageKey; greeting?: boolean }) {
   const { t } = useTranslation();
-  const theme = useTheme();
   const router = useRouter();
 
   return (
@@ -59,20 +57,16 @@ export function AppHeader({ title, greeting }: { title?: MessageKey; greeting?: 
         )}
 
         <View style={styles.actions}>
-          <HeaderAction
-            symbol="bell"
+          <IconButton
+            name="bell"
             label={t('nav.notifications')}
-            colour={theme.text}
-            border={theme.border}
             onPress={() => {
               router.push('/notifications');
             }}
           />
-          <HeaderAction
-            symbol="person.crop.circle"
+          <IconButton
+            name="person.crop.circle"
             label={t('nav.profile')}
-            colour={theme.text}
-            border={theme.border}
             onPress={() => {
               router.push('/profile');
             }}
@@ -89,42 +83,6 @@ export function AppHeader({ title, greeting }: { title?: MessageKey; greeting?: 
         </View>
       ) : null}
     </View>
-  );
-}
-
-/**
- * A 44pt target, which is Apple's minimum and not a rounding of it.
- *
- * The symbol itself is 22pt; the rest is padding, so the icon stays visually
- * light while the thing a thumb has to hit stays honest.
- */
-function HeaderAction({
-  symbol,
-  label,
-  colour,
-  border,
-  onPress,
-}: {
-  symbol: 'bell' | 'person.crop.circle';
-  label: string;
-  colour: string;
-  border: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      hitSlop={Spacing.sm}
-      onPress={onPress}
-      style={({ pressed }) => [styles.action, pressed && { backgroundColor: border }]}>
-      <SymbolView
-        name={symbol}
-        size={22}
-        tintColor={colour}
-        fallback={<View style={[styles.fallback, { borderColor: colour }]} />}
-      />
-    </Pressable>
   );
 }
 
@@ -165,18 +123,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-  },
-  action: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: Radius.full,
-  },
-  fallback: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderRadius: Radius.full,
   },
 });

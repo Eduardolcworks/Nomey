@@ -1,12 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SCOPE_AVAILABLE, SCOPE_LABEL, useScope } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
-import { GlassSurface, ThemedText, ThemedView } from '@/ui/components';
-import { Radius, Spacing, useTheme } from '@/ui/theme';
+import { GlassSurface, IconButton, ThemedText, ThemedView } from '@/ui/components';
+import { Spacing, useTheme } from '@/ui/theme';
 
 /**
  * The surface the action button opens. A placeholder, and honest about it.
@@ -44,21 +43,15 @@ export default function AddScreen() {
           <ThemedText variant="title" style={styles.title}>
             {title}
           </ThemedText>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('action.close')}
-            hitSlop={Spacing.sm}
+          <IconButton
+            name="xmark"
+            label={t('action.close')}
+            size={20}
+            colour={theme.textSecondary}
             onPress={() => {
               router.back();
             }}
-            style={styles.close}>
-            <SymbolView
-              name="xmark"
-              size={20}
-              tintColor={theme.textSecondary}
-              fallback={<View style={[styles.fallback, { borderColor: theme.textSecondary }]} />}
-            />
-          </Pressable>
+          />
         </View>
 
         <View style={styles.body}>
@@ -92,13 +85,6 @@ const styles = StyleSheet.create({
   title: {
     flexShrink: 1,
   },
-  close: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: Radius.full,
-  },
   body: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
@@ -106,11 +92,5 @@ const styles = StyleSheet.create({
   placeholder: {
     padding: Spacing.lg,
     gap: Spacing.sm,
-  },
-  fallback: {
-    width: 18,
-    height: 18,
-    borderWidth: 2,
-    borderRadius: Radius.sm,
   },
 });
