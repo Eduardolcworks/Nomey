@@ -8,15 +8,21 @@ compartida. No contiene reglas de negocio.
 - No importa de `features/`, `app/` ni `ui/` (impuesto por ESLint).
 - Puede importar de `domain/`.
 
-## Contenido previsto
+## Contenido
 
-| Módulo     | Responsabilidad                                                 |
-| ---------- | --------------------------------------------------------------- |
-| `supabase` | Cliente, tipos generados, adaptador de sesión sobre SecureStore |
-| `query`    | Configuración de react-query                                    |
-| `offline`  | Cola de escritura e idempotencia por clave de cliente           |
-| `format`   | Formateo dependiente de locale: moneda, fechas, números         |
-| `env`      | Variables de entorno validadas con Zod                          |
+| Módulo     | Responsabilidad                                             | Estado   |
+| ---------- | ----------------------------------------------------------- | -------- |
+| `i18n`     | Catálogos, resolución de locale, `t()`                      | F4.B     |
+| `format`   | Formateo dependiente de locale: moneda, fechas, números     | F4.B     |
+| `env`      | Las dos `EXPO_PUBLIC_` de Supabase, validadas a mano        | F5.A     |
+| `supabase` | Cliente sobre `api`, y la sesión troceada sobre SecureStore | F5.A     |
+| `query`    | Configuración de react-query                                | Previsto |
+| `offline`  | Cola de escritura e idempotencia por clave de cliente       | Previsto |
+
+**`env` no usa Zod.** Son dos valores: una validación a mano es menos código
+que la dependencia, y además puede decir _por qué_ falla — el caso que importa
+es distinguir «falta la clave» de «esto es una clave secreta», que se inlinaría
+en el bundle.
 
 ## `i18n` y `format`, implementados en la Fase 4.B
 

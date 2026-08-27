@@ -1,25 +1,61 @@
 # Punto de entrada — Fase 5 · Identidad y sesión
 
-> **Para empezar la Fase 5 en una sesión nueva.** Operativo, no histórico: qué
+> **El único punto de entrada vivo de la Fase 5.** Operativo, no histórico: qué
 > hay, qué no se toca y qué hay que producir. El **porqué** de cada decisión
-> vive donde se tomó — los ADR, el plan de fase, los comentarios del código.
->
-> Escrito al cerrar la Fase 4.
+> vive donde se tomó — los ADR, el commit, los comentarios del código.
 
 ---
 
-## 1 · De dónde se parte
+## 1 · Dónde está la fase
 
-**Base: `main`, después del merge de la Fase 4.** Las fases 0 a 4 están
-cerradas. No hay trabajo en vuelo.
+**La Fase 5 está EN CURSO. F5.A está cerrado y validado en iPhone físico. El
+siguiente bloque es F5.B.**
+
+| Bloque   | Qué es                                  | Estado                     |
+| -------- | --------------------------------------- | -------------------------- |
+| **F5.A** | Frontera con el backend y sesión segura | **Cerrado**, 5/5 en iPhone |
+| **F5.B** | Estado de sesión y guardas de ruta      | **Siguiente**              |
+| **F5.C** | Registro e inicio de sesión             | Pendiente                  |
+| **F5.D** | Cierre de sesión y Perfil               | Pendiente                  |
+| **F5.E** | Recuperación de acceso                  | Pendiente                  |
+| **F5.F** | Cierre de fase                          | Pendiente                  |
+
+**Nadie puede entrar todavía.** F5.A dejó la frontera técnica y **ninguna
+pantalla de autenticación**.
 
 Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 [`PROJECT_STATE.md`](../PROJECT_STATE.md) · este documento.
 
-A diferencia de la Fase 4, **la Fase 5 sí toca el backend**: se apoya en el Auth
-técnico y la RLS que dejó 3.C. Cuando llegue el momento de hablar con él, los
-sitios donde mirar son [`ADR-007`](../adr/ADR-007-membership-rls.md) para la
-autorización por fila y el runbook de entorno local — no antes, y no todo.
+**La Fase 5 sí toca el backend**, a diferencia de la 4: se apoya en el Auth
+técnico y la RLS que dejó 3.C. Los sitios donde mirar cuando haga falta son
+[`ADR-007`](../adr/ADR-007-membership-rls.md) para la autorización por fila,
+[`ADR-017`](../adr/ADR-017-secure-session-storage.md) para el almacenamiento de
+sesión, y el runbook de entorno local — no antes, y no todo.
+
+### Lo que dejó F5.A, para consumirlo sin releerlo
+
+```ts
+import { supabase } from '@/lib/supabase'; // cliente sobre el schema `api`
+await supabase.auth.getSession(); // devuelve null limpio sin sesión
+```
+
+La sesión se persiste sola en el llavero. El detalle está en
+[`PROJECT_STATE.md`](../PROJECT_STATE.md) §«Frontera de sesión en el cliente» y
+en ADR-017; lo único que F5.B necesita saber es que **el cliente no gestiona el
+ciclo de vida**: no restaura al arrancar ni refresca al volver a primer plano.
+Eso es precisamente lo que hay que construir.
+
+### Decisiones de producto ya cerradas, que no se reabren
+
+- **Email y contraseña.** Sin magic link, sin social, sin anónimo.
+- **Confirmación de email OBLIGATORIA**, misma postura en local y en
+  producción. Se implementa en F5.C — ver §7.
+- **El nombre del usuario es metadata de presentación de Auth**
+  (`display_name`). **No** se crea `core.app_user`, ni tabla `profiles`, ni una
+  segunda identidad, ni columna de nombre en el dominio económico. La metadata
+  sirve para la UI y **nunca** participa en RLS ni en autorización. Avatar,
+  fuera de F5.
+- **Provisioning del ámbito Personal: FUERA de la Fase 5.** Ver §7.
 
 ---
 
@@ -43,6 +79,7 @@ global:    +  flotante y contextual, fuera de la barra
 | `app/profile.tsx`        | Cuenta, idioma y apariencia, aún inertes     |
 | `app/diagnostics.tsx`    | `Intl` en el dispositivo. **Solo `__DEV__`** |
 | `app/states.tsx`         | Los tres estados comunes. **Solo `__DEV__`** |
+| `app/session-probe.tsx`  | La sonda de F5.A. **Solo `__DEV__`**         |
 
 **Perfil es donde aterrizará la cuenta.** Sus filas ya existen y no hacen nada,
 que es exactamente el hueco que la Fase 5 viene a llenar.
@@ -51,13 +88,14 @@ que es exactamente el hueco que la Fase 5 viene a llenar.
 
 ## 3 · Qué existe para consumir
 
-| Dónde                      | Qué hay                                                                    |
-| -------------------------- | -------------------------------------------------------------------------- |
-| `ui/theme/`                | Paleta dark-only, 13 roles tipográficos, `Glass` y `Tactile`               |
-| `ui/components/`           | `Icon`, `IconButton`, `ActionButton`, `Section`, `GlassSurface`, `Themed*` |
-| `ui/components/`           | `LoadingState`, `EmptyState`, `ErrorState`                                 |
-| `features/shell/`          | Cabecera, barra, pulsador de ámbito, geometría del dock                    |
-| `lib/i18n/`, `lib/format/` | Catálogos, `t()`, y formateo exacto y localizado                           |
+| Dónde                       | Qué hay                                                                    |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `ui/theme/`                 | Paleta dark-only, 13 roles tipográficos, `Glass` y `Tactile`               |
+| `ui/components/`            | `Icon`, `IconButton`, `ActionButton`, `Section`, `GlassSurface`, `Themed*` |
+| `ui/components/`            | `LoadingState`, `EmptyState`, `ErrorState`                                 |
+| `features/shell/`           | Cabecera, barra, pulsador de ámbito, geometría del dock                    |
+| `lib/i18n/`, `lib/format/`  | Catálogos, `t()`, y formateo exacto y localizado                           |
+| `lib/supabase/`, `lib/env/` | **F5.A**: cliente sobre `api`, entorno validado, sesión en el llavero      |
 
 ```ts
 const { t } = useTranslation();   // texto  -> catálogo activo
@@ -84,6 +122,11 @@ Aprobado en iPhone físico y fuera de discusión salvo defecto material:
   comprueba un test.
 - **Las primitives y los tres estados comunes.**
 - Todo lo cerrado en la Fase 3: modelo, `api`, RLS, writer.
+- **Lo cerrado en F5.A**, validado en iPhone: SecureStore con
+  `WHEN_UNLOCKED_THIS_DEVICE_ONLY` y exclusión de backup en Android, el
+  almacenamiento troceado con su manifiesto, la configuración del cliente y el
+  polyfill de `URL` en un único punto de arranque —
+  [ADR-017](../adr/ADR-017-secure-session-storage.md).
 
 ---
 
@@ -116,26 +159,82 @@ inaccesibles sin sesión; y **ninguna credencial de backend está en el bundle**
 **Fuera:** funcionalidad económica —eso es F6 en adelante— · provisioning de
 ámbitos y participantes · Modo Pareja · Grupos funcionales · Quick Entry.
 
-**Almacenamiento seguro es una decisión de arquitectura**, no un detalle de
-implementación: si exige una dependencia nueva o fija cómo persiste la sesión,
-pasa por ADR antes de escribirse.
+**Almacenamiento seguro ya está decidido y construido** —
+[ADR-017](../adr/ADR-017-secure-session-storage.md), F5.A—. Cualquier decisión
+nueva de la misma clase sigue pasando por ADR antes de escribirse.
+
+**De los cuatro criterios de cierre, F5.A cumple entero el cuarto** —ninguna
+credencial de backend en el bundle, con un test que lo comprueba sobre el
+fuente y una validación en tiempo de arranque— y **deja preparado el segundo**:
+la sesión se persiste, pero que sobreviva a un reinicio no se puede comprobar
+hasta que exista una sesión real, en F5.C.
 
 ---
 
 ## 7 · Deuda abierta
 
-Registrada, **no** para resolver salvo que la Fase 5 la toque de frente:
+### Lo que F5.C tiene que resolver, sin excepción
 
-| Deuda                                    | Dónde se resuelve                                               |
-| ---------------------------------------- | --------------------------------------------------------------- |
-| Persistencia de la preferencia de idioma | Con la UI de Ajustes — **puede caer en F5**, que ya toca Perfil |
-| UI funcional del selector de idioma      | Igual que la anterior                                           |
-| Plurales en i18n                         | Cuando aparezca el primer uso real                              |
-| Icono y splash nativos, sin ver          | Primera build iOS propia                                        |
-| Tabla de `Intl` sin revisar fila a fila  | Cuando aporte algo                                              |
-| Modo Pareja funcional                    | Su fase                                                         |
-| Grupos funcionales y Quick Entry         | F7 y siguientes                                                 |
-| Backend y auth funcionales               | **Esta fase**                                                   |
+**Cuatro cosas, y ninguna es opcional.**
+
+**1 · Confirmación de email obligatoria, y el check HTTP que rompe al activarla.**
+Hoy `supabase/config.toml` tiene `enable_confirmations = false`. Ponerlo en
+`true` **rompe CI**, y conviene saber exactamente por qué antes de tocarlo:
+`scripts/http-boundary-check.sh` da de alta usuarios con `POST /auth/v1/signup`
+y **exige que la respuesta traiga `access_token`** (línea 197); con confirmación
+activa GoTrue no devuelve sesión, y el check falla con «GoTrue no emitió
+sesión». Lo ejecuta `.github/workflows/ci.yml`. **El flag y la adaptación del
+check van en el mismo PR**: confirmar el usuario por SQL tras el alta —el script
+ya tiene acceso a la base como `postgres`— y pedir el JWT con
+`grant_type=password`. No se adelantó a F5.A porque sin registro no hay forma
+de ejercitar la confirmación, y romper una verificación de la Fase 3 sin
+obtener nada a cambio no es un intercambio.
+
+Hay captura de correo local: `[local_smtp]`, interfaz en el puerto **54324**.
+No hace falta SMTP externo. Ojo con `[auth.rate_limit] email_sent = 2` por
+hora, cuyo comentario dice que requiere `auth.email.smtp` — habrá que
+comprobar si aplica en local.
+
+**2 · La primera sesión real.** Es lo que desbloquea el criterio de cierre 2 de
+la fase: que la sesión sobreviva al reinicio y se renueve sola.
+
+**3 · La medición del payload real de sesión.**
+[ADR-017](../adr/ADR-017-secure-session-storage.md) la exige documentada
+**antes de cerrar la Fase 5**. No bloqueaba a F5.A porque no existía ninguna
+sesión auténtica que medir, y **no puede cambiar el diseño**: el almacén trocea
+siempre, por decisión, y si la cifra resultara caber en un solo chunk la
+decisión sigue siendo la misma.
+
+**4 · `flowType`.** F5.A lo dejó sin fijar a propósito: solo afecta a los
+enlaces de correo, y su forma la decide quien construya la confirmación y la
+recuperación.
+
+### Registrada, no para resolver salvo que la fase la toque de frente
+
+| Deuda                                    | Dónde se resuelve                  |
+| ---------------------------------------- | ---------------------------------- |
+| **Provisioning del ámbito Personal**     | **Fuera de la Fase 5.** Ver abajo  |
+| Persistencia de la preferencia de idioma | **Diferida**, con la UI de Ajustes |
+| UI funcional del selector de idioma      | Igual que la anterior              |
+| Plurales en i18n                         | Cuando aparezca el primer uso real |
+| Icono y splash nativos, sin ver          | Primera build iOS propia           |
+| Tabla de `Intl` sin revisar fila a fila  | Cuando aporte algo                 |
+| Modo Pareja funcional                    | Su fase                            |
+| Grupos funcionales y Quick Entry         | F7 y siguientes                    |
+
+**Por qué el idioma sigue diferido aunque F5.D toque Perfil:** la preferencia
+**no es un secreto**, así que meterla en SecureStore sería usar el llavero para
+lo que no es, y guardarla bien obligaría a una segunda tecnología de
+almacenamiento que la Fase 5 no necesita para nada más. Llega con Ajustes, con
+su propia decisión de almacenamiento.
+
+**Provisioning, y por qué importa saberlo ahora:** la Fase 5 termina con
+cuentas que **no tienen ámbito Personal**. Sin `scope` con `owner_user_id`
+**y** su fila de `membership` —las dos, invariante 11— el dueño no ve ni sus
+propios efectos, y **F6 no puede abrir sin resolverlo**. Dirección fijada, sin
+implementar: una función `api.*` autenticada e idempotente que derive el actor
+del JWT. **Ni trigger sobre `auth.users`, ni Edge Function** salvo razón
+material que aparezca en F6.
 
 **Ajena a todo lo anterior:** `src/domain/effects/debt.ts` guarda un byte NUL
 literal como separador de clave compuesta. La lógica es correcta, pero al ir
