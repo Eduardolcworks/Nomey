@@ -39,9 +39,9 @@ export type AuthSubscription = { unsubscribe(): void };
 
 /** The slice of the Supabase auth client this needs. */
 export type AuthPort = {
-  onAuthStateChange(
-    callback: (user: AuthenticatedUser | null) => void,
-  ): { data: { subscription: AuthSubscription } };
+  onAuthStateChange(callback: (user: AuthenticatedUser | null) => void): {
+    data: { subscription: AuthSubscription };
+  };
   startAutoRefresh(): Promise<void>;
   stopAutoRefresh(): Promise<void>;
 };

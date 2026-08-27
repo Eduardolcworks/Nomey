@@ -24,6 +24,15 @@ export const en: Record<MessageKey, string> = {
   'action.addToGroups': 'Add to a group',
   'action.close': 'Close',
   'action.soon': 'Coming soon',
+  'action.retry': 'Try again',
+
+  'auth.welcomeTitle': 'Nomey',
+  'auth.welcomeBody': 'Your money and the shared kind, in one place.',
+  'auth.comingSoon': 'Access',
+  'auth.comingSoonHint': 'Signing in and creating an account arrive in the next block.',
+
+  'session.unavailableTitle': 'We could not check your session',
+  'session.unavailableBody': 'It may be the connection. Try again.',
 
   'home.greeting': 'Hi, {name}',
   'home.namePlaceholder': 'your name',
