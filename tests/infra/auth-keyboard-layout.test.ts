@@ -26,7 +26,15 @@ const FILES = Object.entries(ALL_SOURCES)
     path: path.replace('../../src/', ''),
     code: stripComments(text as string),
   }))
-  .filter((file) => file.path.includes('(auth)') || file.path.endsWith('auth-screen.tsx'));
+  .filter(
+    (file) =>
+      file.path.includes('(auth)') ||
+      // La superficie de recovery es un formulario con dos campos de
+      // contrasena y el mismo andamio: le aplica el mismo bucle y por tanto
+      // las mismas reglas, aunque viva bajo otra guarda de sesion.
+      file.path.includes('(recovery)') ||
+      file.path.endsWith('auth-screen.tsx'),
+  );
 
 function code(name: string): string {
   const found = FILES.find((file) => file.path.endsWith(name));
@@ -58,8 +66,11 @@ describe('las pantallas de auth no reconstruyen el bucle del teclado', () => {
   it('encuentra las superficies que tiene que vigilar', () => {
     expect(paths).toEqual([
       'app/(auth)/_layout.tsx',
+      'app/(auth)/forgot-password.tsx',
       'app/(auth)/sign-in.tsx',
       'app/(auth)/sign-up.tsx',
+      'app/(recovery)/_layout.tsx',
+      'app/(recovery)/new-password.tsx',
       'features/auth/auth-screen.tsx',
     ]);
   });
