@@ -1,9 +1,8 @@
 import { Link } from 'expo-router';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRef, useState } from 'react';
+import { StyleSheet, type TextInput, View } from 'react-native';
 
-import { AuthField, missingFields, signIn, useAuthSubmit } from '@/features/auth';
+import { AuthField, AuthScreen, missingFields, signIn, useAuthSubmit } from '@/features/auth';
 import { useSession } from '@/features/session';
 import { useTranslation } from '@/lib/i18n';
 import { ActionButton, ErrorState, ThemedText, ThemedView } from '@/ui/components';
@@ -30,19 +29,19 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [incomplete, setIncomplete] = useState(false);
+  const passwordField = useRef<TextInput>(null);
 
   // The session could not be resolved at startup. Offering a sign-in form on
   // top of that would be asking the user to fix something that is not theirs.
   if (session.status === 'unavailable') {
     return (
       <ThemedView style={styles.screen}>
-        <SafeAreaView style={styles.safe}>
-          <ErrorState
-            title={t('session.unavailableTitle')}
-            description={t('session.unavailableBody')}
-            retry={{ label: t('action.retry'), onPress: retry }}
-          />
-        </SafeAreaView>
+        <ErrorState
+          fill
+          title={t('session.unavailableTitle')}
+          description={t('session.unavailableBody')}
+          retry={{ label: t('action.retry'), onPress: retry }}
+        />
       </ThemedView>
     );
   }
@@ -65,100 +64,87 @@ export default function SignInScreen() {
         : undefined;
 
   return (
-    <ThemedView style={styles.screen}>
-      <SafeAreaView style={styles.safe}>
-        <KeyboardAvoidingView
-          style={styles.safe}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag">
-            <View style={styles.heading}>
-              <ThemedText variant="display">{t('auth.signInTitle')}</ThemedText>
-              <ThemedText variant="body" themeColor="textSecondary">
-                {t('auth.signInSubtitle')}
-              </ThemedText>
-            </View>
+    <AuthScreen>
+      <View style={styles.heading}>
+        <ThemedText variant="display">{t('auth.signInTitle')}</ThemedText>
+        <ThemedText variant="body" themeColor="textSecondary">
+          {t('auth.signInSubtitle')}
+        </ThemedText>
+      </View>
 
-            <View style={styles.form}>
-              <AuthField
-                label={t('auth.email')}
-                placeholder={t('auth.emailPlaceholder')}
-                value={email}
-                onChangeText={setEmail}
-                editable={!running}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                keyboardType="email-address"
-                textContentType="emailAddress"
-                returnKeyType="next"
-              />
-              <AuthField
-                label={t('auth.password')}
-                placeholder={t('auth.passwordPlaceholder')}
-                value={password}
-                onChangeText={setPassword}
-                editable={!running}
-                secureTextEntry
-                autoCapitalize="none"
-                autoComplete="current-password"
-                textContentType="password"
-                returnKeyType="go"
-                onSubmitEditing={() => void onSubmit()}
-              />
-            </View>
+      <View style={styles.form}>
+        <AuthField
+          label={t('auth.email')}
+          placeholder={t('auth.emailPlaceholder')}
+          value={email}
+          onChangeText={setEmail}
+          editable={!running}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          keyboardType="email-address"
+          textContentType="emailAddress"
+          returnKeyType="next"
+          // Makes "next" mean something. Moving focus from the keyboard
+          // instead of tapping is also one fewer chance for the layout to
+          // shift under the user's finger.
+          onSubmitEditing={() => passwordField.current?.focus()}
+          submitBehavior="submit"
+        />
+        <AuthField
+          ref={passwordField}
+          label={t('auth.password')}
+          placeholder={t('auth.passwordPlaceholder')}
+          value={password}
+          onChangeText={setPassword}
+          editable={!running}
+          secureTextEntry
+          autoCapitalize="none"
+          autoComplete="current-password"
+          textContentType="password"
+          returnKeyType="go"
+          onSubmitEditing={() => void onSubmit()}
+        />
+      </View>
 
-            {/*
-             * The message is a live region so a screen reader announces a
-             * failed attempt, which otherwise happens silently below the
-             * fold. It is text, never a colour on its own.
-             */}
-            {error === undefined ? null : (
-              <ThemedText
-                variant="bodySmall"
-                themeColor="negative"
-                accessibilityLiveRegion="polite"
-                accessibilityRole="alert">
-                {error}
-              </ThemedText>
-            )}
+      {/*
+       * The message is a live region so a screen reader announces a failed
+       * attempt, which otherwise happens silently. It is text, never a colour
+       * on its own.
+       */}
+      {error === undefined ? null : (
+        <ThemedText
+          variant="bodySmall"
+          themeColor="negative"
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert">
+          {error}
+        </ThemedText>
+      )}
 
-            <ActionButton
-              label={running ? t('auth.working') : t('auth.signInAction')}
-              onPress={() => void onSubmit()}
-              tone="primary"
-              disabled={running}
-              busy={running}
-            />
+      <ActionButton
+        label={running ? t('auth.working') : t('auth.signInAction')}
+        onPress={() => void onSubmit()}
+        tone="primary"
+        disabled={running}
+        busy={running}
+      />
 
-            <Link href="/(auth)/sign-up" asChild>
-              <ThemedText
-                variant="bodySmall"
-                themeColor="accent"
-                accessibilityRole="link"
-                style={styles.switch}>
-                {t('auth.toSignUp')}
-              </ThemedText>
-            </Link>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </ThemedView>
+      <Link href="/(auth)/sign-up" asChild>
+        <ThemedText
+          variant="bodySmall"
+          themeColor="accent"
+          accessibilityRole="link"
+          style={styles.switch}>
+          {t('auth.toSignUp')}
+        </ThemedText>
+      </Link>
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  safe: { flex: 1 },
-  content: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.xxl,
-    gap: Spacing.lg,
-  },
   heading: { gap: Spacing.xs },
   form: { gap: Spacing.md },
   switch: { textAlign: 'center', paddingVertical: Spacing.sm },

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { forwardRef, useState } from 'react';
 import { StyleSheet, TextInput, type TextInputProps, View } from 'react-native';
 
 import { ThemedText } from '@/ui/components';
@@ -17,7 +17,10 @@ export type AuthFieldProps = Omit<TextInputProps, 'style' | 'placeholderTextColo
   readonly label: string;
 };
 
-export function AuthField({ label, editable = true, ...input }: AuthFieldProps) {
+export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthField(
+  { label, editable = true, ...input },
+  ref,
+) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
 
@@ -45,6 +48,7 @@ export function AuthField({ label, editable = true, ...input }: AuthFieldProps) 
           },
         ]}>
         <TextInput
+          ref={ref}
           {...input}
           editable={editable}
           // The label is already next to the field visually; naming it here is
@@ -68,7 +72,7 @@ export function AuthField({ label, editable = true, ...input }: AuthFieldProps) 
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   field: { gap: Spacing.xs },

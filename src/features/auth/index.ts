@@ -1,4 +1,5 @@
 export { AuthField, type AuthFieldProps } from './auth-field';
+export { AuthScreen } from './auth-screen';
 export { signInErrorKey, signUpErrorKey, type AuthErrorKey, type AuthFailure } from './auth-errors';
 export { signIn, signUp, type AuthResult } from './auth-service';
 export {
