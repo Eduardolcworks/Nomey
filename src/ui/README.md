@@ -15,7 +15,14 @@ Presentación pura y agnóstica del dominio.
 - **Ningún texto visible hardcodeado** una vez exista i18n (F4.B). Ver
   `AGENTS.md`.
 - **Ningún tamaño de fuente suelto.** Se pide un **rol** —`amountRow`,
-  `caption`— nunca «16px semibold».
+  `caption`— nunca «17px semibold».
+- **Ningún `fontFamily` en los roles de texto.** Se usa la fuente del sistema
+  —SF Pro en iOS, Roboto en Android—, y no se envía ninguna fuente propia para
+  imitar a ninguna de las dos. Solo `mono` nombra familia.
+- **Ningún `letterSpacing`.** SF Pro ya aplica tracking óptico por tamaño;
+  añadir el propio lo aprieta dos veces.
+- **El peso significa algo, y la negrita es del dinero:** `700` los dos importes
+  de display · `600` estructura · `500` énfasis · `400` prosa.
 
 ## Estructura
 

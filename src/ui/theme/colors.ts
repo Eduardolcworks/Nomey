@@ -111,3 +111,26 @@ export const Colors = {
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+
+/**
+ * The tokens a piece of text is allowed to be painted with.
+ *
+ * `ThemeColor` covers every token, grounds and borders included, so a text
+ * component typed with it accepts `themeColor="border"` - #2A2A2A on black,
+ * 1.5:1 - and both the typecheck and the lint pass. The only place that
+ * failure shows up is on a device.
+ *
+ * The discipline is documented all over this file; this makes the compiler
+ * hold it. `textDisabled` stays in, under its stated exemption.
+ */
+export type TextColor = Extract<
+  ThemeColor,
+  | 'text'
+  | 'textSecondary'
+  | 'textTertiary'
+  | 'textDisabled'
+  | 'accent'
+  | 'onAccent'
+  | 'positive'
+  | 'negative'
+>;

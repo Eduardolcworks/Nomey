@@ -1,6 +1,6 @@
 import { Text, type TextProps } from 'react-native';
 
-import { type ThemeColor, Typography, type TypographyRole, useTheme } from '@/ui/theme';
+import { type TextColor, Typography, type TypographyRole, useTheme } from '@/ui/theme';
 
 export type ThemedTextProps = TextProps & {
   /**
@@ -12,7 +12,8 @@ export type ThemedTextProps = TextProps & {
    * with an error message that points nowhere near the cause.
    */
   variant?: TypographyRole;
-  themeColor?: ThemeColor;
+  /** Foreground tokens only. A ground or a border cannot be text. */
+  themeColor?: TextColor;
 };
 
 export function ThemedText({ style, variant = 'body', themeColor, ...rest }: ThemedTextProps) {

@@ -26,16 +26,39 @@ Cuatro, con fronteras claras. **No se subdivide más salvo necesidad material.**
 F4.C. **Orden: A → B → C → D**, una rama por bloque.
 
 **Primer hito visualmente útil en iPhone: el cierre de F4.C.** F4.A ya da señal
-en dispositivo —icono, splash, fondo, amarillo real en OLED—, pero no es todavía
-una app navegable.
+en dispositivo —fondo, paleta, tipografía y el amarillo real en OLED—, pero no
+es todavía una app navegable.
+
+### Qué se puede validar y cuándo
+
+El desarrollo es **desde Windows**, así que `npx expo run:ios` no es una vía
+local: exige macOS y Xcode. La validación en iPhone físico se hace con **Expo
+Go**, y eso parte la comprobación visual en dos, no la bloquea.
+
+| Validable ya, en Expo Go              | Espera a la primera build iOS propia    |
+| ------------------------------------- | --------------------------------------- |
+| Fondo dark y comportamiento del tema  | App icon real en el Springboard         |
+| Paleta y contraste sobre OLED         | Máscara final del icono                 |
+| El amarillo de marca en pantalla real | Splash nativo exacto                    |
+| Tipografía y jerarquía                | Transición nativa previa a cargar el JS |
+| Status bar y safe area                | Ausencia de destello blanco al arrancar |
+
+**Los assets y la configuración quedan verificados técnicamente** —`npx expo
+config` los resuelve, `tests/infra/brand-chrome.test.ts` los ata a sus tokens y
+el bundle de iOS se empaqueta—; lo pendiente es **mirarlos**, no comprobarlos.
+
+> **Comprobación pendiente registrada:** icono, splash y arranque nativo se
+> revisan en la primera build iOS propia. No se monta EAS, certificados ni
+> ninguna infraestructura nueva para adelantarla.
 
 ### Criterios de cierre por bloque
 
 Se suman a los cuatro del roadmap, que son los de la fase completa.
 
-- **F4.A** — ningún hex fuera de `src/ui/theme/` · el arranque en iPhone físico
-  muestra icono, splash y fondo de Nomey **sin destello blanco** · el contraste
-  de la paleta está **medido**, no supuesto.
+- **F4.A** — ningún hex fuera de `src/ui/theme/` · el contraste de la paleta
+  está **medido**, no supuesto · la pantalla se revisa en iPhone con Expo Go ·
+  icono, splash y arranque nativo quedan como comprobación pendiente de la
+  primera build iOS propia, según la tabla anterior.
 - **F4.B** — cambiar el idioma del dispositivo cambia la app entera · un importe
   en EUR y otro en JPY se formatean con **su** escala · ninguna cadena literal
   fuera de los catálogos · `Intl` **medido** en Hermes sobre iPhone.
