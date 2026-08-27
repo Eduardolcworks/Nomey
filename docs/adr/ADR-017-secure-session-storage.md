@@ -164,6 +164,32 @@ y no decide _cuándo_: restaurar al arranque y refrescar al volver a primer plan
 son de F5.B. Esta separación es parte de la decisión, no una casualidad de la
 implementación.
 
+### 7 · La compatibilidad de `URL`, que esta frontera tiene que resolver
+
+**React Native 0.86 no cumple el contrato de `URL` que exige la versión
+instalada de `supabase-js`, y por eso la frontera lleva un polyfill.**
+
+`SupabaseClient`, en su constructor y **antes de leer ninguna opción**, asigna a
+`realtimeUrl.protocol` para pasar de `http` a `ws`. El `URL` que React Native
+instala como global —incondicionalmente, en `Libraries/Core/setUpXHR.js`—
+declara **un solo setter en todo el fichero, `set search`**: `protocol` es un
+getter puro. El cuerpo de una clase es siempre strict mode, así que la
+asignación lanza `TypeError` y **el cliente no llega a existir**. No tiene que
+ver con realtime, que Nomey no usa: la línea corre antes que las opciones.
+
+**Se adopta `react-native-url-polyfill`**, que es la vía estándar y la que la
+propia documentación de Supabase prescribe para React Native. Se aplica en un
+único punto —`src/lib/supabase/bootstrap.ts`, importado por `client.ts`— porque
+repartirlo por rutas o features haría que «¿está aplicado?» dejara de tener
+respuesta.
+
+**Se rechaza el shim local**: definir a mano un setter de `protocol` sobre el
+`URL.prototype` de React Native evitaría la dependencia, pero dependería del
+campo privado `_url` de esa clase, y arreglaría solo el miembro con el que se
+tropezó dejando debajo un `URL` aproximado bajo una librería que lo sigue
+usando. Cambiar una dependencia auditable por un parche sobre internals ajenos
+no es un ahorro.
+
 ## Alternativas consideradas
 
 **`AsyncStorage`, que es lo que usa el propio quickstart de Supabase para React

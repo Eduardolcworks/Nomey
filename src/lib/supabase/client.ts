@@ -10,6 +10,11 @@
  * the session provider's job in F5.B. Here there is a client and the storage
  * it writes to, and nothing that has an opinion about when.
  */
+// First, and it must stay an import of this module rather than a copy of its
+// contents: React Native's `URL` has no `protocol` setter and the Supabase
+// constructor assigns to one. See `bootstrap.ts` for the measurement.
+import './bootstrap';
+
 import { createClient } from '@supabase/supabase-js';
 
 import { supabaseEnv } from '@/lib/env';
