@@ -1,15 +1,18 @@
 import { useRouter } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/tabs';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTranslation } from '@/lib/i18n';
 import { GlassSurface, Icon, ThemedText } from '@/ui/components';
-import { Radius, Spacing, useTheme } from '@/ui/theme';
+import { Glass, Motion, Radius, Spacing, Tactile, useTheme } from '@/ui/theme';
 
 import { DESTINATIONS, type Destination, destinationFor } from './destinations';
 import { DOCK } from './dock';
 import { SCOPE_LABEL, useScope } from './scope-context';
+import { SPRING, usePressScale } from './shell-motion';
 
 /**
  * Two independent controls and one action, floating over the content.
@@ -27,9 +30,14 @@ import { SCOPE_LABEL, useScope } from './scope-context';
  *
  * **The brand yellow appears exactly once on screen, and it is that button.**
  * Selection is carried by the surface instead - a lifted glass pill with a
- * stronger edge against a recessed, quieter one - and reinforced by text
- * weight and colour. If the accent did both jobs the action would look
- * permanently selected and the selected destination would lose its signal.
+ * stronger edge against a recessed, quieter one - and reinforced by the
+ * content's opacity and the icon's scale. If the accent did both jobs the
+ * action would look permanently selected and the selected destination would
+ * lose its signal.
+ *
+ * **Motion is shared with the scope switch, not invented here.** Both take
+ * their spring from `Motion` and their touch response from `usePressScale`,
+ * which is what makes the dock and the control above it read as one system.
  */
 export function NomeyTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -68,13 +76,40 @@ export function NomeyTabBar({ state, navigation }: BottomTabBarProps) {
  * One destination, as its own object.
  *
  * Selected and unselected differ by surface, not only by text: the selected
- * pill is lifted with `Tactile.selected` and edged with `borderStrong`, the
- * unselected one is recessed into a well and edged with the quiet `border`.
- * Colour and weight then reinforce what the depth already said - which is the
- * rule that keeps the state readable for anyone who cannot see the depth.
+ * pill is lifted and edged brighter, the unselected one is recessed into a
+ * well and edged with the quiet rim. Opacity and scale then reinforce what the
+ * depth already said - which is the rule that keeps the state readable for
+ * anyone who cannot see the depth.
  *
- * The unselected label stays at `textSecondary`, not `textTertiary`: discreet
- * is not the same as faint, and this is a navigation control.
+ * MOTION. Four things move off one spring, so they arrive together:
+ *
+ *   the pill lifts 2pt        the icon grows to 1.06
+ *   the content brightens     the selected rim and shading fade in
+ *
+ * **The selection emphasis is a separate layer, cross-faded.** `boxShadow`
+ * arrays cannot be interpolated, so swapping `depth` would snap however slow
+ * the rest of the transition was. Stacking a second surface and animating its
+ * opacity is the only way the depth change can actually travel.
+ *
+ * **That layer is a plain view and not a second `GlassSurface`**, for two
+ * reasons that both matter. On iOS 26 two stacked `GlassView`s would blur the
+ * backdrop twice, and the selected pill would sit permanently double-blurred -
+ * a change to the resting design, not to the transition. And a nearly opaque
+ * tint fading in would cover the native glass instead of lifting it. So the
+ * layer adds light rather than replacing material: a faint white veil, a
+ * brighter rim, and the selected shading.
+ *
+ * **The tint's own alpha is never animated.** The base surface stays fully
+ * opaque underneath at all times, so the effective backdrop behind the label
+ * can only get more opaque during the cross-fade, never less. Fading a
+ * translucent tint directly would dip it below `MinGlassTintAlpha` mid-flight
+ * and drop text contrast for about a tenth of a second - invisible in a
+ * screenshot, and exactly the kind of thing the accessibility rule is for.
+ *
+ * The unselected content rests at 0.62 rather than being recoloured, because
+ * a colour swap cannot be animated and an opacity can. It still measures well
+ * past AA on the pill, and it is never the only signal: depth, scale and
+ * `accessibilityState` all carry the same fact.
  */
 function DestinationButton({
   destination,
@@ -89,31 +124,67 @@ function DestinationButton({
   const theme = useTheme();
   const label = t(destination.label);
 
+  const press = usePressScale();
+  /** 0 unselected, 1 selected, and every value between is the transition. */
+  const active = useSharedValue(focused ? 1 : 0);
+
+  useEffect(() => {
+    active.value = withSpring(focused ? 1 : 0, SPRING);
+  }, [focused, active]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: -Motion.destination.lift * active.value },
+      { scale: press.scale.value },
+    ],
+  }));
+
+  const emphasisStyle = useAnimatedStyle(() => ({ opacity: active.value }));
+
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: Motion.destination.restOpacity + (1 - Motion.destination.restOpacity) * active.value,
+  }));
+
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + (Motion.destination.iconScale - 1) * active.value }],
+  }));
+
   return (
     <Pressable
       accessibilityRole="tab"
       accessibilityState={{ selected: focused }}
       accessibilityLabel={label}
       onPress={onPress}
+      {...press.handlers}
       style={styles.destination}>
       {({ pressed }) => (
-        <GlassSurface
-          level={focused ? 'regular' : 'bar'}
-          depth={pressed ? 'pressed' : focused ? 'selected' : 'well'}
-          radius={Radius.full}
-          style={styles.pill}>
-          <Icon
-            name={destination.symbol}
-            size={20}
-            colour={focused ? theme.text : theme.textSecondary}
-          />
-          <ThemedText
-            variant="label"
-            themeColor={focused ? 'text' : 'textSecondary'}
-            style={focused ? null : styles.labelQuiet}>
-            {label}
-          </ThemedText>
-        </GlassSurface>
+        <Animated.View style={[styles.frame, pillStyle]}>
+          <GlassSurface
+            level="bar"
+            depth={pressed ? 'pressed' : 'well'}
+            radius={Radius.full}
+            style={styles.pill}>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.emphasis,
+                {
+                  borderColor: Glass.regular.highlight,
+                  boxShadow: Tactile.selected,
+                },
+                emphasisStyle,
+              ]}
+            />
+            <Animated.View style={[styles.content, contentStyle]}>
+              <Animated.View style={iconStyle}>
+                <Icon name={destination.symbol} size={20} colour={theme.text} />
+              </Animated.View>
+              <ThemedText variant="label" themeColor="text">
+                {label}
+              </ThemedText>
+            </Animated.View>
+          </GlassSurface>
+        </Animated.View>
       )}
     </Pressable>
   );
@@ -144,6 +215,18 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
       ? t('action.addToGroups')
       : t('action.addTo', { scope: t(SCOPE_LABEL[scope]) });
 
+  /*
+   * The press, and deliberately NOTHING else.
+   *
+   * It takes the same touch response as the pills beside it, which is what
+   * keeps the dock reading as one object rather than as an animated control
+   * next to a static one. But it does not react to the destination changing:
+   * the action is not part of the selection story, and anything that moved it
+   * in sympathy would make it look like a third tab.
+   */
+  const press = usePressScale();
+  const addStyle = useAnimatedStyle(() => ({ transform: [{ scale: press.scale.value }] }));
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -151,20 +234,23 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
       onPress={() => {
         router.push({ pathname: '/add', params: { from: destination } });
       }}
+      {...press.handlers}
       style={styles.add}>
       {({ pressed }) => (
-        <GlassSurface
-          level="action"
-          depth={pressed ? 'pressed' : 'flat'}
-          radius={Radius.full}
-          style={styles.addSurface}>
-          {/*
-           * The glyph carries the brand colour now that the body does not.
-           * It is the brightest thing in the dock, which is what keeps this
-           * an action rather than a third destination.
-           */}
-          <Icon name="plus" size={28} colour={theme.accent} />
-        </GlassSurface>
+        <Animated.View style={addStyle}>
+          <GlassSurface
+            level="action"
+            depth={pressed ? 'pressed' : 'flat'}
+            radius={Radius.full}
+            style={styles.addSurface}>
+            {/*
+             * The glyph carries the brand colour now that the body does not.
+             * It is the brightest thing in the dock, which is what keeps this
+             * an action rather than a third destination.
+             */}
+            <Icon name="plus" size={28} colour={theme.accent} />
+          </GlassSurface>
+        </Animated.View>
       )}
     </Pressable>
   );
@@ -185,16 +271,38 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     minWidth: DOCK.destinationWidth,
   },
+  /** Carries the lift and the press. The surface underneath stays put. */
+  frame: {
+    borderRadius: Radius.full,
+  },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
     minHeight: DOCK.bar,
     paddingHorizontal: Spacing.lg,
   },
-  labelQuiet: {
-    fontWeight: '500',
+  /**
+   * The selected look, stacked over the resting one.
+   *
+   * Its own radius because `GlassSurface` does not clip its children, and a
+   * white veil at 0.055 rather than a tint: it lifts the surface without
+   * covering the native glass that may be blurring behind it.
+   */
+  emphasis: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: Radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   add: {
     borderRadius: Radius.full,
