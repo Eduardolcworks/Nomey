@@ -40,6 +40,20 @@ const SCHEME = IS_DEV ? 'nomey-dev' : 'nomey';
  */
 const BACKGROUND_COLOR = '#000000';
 
+/**
+ * The app icon's ground, which is brand yellow and not the app's black.
+ *
+ * The primary brand variant is the yellow one, and an icon's job is to be
+ * found on a crowded home screen - a black icon on a dark wallpaper is not.
+ * This does not leak inward: inside the app the yellow stays a minority
+ * accent over a black ground, and the splash uses the secondary variant so
+ * the launch does not flash yellow before settling into a dark app.
+ *
+ * It MUST equal `Colors.dark.accent`, for the same reason and with the same
+ * guard as `BACKGROUND_COLOR` above.
+ */
+const ICON_GROUND_COLOR = '#FDC506';
+
 const config: ExpoConfig = {
   name: IS_DEV ? 'Nomey Dev' : 'Nomey',
   slug: 'nomey',
@@ -79,9 +93,8 @@ const config: ExpoConfig = {
   android: {
     package: BUNDLE_ID,
     adaptiveIcon: {
-      backgroundColor: BACKGROUND_COLOR,
+      backgroundColor: ICON_GROUND_COLOR,
       foregroundImage: './assets/icons/android-icon-foreground.png',
-      backgroundImage: './assets/icons/android-icon-background.png',
       monochromeImage: './assets/icons/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
@@ -92,9 +105,12 @@ const config: ExpoConfig = {
     [
       'expo-splash-screen',
       {
+        // Secondary variant on the app's own black: the launch settles into a
+        // dark app, and coming from a full yellow screen would be a harsher
+        // transition than the brand gains from it.
         backgroundColor: BACKGROUND_COLOR,
         image: './assets/splash/splash-icon.png',
-        imageWidth: 76,
+        imageWidth: 120,
       },
     ],
   ],

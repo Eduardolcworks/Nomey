@@ -57,12 +57,16 @@ bloquear una ampliación futura. La resolución vive en un único sitio,
 **Marca.** El amarillo funcional es **`#FDC506`**, plano y separado de los
 brillos y gradientes del logo: el logo es un asset, no un material de interfaz.
 Los gradientes **no** se extrapolan a la interfaz. Dos variantes de logo son
-reales —símbolo amarillo sobre negro, principal para dark-first y para el icono;
-símbolo negro sobre amarillo, secundaria—, y ninguna se descarta.
+reales y ninguna se descarta: **símbolo negro sobre amarillo es la principal**, y
+es la que va al app icon porque un icono tiene que encontrarse en una pantalla de
+inicio llena; símbolo amarillo sobre negro es la secundaria, y es la del splash,
+porque el arranque desemboca en una app oscura. **Nada de esto cambia el
+interior**: dark-first, negro dominante, amarillo minoritario.
 
-**Boceto de pantallas.** Referencia **exclusivamente** de paleta, contraste y
-proporción cromática. No se copia layout, navegación, cards, gráficos, botones,
-tipografía, tamaños, composición ni jerarquía. F4 construye su propio lenguaje.
+**Boceto de pantallas** —[`reference/concept-screens.png`](reference/concept-screens.png)—.
+Referencia **exclusivamente** de paleta, contraste y proporción cromática. No se
+copia layout, navegación, cards, gráficos, botones, tipografía, tamaños,
+composición ni jerarquía. F4 construye su propio lenguaje.
 
 **Glass y neumorfismo.** Se reconcilian con `design-direction.md` §5 y §6 sin
 modificarla: glass para **superficies que contienen** —cards, paneles, sheets,

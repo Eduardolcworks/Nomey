@@ -2,7 +2,7 @@
 
 ```
 assets/
-├── icons/    # app icon + capas del icono adaptativo de Android
+├── icons/    # originales de marca + icono de app y capas de Android
 └── splash/   # arte del splash
 ```
 
@@ -10,49 +10,73 @@ assets/
 
 La marca de Nomey tiene **dos variantes reales**, y ninguna sustituye a la otra:
 
-| Variante                     | Uso                                  |
-| ---------------------------- | ------------------------------------ |
-| Símbolo amarillo sobre negro | **Principal.** Dark-first y app icon |
-| Símbolo negro sobre amarillo | Secundaria                           |
+| Original                   | Variante                     | Uso                                            |
+| -------------------------- | ---------------------------- | ---------------------------------------------- |
+| `nomey-logo-on-yellow.png` | Símbolo negro sobre amarillo | **Principal.** App icon en iOS y Android       |
+| `nomey-logo-on-black.png`  | Símbolo amarillo sobre negro | **Secundaria.** Splash y usos sobre fondo dark |
 
-El amarillo **funcional** de la interfaz es `#FDC506` y vive en
-`src/ui/theme/colors.ts`. El arte del logo tiene brillos y degradados propios:
-son del asset, **no** de la interfaz, y no se extrapolan a los componentes.
+**Que el icono sea amarillo no cambia la dirección de la app.** El interior
+sigue siendo dark-first, con negro dominante y el amarillo como acento
+minoritario. Un icono tiene que encontrarse en una pantalla de inicio llena; una
+interfaz financiera tiene que leerse.
 
-## Estado actual
+El amarillo **funcional** es `#FDC506`, y su fuente es
+`src/ui/theme/colors.ts`. Los dos originales son renders con degradado, bisel y
+brillo: eso pertenece al asset, **no** a la interfaz, y no se extrapola a los
+componentes.
 
-**El arte de esta carpeta sigue siendo el del template de Expo.** Se conserva
-únicamente para que la app compile y arranque.
+## Qué es original y qué es derivado
 
-Pendiente de sustituir, **conservando exactamente estos nombres** para que no
-haga falta tocar `app.config.ts`:
+**Los dos `nomey-logo-*.png` son la fuente de verdad y no se editan.** Todo lo
+demás lo genera `scripts/derive-brand-assets.ps1` a partir de ellos —recorte,
+clave de color, escalado y margen—, de modo que **la geometría del símbolo nunca
+se redibuja ni se aproxima**. Si cambia un original, se vuelve a ejecutar:
 
-| Archivo                             | Qué debe ser                                           |
-| ----------------------------------- | ------------------------------------------------------ |
-| `icons/icon.png`                    | 1024×1024, símbolo amarillo sobre negro                |
-| `icons/android-icon-foreground.png` | Solo el símbolo, con el margen seguro de Android       |
-| `icons/android-icon-background.png` | Negro liso — o eliminarlo y dejar `backgroundColor`    |
-| `icons/android-icon-monochrome.png` | Silueta del símbolo para el tema monocromo             |
-| `splash/splash-icon.png`            | Símbolo sobre transparente; el fondo lo pone la config |
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/derive-brand-assets.ps1
+```
 
-`app.config.ts` fija el fondo del splash, del icono adaptativo y de la vista
-raíz al **mismo** negro que el tema, y `tests/infra/brand-chrome.test.ts` falla
-si dejan de coincidir.
+| Derivado                            | De         | Qué es                                            |
+| ----------------------------------- | ---------- | ------------------------------------------------- |
+| `icons/icon.png`                    | Principal  | 1024×1024, **sin alfa**, fondo amarillo a sangre  |
+| `icons/android-icon-foreground.png` | Principal  | Símbolo solo, dentro de la zona segura de Android |
+| `icons/android-icon-monochrome.png` | Principal  | Silueta para el icono temático de Android 13+     |
+| `splash/splash-icon.png`            | Secundaria | Símbolo amarillo sobre transparente               |
+
+**El icono de app se compone, no se recorta del render.** El original tiene las
+esquinas redondeadas a un tercio de su anchura, bastante más que la máscara de
+iOS, así que a sangre se verían sus propios recortes dentro de la máscara del
+sistema; y repintar esas esquinas solo dispone del bisel oscurecido, que
+extendido da estrías o esquinas sucias. Recortar por dentro del bisel evita
+inventar píxeles pero amplía el símbolo hasta el 90 % del marco, donde la
+máscara sí lo corta. Así que el icono lleva **el fondo plano de marca y el
+símbolo extraído por clave de color**, a la misma proporción —72,8 %— que tiene
+en el original. El brillo se queda en el original, que es para lo que está.
+
+`app.config.ts` fija el fondo del splash y de la vista raíz al **negro** del
+tema, y el del icono adaptativo al **amarillo** de marca.
+`tests/infra/brand-chrome.test.ts` falla si cualquiera de los dos deja de
+coincidir con su token, o si aparece un hex suelto.
+
+**No hay capa `background` de Android.** Con un `backgroundColor` plano sobra, y
+el archivo que había era del template.
 
 ## Sobre el icono de iOS 26 (`.icon`)
 
-El template traía un bundle `expo.icon/` con un `icon.json` que referenciaba
-capas de marca de Expo. Al eliminar esas capas, el `icon.json` quedó apuntando
-a archivos inexistentes, así que **se ha eliminado**: un manifiesto roto no es
-andamiaje útil, es una trampa para quien lo encuentre.
-
 `app.config.ts` usa `icons/icon.png` y **no declara `ios.icon`**.
 
-Si se quiere el formato `.icon` de iOS 26 hay que crear `assets/nomey.icon/` con
-sus capas y su `icon.json`, y entonces apuntar `ios.icon` a `./assets/nomey.icon`.
-Lo genera Icon Composer (Xcode); no debe escribirse a mano.
+Si se quiere el formato `.icon` de iOS 26 —con sus capas y su composición
+propia— hay que crear `assets/nomey.icon/` y apuntar `ios.icon` a él. Lo genera
+Icon Composer (Xcode) a partir de los originales; no debe escribirse a mano.
 
 ## Presupuesto de peso
 
-El `icon.png` del template pesa ~800 KB, desproporcionado. Al sustituirlo,
-mantener los assets por debajo de ~150 KB salvo justificación.
+**El presupuesto de ~150 KB es para assets que entran en el bundle de
+JavaScript**, donde cada KB es descarga y memoria en el arranque.
+
+Los originales de marca y el icono de app no están en ese bundle: los originales
+no los referencia nadie en código, y el icono y el splash los consume la
+**cadena nativa**, que los recodifica en el binario. Por eso pesan lo que pesan
+—los originales rondan 1,2 MB cada uno y `icon.png` unos 337 KB— y por eso no
+incumplen nada. Un asset que sí se cargue en tiempo de ejecución sigue sujeto al
+presupuesto.
