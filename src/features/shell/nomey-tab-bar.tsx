@@ -167,11 +167,16 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
           depth={pressed ? 'pressed' : 'flat'}
           radius={Radius.full}
           style={styles.addSurface}>
+          {/*
+           * The glyph carries the brand colour now that the body does not.
+           * It is the brightest thing in the dock, which is what keeps this
+           * an action rather than a third destination.
+           */}
           <SymbolView
             name="plus"
             size={28}
-            tintColor={theme.onAccent}
-            fallback={<View style={[styles.plusFallback, { backgroundColor: theme.onAccent }]} />}
+            tintColor={theme.accent}
+            fallback={<View style={[styles.plusFallback, { backgroundColor: theme.accent }]} />}
           />
         </GlassSurface>
       )}

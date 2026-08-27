@@ -94,20 +94,39 @@ export const Glass: Record<GlassLevel, GlassToken> = {
     highlight: 'rgba(255, 255, 255, 0.18)',
   },
   /**
-   * The primary action, and the only glass that is not neutral.
+   * The primary action: warm glass, not a yellow disc.
    *
-   * The brand yellow at 0.86 rather than flat: measured, near-black on it
-   * clears 9:1 against a black backdrop, so the translucency costs nothing
-   * legible while letting the button belong to the same material as the
-   * controls beside it. The rim and the highlight are stronger here than
-   * anywhere else - it is the one object meant to read as lit from above
-   * rather than merely present.
+   * **The brand colour is no longer the fill.** Filling the shape with it
+   * produced a paint swatch that no amount of shading rescued - every effect
+   * read as something applied on top of a solid object rather than as the
+   * object's own material. So the body is dark amber-tinted glass, and the
+   * yellow moves to where a real tinted lens actually shows its colour: the
+   * rim that catches the light, the glow held inside the upper half, the halo
+   * it casts, and the glyph itself.
+   *
+   * That inversion is what makes it a piece of glass with light in it instead
+   * of a coloured circle. It also buys genuine translucency: at 0.78 the
+   * ground and any content scrolling behind really do come through, which was
+   * impossible while the surface had to stay opaque enough to keep a
+   * near-black glyph legible.
+   *
+   * Measured, because the body is now barely brighter than the navigation
+   * pills beside it - 1.4 points of luminance - and could have stopped reading
+   * as the primary action. It does not, because none of what distinguishes it
+   * is luminance: hue (warm against neutral), a rim at 10.2:1 on the ground, a
+   * yellow glyph at 8.9:1 on the body, its own halo, and its shape and size.
    */
   action: {
-    tint: 'rgba(253, 197, 6, 0.86)',
+    tint: 'rgba(90, 74, 32, 0.80)',
     blurRadius: 24,
-    border: 'rgba(255, 255, 255, 0.38)',
-    highlight: 'rgba(255, 255, 255, 0.55)',
+    /**
+     * The lit edge. Deliberately dimmer than the glyph: a rim as bright as
+     * the mark on it reads as a ring or a toggle, and an outlined circle is
+     * the vocabulary of a secondary control in almost every system.
+     */
+    border: 'rgba(253, 197, 6, 0.58)',
+    /** Light catching the top rim, warmed by the glass it passes through. */
+    highlight: 'rgba(255, 236, 170, 0.60)',
     /**
      * What turns the disc into a lens.
      *
@@ -120,27 +139,48 @@ export const Glass: Record<GlassLevel, GlassToken> = {
      * from the bottom, so the surface varies across its own diameter instead
      * of being one flat value.
      *
-     * Three things keep it from becoming a 2008 gel button, and all three are
-     * about asymmetry:
+     * The colour lives in here, and three asymmetries keep it from becoming a
+     * 2008 gel button:
      *
-     * - **The light is small and high, the shade is large and low.** A
+     * - **The glow is small and high, the shade is large and low.** A
      *   highlight and a shade of equal size meeting at the equator is the
      *   signature of a 2010 bevel. Here the light covers roughly an eighth of
      *   the disc and the shade about a third.
-     * - **The lower pole deepens towards amber, not towards black.** Darkening
-     *   with black desaturates and drags the brand yellow to olive; darkening
-     *   with hue reads as the material absorbing light and keeps it vivid.
-     * - **The outer shadow is warm.** A black shadow on a pure black ground
-     *   renders nothing at all - the pixel is already off - so the only way
-     *   this object can separate itself from the void outside its own edge is
-     *   to carry a trace of its own colour. It is kept small and low-alpha on
-     *   purpose: the direction rules out filling the interface with glows, and
-     *   this has to read as contact, not as neon.
+     * - **The diffuse layers are a pale warm, not the brand yellow.** Brand
+     *   yellow at low alpha over a dark body composes to olive - measured,
+     *   #755f1f - which muddies the glass and drags the glyph towards its own
+     *   colour field. Saturation belongs where the alpha is high, in the rim
+     *   and the glyph; the washes get a pale amber that stays warm when thin.
+     * - **The shade deepens towards amber, not towards black.** Darkening with
+     *   black desaturates; darkening with hue reads as the material absorbing
+     *   light.
+     *
+     * The blurs are wide on purpose - half the diameter and more. A short blur
+     * produces a second hard edge just inside the border, which reads as a
+     * double stroke rather than as depth. With no gradients available, a
+     * large-radius inset shadow **is** the gradient, and it only becomes a
+     * field instead of an edge past roughly 40% of the diameter.
+     *
+     * Two numbers are held by measurement rather than taste. The body composes
+     * to #483b1a: 1.92:1 against the ground, which is what stops the disc from
+     * dissolving into a floating ring and a glyph, and 3.5 luminance points
+     * above the pills beside it, so it reads as raised rather than as a hole.
+     * And the inner glow stops at 0.12, because the glyph measures 4.8:1 over
+     * it at 0.14 and 4.3:1 at 0.18 - past the line.
+     *
+     * The outer halo is warm for a reason that is not decorative: a black
+     * shadow on a pure black ground renders nothing, because the pixel is
+     * already off. Carrying a trace of its own colour is the only way the
+     * object can separate itself from the void outside its own edge. Bounded
+     * and low-alpha - the direction rules out filling the interface with
+     * glows, and this has to read as light held by glass, not as neon.
      */
     lens: [
-      { offsetX: 0, offsetY: 9, blurRadius: 12, color: 'rgba(255, 255, 255, 0.26)', inset: true },
-      { offsetX: 0, offsetY: -16, blurRadius: 22, color: 'rgba(120, 84, 0, 0.42)', inset: true },
-      { offsetX: 0, offsetY: 6, blurRadius: 14, color: 'rgba(120, 84, 0, 0.55)' },
+      { offsetX: 0, offsetY: 12, blurRadius: 28, color: 'rgba(255, 224, 138, 0.12)', inset: true },
+      { offsetX: 0, offsetY: -18, blurRadius: 26, color: 'rgba(20, 15, 0, 0.45)', inset: true },
+      // Pushed down rather than centred: a halo hugging the whole rim raises
+      // the ground right where the top edge needs to cut against it.
+      { offsetX: 0, offsetY: 10, blurRadius: 24, color: 'rgba(255, 224, 138, 0.16)' },
     ],
   },
 };
