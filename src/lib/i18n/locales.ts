@@ -1,58 +1,110 @@
 /**
- * The locales Nomey ships.
+ * Two different locales, and they are not interchangeable.
  *
- * A locale here is a *catalogue*, not every tag a device may report. `es-CL`
- * and `es-ES` both resolve to the `es-ES` catalogue; what changes with the
- * device tag is the formatting locale, which is a separate concern handled in
- * `lib/format`.
+ * **The message locale** picks a catalogue. Nomey ships two, so it is a closed
+ * set of two values.
+ *
+ * **The format locale** picks how numbers, money and dates are written. It is
+ * the device's own regional tag, kept whole: someone in Mexico reading Spanish
+ * should see Mexican conventions, and someone in Britain reading Spanish
+ * should still see British ones. Collapsing it to the catalogue would tell a
+ * Mexican user their money is written the Spanish way because Nomey happens
+ * not to ship a Mexican catalogue, which is a different claim entirely.
+ *
+ * They are branded apart on purpose. `'es-ES'` is a valid value of both, so a
+ * plain string type would let the catalogue be passed where the region belongs
+ * - which is exactly the bug this replaces, and it would have been invisible
+ * on a Spanish phone.
  */
-export const SUPPORTED_LOCALES = ['es-ES', 'en'] as const;
 
-export type Locale = (typeof SUPPORTED_LOCALES)[number];
+export const MESSAGE_LOCALES = ['es-ES', 'en'] as const;
+
+export type MessageLocale = (typeof MESSAGE_LOCALES)[number];
 
 /**
  * Used when the device asks for a language Nomey does not ship.
  *
  * Spanish rather than English on purpose: Nomey is built in Spanish first, and
- * an unsupported language is far more likely to be a Spanish variant than
- * anything else.
+ * an unsupported language is more likely to be a Spanish variant than
+ * anything else. It affects the catalogue only - the region is left alone.
  */
-export const FALLBACK_LOCALE: Locale = 'es-ES';
+export const FALLBACK_MESSAGE_LOCALE: MessageLocale = 'es-ES';
+
+declare const FormatLocaleBrand: unique symbol;
+
+/** A BCP-47 tag for formatting. Built through `formatLocale`, never cast. */
+export type FormatLocale = string & { readonly [FormatLocaleBrand]: true };
+
+/** The region used when the device offers nothing usable. */
+const DEFAULT_FORMAT_TAG = 'es-ES';
 
 /** The language subtag each catalogue answers to. */
-const LANGUAGE_TO_LOCALE: Readonly<Record<string, Locale>> = {
+const LANGUAGE_TO_CATALOGUE: Readonly<Record<string, MessageLocale>> = {
   es: 'es-ES',
   en: 'en',
 };
 
-export function isSupportedLocale(value: string): value is Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(value);
+export function isMessageLocale(value: string): value is MessageLocale {
+  return (MESSAGE_LOCALES as readonly string[]).includes(value);
+}
+
+/**
+ * Accepts a tag as a formatting locale.
+ *
+ * `Intl` rejects a structurally malformed tag with a `RangeError`, which is
+ * worth catching here rather than at the first amount rendered. A tag that is
+ * well-formed but unknown does not throw - `Intl` resolves it to whatever it
+ * has - and that is the intended behaviour, not a fallback: a German device
+ * keeps German conventions even though Nomey has no German catalogue.
+ */
+export function formatLocale(tag: string): FormatLocale {
+  const trimmed = tag.trim();
+  if (trimmed.length === 0) return DEFAULT_FORMAT_TAG as FormatLocale;
+
+  try {
+    new Intl.NumberFormat(trimmed);
+    return trimmed as FormatLocale;
+  } catch {
+    return DEFAULT_FORMAT_TAG as FormatLocale;
+  }
 }
 
 /**
  * Picks a catalogue for an ordered list of device language tags.
  *
- * The order matters: iOS and Android both expose the user's preferred
- * languages in priority order, so a device set to Catalan first and Spanish
- * second must get Spanish, not the fallback that happens to also be Spanish.
- * Resolving to the first *supported* entry rather than only inspecting the
- * first entry is what makes that work.
+ * The order matters: both platforms expose the user's preferred languages in
+ * priority order, so a device set to Catalan first and English second must get
+ * English, not the fallback that happens to also be Spanish. Resolving to the
+ * first *supported* entry rather than only inspecting the first is what makes
+ * that work.
  *
  * Matching is by language subtag, case-insensitively: `en-GB`, `en-US` and
  * `EN` all reach the `en` catalogue.
  */
-export function resolveLocale(deviceLanguageTags: readonly string[]): Locale {
+export function resolveMessageLocale(deviceLanguageTags: readonly string[]): MessageLocale {
   for (const tag of deviceLanguageTags) {
     const normalised = tag.trim().toLowerCase();
     if (normalised.length === 0) continue;
 
-    const exact = SUPPORTED_LOCALES.find((locale) => locale.toLowerCase() === normalised);
+    const exact = MESSAGE_LOCALES.find((locale) => locale.toLowerCase() === normalised);
     if (exact !== undefined) return exact;
 
-    const language = normalised.split('-')[0];
-    const byLanguage = LANGUAGE_TO_LOCALE[language];
+    const byLanguage = LANGUAGE_TO_CATALOGUE[normalised.split('-')[0]];
     if (byLanguage !== undefined) return byLanguage;
   }
 
-  return FALLBACK_LOCALE;
+  return FALLBACK_MESSAGE_LOCALE;
+}
+
+/**
+ * Keeps the device's own region for formatting.
+ *
+ * Unlike the catalogue, this does not care whether Nomey ships the language:
+ * the first usable tag wins, region and all, whatever language it names.
+ */
+export function resolveFormatLocale(deviceLanguageTags: readonly string[]): FormatLocale {
+  for (const tag of deviceLanguageTags) {
+    if (tag.trim().length > 0) return formatLocale(tag);
+  }
+  return DEFAULT_FORMAT_TAG as FormatLocale;
 }

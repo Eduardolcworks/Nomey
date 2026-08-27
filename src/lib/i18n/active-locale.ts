@@ -1,21 +1,27 @@
 import { getLocales } from 'expo-localization';
 
-import { type Locale, resolveLocale } from './locales';
+import {
+  type FormatLocale,
+  type MessageLocale,
+  resolveFormatLocale,
+  resolveMessageLocale,
+} from './locales';
 
 /**
- * Which locale the app is using right now, and the one place that decides it.
+ * The language preference, and the two locales it resolves to.
  *
- * Nomey follows the system language. The override below is the seam that lets
- * a language picker land in Ajustes later without reopening i18n: the picker
- * will call `setLocaleOverride`, persist the choice, and restore it at start
- * up. Nothing else has to change - no screen reads a locale directly.
+ * Ajustes will offer exactly three states - Automatic, Español, English - and
+ * this is them. Automatic is the default and follows the device; the other two
+ * pin the catalogue.
  *
- * Persistence is deliberately NOT here. Storing a preference needs a storage
- * decision that belongs with the settings feature, and guessing it now would
- * mean writing a migration later.
+ * **The preference never touches the region.** Forcing English on a Spanish
+ * phone changes which catalogue is read and nothing else: amounts and dates
+ * keep Spanish conventions, because the user moved to another language, not to
+ * another country.
  */
+export type LanguagePreference = 'system' | MessageLocale;
 
-let override: Locale | null = null;
+let preference: LanguagePreference = 'system';
 
 const listeners = new Set<() => void>();
 
@@ -23,38 +29,59 @@ const listeners = new Set<() => void>();
  * The device's preferred languages, read once.
  *
  * `getLocales()` is synchronous and reflects the OS setting at startup. It is
- * cached because resolving on every render would re-read native state to
- * produce a value that only changes when the user leaves the app to change a
- * system setting - which restarts it on both platforms.
+ * cached because resolving on every render would re-read native state for a
+ * value that only changes when the user leaves the app to change a system
+ * setting - which restarts it on both platforms.
  */
-let deviceLocale: Locale | null = null;
+let deviceTags: string[] | null = null;
 
-function resolveDeviceLocale(): Locale {
-  deviceLocale ??= resolveLocale(getLocales().map((locale) => locale.languageTag));
-  return deviceLocale;
+function tags(): string[] {
+  deviceTags ??= getLocales().map((locale) => locale.languageTag);
+  return deviceTags;
 }
 
 /** The device's own language tag, unresolved. For diagnostics only. */
 export function deviceLanguageTag(): string {
-  return getLocales()[0]?.languageTag ?? 'unknown';
+  return tags()[0] ?? 'unknown';
 }
 
-export function getActiveLocale(): Locale {
-  return override ?? resolveDeviceLocale();
+/** Which catalogue is read. */
+export function getMessageLocale(): MessageLocale {
+  return preference === 'system' ? resolveMessageLocale(tags()) : preference;
 }
 
-/** `null` restores the system language. */
-export function setLocaleOverride(locale: Locale | null): void {
-  if (override === locale) return;
-  override = locale;
+/** How numbers, money and dates are written. Never affected by the preference. */
+export function getFormatLocale(): FormatLocale {
+  return resolveFormatLocale(tags());
+}
+
+export function getLanguagePreference(): LanguagePreference {
+  return preference;
+}
+
+/**
+ * The single entry point a language picker needs.
+ *
+ * **Persistence is deliberately absent.** Storing a preference needs a storage
+ * decision that belongs with the settings feature, and guessing it now would
+ * mean writing a migration later. When that arrives, restoring a saved choice
+ * is one call to this function at startup, and saving it is one call in the
+ * picker's handler. Nothing else changes, because no screen reads a locale
+ * directly.
+ */
+export function setLanguagePreference(next: LanguagePreference): void {
+  if (preference === next) return;
+  preference = next;
   for (const listener of listeners) listener();
-}
-
-export function getLocaleOverride(): Locale | null {
-  return override;
 }
 
 export function subscribeToLocale(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
+}
+
+/** Test seam: device tags are read once, and a fake device needs a fresh read. */
+export function resetLocaleState(): void {
+  preference = 'system';
+  deviceTags = null;
 }

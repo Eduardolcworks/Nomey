@@ -1,3 +1,5 @@
+import type { FormatLocale } from '../i18n/locales';
+
 /**
  * Dates, localised.
  *
@@ -32,7 +34,11 @@ const STYLES: Readonly<Record<DateStyle, Intl.DateTimeFormatOptions>> = {
  * throwing or rendering `Invalid Date`: a malformed date on screen is
  * diagnosable, and a screen that will not render is not.
  */
-export function formatDate(date: string, locale: string, style: DateStyle = 'medium'): string {
+export function formatDate(
+  date: string,
+  locale: FormatLocale,
+  style: DateStyle = 'medium',
+): string {
   const match = CALENDAR_DATE.exec(date);
   if (match === null) return date;
 
@@ -51,7 +57,7 @@ export function formatDate(date: string, locale: string, style: DateStyle = 'med
 }
 
 /** The locale's own month names, for a picker or a chart axis. */
-export function monthNames(locale: string, width: 'short' | 'long' = 'long'): string[] {
+export function monthNames(locale: FormatLocale, width: 'short' | 'long' = 'long'): string[] {
   const formatter = new Intl.DateTimeFormat(locale, { month: width, timeZone: 'UTC' });
   return Array.from({ length: 12 }, (_, index) =>
     formatter.format(new Date(Date.UTC(2026, index, 1))),

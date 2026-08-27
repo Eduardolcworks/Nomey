@@ -15,7 +15,11 @@ export const en: Record<MessageKey, string> = {
   'foundation.runtime': 'Intl on this device',
 
   'locale.label': 'Language',
-  'locale.device': 'System language: {tag}',
+  'locale.preference': 'Preference',
+  'locale.automatic': 'Automatic',
+  'locale.device': 'System language',
+  'locale.catalogue': 'Active catalogue',
+  'locale.formatting': 'Regional formatting',
 
   'runtime.available': 'Available',
   'runtime.missing': 'Unavailable',

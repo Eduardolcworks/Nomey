@@ -1,5 +1,6 @@
 import { currencyDefinition, moneyFromMinorString } from '@/domain';
 
+import { formatLocale } from '../i18n/locales';
 import { formatMoney } from './money';
 
 /**
@@ -104,7 +105,7 @@ export function intlReport(): IntlCheck[] {
 
     // Nomey's own route, end to end, on this runtime.
     probe('ruta Nomey', false, () => {
-      const out = formatMoney(moneyFromMinorString('123456', EUR), 'es-ES');
+      const out = formatMoney(moneyFromMinorString('123456', EUR), formatLocale('es-ES'));
       return { ok: out.includes('1234'), detail: out };
     }),
 
@@ -112,7 +113,7 @@ export function intlReport(): IntlCheck[] {
     // whether a feature exists; it runs 21 digits through the real formatter
     // and compares what comes back.
     probe('exactitud > 2^53', false, () => {
-      const formatted = formatMoney(moneyFromMinorString(HUGE_MINOR, EUR), 'en');
+      const formatted = formatMoney(moneyFromMinorString(HUGE_MINOR, EUR), formatLocale('en'));
       return { ok: formatted.replace(/\D/g, '') === HUGE_MINOR, detail: formatted };
     }),
   ];

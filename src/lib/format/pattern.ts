@@ -1,3 +1,5 @@
+import type { FormatLocale } from '../i18n/locales';
+
 /**
  * Locale patterns, derived from `Intl` by probing it with `format` alone.
  *
@@ -127,7 +129,7 @@ function separatorIn(text: string): string {
  * letting a `RangeError` reach a screen.
  */
 export function numberPattern(
-  locale: string,
+  locale: FormatLocale,
   scale: number,
   currencyCode: string | null,
   sign: SignMode = 'auto',
@@ -198,7 +200,7 @@ export function numberPattern(
  * fallback is visible rather than silent because the probe is one line here
  * instead of an assumption spread through the formatter.
  */
-function probePlusSign(locale: string): string {
+function probePlusSign(locale: FormatLocale): string {
   try {
     const formatted = new Intl.NumberFormat(locale, {
       signDisplay: 'always',

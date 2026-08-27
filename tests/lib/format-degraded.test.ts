@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { formatLocale } from '../../src/lib/i18n/locales';
 import { currencyDefinition, money, moneyFromMinorString } from '../../src/domain';
 import { intlReport } from '../../src/lib/format/intl-report';
 import { formatMoney } from '../../src/lib/format/money';
@@ -23,6 +24,9 @@ import { resetPatternCache } from '../../src/lib/format/pattern';
 
 const EUR = currencyDefinition({ id: 'eur-1', code: 'EUR', scale: 2 });
 const JPY = currencyDefinition({ id: 'jpy-1', code: 'JPY', scale: 0 });
+
+const ES = formatLocale('es-ES');
+const EN = formatLocale('en');
 
 const plain = (text: string) => text.replace(/[   ]/g, ' ');
 
@@ -55,52 +59,52 @@ describe('sin Intl.NumberFormat.prototype.formatToParts', () => {
   });
 
   it('EUR en es-ES', () => {
-    expect(plain(formatMoney(money(5000n, EUR), 'es-ES'))).toBe('50,00 €');
-    expect(plain(formatMoney(money(123456789n, EUR), 'es-ES'))).toBe('1.234.567,89 €');
+    expect(plain(formatMoney(money(5000n, EUR), ES))).toBe('50,00 €');
+    expect(plain(formatMoney(money(123456789n, EUR), ES))).toBe('1.234.567,89 €');
   });
 
   it('EUR en en', () => {
-    expect(plain(formatMoney(money(5000n, EUR), 'en'))).toBe('€50.00');
-    expect(plain(formatMoney(money(123456789n, EUR), 'en'))).toBe('€1,234,567.89');
+    expect(plain(formatMoney(money(5000n, EUR), EN))).toBe('€50.00');
+    expect(plain(formatMoney(money(123456789n, EUR), EN))).toBe('€1,234,567.89');
   });
 
   it('JPY conserva su escala 0 en los dos idiomas', () => {
-    expect(plain(formatMoney(money(5000n, JPY), 'en'))).toBe('¥5,000');
-    expect(plain(formatMoney(money(5000n, JPY), 'es-ES'))).toBe('5000 JPY');
+    expect(plain(formatMoney(money(5000n, JPY), EN))).toBe('¥5,000');
+    expect(plain(formatMoney(money(5000n, JPY), ES))).toBe('5000 JPY');
   });
 
   it('positivo y negativo', () => {
-    expect(plain(formatMoney(money(2500n, EUR), 'es-ES'))).toBe('25,00 €');
-    expect(plain(formatMoney(money(-2500n, EUR), 'es-ES'))).toBe('-25,00 €');
-    expect(plain(formatMoney(money(-2500n, EUR), 'en'))).toBe('-€25.00');
+    expect(plain(formatMoney(money(2500n, EUR), ES))).toBe('25,00 €');
+    expect(plain(formatMoney(money(-2500n, EUR), ES))).toBe('-25,00 €');
+    expect(plain(formatMoney(money(-2500n, EUR), EN))).toBe('-€25.00');
   });
 
   it('el signo forzado sigue funcionando sin signDisplay', () => {
     // `signDisplay` tampoco existe en iOS: se ignora en vez de fallar, que es
     // peor que un crash porque el `+` desaparece en silencio.
-    expect(plain(formatMoney(money(2500n, EUR), 'es-ES', { sign: 'always' }))).toBe('+25,00 €');
-    expect(plain(formatMoney(money(-2500n, EUR), 'es-ES', { sign: 'always' }))).toBe('-25,00 €');
+    expect(plain(formatMoney(money(2500n, EUR), ES, { sign: 'always' }))).toBe('+25,00 €');
+    expect(plain(formatMoney(money(-2500n, EUR), ES, { sign: 'always' }))).toBe('-25,00 €');
   });
 
   it('agrupación de cuatro y de cinco o más cifras', () => {
     // es-ES no agrupa a los cuatro dígitos; en sí.
-    expect(plain(formatMoney(money(123456n, EUR), 'es-ES'))).toBe('1234,56 €');
-    expect(plain(formatMoney(money(1234567n, EUR), 'es-ES'))).toBe('12.345,67 €');
-    expect(plain(formatMoney(money(123456n, EUR), 'en'))).toBe('€1,234.56');
-    expect(plain(formatMoney(money(1234567n, EUR), 'en'))).toBe('€12,345.67');
+    expect(plain(formatMoney(money(123456n, EUR), ES))).toBe('1234,56 €');
+    expect(plain(formatMoney(money(1234567n, EUR), ES))).toBe('12.345,67 €');
+    expect(plain(formatMoney(money(123456n, EUR), EN))).toBe('€1,234.56');
+    expect(plain(formatMoney(money(1234567n, EUR), EN))).toBe('€12,345.67');
   });
 
   it('el cero, con la escala de cada definición', () => {
-    expect(plain(formatMoney(money(0n, EUR), 'es-ES'))).toBe('0,00 €');
-    expect(plain(formatMoney(money(0n, JPY), 'en'))).toBe('¥0');
+    expect(plain(formatMoney(money(0n, EUR), ES))).toBe('0,00 €');
+    expect(plain(formatMoney(money(0n, JPY), EN))).toBe('¥0');
   });
 
   it('por encima de 2^53 no pierde un solo dígito', () => {
-    const huge = plain(formatMoney(moneyFromMinorString('123456789012345678901', EUR), 'en'));
+    const huge = plain(formatMoney(moneyFromMinorString('123456789012345678901', EUR), EN));
     expect(huge).toBe('€1,234,567,890,123,456,789.01');
     expect(huge.replace(/\D/g, '')).toBe('123456789012345678901');
 
-    const esES = plain(formatMoney(moneyFromMinorString('123456789012345678901', EUR), 'es-ES'));
+    const esES = plain(formatMoney(moneyFromMinorString('123456789012345678901', EUR), ES));
     expect(esES.replace(/\D/g, '')).toBe('123456789012345678901');
   });
 
@@ -166,7 +170,7 @@ describe('ningún importe se convierte a number', () => {
 
   it('solo pasa sondas de magnitud fija a Intl', () => {
     const minor = '123456789012345678901';
-    const formatted = formatMoney(moneyFromMinorString(minor, EUR), 'en');
+    const formatted = formatMoney(moneyFromMinorString(minor, EUR), EN);
 
     expect(formatted.replace(/\D/g, '')).toBe(minor);
     expect(SEEN.length).toBeGreaterThan(0);
@@ -179,7 +183,7 @@ describe('ningún importe se convierte a number', () => {
 
   it('ninguna llamada lleva el importe ni nada derivado de él', () => {
     const minor = 90071992547409911n; // MAX_SAFE_INTEGER + 920
-    formatMoney(money(minor, EUR), 'es-ES');
+    formatMoney(money(minor, EUR), ES);
 
     for (const value of SEEN) {
       expect(String(value)).not.toContain('9007199254740991');

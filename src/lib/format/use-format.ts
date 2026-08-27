@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import type { Money } from '@/domain';
 
-import { useLocale } from '../i18n';
+import { useFormatLocale } from '../i18n';
 import { type DateStyle, formatDate } from './date';
 import { formatMoney, type MoneyFormatOptions } from './money';
 import { formatNumber, formatPercent } from './number';
@@ -16,7 +16,7 @@ import { formatNumber, formatPercent } from './number';
  * and nowhere else.
  */
 export function useFormat() {
-  const locale = useLocale();
+  const locale = useFormatLocale();
 
   return useMemo(
     () => ({

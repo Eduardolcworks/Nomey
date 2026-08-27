@@ -4,7 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { currencyDefinition, money, moneyFromMinorString } from '@/domain';
 import { type IntlStatus, intlReport, useFormat } from '@/lib/format';
-import { deviceLanguageTag, type MessageKey, useTranslation } from '@/lib/i18n';
+import {
+  deviceLanguageTag,
+  type MessageKey,
+  useLanguagePreference,
+  useTranslation,
+} from '@/lib/i18n';
 import { ThemedText, ThemedView } from '@/ui/components';
 import { Colors, Radius, Spacing, type TextColor, useTheme } from '@/ui/theme';
 
@@ -55,6 +60,7 @@ export default function HoldingScreen() {
   const theme = useTheme();
   const { t, locale } = useTranslation();
   const format = useFormat();
+  const [preference] = useLanguagePreference();
 
   const checks = intlReport();
   const exactness = checks.find((entry) => entry.id === 'exactitud > 2^53');
@@ -71,12 +77,30 @@ export default function HoldingScreen() {
           </ThemedText>
 
           <Section title={t('locale.label')} theme={theme}>
-            <ThemedText variant="bodySmall" themeColor="textSecondary">
-              {t('locale.device', { tag: deviceLanguageTag() })}
-            </ThemedText>
-            <ThemedText variant="bodySmall" themeColor="textSecondary">
-              {locale}
-            </ThemedText>
+            {/*
+             * Las cuatro líneas que hacen visible la separación: la preferencia
+             * elige catálogo, y el formato regional no se mueve con ella.
+             */}
+            <Row label={t('locale.preference')}>
+              <ThemedText variant="bodySmall" themeColor="accent">
+                {preference === 'system' ? t('locale.automatic') : preference}
+              </ThemedText>
+            </Row>
+            <Row label={t('locale.device')}>
+              <ThemedText variant="bodySmall" themeColor="textSecondary">
+                {deviceLanguageTag()}
+              </ThemedText>
+            </Row>
+            <Row label={t('locale.catalogue')}>
+              <ThemedText variant="bodySmall" themeColor="textSecondary">
+                {locale}
+              </ThemedText>
+            </Row>
+            <Row label={t('locale.formatting')}>
+              <ThemedText variant="bodySmall" themeColor="textSecondary">
+                {format.locale}
+              </ThemedText>
+            </Row>
           </Section>
 
           <Section title={t('foundation.formatting')} theme={theme}>

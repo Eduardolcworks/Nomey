@@ -26,7 +26,26 @@ lib/
 └── format/    importe, número, porcentaje y fecha, localizados
 ```
 
-**i18n.** Nomey sigue el idioma del sistema y cae a `es-ES`. El español es el
+**i18n.** Dos locales distintos y **deliberadamente incompatibles por tipo**:
+
+| Valor           | Decide                                     | Lo mueve                  |
+| --------------- | ------------------------------------------ | ------------------------- |
+| `MessageLocale` | Qué catálogo se lee                        | La preferencia de Ajustes |
+| `FormatLocale`  | Cómo se escriben importes, números, fechas | El dispositivo, y solo él |
+
+`'es-ES'` es un valor válido de los dos, así que con un `string` a secas se puede
+pasar uno donde va el otro —y en un teléfono español no se nota—. Por eso
+`FormatLocale` está marcado y se construye con `formatLocale()`. `useTranslation()`
+depende del primero; `useFormat()`, del segundo.
+
+La preferencia tiene **tres estados**: `'system' | 'es-ES' | 'en'`. Automático
+sigue al dispositivo; los otros dos fijan el catálogo y **no tocan la región**:
+forzar inglés en un teléfono español da textos en inglés e importes españoles,
+porque el usuario ha cambiado de idioma, no de país. Un idioma no soportado cae
+al catálogo español y **conserva su propia región** —un dispositivo alemán sigue
+formateando en alemán—.
+
+El español es el
 catálogo de referencia y **de él sale el tipo de las claves**: añadir una cadena
 sin traducirla rompe el `typecheck`. `translate()` es una función pura; lo
 único que depende del dispositivo es qué locale está activo, y vive en

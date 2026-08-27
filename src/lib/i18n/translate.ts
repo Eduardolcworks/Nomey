@@ -1,5 +1,4 @@
-import type { Locale } from './locales';
-import { FALLBACK_LOCALE } from './locales';
+import { FALLBACK_MESSAGE_LOCALE, type MessageLocale } from './locales';
 import { CATALOGUES, type MessageKey } from './messages';
 
 export type TranslationParams = Readonly<Record<string, string | number>>;
@@ -19,8 +18,12 @@ const PLACEHOLDER = /\{(\w+)\}/g;
  * ugly - a visible `foundation.caption` on screen is a bug report; an empty
  * string is a mystery.
  */
-export function translate(locale: Locale, key: MessageKey, params?: TranslationParams): string {
-  const template = CATALOGUES[locale][key] ?? CATALOGUES[FALLBACK_LOCALE][key] ?? key;
+export function translate(
+  locale: MessageLocale,
+  key: MessageKey,
+  params?: TranslationParams,
+): string {
+  const template = CATALOGUES[locale][key] ?? CATALOGUES[FALLBACK_MESSAGE_LOCALE][key] ?? key;
 
   if (params === undefined) return template;
 

@@ -18,7 +18,11 @@ export const esES = {
   'foundation.runtime': 'Intl en este dispositivo',
 
   'locale.label': 'Idioma',
-  'locale.device': 'Idioma del sistema: {tag}',
+  'locale.preference': 'Preferencia',
+  'locale.automatic': 'Automático',
+  'locale.device': 'Idioma del sistema',
+  'locale.catalogue': 'Catálogo activo',
+  'locale.formatting': 'Formato regional',
 
   'runtime.available': 'Disponible',
   'runtime.missing': 'No disponible',

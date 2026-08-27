@@ -1,3 +1,5 @@
+import type { FormatLocale } from '../i18n/locales';
+
 /**
  * Plain numbers: counts, percentages, chart labels.
  *
@@ -10,7 +12,7 @@
  */
 export function formatNumber(
   value: number,
-  locale: string,
+  locale: FormatLocale,
   options: Intl.NumberFormatOptions = {},
 ): string {
   return new Intl.NumberFormat(locale, options).format(value);
@@ -23,7 +25,7 @@ export function formatNumber(
  * because a caller computing `value * 100` first would be doing arithmetic in
  * the presentation layer.
  */
-export function formatPercent(ratio: number, locale: string, fractionDigits = 0): string {
+export function formatPercent(ratio: number, locale: FormatLocale, fractionDigits = 0): string {
   return new Intl.NumberFormat(locale, {
     style: 'percent',
     minimumFractionDigits: fractionDigits,

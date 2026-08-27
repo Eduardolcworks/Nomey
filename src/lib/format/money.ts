@@ -1,5 +1,7 @@
 import type { Money } from '@/domain';
 
+import type { FormatLocale } from '../i18n/locales';
+
 import { groupDigits, numberPattern, renderPattern } from './pattern';
 
 export interface MoneyFormatOptions {
@@ -37,7 +39,7 @@ export interface MoneyFormatOptions {
  */
 export function formatMoney(
   value: Money,
-  locale: string,
+  locale: FormatLocale,
   options: MoneyFormatOptions = {},
 ): string {
   const { sign = 'auto', currencyDisplay = 'symbol' } = options;
@@ -65,7 +67,7 @@ export function formatMoney(
  * Derived from the same probe as the amounts below it, so the two cannot
  * disagree about whether this locale says `€` or `EUR`.
  */
-export function currencySymbol(locale: string, code: string, scale: number): string {
+export function currencySymbol(locale: FormatLocale, code: string, scale: number): string {
   const pattern = resolvePattern(locale, scale, code, 'auto');
   return pattern.currencyText;
 }
@@ -80,7 +82,7 @@ export function currencySymbol(locale: string, code: string, scale: number): str
  * layout instead.
  */
 function resolvePattern(
-  locale: string,
+  locale: FormatLocale,
   scale: number,
   code: string | null,
   sign: 'auto' | 'always',
