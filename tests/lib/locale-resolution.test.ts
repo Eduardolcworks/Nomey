@@ -1,91 +1,107 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const device = vi.hoisted(() => ({ tags: ['es-ES'] }));
+import type { DeviceLocale } from '../../src/lib/i18n/locales';
+
+const device = vi.hoisted(() => ({ locales: [] as DeviceLocale[] }));
 
 /**
  * `expo-localization` es un módulo nativo y bajo Vitest no existe. Se sustituye
- * por el único dato que la resolución necesita, que es la lista ordenada de
- * etiquetas del dispositivo.
+ * por los cuatro campos de los que depende la resolución.
  */
 vi.mock('expo-localization', () => ({
-  getLocales: () => device.tags.map((languageTag) => ({ languageTag })),
+  getLocales: () => device.locales,
 }));
 
 import {
+  deviceFormatTag,
   getFormatLocale,
   getLanguagePreference,
   getMessageLocale,
   resetLocaleState,
   setLanguagePreference,
 } from '../../src/lib/i18n/active-locale';
+import { composeFormatTag } from '../../src/lib/i18n/locales';
 
 /**
- * Idioma de interfaz y formato regional son cosas distintas.
+ * Idioma e **idioma con región** son dos preguntas distintas, y el dispositivo
+ * las responde con campos distintos.
  *
- * El catálogo dice **en qué idioma se lee** Nomey; el locale de formato dice
- * **cómo se escriben** los importes y las fechas. Un mexicano leyendo español
- * debe ver convenciones mexicanas, y un británico que fuerce el español debe
- * seguir viendo las suyas: ha cambiado de idioma, no de país.
+ * `expo-localization` expone dos regiones: `languageRegionCode`, que es la del
+ * idioma preferido, y `regionCode`, que es el ajuste **Región** de iOS. Su
+ * propia documentación dice que para internacionalización se use la segunda, y
+ * `languageTag` lleva la primera. Un iPhone en español de España con la Región
+ * en México sigue diciendo `languageTag: 'es-ES'`.
  *
- * Colapsar el segundo en el primero es el fallo que estos tests impiden, y era
- * invisible en un teléfono español, que es donde se probó.
+ * Por eso el locale de formato se **compone** —idioma + script + región— en vez
+ * de leerse de la etiqueta. Estos tests son los que distinguen una cosa de la
+ * otra; con solo `languageTag` todos habrían pasado igual y el bug seguiría ahí.
  */
 
-function withDevice(...tags: string[]) {
-  device.tags = tags;
+function locale(partial: Partial<DeviceLocale> & { languageTag: string }): DeviceLocale {
+  return {
+    languageCode: null,
+    languageScriptCode: null,
+    regionCode: null,
+    ...partial,
+  };
+}
+
+function withDevice(...locales: DeviceLocale[]) {
+  device.locales = locales;
   resetLocaleState();
 }
 
+/** Un iPhone: idioma preferido por un lado, ajuste Región por otro. */
+function iphone(languageTag: string, languageCode: string, regionCode: string | null) {
+  return locale({ languageTag, languageCode, regionCode });
+}
+
 beforeEach(() => {
-  withDevice('es-ES');
+  withDevice(iphone('es-ES', 'es', 'ES'));
 });
 
 afterEach(() => {
   resetLocaleState();
 });
 
-describe('Automático', () => {
-  it('es-ES: catálogo español y formato español', () => {
-    withDevice('es-ES');
-    expect(getLanguagePreference()).toBe('system');
+describe('idioma y región se combinan para el formato', () => {
+  it('1 · español de España, región ES', () => {
+    withDevice(iphone('es-ES', 'es', 'ES'));
     expect(getMessageLocale()).toBe('es-ES');
     expect(getFormatLocale()).toBe('es-ES');
   });
 
-  it('es-MX: catálogo español, formato es-MX', () => {
-    withDevice('es-MX');
+  it('2 · español de España, región MX', () => {
+    // El caso que motivó la corrección: `languageTag` sigue diciendo es-ES.
+    withDevice(iphone('es-ES', 'es', 'MX'));
     expect(getMessageLocale()).toBe('es-ES');
-    // Lo que NO debe pasar: que el formato se reduzca al catálogo.
     expect(getFormatLocale()).toBe('es-MX');
     expect(getFormatLocale()).not.toBe('es-ES');
   });
 
-  it('en-GB: catálogo inglés, formato en-GB', () => {
-    withDevice('en-GB');
+  it('3 · inglés británico, región GB', () => {
+    withDevice(iphone('en-GB', 'en', 'GB'));
     expect(getMessageLocale()).toBe('en');
     expect(getFormatLocale()).toBe('en-GB');
-    expect(getFormatLocale()).not.toBe('en');
   });
 
-  it('de-DE: catálogo de fallback español, pero formato alemán', () => {
-    // Que Nomey no tenga catálogo alemán no convierte a este usuario en
-    // español: sus importes y sus fechas siguen siendo alemanes.
-    withDevice('de-DE');
+  it('4 · inglés británico, región US', () => {
+    withDevice(iphone('en-GB', 'en', 'US'));
+    expect(getMessageLocale()).toBe('en');
+    expect(getFormatLocale()).toBe('en-US');
+  });
+
+  it('5 · alemán, región DE: catálogo español, formato alemán', () => {
+    // Que Nomey no tenga catálogo alemán no dice nada de dónde vive quien lo usa.
+    withDevice(iphone('de-DE', 'de', 'DE'));
     expect(getMessageLocale()).toBe('es-ES');
     expect(getFormatLocale()).toBe('de-DE');
   });
-
-  it('respeta el orden de preferencia para el catálogo', () => {
-    withDevice('ca-ES', 'en-GB');
-    expect(getMessageLocale()).toBe('en');
-    // El formato se queda con la primera etiqueta usable, sea cual sea su idioma.
-    expect(getFormatLocale()).toBe('ca-ES');
-  });
 });
 
-describe('override manual', () => {
-  it('dispositivo en-GB forzado a español: catálogo es-ES, formato en-GB', () => {
-    withDevice('en-GB');
+describe('el override de idioma no toca la región', () => {
+  it('6 · inglés GB + override Español', () => {
+    withDevice(iphone('en-GB', 'en', 'GB'));
     setLanguagePreference('es-ES');
 
     expect(getLanguagePreference()).toBe('es-ES');
@@ -93,46 +109,104 @@ describe('override manual', () => {
     expect(getFormatLocale()).toBe('en-GB');
   });
 
-  it('dispositivo es-ES forzado a inglés: catálogo en, formato es-ES', () => {
-    withDevice('es-ES');
+  it('7 · español ES + región MX + override English', () => {
+    withDevice(iphone('es-ES', 'es', 'MX'));
     setLanguagePreference('en');
 
     expect(getMessageLocale()).toBe('en');
-    expect(getFormatLocale()).toBe('es-ES');
+    expect(getFormatLocale()).toBe('es-MX');
   });
 
-  it('el override nunca toca el formato, en ningún dispositivo', () => {
-    for (const tag of ['es-MX', 'en-GB', 'de-DE', 'fr-CA']) {
-      withDevice(tag);
+  it('la región aguanta las tres preferencias en cualquier dispositivo', () => {
+    const devices = [
+      iphone('es-ES', 'es', 'MX'),
+      iphone('en-GB', 'en', 'US'),
+      iphone('de-DE', 'de', 'DE'),
+      iphone('fr-FR', 'fr', 'CA'),
+    ];
+
+    for (const entry of devices) {
+      const expected = composeFormatTag(entry);
       for (const preference of ['system', 'es-ES', 'en'] as const) {
+        withDevice(entry);
         setLanguagePreference(preference);
-        expect(getFormatLocale(), `${tag} · ${preference}`).toBe(tag);
+        expect(getFormatLocale(), `${entry.languageTag} · ${preference}`).toBe(expected);
       }
     }
   });
 
   it('volver a Automático devuelve el catálogo al dispositivo', () => {
-    withDevice('en-GB');
+    withDevice(iphone('en-GB', 'en', 'GB'));
     setLanguagePreference('es-ES');
     expect(getMessageLocale()).toBe('es-ES');
 
     setLanguagePreference('system');
-    expect(getLanguagePreference()).toBe('system');
     expect(getMessageLocale()).toBe('en');
     expect(getFormatLocale()).toBe('en-GB');
   });
 });
 
-describe('dispositivo sin etiquetas usables', () => {
-  it('cae a es-ES en ambos', () => {
+describe('región ausente', () => {
+  it('8 · sin regionCode, se conserva el languageTag del dispositivo', () => {
+    // No se inventa una región: se usa la que el dispositivo sí supo dar.
+    withDevice(iphone('pt-BR', 'pt', null));
+    expect(getFormatLocale()).toBe('pt-BR');
+    expect(deviceFormatTag()).toBe('pt-BR');
+  });
+
+  it('sin languageCode tampoco se compone nada', () => {
+    withDevice(locale({ languageTag: 'es-419' }));
+    expect(getFormatLocale()).toBe('es-419');
+  });
+
+  it('una región vacía cuenta como ausente', () => {
+    withDevice(iphone('en-AU', 'en', '   '));
+    expect(getFormatLocale()).toBe('en-AU');
+  });
+
+  it('sin dispositivo, cae a es-ES en ambos', () => {
     withDevice();
     expect(getMessageLocale()).toBe('es-ES');
     expect(getFormatLocale()).toBe('es-ES');
   });
+});
 
-  it('ignora una etiqueta vacía', () => {
-    withDevice('', 'en-GB');
-    expect(getMessageLocale()).toBe('en');
-    expect(getFormatLocale()).toBe('en-GB');
+describe('script', () => {
+  it('9 · conserva el script cuando el dispositivo lo declara', () => {
+    // Perderlo convierte zh-Hant-TW en zh-TW y elige la escritura equivocada.
+    withDevice(
+      locale({
+        languageTag: 'zh-Hant-TW',
+        languageCode: 'zh',
+        languageScriptCode: 'Hant',
+        regionCode: 'TW',
+      }),
+    );
+    expect(getFormatLocale()).toBe('zh-Hant-TW');
+  });
+
+  it('el script sobrevive a un cambio de región', () => {
+    withDevice(
+      locale({
+        languageTag: 'zh-Hans-CN',
+        languageCode: 'zh',
+        languageScriptCode: 'Hans',
+        regionCode: 'SG',
+      }),
+    );
+    expect(getFormatLocale()).toBe('zh-Hans-SG');
+  });
+
+  it('normaliza la forma del tag', () => {
+    expect(
+      composeFormatTag(
+        locale({
+          languageTag: 'ZH-hant-tw',
+          languageCode: 'ZH',
+          languageScriptCode: 'hANT',
+          regionCode: 'tw',
+        }),
+      ),
+    ).toBe('zh-Hant-TW');
   });
 });

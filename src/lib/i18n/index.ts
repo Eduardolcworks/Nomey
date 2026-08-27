@@ -1,5 +1,7 @@
 export {
+  deviceFormatTag,
   deviceLanguageTag,
+  deviceRegionCode,
   getFormatLocale,
   getLanguagePreference,
   getMessageLocale,
@@ -9,6 +11,8 @@ export {
   subscribeToLocale,
 } from './active-locale';
 export {
+  composeFormatTag,
+  type DeviceLocale,
   FALLBACK_MESSAGE_LOCALE,
   formatLocale,
   type FormatLocale,

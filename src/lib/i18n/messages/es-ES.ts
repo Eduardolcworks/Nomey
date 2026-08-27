@@ -21,6 +21,7 @@ export const esES = {
   'locale.preference': 'Preferencia',
   'locale.automatic': 'Automático',
   'locale.device': 'Idioma del sistema',
+  'locale.region': 'Región del sistema',
   'locale.catalogue': 'Catálogo activo',
   'locale.formatting': 'Formato regional',
 

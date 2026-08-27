@@ -6,6 +6,7 @@ import { currencyDefinition, money, moneyFromMinorString } from '@/domain';
 import { type IntlStatus, intlReport, useFormat } from '@/lib/format';
 import {
   deviceLanguageTag,
+  deviceRegionCode,
   type MessageKey,
   useLanguagePreference,
   useTranslation,
@@ -89,6 +90,11 @@ export default function HoldingScreen() {
             <Row label={t('locale.device')}>
               <ThemedText variant="bodySmall" themeColor="textSecondary">
                 {deviceLanguageTag()}
+              </ThemedText>
+            </Row>
+            <Row label={t('locale.region')}>
+              <ThemedText variant="bodySmall" themeColor="textSecondary">
+                {deviceRegionCode()}
               </ThemedText>
             </Row>
             <Row label={t('locale.catalogue')}>

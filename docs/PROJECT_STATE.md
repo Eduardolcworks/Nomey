@@ -176,7 +176,9 @@ de `src/ui/theme/`**, y el contraste de la paleta está medido y anotado allí.
 **Idioma e importe se resuelven por separado.** El catálogo lo elige una
 preferencia de tres estados —Automático, Español, English—; el formato de
 números, moneda y fechas sigue **siempre la región del dispositivo**, aunque el
-idioma se fuerce. Los dos locales están marcados como tipos distintos para que
+idioma se fuerce, y ese formato se **compone** con el `regionCode` del
+dispositivo —no con `languageTag`, que lleva la región del idioma—. Los dos
+locales están marcados como tipos distintos para que
 confundirlos no compile. La persistencia de la preferencia llegará con Ajustes.
 
 **La navegación NO está cerrada.** Se decide viéndola en un iPhone real durante

@@ -33,6 +33,14 @@ lib/
 | `MessageLocale` | Qué catálogo se lee                        | La preferencia de Ajustes |
 | `FormatLocale`  | Cómo se escriben importes, números, fechas | El dispositivo, y solo él |
 
+El `FormatLocale` **se compone**, no se lee de `languageTag`.
+`expo-localization` expone dos regiones —`languageRegionCode`, la del idioma
+preferido, y `regionCode`, el ajuste **Región** de iOS— y su documentación dice
+que para internacionalización se use la segunda. `languageTag` lleva la primera,
+así que un iPhone en español de España con la Región en México sigue diciendo
+`es-ES`. Se compone `idioma[-Script]-REGIÓN` a mano; si no hay `regionCode`, se
+conserva el `languageTag` del dispositivo y **no se inventa región**.
+
 `'es-ES'` es un valor válido de los dos, así que con un `string` a secas se puede
 pasar uno donde va el otro —y en un teléfono español no se nota—. Por eso
 `FormatLocale` está marcado y se construye con `formatLocale()`. `useTranslation()`

@@ -1,6 +1,8 @@
 import { getLocales } from 'expo-localization';
 
 import {
+  composeFormatTag,
+  type DeviceLocale,
   type FormatLocale,
   type MessageLocale,
   resolveFormatLocale,
@@ -33,16 +35,37 @@ const listeners = new Set<() => void>();
  * value that only changes when the user leaves the app to change a system
  * setting - which restarts it on both platforms.
  */
-let deviceTags: string[] | null = null;
+let deviceLocales: DeviceLocale[] | null = null;
+
+function locales(): DeviceLocale[] {
+  deviceLocales ??= getLocales();
+  return deviceLocales;
+}
 
 function tags(): string[] {
-  deviceTags ??= getLocales().map((locale) => locale.languageTag);
-  return deviceTags;
+  return locales().map((locale) => locale.languageTag);
 }
 
 /** The device's own language tag, unresolved. For diagnostics only. */
 export function deviceLanguageTag(): string {
-  return tags()[0] ?? 'unknown';
+  return locales()[0]?.languageTag ?? 'unknown';
+}
+
+/**
+ * The Region setting, separately from the language.
+ *
+ * Diagnostic only, and worth showing on its own: the whole point of this
+ * module is that these two move independently, and the screen is where that
+ * stops being a claim and becomes something to look at.
+ */
+export function deviceRegionCode(): string {
+  return locales()[0]?.regionCode ?? 'null';
+}
+
+/** The composed regional tag, before it becomes a FormatLocale. */
+export function deviceFormatTag(): string {
+  const first = locales()[0];
+  return first === undefined ? 'unknown' : composeFormatTag(first);
 }
 
 /** Which catalogue is read. */
@@ -52,7 +75,7 @@ export function getMessageLocale(): MessageLocale {
 
 /** How numbers, money and dates are written. Never affected by the preference. */
 export function getFormatLocale(): FormatLocale {
-  return resolveFormatLocale(tags());
+  return resolveFormatLocale(locales());
 }
 
 export function getLanguagePreference(): LanguagePreference {
@@ -83,5 +106,5 @@ export function subscribeToLocale(listener: () => void): () => void {
 /** Test seam: device tags are read once, and a fake device needs a fresh read. */
 export function resetLocaleState(): void {
   preference = 'system';
-  deviceTags = null;
+  deviceLocales = null;
 }

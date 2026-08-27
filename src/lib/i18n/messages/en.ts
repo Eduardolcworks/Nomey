@@ -18,6 +18,7 @@ export const en: Record<MessageKey, string> = {
   'locale.preference': 'Preference',
   'locale.automatic': 'Automatic',
   'locale.device': 'System language',
+  'locale.region': 'System region',
   'locale.catalogue': 'Active catalogue',
   'locale.formatting': 'Regional formatting',
 
