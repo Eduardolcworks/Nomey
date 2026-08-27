@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AuthErrorKey } from './auth-errors';
 import type { AuthResult } from './auth-service';
@@ -23,7 +23,24 @@ export function useAuthSubmit() {
   // One runner for the lifetime of the screen; a new one per render would
   // guard nothing.
   const run = useMemo(() => createExclusiveRunner(), []);
+
+  /*
+   * The guard below was checked but never lowered - nothing ever set this to
+   * false, so `if (!mounted.current)` could not fire and the protection it
+   * claimed did not exist. Found while auditing this layer for the hang; it is
+   * NOT what caused it.
+   *
+   * React 18 makes a setState after unmount a silent no-op, so the symptom was
+   * nothing at all, which is exactly why a guard that does not guard is worse
+   * than no guard: it reads as handled.
+   */
   const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const submit = useCallback(
     async (task: () => Promise<AuthResult>): Promise<AuthResult | undefined> => {
