@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-27**, al cerrar la Fase 3.
+Actualizado el **2026-08-27**, al abrir la Fase 4.
 
 ---
 
@@ -21,15 +21,15 @@ Actualizado el **2026-08-27**, al cerrar la Fase 3.
 
 |                         |                                                                     |
 | ----------------------- | ------------------------------------------------------------------- |
+| **Fase actual**         | **Fase 4 — Arquitectura UX e internacionalización**, en F4.A        |
 | **Última fase cerrada** | **Fase 3 — Persistencia y frontera de datos** (3.A · 3.B · 3.C)     |
-| **Siguiente**           | **Fase 4 — Arquitectura UX e internacionalización**                 |
 | **ADR aceptados**       | ADR-001 … ADR-016                                                   |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR |
-| **App visible**         | Pantalla intencionadamente en blanco                                |
+| **App visible**         | Tema dark-only y pantalla de espera. Todavía sin navegación         |
 
-**Fase 4 no depende de la Fase 3** —el roadmap lo dice expresamente— y no toca el
-backend: navegación, wireframes, tokens de tema, estados de carga/vacío/error e
-infraestructura de i18n.
+**F4 no toca el backend** ni depende de la Fase 3 —el roadmap lo dice
+expresamente—: navegación, wireframes, tokens de tema, estados de carga, vacío y
+error, e infraestructura de i18n.
 
 ---
 
@@ -147,12 +147,22 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 
 ---
 
-## Siguiente objetivo
+## Fase en curso
 
-**Fase 4 — Arquitectura UX e internacionalización.** Navegación y jerarquía ·
-wireframes de las pantallas principales derivados de `data-model.md` §4 ·
-principios visuales y tokens sobre `src/ui/theme` · estados de carga, vacío y
-error · i18n en español e inglés.
+**Fase 4 — Arquitectura UX e internacionalización**, abierta el 2026-08-27, en
+cuatro bloques: **F4.A** fundación visual y marca · **F4.B** i18n y formateo ·
+**F4.C** app shell y navegación · **F4.D** primitives, estados y wireframes. El
+plan aprobado y sus criterios de cierre están en
+[`ux/phase-4-plan.md`](ux/phase-4-plan.md).
+
+**Lo visual ya vigente.** Nomey es **dark-only**: `app.config.ts` fija
+`userInterfaceStyle: 'dark'` y la paleta se resuelve en un único sitio,
+`src/ui/theme/use-theme.ts`. El amarillo de marca es `#FDC506`, acento
+minoritario. **Ningún color, rol tipográfico ni token de profundidad vive fuera
+de `src/ui/theme/`**, y el contraste de la paleta está medido y anotado allí.
+
+**La navegación NO está cerrada.** Se decide viéndola en un iPhone real durante
+F4.C, no razonándola antes.
 
 **Antes de tocar UI, leer
 [`design-direction.md`](product/design-direction.md)**: es la fuente de verdad de
@@ -176,6 +186,7 @@ una feature escribible real.
 | Secuencia de fases y criterios de cierre     | [`product/roadmap.md`](product/roadmap.md)                                         |
 | Vocabulario                                  | [`product/glossary.md`](product/glossary.md)                                       |
 | Estética, antes de cualquier UI              | [`product/design-direction.md`](product/design-direction.md)                       |
+| Bloques y decisiones de la fase en curso     | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                         |
 | Levantar el entorno, migrar, ejecutar checks | [`runbooks/local-setup.md`](runbooks/local-setup.md)                               |
 | **Por qué** la Fase 3 quedó como quedó       | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico |
 
