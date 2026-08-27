@@ -102,6 +102,10 @@ const config: ExpoConfig = {
 
   plugins: [
     'expo-router',
+    // Sets CFBundleAllowMixedLocalizations on iOS, without which the OS reports
+    // only the app's development language and locale detection reads one value
+    // for every device.
+    'expo-localization',
     [
       'expo-splash-screen',
       {

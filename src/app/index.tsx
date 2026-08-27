@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useTranslation } from '@/lib/i18n';
 import { ThemedText, ThemedView } from '@/ui/components';
 import { Colors, Radius, Spacing, useTheme } from '@/ui/theme';
 
@@ -12,9 +13,9 @@ import { Colors, Radius, Spacing, useTheme } from '@/ui/theme';
  * place a black is actually black, a yellow is actually the brand yellow, and
  * a launch either flashes white or does not.
  *
- * It renders no product surface and fakes no feature. The labels below are
- * token identifiers, not interface copy, which is why they are not part of the
- * i18n debt that F4.B pays down.
+ * It renders no product surface and fakes no feature. The swatch labels are
+ * token identifiers, not interface copy, which is why they stay literal; every
+ * actual string comes from the catalogues.
  */
 
 /** Colour tokens whose rendering on an OLED panel is worth seeing directly. */
@@ -29,6 +30,7 @@ const PROBE: readonly (keyof typeof Colors.dark)[] = [
 
 export default function HoldingScreen() {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   return (
     <ThemedView style={styles.container}>
@@ -37,7 +39,7 @@ export default function HoldingScreen() {
           Nomey
         </ThemedText>
         <ThemedText variant="caption" themeColor="textTertiary" style={styles.caption}>
-          F4.A · visual foundation
+          {t('foundation.caption')}
         </ThemedText>
 
         <View style={[styles.probe, { borderColor: theme.border }]}>

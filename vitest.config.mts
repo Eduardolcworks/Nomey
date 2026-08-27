@@ -8,6 +8,6 @@ import { defineConfig } from 'vitest/config';
 // `supabase/checks/`.
 export default defineConfig({
   test: {
-    include: ['tests/domain/**/*.test.ts', 'tests/infra/**/*.test.ts'],
+    include: ['tests/domain/**/*.test.ts', 'tests/infra/**/*.test.ts', 'tests/lib/**/*.test.ts'],
   },
 });
