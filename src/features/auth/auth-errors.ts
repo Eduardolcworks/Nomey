@@ -136,3 +136,25 @@ export function signOutErrorKey(failure: AuthFailure): AuthErrorKey {
 export function updateUserErrorKey(failure: AuthFailure): AuthErrorKey {
   return unremarkableErrorKey(failure);
 }
+
+/**
+ * What recovery is allowed to say.
+ *
+ * The mapping is short because most of what could be said would be an answer
+ * to a question we refuse to answer. In particular there is NO branch for "no
+ * account with that address": GoTrue answers `200` either way - measured - so
+ * there is nothing to map, and inventing a message would reintroduce the
+ * account enumeration the sign-in and sign-up screens already avoid.
+ *
+ * `otp_expired` is the one code worth its own sentence, and it covers three
+ * situations that are deliberately indistinguishable: a link already used, a
+ * link past its hour, and a hash that was never real. All three answer `403
+ * otp_expired`, and telling them apart would be telling someone holding a
+ * stolen link which kind of failure they hit.
+ */
+export function recoveryErrorKey(failure: AuthFailure): AuthErrorKey {
+  if (isNetworkFailure(failure)) return NETWORK;
+  const code = failure.code ?? '';
+  if (code === 'otp_expired' || code === 'otp_disabled') return 'authError.recoveryLinkDead';
+  return SHARED[code] ?? GENERIC;
+}

@@ -3,9 +3,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { type ReactNode, useEffect } from 'react';
 
+import { useRecoveryLink } from '@/features/auth';
 import {
   identityKey,
   isPublic,
+  isRecovering,
   isResolved,
   isSignedIn,
   SessionProvider,
@@ -80,6 +82,21 @@ function RootNavigator() {
   const { state } = useSession();
   const resolved = isResolved(state);
 
+  /*
+   * The recovery deep link has exactly one owner, and it is here.
+   *
+   * Above the branches on purpose: a link can arrive while the app is cold,
+   * while it sits on the sign-in screen, or while it is already open, and a
+   * listener living inside a branch would miss whichever arrivals its branch
+   * was not mounted for. This runs for all of them.
+   *
+   * It returns nothing and renders nothing. Redeeming the proof emits
+   * `PASSWORD_RECOVERY`, the session state becomes `recovering`, and the guard
+   * below does the rest - so the deep link never touches navigation and the
+   * token hash never reaches a route param.
+   */
+  useRecoveryLink();
+
   useEffect(() => {
     if (!resolved) return;
     /*
@@ -118,6 +135,23 @@ function RootNavigator() {
        */}
       <Stack.Protected guard={isPublic(state)}>
         <Stack.Screen name="(auth)" />
+      </Stack.Protected>
+
+      {/*
+       * The recovery branch: its own guard, between the two.
+       *
+       * It is NOT part of `(auth)` and NOT part of the product. A redeemed
+       * recovery link is a real Supabase session, so without this branch it
+       * would satisfy `isSignedIn` and land the person on Inicio mid-recovery,
+       * holding credentials that arrived in an inbox. And it is not public
+       * either: reaching it required a proof the server verified.
+       *
+       * Nothing navigates into or out of it. `verifyOtp` emits
+       * `PASSWORD_RECOVERY` on the way in, and the sign-out at the end removes
+       * the session on the way out; the tree follows both by itself.
+       */}
+      <Stack.Protected guard={isRecovering(state)}>
+        <Stack.Screen name="(recovery)" />
       </Stack.Protected>
 
       <Stack.Protected guard={isSignedIn(state)}>

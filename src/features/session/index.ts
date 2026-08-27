@@ -9,6 +9,7 @@ export {
 export {
   identityKey,
   isPublic,
+  isRecovering,
   isResolved,
   isSignedIn,
   stateFromUser,

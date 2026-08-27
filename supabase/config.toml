@@ -159,7 +159,16 @@ enabled = true
 site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
-# A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
+# A list of *exact* URLs that auth providers are permitted to redirect to post
+# authentication.
+#
+# Recovery does NOT rely on this, and that is deliberate. Its email template
+# writes the app's deep link literally instead of interpolating `redirect_to`,
+# so nothing has to be allow-listed for it. Measured while deciding that:
+# a rejected `redirect_to` is not an error - GoTrue silently swaps in
+# `site_url` - and Expo Go's `exp://<lan-ip>:<port>/--/...` can never be
+# allow-listed at all, because any custom-scheme URL whose authority contains
+# dots is refused, listed exactly or globbed.
 additional_redirect_urls = ["https://127.0.0.1:3000"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
@@ -250,6 +259,30 @@ otp_expiry = 3600
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
+
+# Recovery is the ONE template Nomey overrides, and it is not cosmetic.
+#
+# The default one links to `{{ .ConfirmationURL }}`, which is GoTrue's own
+# `/auth/v1/verify` endpoint. That link cannot open the app: it points at the
+# backend, gets verified in a browser, and 302s to the redirect target with the
+# access and refresh tokens in the URL FRAGMENT - which the client would then
+# have to parse by hand and feed to `setSession`. Nomey is a native app and web
+# is not a target platform, so that is the wrong shape twice over.
+#
+# This template links straight to the app with `{{ .TokenHash }}` instead, and
+# the app redeems it with `verifyOtp({ token_hash, type: 'recovery' })`. No
+# browser, no fragment, and NO token of any kind in the URL - the hash is a
+# one-time proof, not a credential. It is also what makes recovery
+# distinguishable from a login: `verifyOtp` with `type: 'recovery'` emits
+# `PASSWORD_RECOVERY`, a server-derived event, rather than the `SIGNED_IN` that
+# `setSession` would emit for a URL we simply chose to trust.
+#
+# PRODUCTION MUST CONFIGURE THE SAME TEMPLATE. This file only governs the local
+# stack. A hosted project that keeps the default template will send links the
+# app cannot open, and nothing here will warn about it.
+[auth.email.template.recovery]
+subject = "Restablecer tu contraseña de Nomey"
+content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]

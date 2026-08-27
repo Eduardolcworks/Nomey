@@ -2,6 +2,7 @@ export { AccountAvatar } from './account-avatar';
 export { AuthField, type AuthFieldProps } from './auth-field';
 export { AuthScreen } from './auth-screen';
 export {
+  recoveryErrorKey,
   signInErrorKey,
   signOutErrorKey,
   signUpErrorKey,
@@ -10,7 +11,10 @@ export {
   type AuthFailure,
 } from './auth-errors';
 export {
+  completeRecovery,
   forgetLocalSession,
+  redeemRecovery,
+  requestPasswordReset,
   signIn,
   signOut,
   signUp,
@@ -32,8 +36,12 @@ export {
   normaliseDisplayName,
   normaliseEmail,
   normaliseRegistration,
+  passwordProblem,
   type Credentials,
+  type PasswordProblem,
   type Registration,
 } from './credentials';
 export { createExclusiveRunner, SKIPPED, type ExclusiveRunner } from './submit-guard';
 export { useAuthSubmit, type SubmitState } from './use-auth-submit';
+export { readRecoveryLink, type RecoveryProof } from './recovery-link';
+export { useRecoveryLink } from './use-recovery-link';

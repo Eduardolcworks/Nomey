@@ -35,6 +35,20 @@ export type SessionState =
   | { readonly status: 'restoring' }
   /** Looked, and there is no session. */
   | { readonly status: 'signed-out' }
+  /**
+   * A recovery link was redeemed and the password has not been set yet.
+   *
+   * There IS a real Supabase session behind this - `verifyOtp` returns a full
+   * one - and that is exactly why the state exists. Without it the app would
+   * see an ordinary session and mount the product, dropping someone on Inicio
+   * mid-recovery holding credentials that arrived in an email.
+   *
+   * It carries no identity on purpose. The only thing anyone is allowed to do
+   * here is set a password, and a name or an address on that surface would
+   * invite showing them - which is a small confirmation, to whoever is holding
+   * the phone, of who the account belongs to.
+   */
+  | { readonly status: 'recovering' }
   | { readonly status: 'signed-in'; readonly identity: SessionIdentity }
   /**
    * The answer did not arrive. Recoverable and NOT terminal: the subscription
@@ -47,6 +61,7 @@ export type SessionState =
 
 export const RESTORING: SessionState = { status: 'restoring' };
 export const SIGNED_OUT: SessionState = { status: 'signed-out' };
+export const RECOVERING: SessionState = { status: 'recovering' };
 export const UNAVAILABLE: SessionState = { status: 'unavailable' };
 
 /**
@@ -137,4 +152,15 @@ export function isSignedIn(state: SessionState): boolean {
  */
 export function identityKey(state: SessionState): string | null {
   return state.status === 'signed-in' ? state.identity.userId : null;
+}
+
+/**
+ * Whether the app must show the set-a-new-password surface and nothing else.
+ *
+ * Its own predicate rather than a comparison at the call site, for the same
+ * reason `isPublic` exists: the routing rule is one fact, and one fact should
+ * have one place to be wrong in.
+ */
+export function isRecovering(state: SessionState): boolean {
+  return state.status === 'recovering';
 }

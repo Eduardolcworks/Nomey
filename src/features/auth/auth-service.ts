@@ -2,6 +2,7 @@ import { SESSION_STORAGE_KEY, sessionStorage, supabase } from '@/lib/supabase';
 
 import {
   type AuthErrorKey,
+  recoveryErrorKey,
   signInErrorKey,
   signOutErrorKey,
   signUpErrorKey,
@@ -11,6 +12,7 @@ import {
   type Credentials,
   normaliseCredentials,
   normaliseDisplayName,
+  normaliseEmail,
   normaliseRegistration,
   type Registration,
 } from './credentials';
@@ -188,5 +190,91 @@ export async function updateDisplayName(raw: string): Promise<AuthResult> {
   const { error } = await supabase.auth.updateUser({ data: { display_name: displayName } });
 
   if (error !== null) return { ok: false, messageKey: updateUserErrorKey(error) };
+  return { ok: true };
+}
+
+/**
+ * Ask for a recovery email.
+ *
+ * **The answer is the same whether or not the address has an account.**
+ * Measured against this GoTrue: `POST /recover` for an unknown address answers
+ * `200 {}`, exactly as it does for a known one. So the neutral message the UI
+ * shows is the literal truth rather than a fiction the client maintains - we
+ * are not hiding an answer, we genuinely were not given one.
+ *
+ * That is worth stating because the temptation later is to "improve" this by
+ * telling the user their address is not registered. It would turn the form
+ * into an account oracle, which is precisely what the sign-in and sign-up
+ * screens already refuse to be.
+ *
+ * No `redirectTo` is passed, and that is deliberate too. The recovery email
+ * template writes the app's deep link itself and only interpolates the token
+ * hash, so there is no redirect for the server to validate - and a rejected
+ * `redirect_to` is silently swapped for `site_url` rather than refused, which
+ * is a failure nobody would notice.
+ */
+export async function requestPasswordReset(rawEmail: string): Promise<AuthResult> {
+  const email = normaliseEmail(rawEmail);
+  if (email === '') return { ok: false, messageKey: 'authError.emailRequired' };
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+  if (error !== null) return { ok: false, messageKey: recoveryErrorKey(error) };
+  return { ok: true };
+}
+
+/**
+ * Redeem the proof that came in the recovery link.
+ *
+ * `verifyOtp` with `type: 'recovery'` is the whole mechanism, and its two
+ * properties are why this block is shaped the way it is. MEASURED in
+ * `@supabase/auth-js@2.112.4` and against the running stack:
+ *
+ * 1. It POSTs the hash to `/verify` and saves the returned session through the
+ *    configured storage - which is Nomey's chunked keychain store. **No
+ *    second storage path and no manual persistence**: ADR-017 keeps owning the
+ *    session, and this feature never learns a key name.
+ * 2. It emits **`PASSWORD_RECOVERY`** rather than `SIGNED_IN`. That event is
+ *    what the session lifecycle turns into the `recovering` state, so recovery
+ *    is distinguished by something the SERVER said, not by a flag we set
+ *    because we recognised a URL.
+ *
+ * The hash is single-use: replaying it, or inventing one, both answer `403
+ * otp_expired` and are deliberately indistinguishable from each other.
+ */
+export async function redeemRecovery(tokenHash: string): Promise<AuthResult> {
+  const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
+
+  if (error !== null) return { ok: false, messageKey: recoveryErrorKey(error) };
+  return { ok: true };
+}
+
+/**
+ * Set the new password, then end the session the email link created.
+ *
+ * The sign-out is the security half, and it is not decoration. MEASURED: after
+ * `PUT /user` the recovery session stays fully alive - both the access token
+ * and the refresh token still work. So without this, finishing a recovery
+ * leaves an ordinary, long-lived session on the device that was obtained by
+ * whoever had access to an inbox.
+ *
+ * It costs nothing to close, because the change is already committed: the old
+ * password answers `400` and the new one answers `200` before this returns.
+ * Signing out therefore proves the new password rather than trusting it - the
+ * only way back in is to type it.
+ *
+ * The sign-out also produces the event that ends `recovering`: the session
+ * goes away, the lifecycle clears the flag, and the tree returns to the public
+ * branch on its own. **No `router.replace` anywhere in this flow.**
+ *
+ * A failed sign-out is not reported as a failed password change, because the
+ * password change did succeed. The state that matters is on the server.
+ */
+export async function completeRecovery(rawPassword: string): Promise<AuthResult> {
+  const { error } = await supabase.auth.updateUser({ password: rawPassword });
+
+  if (error !== null) return { ok: false, messageKey: updateUserErrorKey(error) };
+
+  await supabase.auth.signOut({ scope: 'local' });
   return { ok: true };
 }
