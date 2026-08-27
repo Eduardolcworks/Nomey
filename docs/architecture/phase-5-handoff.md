@@ -8,20 +8,21 @@
 
 ## 1 · Dónde está la fase
 
-**La Fase 5 está EN CURSO. F5.A está cerrado y validado en iPhone físico. El
-siguiente bloque es F5.B.**
+**La Fase 5 está EN CURSO. F5.A y F5.B están cerrados y validados en iPhone
+físico. El siguiente bloque es F5.C.**
 
 | Bloque   | Qué es                                  | Estado                     |
 | -------- | --------------------------------------- | -------------------------- |
 | **F5.A** | Frontera con el backend y sesión segura | **Cerrado**, 5/5 en iPhone |
-| **F5.B** | Estado de sesión y guardas de ruta      | **Siguiente**              |
-| **F5.C** | Registro e inicio de sesión             | Pendiente                  |
+| **F5.B** | Estado de sesión y guardas de ruta      | **Cerrado**, en iPhone     |
+| **F5.C** | Registro e inicio de sesión             | **Siguiente**              |
 | **F5.D** | Cierre de sesión y Perfil               | Pendiente                  |
 | **F5.E** | Recuperación de acceso                  | Pendiente                  |
 | **F5.F** | Cierre de fase                          | Pendiente                  |
 
-**Nadie puede entrar todavía.** F5.A dejó la frontera técnica y **ninguna
-pantalla de autenticación**.
+**Nadie puede entrar todavía.** La app ya sabe si hay sesión y protege el árbol
+en consecuencia, pero **no hay registro ni login**: el arranque termina en la
+rama pública, que es una superficie provisional a la espera de F5.C.
 
 Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 [`PROJECT_STATE.md`](../PROJECT_STATE.md) · este documento.
@@ -32,18 +33,30 @@ técnico y la RLS que dejó 3.C. Los sitios donde mirar cuando haga falta son
 [`ADR-017`](../adr/ADR-017-secure-session-storage.md) para el almacenamiento de
 sesión, y el runbook de entorno local — no antes, y no todo.
 
-### Lo que dejó F5.A, para consumirlo sin releerlo
+### Lo que ya está hecho, para consumirlo sin releerlo
 
 ```ts
 import { supabase } from '@/lib/supabase'; // cliente sobre el schema `api`
-await supabase.auth.getSession(); // devuelve null limpio sin sesión
+import { useSession } from '@/features/session'; // restoring | signed-out | signed-in | unavailable
 ```
 
-La sesión se persiste sola en el llavero. El detalle está en
-[`PROJECT_STATE.md`](../PROJECT_STATE.md) §«Frontera de sesión en el cliente» y
-en ADR-017; lo único que F5.B necesita saber es que **el cliente no gestiona el
-ciclo de vida**: no restaura al arrancar ni refresca al volver a primer plano.
-Eso es precisamente lo que hay que construir.
+**F5.C no tiene que tocar ninguna de las dos.** Un login que llame a
+`signInWithPassword` ya provoca el evento que mueve la app a la rama protegida:
+el provider está suscrito, y ni el estado ni el enrutado necesitan un empujón
+manual. Lo mismo al revés cuando F5.D añada el cierre de sesión.
+
+Tres reglas que **no se deben deshacer** al construir encima:
+
+- **No añadir un `getSession()`.** La restauración sale de `INITIAL_SESSION`, que
+  `auth-js` emite solo, también cuando falla. Una segunda fuente reintroduce la
+  carrera «restauración lenta pisa un evento nuevo», que hoy no puede ocurrir.
+- **No suscribirse otra vez a `onAuthStateChange`.** Hay un único suscriptor, y
+  dos son dos respuestas a «quién ha entrado» que pueden discrepar.
+- **No copiar el token.** El provider expone `userId` y `email`; quien llame a la
+  API usa `supabase`, que lo adjunta y lo refresca él.
+
+El detalle está en [`PROJECT_STATE.md`](../PROJECT_STATE.md) §«Frontera de sesión
+en el cliente» y en [ADR-017](../adr/ADR-017-secure-session-storage.md).
 
 ### Decisiones de producto ya cerradas, que no se reabren
 
@@ -68,18 +81,19 @@ global:    +  flotante y contextual, fuera de la barra
            campana y perfil, en la cabecera de ambos destinos
 ```
 
-| Ruta                     | Qué es                                       |
-| ------------------------ | -------------------------------------------- |
-| `app/_layout.tsx`        | Stack raíz y `ScopeProvider`                 |
-| `app/(tabs)/_layout.tsx` | Los dos destinos, con la barra propia        |
-| `app/(tabs)/index.tsx`   | Inicio                                       |
-| `app/(tabs)/groups.tsx`  | Grupos                                       |
-| `app/add.tsx`            | La superficie del `+`, en modal              |
-| `app/notifications.tsx`  | Placeholder                                  |
-| `app/profile.tsx`        | Cuenta, idioma y apariencia, aún inertes     |
-| `app/diagnostics.tsx`    | `Intl` en el dispositivo. **Solo `__DEV__`** |
-| `app/states.tsx`         | Los tres estados comunes. **Solo `__DEV__`** |
-| `app/session-probe.tsx`  | La sonda de F5.A. **Solo `__DEV__`**         |
+| Ruta                     | Qué es                                                 |
+| ------------------------ | ------------------------------------------------------ |
+| `app/(auth)/sign-in.tsx` | **Pública.** Superficie provisional; la sustituye F5.C |
+| `app/_layout.tsx`        | Sesión, guardas, `ScopeProvider` y el Stack raíz       |
+| `app/(tabs)/_layout.tsx` | Los dos destinos, con la barra propia                  |
+| `app/(tabs)/index.tsx`   | Inicio                                                 |
+| `app/(tabs)/groups.tsx`  | Grupos                                                 |
+| `app/add.tsx`            | La superficie del `+`, en modal                        |
+| `app/notifications.tsx`  | Placeholder                                            |
+| `app/profile.tsx`        | Cuenta, idioma y apariencia, aún inertes               |
+| `app/diagnostics.tsx`    | `Intl` en el dispositivo. **Solo `__DEV__`**           |
+| `app/states.tsx`         | Los tres estados comunes. **Solo `__DEV__`**           |
+| `app/session-probe.tsx`  | La sonda de F5.A. **Solo `__DEV__`**                   |
 
 **Perfil es donde aterrizará la cuenta.** Sus filas ya existen y no hacen nada,
 que es exactamente el hueco que la Fase 5 viene a llenar.
@@ -96,6 +110,7 @@ que es exactamente el hueco que la Fase 5 viene a llenar.
 | `features/shell/`           | Cabecera, barra, pulsador de ámbito, geometría del dock                    |
 | `lib/i18n/`, `lib/format/`  | Catálogos, `t()`, y formateo exacto y localizado                           |
 | `lib/supabase/`, `lib/env/` | **F5.A**: cliente sobre `api`, entorno validado, sesión en el llavero      |
+| `features/session/`         | **F5.B**: `useSession()`, los cuatro estados, y las guardas ya puestas     |
 
 ```ts
 const { t } = useTranslation();   // texto  -> catálogo activo
@@ -122,6 +137,10 @@ Aprobado en iPhone físico y fuera de discusión salvo defecto material:
   comprueba un test.
 - **Las primitives y los tres estados comunes.**
 - Todo lo cerrado en la Fase 3: modelo, `api`, RLS, writer.
+- **Lo cerrado en F5.B**, validado en iPhone: los cuatro estados de sesión, la
+  restauración por `INITIAL_SESSION` sin `getSession()`, el watchdog, el
+  refresco atado a `AppState`, las guardas con `Stack.Protected` y el gate que
+  impide montar cualquier rama mientras se restaura.
 - **Lo cerrado en F5.A**, validado en iPhone: SecureStore con
   `WHEN_UNLOCKED_THIS_DEVICE_ONLY` y exclusión de backup en Android, el
   almacenamiento troceado con su manifiesto, la configuración del cliente y el
@@ -173,7 +192,18 @@ hasta que exista una sesión real, en F5.C.
 
 ## 7 · Deuda abierta
 
-### Lo que F5.C tiene que resolver, sin excepción
+### Lo que F5.C tiene que construir
+
+**El acceso en sí**, que es lo único que falta para que alguien pueda usar la
+app: registro y login con **email y contraseña** —sin magic link, sin social,
+sin anónimo—, con el **nombre** guardado como `display_name` en la metadata de
+presentación de Auth, y **nada de tabla de usuario ni de perfil**.
+
+Sustituye el cuerpo de `app/(auth)/sign-in.tsx`, que existe justo para eso. No
+hace falta mover el estado ni el enrutado: un `signInWithPassword` correcto ya
+dispara el evento que cambia de rama.
+
+### Y lo que F5.C tiene que cerrar, sin excepción
 
 **Cuatro cosas, y ninguna es opcional.**
 
@@ -195,8 +225,13 @@ No hace falta SMTP externo. Ojo con `[auth.rate_limit] email_sent = 2` por
 hora, cuyo comentario dice que requiere `auth.email.smtp` — habrá que
 comprobar si aplica en local.
 
-**2 · La primera sesión real.** Es lo que desbloquea el criterio de cierre 2 de
-la fase: que la sesión sobreviva al reinicio y se renueve sola.
+**2 · La primera sesión real, y todo lo que solo ella puede probar.** Cuatro
+cosas quedaron cubiertas por tests estructurales en F5.B y **esperan evidencia de
+extremo a extremo**: la transición real `signed-out` → `signed-in`, que el árbol
+cambia de rama, que **la sesión sobrevive al reinicio de la app** —criterio 2 del
+cierre de la fase— y que la rama protegida se comporta con una sesión auténtica.
+No se construyó ningún bypass ni sesión falsa para adelantarlo, y no debe
+construirse.
 
 **3 · La medición del payload real de sesión.**
 [ADR-017](../adr/ADR-017-secure-session-storage.md) la exige documentada
@@ -205,9 +240,12 @@ sesión auténtica que medir, y **no puede cambiar el diseño**: el almacén tro
 siempre, por decisión, y si la cifra resultara caber en un solo chunk la
 decisión sigue siendo la misma.
 
-**4 · `flowType`.** F5.A lo dejó sin fijar a propósito: solo afecta a los
-enlaces de correo, y su forma la decide quien construya la confirmación y la
-recuperación.
+**4 · `flowType`, si la implementación real lo pide.** Se dejó sin fijar a
+propósito: solo afecta a los enlaces de correo, y su forma la decide quien
+construya la confirmación y la recuperación.
+
+**Sigue fuera de F5.C:** el cierre de sesión es **F5.D** y la recuperación de
+acceso es **F5.E**.
 
 ### Registrada, no para resolver salvo que la fase la toque de frente
 
