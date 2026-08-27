@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTranslation } from '@/lib/i18n';
 import { GlassSurface, ThemedText } from '@/ui/components';
-import { Radius, Spacing, Tactile, useTheme } from '@/ui/theme';
+import { Radius, Spacing, useTheme } from '@/ui/theme';
 
 import { DESTINATIONS, type Destination, destinationFor } from './destinations';
 import { DOCK } from './dock';
@@ -96,35 +96,34 @@ function DestinationButton({
       accessibilityState={{ selected: focused }}
       accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.destination,
-        { boxShadow: pressed ? Tactile.pressed : focused ? Tactile.selected : Tactile.well },
-      ]}>
-      <GlassSurface
-        level={focused ? 'regular' : 'bar'}
-        radius={Radius.full}
-        style={[
-          styles.pill,
-          { borderColor: focused ? theme.borderStrong : theme.border },
-          focused ? null : styles.pillQuiet,
-        ]}>
-        <SymbolView
-          name={destination.symbol}
-          size={20}
-          tintColor={focused ? theme.text : theme.textSecondary}
-          fallback={
-            <View
-              style={[styles.fallback, { borderColor: focused ? theme.text : theme.textSecondary }]}
-            />
-          }
-        />
-        <ThemedText
-          variant="label"
-          themeColor={focused ? 'text' : 'textSecondary'}
-          style={focused ? null : styles.labelQuiet}>
-          {label}
-        </ThemedText>
-      </GlassSurface>
+      style={styles.destination}>
+      {({ pressed }) => (
+        <GlassSurface
+          level={focused ? 'regular' : 'bar'}
+          depth={pressed ? 'pressed' : focused ? 'selected' : 'well'}
+          radius={Radius.full}
+          style={styles.pill}>
+          <SymbolView
+            name={destination.symbol}
+            size={20}
+            tintColor={focused ? theme.text : theme.textSecondary}
+            fallback={
+              <View
+                style={[
+                  styles.fallback,
+                  { borderColor: focused ? theme.text : theme.textSecondary },
+                ]}
+              />
+            }
+          />
+          <ThemedText
+            variant="label"
+            themeColor={focused ? 'text' : 'textSecondary'}
+            style={focused ? null : styles.labelQuiet}>
+            {label}
+          </ThemedText>
+        </GlassSurface>
+      )}
     </Pressable>
   );
 }
@@ -161,15 +160,13 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
       onPress={() => {
         router.push({ pathname: '/add', params: { from: destination } });
       }}
-      style={({ pressed }) => [
-        styles.add,
-        { boxShadow: pressed ? Tactile.pressed : Tactile.raised },
-      ]}>
+      style={styles.add}>
       {({ pressed }) => (
         <GlassSurface
           level="action"
+          depth={pressed ? 'pressed' : 'raised'}
           radius={Radius.full}
-          style={[styles.addSurface, pressed ? { borderColor: theme.onAccent } : null]}>
+          style={styles.addSurface}>
           <SymbolView
             name="plus"
             size={28}
@@ -204,10 +201,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     minHeight: DOCK.bar,
     paddingHorizontal: Spacing.lg,
-  },
-  /** Recessed rather than absent: still a control, just not the current one. */
-  pillQuiet: {
-    opacity: 0.92,
   },
   labelQuiet: {
     fontWeight: '500',

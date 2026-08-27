@@ -3,9 +3,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTranslation } from '@/lib/i18n';
 import { GlassSurface, ThemedText } from '@/ui/components';
-import { Radius, Spacing, Tactile, useTheme } from '@/ui/theme';
+import { Radius, Spacing, useTheme } from '@/ui/theme';
 
-import { SCOPE_AVAILABLE, SCOPE_LABEL, type Scope, useScope } from './scope-context';
+import { SCOPE_LABEL, type Scope, useScope } from './scope-context';
 
 /** With two scopes, "the other one" is the whole cycle. */
 function nextScope(current: Scope): Scope {
@@ -28,6 +28,13 @@ function nextScope(current: Scope): Scope {
  * Glass for the surface, tactile depth for the press. Both, because this is
  * the control the whole screen hangs off: the balance below it and the action
  * button at the bottom both mean something different depending on it.
+ *
+ * **Personal and Pareja look identical.** Pareja has no implementation behind
+ * it yet, and an earlier version said so by dimming it - which made one of two
+ * equivalent scopes read as broken or lesser. What is missing is a feature,
+ * not the standing of a scope, so the absence is stated where the feature
+ * would be, in the sheet the action opens, and never in the control that names
+ * them.
  */
 export function ScopeSwitch() {
   const { t } = useTranslation();
@@ -35,7 +42,6 @@ export function ScopeSwitch() {
   const { scope, setScope } = useScope();
 
   const target = nextScope(scope);
-  const unavailable = !SCOPE_AVAILABLE[scope];
 
   return (
     <Pressable
@@ -48,21 +54,14 @@ export function ScopeSwitch() {
       onPress={() => {
         setScope(target);
       }}
-      style={({ pressed }) => [
-        styles.pressable,
-        { boxShadow: pressed ? Tactile.pressed : Tactile.raised },
-      ]}>
+      style={styles.pressable}>
       {({ pressed }) => (
         <GlassSurface
           level="regular"
+          depth={pressed ? 'pressed' : 'raised'}
           radius={Radius.full}
-          style={[
-            styles.surface,
-            {
-              borderColor: pressed ? theme.borderInteractive : theme.borderStrong,
-            },
-          ]}>
-          <ThemedText variant="label" themeColor={unavailable ? 'textSecondary' : 'text'}>
+          style={styles.surface}>
+          <ThemedText variant="label" themeColor="text">
             {t(SCOPE_LABEL[scope])}
           </ThemedText>
           <SymbolView
