@@ -27,6 +27,15 @@ export const esES = {
   'action.addToGroups': 'Añadir a un grupo',
   'action.close': 'Cerrar',
   'action.soon': 'Próximamente',
+  'action.retry': 'Reintentar',
+
+  'auth.welcomeTitle': 'Nomey',
+  'auth.welcomeBody': 'Tu dinero y el compartido, en el mismo sitio.',
+  'auth.comingSoon': 'Acceso',
+  'auth.comingSoonHint': 'Entrar y crear cuenta llegan en el bloque siguiente.',
+
+  'session.unavailableTitle': 'No hemos podido comprobar tu sesión',
+  'session.unavailableBody': 'Puede ser cosa de la conexión. Inténtalo de nuevo.',
 
   'home.greeting': 'Hola, {name}',
   'home.namePlaceholder': 'tu nombre',

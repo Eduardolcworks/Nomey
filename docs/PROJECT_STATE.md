@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-27**, al cerrar F5.A.
+Actualizado el **2026-08-27**, al cerrar F5.B.
 
 ---
 
@@ -21,20 +21,19 @@ Actualizado el **2026-08-27**, al cerrar F5.A.
 
 |                         |                                                                                   |
 | ----------------------- | --------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 5 — Identidad y sesión.** F5.A cerrado · **F5.B es el siguiente bloque**   |
+| **Fase en curso**       | **Fase 5 — Identidad y sesión.** F5.A y F5.B cerrados · **F5.C es el siguiente**  |
 | **Última fase cerrada** | **Fase 4 — Arquitectura UX e internacionalización** (4.A · 4.B · 4.C · 4.D)       |
 | **ADR aceptados**       | ADR-001 … ADR-017                                                                 |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR               |
 | **App visible**         | Shell navegable con primitives y estados comunes. **Sin funcionalidad económica** |
-| **Sesión**              | Existe la frontera técnica. **No hay registro, ni login, ni rutas protegidas**    |
+| **Sesión**              | Estado, restauración y rutas protegidas. **No hay registro ni login todavía**     |
 
-**La Fase 5 NO está completa.** F5.A dejó la frontera con el backend —cliente,
-entorno validado y almacenamiento seguro de sesión— **sin una sola pantalla de
-autenticación**. Nadie puede entrar todavía.
+**La Fase 5 NO está completa.** La app ya sabe si hay sesión y protege el árbol
+en consecuencia, pero **nadie puede entrar todavía**: no hay registro ni login.
+Al arrancar aterriza en la rama pública, que es una superficie provisional.
 
-Los bloques que faltan: **F5.B** estado de sesión y guardas de ruta · **F5.C**
-registro e inicio de sesión · **F5.D** cierre de sesión y Perfil · **F5.E**
-recuperación de acceso · **F5.F** cierre de fase.
+Los bloques que faltan: **F5.C** registro e inicio de sesión · **F5.D** cierre de
+sesión y Perfil · **F5.E** recuperación de acceso · **F5.F** cierre de fase.
 
 ---
 
@@ -101,21 +100,37 @@ dominio de `src/domain/errors.ts`, también 422.
 
 ## Frontera de sesión en el cliente
 
-**Lo que existe (F5.A), y nada más:** un cliente Supabase, el entorno público
-validado y la sesión persistida en el llavero. **No hay pantallas de
-autenticación, ni proveedor de sesión, ni rutas protegidas.**
+**Lo que existe:** el cliente y el almacenamiento seguro (F5.A), y encima el
+estado de sesión, su restauración y las rutas protegidas (F5.B). **Lo que no:
+registro y login.** Nadie puede entrar; el arranque termina en la rama pública.
 
 ```
-lib/env/          las dos EXPO_PUBLIC_, validadas al arrancar
+lib/env/              las dos EXPO_PUBLIC_, validadas al arrancar
 lib/supabase/
-├── bootstrap        el polyfill de URL, ANTES de createClient
-├── client           db.schema 'api' · persistSession · autoRefreshToken
-├── client-options   puro, para poder afirmarlo en un test
-├── chunked-storage  troceado y manifiesto. PURO, inyectable
-└── session-storage  la ÚNICA que nombra expo-secure-store
+├── bootstrap            el polyfill de URL, ANTES de createClient
+├── client               db.schema 'api' · persistSession · autoRefreshToken
+├── client-options       puro, para poder afirmarlo en un test
+├── chunked-storage      troceado y manifiesto. PURO, inyectable
+└── session-storage      la ÚNICA que nombra expo-secure-store
+features/session/
+├── session-state        la unión discriminada y sus predicados. PURO
+├── session-lifecycle    suscripción, watchdog y AppState. PURO, inyectable
+└── session-provider     el ÚNICO dueño del estado, y el único suscriptor
 ```
 
-Cuatro cosas que conviene no re-descubrir:
+**Cuatro estados, no un booleano.** `restoring` · `signed-out` · `signed-in` ·
+`unavailable`. Un `isAuthenticated: false` no distingue «hemos mirado y no hay
+nadie» de «aún no hemos mirado», y esas dos pintan cosas distintas.
+
+```
+restoring   ->  NINGUNA rama se monta. El splash sigue puesto
+signed-out  ->  (auth)
+unavailable ->  (auth), con salida: error recuperable, no callejón
+signed-in   ->  (tabs) · add · notifications · profile
+                y, solo con __DEV__, diagnostics · states · session-probe
+```
+
+Lo que conviene no re-descubrir:
 
 - **La identidad interna de Nomey es el `sub` del JWT.** No hay tabla de
   usuario, ni perfil, ni segunda identidad. El nombre de presentación vivirá en
@@ -128,13 +143,36 @@ Cuatro cosas que conviene no re-descubrir:
   `supabase-js`: su `URL` global no tiene setter de `protocol` y el constructor
   del cliente asigna a uno. Lo resuelve `react-native-url-polyfill` en un único
   punto de arranque. Quitarlo rompe la creación del cliente, no solo realtime.
-- **El cliente no gestiona el ciclo de vida.** No restaura al arrancar ni
-  refresca al volver a primer plano; eso es F5.B.
+- **No se llama a `getSession()`, y esto no es un olvido.** `auth-js` emite
+  `INITIAL_SESSION` a cada suscriptor nuevo por su cuenta, **también cuando la
+  restauración falló** —sesión ausente, refresh token muerto o fetch abortado
+  llegan como sesión nula, no como cuelgue—. Una sola fuente ordenada, así que
+  la carrera «restauración lenta pisa un evento nuevo» **no puede ocurrir**.
+  Añadir un `getSession()` en paralelo la reintroduce.
+- **Un watchdog de 10 s** cubre el único fallo sin salida: que la respuesta no
+  llegue nunca. No es un plazo — la suscripción sigue viva y una respuesta
+  tardía manda. `unavailable` cae en la rama **pública**, que es la dirección
+  segura.
+- **El refresco es de la librería.** `startAutoRefresh`/`stopAutoRefresh` atados
+  a `AppState`, un solo listener, idempotente. **Nomey no escribe ningún timer**:
+  un segundo bucle es cómo dos clientes compiten por el mismo refresh token.
+- **`Stack.Protected` es navegación, no seguridad.** Sin sesión PostgREST
+  responde `42501` pinte lo que pinte el cliente; la RLS sigue siendo la única
+  frontera de autorización. Un test comprueba que ninguna pantalla queda
+  registrada fuera de una guarda.
+- **El token no sale del cliente.** El provider expone `userId` y `email`, nada
+  más; quien llame a la API usa `supabase`, que adjunta y refresca él.
 
-**Validado en iPhone físico**, con `app/session-probe.tsx` bajo `__DEV__` —no es
-una feature y no se expone al usuario—: SecureStore disponible · un payload de
-nueve chunks va y vuelve idéntico · el borrado deja `null` · el cliente se crea
-bajo Hermes · `getSession()` sin sesión responde `null`.
+**Validado en iPhone físico.** F5.A con `app/session-probe.tsx` bajo `__DEV__`
+—no es una feature y no se expone al usuario—: SecureStore disponible, un payload
+de nueve chunks va y vuelve idéntico, el borrado deja `null`, el cliente se crea
+bajo Hermes y `getSession()` sin sesión responde `null`. F5.B: arranque sin
+crash, aterrizaje directo en la rama pública **sin que Inicio ni la barra
+aparezcan un instante**, y estabilidad tras varios Reload.
+
+**El splash propio no es verificable en Expo Go**, que sustituye el nativo por el
+suyo; espera a una build iOS propia. El gate es React puro y sí está comprobado:
+aunque el splash fallara, lo que se ve es el fondo de la app, nunca una pantalla.
 
 **Lo que aún no se ha medido:** el tamaño real de una sesión de Nomey
 serializada, porque todavía no existe ninguna auténtica. ADR-017 lo exige
@@ -309,7 +347,7 @@ una feature escribible real.
 | Secuencia de fases y criterios de cierre     | [`product/roadmap.md`](product/roadmap.md)                                         |
 | Vocabulario                                  | [`product/glossary.md`](product/glossary.md)                                       |
 | Estética, antes de cualquier UI              | [`product/design-direction.md`](product/design-direction.md)                       |
-| **Continuar la Fase 5 — empezar F5.B**       | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)               |
+| **Continuar la Fase 5 — empezar F5.C**       | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)               |
 | Cómo quedó la Fase 4, ya cerrada             | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                         |
 | Cómo se usan i18n y el formateo              | [`src/lib/README.md`](../src/lib/README.md)                                        |
 | Levantar el entorno, migrar, ejecutar checks | [`runbooks/local-setup.md`](runbooks/local-setup.md)                               |
