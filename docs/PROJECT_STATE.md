@@ -21,7 +21,7 @@ Actualizado el **2026-08-27**, al abrir la Fase 4.
 
 |                         |                                                                     |
 | ----------------------- | ------------------------------------------------------------------- |
-| **Fase actual**         | **Fase 4 — Arquitectura UX e internacionalización**, en F4.A        |
+| **Fase actual**         | **Fase 4 — Arquitectura UX e internacionalización**, en F4.B        |
 | **Última fase cerrada** | **Fase 3 — Persistencia y frontera de datos** (3.A · 3.B · 3.C)     |
 | **ADR aceptados**       | ADR-001 … ADR-016                                                   |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR |
@@ -123,6 +123,18 @@ dominio de `src/domain/errors.ts`, también 422.
 
 ---
 
+## Limitaciones técnicas vigentes
+
+**El `Intl` de Hermes no es el de Node.** Hermes no empaqueta ICU: toma el
+formateador de cada plataforma, así que **iOS no tiene
+`Intl.NumberFormat.prototype.formatToParts` y descarta `signDisplay`**. Lo
+primero revienta; lo segundo se ignora en silencio, que es peor. `src/lib/format`
+solo usa `format()` y deriva la forma del locale con sondas, en una única vía
+para todos los runtimes. **Nada que se ejecute en el dispositivo se da por
+verificado porque pase en Vitest**, que corre sobre V8.
+
+---
+
 ## Decisiones aplazadas relevantes
 
 Ninguna bloquea la Fase 4. El detalle completo, con motivo y destino de cada una,
@@ -160,6 +172,14 @@ plan aprobado y sus criterios de cierre están en
 `src/ui/theme/use-theme.ts`. El amarillo de marca es `#FDC506`, acento
 minoritario. **Ningún color, rol tipográfico ni token de profundidad vive fuera
 de `src/ui/theme/`**, y el contraste de la paleta está medido y anotado allí.
+
+**Idioma e importe se resuelven por separado.** El catálogo lo elige una
+preferencia de tres estados —Automático, Español, English—; el formato de
+números, moneda y fechas sigue **siempre la región del dispositivo**, aunque el
+idioma se fuerce, y ese formato se **compone** con el `regionCode` del
+dispositivo —no con `languageTag`, que lleva la región del idioma—. Los dos
+locales están marcados como tipos distintos para que
+confundirlos no compile. La persistencia de la preferencia llegará con Ajustes.
 
 **La navegación NO está cerrada.** Se decide viéndola en un iPhone real durante
 F4.C, no razonándola antes.

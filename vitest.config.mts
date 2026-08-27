@@ -7,7 +7,13 @@ import { defineConfig } from 'vitest/config';
 // datos. Lo que necesite una base viva no entra aquí; vive en
 // `supabase/checks/`.
 export default defineConfig({
+  // El alias `@/` de `tsconfig.json`, que Vitest no lee por su cuenta. Sin
+  // esto, un import de valor —no de tipo, que se borra al compilar— falla en el
+  // test y no en el bundle, que es la peor combinación posible.
+  resolve: {
+    alias: { '@': new URL('src', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1') },
+  },
   test: {
-    include: ['tests/domain/**/*.test.ts', 'tests/infra/**/*.test.ts'],
+    include: ['tests/domain/**/*.test.ts', 'tests/infra/**/*.test.ts', 'tests/lib/**/*.test.ts'],
   },
 });
