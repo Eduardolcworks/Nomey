@@ -12,6 +12,12 @@ export type ActionButtonProps = {
    */
   tone?: 'primary' | 'secondary';
   disabled?: boolean;
+  /**
+   * The action is running. Reaches assistive tech as ,
+   * which is the difference between "this button is off" and "this button is
+   * working" - a disabled control with no busy state reads as broken.
+   */
+  busy?: boolean;
   style?: ViewStyle;
 };
 
@@ -34,6 +40,7 @@ export function ActionButton({
   onPress,
   tone = 'secondary',
   disabled = false,
+  busy = false,
   style,
 }: ActionButtonProps) {
   const theme = useTheme();
@@ -43,7 +50,7 @@ export function ActionButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled, busy }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [

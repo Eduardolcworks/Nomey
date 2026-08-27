@@ -16,6 +16,18 @@ export type SessionIdentity = {
    */
   readonly userId: string;
   readonly email: string | null;
+  /**
+   * The name the person gave at sign-up, for showing back to them.
+   *
+   * **Presentation, and only presentation.** It never appears in RLS, never
+   * resolves a membership or a scope, and never stands in for `userId`. It is
+   * `user_metadata`, which the account holder can change at will - treating it
+   * as identity would be treating a user-editable string as an authority.
+   *
+   * `null` when there is none. Not a placeholder, not a guess from the email:
+   * the caller decides what to show, because only the caller knows where.
+   */
+  readonly displayName: string | null;
 };
 
 export type SessionState =
@@ -48,11 +60,41 @@ export const UNAVAILABLE: SessionState = { status: 'unavailable' };
 export type AuthenticatedUser = {
   readonly id: string;
   readonly email?: string | null;
+  /**
+   * Supabase's `user_metadata`, typed as unknown values on purpose: it is
+   * free-form JSON the account holder controls, so nothing in it may be
+   * trusted to have the shape we expect.
+   */
+  readonly user_metadata?: Readonly<Record<string, unknown>> | null;
 };
+
+/**
+ * Pull the display name out of metadata, or decide there isn't one.
+ *
+ * Everything that is not a non-empty string becomes `null` - a number, an
+ * object, whitespace, an absence. `user_metadata` is written by the client at
+ * sign-up and editable by the account holder afterwards, so this is the one
+ * place its shape gets checked rather than assumed.
+ */
+function readDisplayName(metadata: Readonly<Record<string, unknown>> | null | undefined): string {
+  const raw = metadata?.display_name;
+  if (typeof raw !== 'string') return '';
+  return raw.trim();
+}
 
 export function stateFromUser(user: AuthenticatedUser | null | undefined): SessionState {
   if (user === null || user === undefined || user.id === '') return SIGNED_OUT;
-  return { status: 'signed-in', identity: { userId: user.id, email: user.email ?? null } };
+
+  const displayName = readDisplayName(user.user_metadata);
+
+  return {
+    status: 'signed-in',
+    identity: {
+      userId: user.id,
+      email: user.email ?? null,
+      displayName: displayName === '' ? null : displayName,
+    },
+  };
 }
 
 /** True once the app may mount a branch: any answer at all, including a bad one. */

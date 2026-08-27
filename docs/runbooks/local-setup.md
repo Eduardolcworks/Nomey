@@ -319,7 +319,7 @@ vez de dar un falso verde.
 
 ```bash
 ./scripts/supabase-cli.sh start \
-  -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+  -x realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
 ```
 
 > **Mailpit sigue excluido a propósito.** `config.toml` tiene

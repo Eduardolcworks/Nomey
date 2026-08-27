@@ -66,7 +66,7 @@ KEY=$(docker exec supabase_kong_Nomey \
 if [ -z "${KEY}" ]; then
   echo "error: no se pudo leer la clave publicable del Kong en marcha." >&2
   echo "       Levanta el stack SIN excluir gotrue:" >&2
-  echo "       ./scripts/supabase-cli.sh start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor" >&2
+  echo "       ./scripts/supabase-cli.sh start -x realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor" >&2
   exit 1
 fi
 
@@ -104,8 +104,31 @@ cuerpo_de() { printf '%s' "${1#* }"; }
 env_payload() { printf '{"payload":%s}' "$1"; }
 
 # ------------------------------------------------------------- usuarios -----
-# Reales, emitidos por GoTrue. `enable_confirmations = false` en config.toml, asi
-# que el alta devuelve sesion directamente y no hace falta mailpit.
+# Reales, emitidos por GoTrue. Con `enable_confirmations = true` en config.toml
+# —obligatoria, y la misma postura que en produccion— el alta YA NO devuelve
+# sesion: responde el usuario con `confirmation_sent_at` y sin `access_token`.
+# Medido contra este stack.
+#
+# Asi que el JWT se obtiene en tres pasos en vez de uno: alta, confirmacion y
+# password grant. La confirmacion se hace por SQL como `postgres` —el mismo
+# camino que ya usaba `borrar_usuarios`— en vez de leer el buzon: depende de
+# menos piezas y no cambia lo que este check mide, que es la frontera HTTP y no
+# el correo.
+#
+# PERO el servicio de correo TIENE que estar arrancado, y la distincion importa
+# porque costo un CI en rojo: este check no lee el buzon, pero **GoTrue envia el
+# correo de confirmacion durante el propio alta** y, si no tiene a donde
+# entregarlo, responde `500 unexpected_failure: Error sending confirmation
+# email` y no llega a crear al usuario. Confirmar despues por SQL no ayuda,
+# porque el alta ya ha fallado. Reproducido excluyendo el servicio y volviendo a
+# incluirlo.
+#
+# `[auth.email.smtp]` esta comentado entero, asi que `[local_smtp]` es el UNICO
+# destino que GoTrue tiene. Por eso no se excluye del arranque, ni aqui ni en CI.
+#
+# Lo que NO se hace, y conviene que se vea: no se desactivan las confirmaciones
+# durante el test, no se inventa una identidad y no se toca la aplicacion. El
+# usuario que sale de aqui es uno real de GoTrue, confirmado, con su JWT real.
 EMAIL_A=nomey-http-a@example.test
 EMAIL_B=nomey-http-b@example.test
 PASS='Nomey-http-check-2026!'
@@ -118,6 +141,22 @@ SQL
 
 alta() {
   curl -s -X POST "${API}/auth/v1/signup" \
+    -H "apikey: ${KEY}" -H 'Content-Type: application/json' \
+    --data-binary "{\"email\":\"$1\",\"password\":\"${PASS}\"}"
+}
+
+# Marca el correo como confirmado. `email_confirmed_at` es la columna escribible;
+# `confirmed_at` es GENERATED ALWAYS y escribirla es un error — comprobado en el
+# catalogo de este stack.
+confirmar() {
+  "${DB[@]}" >/dev/null 2>&1 <<SQL
+update auth.users set email_confirmed_at = now() where email = '$1' and email_confirmed_at is null;
+SQL
+}
+
+# El JWT real, por la misma via que usara la app: contrasena contra GoTrue.
+sesion() {
+  curl -s -X POST "${API}/auth/v1/token?grant_type=password" \
     -H "apikey: ${KEY}" -H 'Content-Type: application/json' \
     --data-binary "{\"email\":\"$1\",\"password\":\"${PASS}\"}"
 }
@@ -192,18 +231,38 @@ echo "== preparando =="
 retirar
 borrar_usuarios
 
+# 1 · alta. Con confirmacion obligatoria esto NO trae token, y el `id` viaja en
+#     la raiz de la respuesta en vez de bajo `user`.
 RA=$(alta "${EMAIL_A}")
 RB=$(alta "${EMAIL_B}")
-TOK_A=$(printf '%s' "${RA}" | jget access_token)
-TOK_B=$(printf '%s' "${RB}" | jget access_token)
-UID_A=$(printf '%s' "${RA}" | jget user.id)
-UID_B=$(printf '%s' "${RB}" | jget user.id)
+UID_A=$(printf '%s' "${RA}" | jget id)
+UID_B=$(printf '%s' "${RB}" | jget id)
 
-if [ -z "${TOK_A}" ] || [ -z "${UID_A}" ] || [ -z "${TOK_B}" ] || [ -z "${UID_B}" ]; then
-  echo "  FALLO: GoTrue no emitio sesion. Respuesta A: $(printf '%s' "${RA}" | head -c 300)"
+if [ -z "${UID_A}" ] || [ -z "${UID_B}" ]; then
+  echo "  FALLO: GoTrue no dio de alta al usuario. Respuesta A: $(printf '%s' "${RA}" | head -c 300)"
   exit 1
 fi
-ok "dos usuarios reales dados de alta por GoTrue, con JWT de sesion"
+
+# La otra mitad del invariante, y la que de verdad hace falta comprobar: el alta
+# NO puede traer sesion. Si algun dia vuelve a traerla, la confirmacion
+# obligatoria se ha caido y nadie se enteraria por ningun otro sitio.
+if [ -n "$(printf '%s' "${RA}" | jget access_token)" ]; then
+  echo "  FALLO: el alta devolvio sesion. \`enable_confirmations\` no esta activo."
+  exit 1
+fi
+ok "el alta no emite sesion: la confirmacion de correo es obligatoria"
+
+# 2 · confirmacion    3 · sesion por contrasena
+confirmar "${EMAIL_A}"
+confirmar "${EMAIL_B}"
+TOK_A=$(sesion "${EMAIL_A}" | jget access_token)
+TOK_B=$(sesion "${EMAIL_B}" | jget access_token)
+
+if [ -z "${TOK_A}" ] || [ -z "${TOK_B}" ]; then
+  echo "  FALLO: sin JWT tras confirmar el correo y pedir sesion con contrasena."
+  exit 1
+fi
+ok "dos usuarios reales, confirmados, con JWT obtenido por contrasena"
 sembrar "${UID_A}" "${UID_B}"
 
 # ============================================================================

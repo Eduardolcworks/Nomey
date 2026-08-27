@@ -7,8 +7,9 @@ inglés.
 >
 > - **Fases 0, 1, 2, 3 y 4:** cerradas. **ADR-001 … ADR-017 aceptados.** El plan
 >   de la Fase 4 está en [`ux/phase-4-plan.md`](ux/phase-4-plan.md).
-> - **La Fase 5 está EN CURSO**: F5.A y F5.B cerrados, F5.C es el siguiente. Su
->   punto de entrada, y el único vivo, está en
+> - **La Fase 5 está EN CURSO**: F5.A, F5.B y F5.C1 cerrados; **F5.C2 —Google y
+>   Apple— pendiente**, con bloqueo externo. Su punto de entrada, y el único
+>   vivo, está en
 >   [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md).
 > - **Para reconstruir el estado del proyecto, empieza por
 >   [`PROJECT_STATE.md`](PROJECT_STATE.md)**, que es la memoria comprimida: fase

@@ -1,69 +1,151 @@
-import { StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Link } from 'expo-router';
+import { useRef, useState } from 'react';
+import { StyleSheet, type TextInput, View } from 'react-native';
 
+import { AuthField, AuthScreen, missingFields, signIn, useAuthSubmit } from '@/features/auth';
 import { useSession } from '@/features/session';
 import { useTranslation } from '@/lib/i18n';
-import { ErrorState, Section, ThemedText, ThemedView } from '@/ui/components';
+import { ActionButton, ErrorState, ThemedText, ThemedView } from '@/ui/components';
 import { Spacing } from '@/ui/theme';
 
 /**
- * The public destination, and provisional on purpose.
+ * Signing in.
  *
- * F5.B needs a real public branch to have something to protect the rest of the
- * tree against - without one, "signed out" has nowhere to go. It is NOT the
- * sign-in flow: there is no form, no `signInWithPassword`, no sign-up, no
- * recovery and no validation. All of that is F5.C, which will replace the body
- * of this screen rather than work around it.
+ * There is no `router.replace` here, and that is the design rather than an
+ * omission. A successful `signInWithPassword` emits an auth event, the
+ * provider from F5.B is the single subscriber, the state becomes `signed-in`
+ * and `Stack.Protected` swaps the branch. Navigating imperatively as well
+ * would be a second mechanism racing the first, and the loser would decide
+ * what the user sees.
  *
- * What it does carry is the one branch that has to behave correctly today: if
- * the session could not be resolved, this is where the user lands, and it must
- * offer a way out rather than a dead end.
+ * Nothing on this screen keeps a session, a token or a user. It collects two
+ * strings and hands them to `features/auth`.
  */
 export default function SignInScreen() {
   const { t } = useTranslation();
-  const { state, retry } = useSession();
+  const { state: session, retry } = useSession();
+  const { state, submit, clearError, running } = useAuthSubmit();
 
-  if (state.status === 'unavailable') {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [incomplete, setIncomplete] = useState(false);
+  const passwordField = useRef<TextInput>(null);
+
+  // The session could not be resolved at startup. Offering a sign-in form on
+  // top of that would be asking the user to fix something that is not theirs.
+  if (session.status === 'unavailable') {
     return (
       <ThemedView style={styles.screen}>
-        <SafeAreaView style={styles.safe}>
-          <ErrorState
-            title={t('session.unavailableTitle')}
-            description={t('session.unavailableBody')}
-            retry={{ label: t('action.retry'), onPress: retry }}
-          />
-        </SafeAreaView>
+        <ErrorState
+          fill
+          title={t('session.unavailableTitle')}
+          description={t('session.unavailableBody')}
+          retry={{ label: t('action.retry'), onPress: retry }}
+        />
       </ThemedView>
     );
   }
 
-  return (
-    <ThemedView style={styles.screen}>
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.content}>
-          <ThemedText variant="display">{t('auth.welcomeTitle')}</ThemedText>
-          <ThemedText variant="body" themeColor="textSecondary">
-            {t('auth.welcomeBody')}
-          </ThemedText>
+  async function onSubmit() {
+    const missing = missingFields({ email, password });
+    setIncomplete(missing.length > 0);
+    if (missing.length > 0) return;
 
-          <Section title={t('auth.comingSoon')}>
-            <ThemedText variant="caption" themeColor="textTertiary">
-              {t('auth.comingSoonHint')}
-            </ThemedText>
-          </Section>
-        </View>
-      </SafeAreaView>
-    </ThemedView>
+    clearError();
+    await submit(() => signIn({ email, password }));
+    // No navigation on success. See the note above.
+  }
+
+  const error =
+    state.status === 'failed'
+      ? t(state.messageKey)
+      : incomplete
+        ? t('auth.missingFields')
+        : undefined;
+
+  return (
+    <AuthScreen>
+      <View style={styles.heading}>
+        <ThemedText variant="display">{t('auth.signInTitle')}</ThemedText>
+        <ThemedText variant="body" themeColor="textSecondary">
+          {t('auth.signInSubtitle')}
+        </ThemedText>
+      </View>
+
+      <View style={styles.form}>
+        <AuthField
+          label={t('auth.email')}
+          placeholder={t('auth.emailPlaceholder')}
+          value={email}
+          onChangeText={setEmail}
+          editable={!running}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          keyboardType="email-address"
+          textContentType="emailAddress"
+          returnKeyType="next"
+          // Makes "next" mean something. Moving focus from the keyboard
+          // instead of tapping is also one fewer chance for the layout to
+          // shift under the user's finger.
+          onSubmitEditing={() => passwordField.current?.focus()}
+          submitBehavior="submit"
+        />
+        <AuthField
+          ref={passwordField}
+          label={t('auth.password')}
+          placeholder={t('auth.passwordPlaceholder')}
+          value={password}
+          onChangeText={setPassword}
+          editable={!running}
+          secureTextEntry
+          autoCapitalize="none"
+          autoComplete="current-password"
+          textContentType="password"
+          returnKeyType="go"
+          onSubmitEditing={() => void onSubmit()}
+        />
+      </View>
+
+      {/*
+       * The message is a live region so a screen reader announces a failed
+       * attempt, which otherwise happens silently. It is text, never a colour
+       * on its own.
+       */}
+      {error === undefined ? null : (
+        <ThemedText
+          variant="bodySmall"
+          themeColor="negative"
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert">
+          {error}
+        </ThemedText>
+      )}
+
+      <ActionButton
+        label={running ? t('auth.working') : t('auth.signInAction')}
+        onPress={() => void onSubmit()}
+        tone="primary"
+        disabled={running}
+        busy={running}
+      />
+
+      <Link href="/(auth)/sign-up" asChild>
+        <ThemedText
+          variant="bodySmall"
+          themeColor="accent"
+          accessibilityRole="link"
+          style={styles.switch}>
+          {t('auth.toSignUp')}
+        </ThemedText>
+      </Link>
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  safe: { flex: 1 },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.md,
-  },
+  heading: { gap: Spacing.xs },
+  form: { gap: Spacing.md },
+  switch: { textAlign: 'center', paddingVertical: Spacing.sm },
 });

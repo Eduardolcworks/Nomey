@@ -7,7 +7,9 @@ import { type MessageKey, useTranslation } from '@/lib/i18n';
 import {
   CHUNKED_STORAGE_LIMITS,
   createChunkedStore,
+  measureStoredSession,
   secureStoreBackend,
+  SESSION_STORAGE_KEY,
   supabase,
 } from '@/lib/supabase';
 import { ThemedText, ThemedView } from '@/ui/components';
@@ -123,16 +125,43 @@ export default function SessionProbeScreen() {
       detail: typeof supabase,
     });
 
-    // 5 - and answers `null` cleanly with nothing stored. THE criterion.
+    /*
+     * 5 - and answers cleanly. With nothing stored the answer is `null`, which
+     *     was F5.A's acceptance criterion; with a real session it is a
+     *     session, and what is checked is that asking did not throw. The
+     *     session itself is never rendered - only which of the two it was.
+     */
     try {
       const { data, error } = await supabase.auth.getSession();
       results.push({
         label: 'probe.session',
-        outcome: error === null && data.session === null ? 'pass' : 'fail',
-        detail: error === null ? String(data.session) : describe(error),
+        outcome: error === null ? 'pass' : 'fail',
+        detail: error === null ? (data.session === null ? 'null' : 'session') : describe(error),
       });
     } catch (error) {
       results.push({ label: 'probe.session', outcome: 'fail', detail: describe(error) });
+    }
+
+    /*
+     * 6 - the real session payload, which ADR-017 requires measured on a
+     *     device before Phase 5 closes and which had no session to measure
+     *     until F5.C produced one.
+     *
+     * Numbers only, and structurally so: `measureStoredSession` returns four
+     * integers and a boolean, so there is no shape in which a token could
+     * arrive here to be rendered.
+     */
+    try {
+      const metrics = await measureStoredSession(secureStoreBackend, SESSION_STORAGE_KEY);
+      const size = `${format.number(metrics.utf8Bytes)} B · ${format.number(metrics.codeUnits)} u`;
+      const shape = `${metrics.chunks} chunks · max ${format.number(metrics.largestChunkBytes)} B`;
+      results.push({
+        label: 'probe.payload',
+        outcome: metrics.present ? 'pass' : 'pending',
+        detail: metrics.present ? `${size} · ${shape}` : '—',
+      });
+    } catch (error) {
+      results.push({ label: 'probe.payload', outcome: 'fail', detail: describe(error) });
     }
 
     setChecks(results);

@@ -7,7 +7,8 @@
  */
 interface ImportMeta {
   glob(
-    pattern: string,
+    /** Vite admite un patrón o una lista de ellos. */
+    pattern: string | readonly string[],
     options: { query: '?raw'; import: 'default'; eager: true },
   ): Record<string, string>;
 }
