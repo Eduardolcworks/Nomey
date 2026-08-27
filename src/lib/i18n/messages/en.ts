@@ -25,6 +25,7 @@ export const en: Record<MessageKey, string> = {
   'action.close': 'Close',
   'action.soon': 'Coming soon',
   'action.retry': 'Try again',
+  'action.cancel': 'Cancel',
 
   'auth.signInTitle': 'Sign in',
   'auth.signInSubtitle': 'Welcome back.',
@@ -81,6 +82,21 @@ export const en: Record<MessageKey, string> = {
 
   'notifications.empty': 'Nothing to see here.',
   'notifications.emptyHint': 'Alerts from your groups will show up here.',
+
+  'account.details': 'Your details',
+  'account.name': 'Name',
+  'account.noName': 'No name',
+  'account.email': 'Email',
+  'account.noEmail': 'No email',
+  'account.session': 'Session',
+  'account.signOut': 'Sign out',
+  'account.signOutHint': 'You will be signed out on this device.',
+  'account.signOutConfirmTitle': 'Sign out?',
+  'account.signOutConfirmBody': 'You can sign back in with your account whenever you like.',
+  'account.signOutBusy': 'Signing out…',
+  'account.forgetLocal': 'Sign out on this device only',
+  'account.forgetLocalHint':
+    'Deletes the session from this phone even though we could not reach the server. It stays active there until it expires.',
 
   'profile.section': 'Settings',
   'profile.account': 'Account',

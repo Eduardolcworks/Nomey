@@ -125,6 +125,7 @@ function RootNavigator() {
         <Stack.Screen name="add" options={{ presentation: 'modal' }} />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="profile" />
+        <Stack.Screen name="account" />
       </Stack.Protected>
 
       {/*

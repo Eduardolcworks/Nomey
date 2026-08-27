@@ -7,20 +7,18 @@ import { Icon, Section, ThemedText } from '@/ui/components';
 import { Radius, Spacing, Tactile, useTheme } from '@/ui/theme';
 
 /**
- * Profile: where the account and the settings will live.
+ * Profile: where the account and the settings live.
  *
- * Rows only, and none of them do anything yet. They exist so the hierarchy can
- * be judged on a device - is this the right place for language and appearance?
- * - without implying that any of it works. The language row in particular is
- * deliberately inert: the preference has an API but no persistence, and a row
- * that changed the language until the next launch would be worse than one that
- * does nothing.
+ * Cuenta now leads to a real surface; language and appearance are still rows
+ * that say so and do nothing. The hierarchy was judged on a device before any
+ * of it worked, which is why the shape did not have to change to make one row
+ * functional.
  *
  * `Row` stays local. It has exactly one screen using it, so lifting it into
  * the design system would be a guess about a second consumer rather than a
  * solution to a duplication that exists.
  */
-const ROWS: readonly MessageKey[] = ['profile.account', 'profile.language', 'profile.appearance'];
+const INERT_ROWS: readonly MessageKey[] = ['profile.language', 'profile.appearance'];
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
@@ -30,7 +28,20 @@ export default function ProfileScreen() {
     <PlaceholderScreen title="nav.profile">
       <Section title={t('profile.section')}>
         <View style={styles.rows}>
-          {ROWS.map((row) => (
+          {/*
+           * Cuenta is the one row that leads somewhere. The other two stay
+           * inert on purpose: the language preference has an API but no
+           * persistence, and a row that changed the language until the next
+           * launch would be worse than one that does nothing. Both arrive
+           * with Ajustes, which owns that storage decision.
+           */}
+          <Row
+            label={t('profile.account')}
+            onPress={() => {
+              router.push('/account');
+            }}
+          />
+          {INERT_ROWS.map((row) => (
             <Row key={row} label={t(row)} hint={t('action.soon')} />
           ))}
         </View>

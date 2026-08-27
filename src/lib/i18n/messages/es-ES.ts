@@ -28,6 +28,7 @@ export const esES = {
   'action.close': 'Cerrar',
   'action.soon': 'Próximamente',
   'action.retry': 'Reintentar',
+  'action.cancel': 'Cancelar',
 
   'auth.signInTitle': 'Entrar',
   'auth.signInSubtitle': 'Bienvenido de vuelta.',
@@ -84,6 +85,21 @@ export const esES = {
 
   'notifications.empty': 'No hay notificaciones.',
   'notifications.emptyHint': 'Los avisos de tus grupos aparecerán aquí.',
+
+  'account.details': 'Tus datos',
+  'account.name': 'Nombre',
+  'account.noName': 'Sin nombre',
+  'account.email': 'Email',
+  'account.noEmail': 'Sin email',
+  'account.session': 'Sesión',
+  'account.signOut': 'Cerrar sesión',
+  'account.signOutHint': 'Se cerrará la sesión en este dispositivo.',
+  'account.signOutConfirmTitle': '¿Cerrar sesión?',
+  'account.signOutConfirmBody': 'Podrás volver a entrar con tu cuenta cuando quieras.',
+  'account.signOutBusy': 'Cerrando sesión…',
+  'account.forgetLocal': 'Cerrar sesión solo en este dispositivo',
+  'account.forgetLocalHint':
+    'Borra la sesión de este teléfono aunque no hayamos podido avisar al servidor. Seguirá activa allí hasta que caduque.',
 
   'profile.section': 'Ajustes',
   'profile.account': 'Cuenta',

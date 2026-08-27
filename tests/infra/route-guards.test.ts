@@ -84,7 +84,21 @@ describe('guardas de ruta del layout raíz', () => {
     });
 
     it('contiene las tabs y todas las rutas de producto', () => {
-      expect(productBlock?.screens).toEqual(['(tabs)', 'add', 'notifications', 'profile']);
+      expect(productBlock?.screens).toEqual([
+        '(tabs)',
+        'add',
+        'notifications',
+        'profile',
+        'account',
+      ]);
+    });
+
+    it('`account` está dentro, y no en la pública', () => {
+      // La pantalla que enseña nombre y email y cierra la sesión. Si acabara
+      // en la rama pública sería una pantalla de cuenta sin cuenta.
+      expect(productBlock?.screens).toContain('account');
+      const publicBlock = blocks.find((block) => block.guard.includes('isPublic'));
+      expect(publicBlock?.screens).not.toContain('account');
     });
 
     it('`(auth)` no está en ella', () => {
