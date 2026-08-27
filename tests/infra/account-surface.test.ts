@@ -32,11 +32,14 @@ describe('la fila Cuenta de Perfil', () => {
     expect(PROFILE).toContain("router.push('/account')");
   });
 
-  it('idioma y apariencia siguen inertes', () => {
-    // Siguen diferidos a Ajustes, con su propia decisión de almacenamiento.
-    expect(PROFILE).toContain("'profile.language'");
-    expect(PROFILE).toContain("'profile.appearance'");
-    expect(PROFILE).toContain("t('action.soon')");
+  it('y es la única fila de Perfil que lleva a producto', () => {
+    // Las de General siguen inertes; su presentación la cubre
+    // `profile-surface.test.ts`. Aquí sólo importa que el camino al cierre de
+    // sesión sigue existiendo y sigue siendo uno.
+    const pushes = [...PROFILE.matchAll(/router\.push\('\/([a-z-]+)'\)/g)].map((m) => m[1]);
+    expect(pushes).toContain('account');
+    // Diagnóstico, estados y sonda quedan detrás de `__DEV__`.
+    expect(PROFILE).toContain('__DEV__');
   });
 });
 

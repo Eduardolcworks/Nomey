@@ -1,9 +1,16 @@
 import { SESSION_STORAGE_KEY, sessionStorage, supabase } from '@/lib/supabase';
 
-import { type AuthErrorKey, signInErrorKey, signOutErrorKey, signUpErrorKey } from './auth-errors';
+import {
+  type AuthErrorKey,
+  signInErrorKey,
+  signOutErrorKey,
+  signUpErrorKey,
+  updateUserErrorKey,
+} from './auth-errors';
 import {
   type Credentials,
   normaliseCredentials,
+  normaliseDisplayName,
   normaliseRegistration,
   type Registration,
 } from './credentials';
@@ -142,5 +149,44 @@ export async function forgetLocalSession(): Promise<AuthResult> {
   const { error } = await supabase.auth.signOut({ scope: 'local' });
 
   if (error !== null) return { ok: false, messageKey: signOutErrorKey(error) };
+  return { ok: true };
+}
+
+/**
+ * Change the name the app greets you by.
+ *
+ * It writes to exactly where sign-up wrote it: `user_metadata.display_name`,
+ * through `PUT /user`. **No second identity, no `profiles` table, no store of
+ * our own** - the handoff closed that decision and this consumes it rather
+ * than reopening it. The name stays what it has always been: presentation,
+ * editable by its owner, never an authority. It does not appear in RLS, does
+ * not resolve a membership or a scope, and does not stand in for the JWT's
+ * `sub`.
+ *
+ * Nothing here propagates the change, and that is the point. MEASURED in
+ * `@supabase/auth-js@2.112.4`: `_updateUser` assigns the fresh user onto the
+ * session, calls `_saveSession` - so the new name is persisted to the chunked
+ * keychain store - and then emits `USER_UPDATED` with that session. The single
+ * subscriber in `SessionProvider` is event-agnostic, so it maps the user
+ * through `stateFromUser` exactly as it does for a sign-in, and every screen
+ * deriving its name from the session moves on its own. Inicio's greeting is
+ * already written that way and needs no change at all.
+ *
+ * That is why there is no refetch, no cache to invalidate and nothing to keep
+ * in sync: one write, one event, one owner of the state.
+ *
+ * Empty is refused here rather than at the server. It is the only rule Nomey
+ * owns about a name - GoTrue has no opinion on metadata contents - and the
+ * alternative is a round trip that comes back with nothing useful to say.
+ * Beyond "not blank" nothing is judged: a name is trimmed and otherwise left
+ * exactly as the person wrote it.
+ */
+export async function updateDisplayName(raw: string): Promise<AuthResult> {
+  const displayName = normaliseDisplayName(raw);
+  if (displayName === '') return { ok: false, messageKey: 'authError.nameRequired' };
+
+  const { error } = await supabase.auth.updateUser({ data: { display_name: displayName } });
+
+  if (error !== null) return { ok: false, messageKey: updateUserErrorKey(error) };
   return { ok: true };
 }

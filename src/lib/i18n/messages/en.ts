@@ -26,6 +26,7 @@ export const en: Record<MessageKey, string> = {
   'action.soon': 'Coming soon',
   'action.retry': 'Try again',
   'action.cancel': 'Cancel',
+  'action.save': 'Save',
 
   'auth.signInTitle': 'Sign in',
   'auth.signInSubtitle': 'Welcome back.',
@@ -57,6 +58,7 @@ export const en: Record<MessageKey, string> = {
   'authError.rateLimited': 'Too many attempts. Wait a moment.',
   'authError.signUpDisabled': 'Sign-up is not available right now.',
   'authError.checkYourEmail': 'Check your email to continue.',
+  'authError.nameRequired': 'Enter a name.',
   'authError.network': 'No connection. Try again.',
   'authError.generic': 'Something went wrong. Try again.',
 
@@ -98,11 +100,19 @@ export const en: Record<MessageKey, string> = {
   'account.forgetLocalHint':
     'Deletes the session from this phone even though we could not reach the server. It stays active there until it expires.',
 
-  'profile.section': 'Settings',
   'profile.account': 'Account',
-  'profile.language': 'Language',
   'profile.appearance': 'Appearance',
   'profile.diagnostics': 'Diagnostics',
+  'profile.general': 'General',
+  'profile.languageCurrency': 'Language and currency',
+  'profile.shortcuts': 'Shortcuts',
+  'profile.plans': 'Plans and subscriptions',
+  'profile.plansTitle': 'Nomey, in full',
+  'profile.plansBody': 'You will be able to see and manage your plan here once it is available.',
+  'profile.addPhoto': 'Add profile photo',
+  'profile.photoSoonTitle': 'Profile photo',
+  'profile.photoSoonBody': 'You cannot upload a photo yet. It is coming later.',
+  'profile.editName': 'Edit name',
 
   'dev.states': 'Common states',
   'dev.statesHint': 'Development only. For checking them on the device.',

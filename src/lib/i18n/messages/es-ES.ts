@@ -29,6 +29,7 @@ export const esES = {
   'action.soon': 'Próximamente',
   'action.retry': 'Reintentar',
   'action.cancel': 'Cancelar',
+  'action.save': 'Guardar',
 
   'auth.signInTitle': 'Entrar',
   'auth.signInSubtitle': 'Bienvenido de vuelta.',
@@ -60,6 +61,7 @@ export const esES = {
   'authError.rateLimited': 'Demasiados intentos. Espera un momento.',
   'authError.signUpDisabled': 'El registro no está disponible ahora mismo.',
   'authError.checkYourEmail': 'Revisa tu correo para continuar.',
+  'authError.nameRequired': 'Escribe un nombre.',
   'authError.network': 'Sin conexión. Inténtalo de nuevo.',
   'authError.generic': 'Algo ha ido mal. Inténtalo de nuevo.',
 
@@ -101,11 +103,19 @@ export const esES = {
   'account.forgetLocalHint':
     'Borra la sesión de este teléfono aunque no hayamos podido avisar al servidor. Seguirá activa allí hasta que caduque.',
 
-  'profile.section': 'Ajustes',
   'profile.account': 'Cuenta',
-  'profile.language': 'Idioma',
   'profile.appearance': 'Apariencia',
   'profile.diagnostics': 'Diagnóstico',
+  'profile.general': 'General',
+  'profile.languageCurrency': 'Idioma y divisa',
+  'profile.shortcuts': 'Atajos',
+  'profile.plans': 'Planes y suscripciones',
+  'profile.plansTitle': 'Nomey, completo',
+  'profile.plansBody': 'Aquí podrás ver y gestionar tu plan cuando esté disponible.',
+  'profile.addPhoto': 'Añadir foto de perfil',
+  'profile.photoSoonTitle': 'Foto de perfil',
+  'profile.photoSoonBody': 'Todavía no puedes subir una foto. Llegará más adelante.',
+  'profile.editName': 'Editar nombre',
 
   'dev.states': 'Estados comunes',
   'dev.statesHint': 'Solo en desarrollo. Sirve para comprobarlos en el dispositivo.',
