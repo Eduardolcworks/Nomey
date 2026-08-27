@@ -94,3 +94,17 @@ export function signUpErrorKey(failure: AuthFailure): AuthErrorKey {
   const code = failure.code ?? '';
   return SIGN_UP[code] ?? SHARED[code] ?? GENERIC;
 }
+
+/**
+ * Why signing out has almost nothing to map.
+ *
+ * `@supabase/auth-js@2.112.4` swallows the codes that would be interesting -
+ * 401, 403, 404 and a missing session are all treated as "already signed
+ * out" and never surface as an error. What is left is a transport failure or
+ * something genuinely unexpected, and neither has a sentence of its own worth
+ * writing. The rate limit is shared and does, so `SHARED` still applies.
+ */
+export function signOutErrorKey(failure: AuthFailure): AuthErrorKey {
+  if (isNetworkFailure(failure)) return NETWORK;
+  return SHARED[failure.code ?? ''] ?? GENERIC;
+}

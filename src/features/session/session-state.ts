@@ -117,3 +117,24 @@ export function isPublic(state: SessionState): boolean {
 export function isSignedIn(state: SessionState): boolean {
   return state.status === 'signed-in';
 }
+
+/**
+ * A value that changes exactly when the person using the app changes.
+ *
+ * `null` whenever nobody is signed in - which deliberately makes `restoring`,
+ * `signed-out` and `unavailable` indistinguishable, because for the purpose
+ * this serves they are the same thing: there is no user, so no user state
+ * should be held.
+ *
+ * It exists so that state living OUTSIDE the protected branch can be tied to
+ * an identity without that state having to know anything about sessions. The
+ * scope selector is the first consumer: Personal and Pareja are two different
+ * sets of books, and inheriting the previous account's choice would point the
+ * fastest path in the app at someone else's books.
+ *
+ * Not an identity check and not authorisation - it is a cache key. The
+ * authority is still the JWT's `sub` on the server, and RLS.
+ */
+export function identityKey(state: SessionState): string | null {
+  return state.status === 'signed-in' ? state.identity.userId : null;
+}
