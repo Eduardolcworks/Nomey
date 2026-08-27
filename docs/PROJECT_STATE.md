@@ -13,19 +13,19 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-27**, al abrir la Fase 4.
+Actualizado el **2026-08-27**, al cerrar el bloque F4.B.
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                     |
-| ----------------------- | ------------------------------------------------------------------- |
-| **Fase actual**         | **Fase 4 — Arquitectura UX e internacionalización**, en F4.B        |
-| **Última fase cerrada** | **Fase 3 — Persistencia y frontera de datos** (3.A · 3.B · 3.C)     |
-| **ADR aceptados**       | ADR-001 … ADR-016                                                   |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR |
-| **App visible**         | Tema dark-only y pantalla de espera. Todavía sin navegación         |
+|                         |                                                                                                                        |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Fase actual**         | **Fase 4 — Arquitectura UX e internacionalización**. F4.A y F4.B cerradas y mergeadas; **el siguiente bloque es F4.C** |
+| **Última fase cerrada** | **Fase 3 — Persistencia y frontera de datos** (3.A · 3.B · 3.C)                                                        |
+| **ADR aceptados**       | ADR-001 … ADR-016                                                                                                      |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR                                                    |
+| **App visible**         | Una pantalla técnica de diagnóstico, dark, ya localizada. **Sin navegación**                                           |
 
 **F4 no toca el backend** ni depende de la Fase 3 —el roadmap lo dice
 expresamente—: navegación, wireframes, tokens de tema, estados de carga, vacío y
@@ -161,25 +161,44 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 
 ## Fase en curso
 
-**Fase 4 — Arquitectura UX e internacionalización**, abierta el 2026-08-27, en
-cuatro bloques: **F4.A** fundación visual y marca · **F4.B** i18n y formateo ·
-**F4.C** app shell y navegación · **F4.D** primitives, estados y wireframes. El
-plan aprobado y sus criterios de cierre están en
-[`ux/phase-4-plan.md`](ux/phase-4-plan.md).
+**Fase 4 — Arquitectura UX e internacionalización**, en cuatro bloques:
 
-**Lo visual ya vigente.** Nomey es **dark-only**: `app.config.ts` fija
+| Bloque   | Qué es                           | Estado                 |
+| -------- | -------------------------------- | ---------------------- |
+| **F4.A** | Fundación visual y marca         | **Cerrado y mergeado** |
+| **F4.B** | i18n y formateo localizado       | **Cerrado y mergeado** |
+| **F4.C** | App shell y navegación           | **Siguiente**          |
+| **F4.D** | Primitives, estados y wireframes | Pendiente              |
+
+El plan, sus criterios de cierre y la navegación propuesta están en
+[`ux/phase-4-plan.md`](ux/phase-4-plan.md); el punto de entrada operativo del
+bloque siguiente, en [`ux/phase-4c-handoff.md`](ux/phase-4c-handoff.md).
+
+**Lo visual.** Nomey es **dark-only**: `app.config.ts` fija
 `userInterfaceStyle: 'dark'` y la paleta se resuelve en un único sitio,
 `src/ui/theme/use-theme.ts`. El amarillo de marca es `#FDC506`, acento
 minoritario. **Ningún color, rol tipográfico ni token de profundidad vive fuera
 de `src/ui/theme/`**, y el contraste de la paleta está medido y anotado allí.
+Los tokens de **glass y de profundidad táctil existen**; su primer consumo real
+es F4.C/F4.D, así que su render en dispositivo **todavía no está verificado**.
 
-**Idioma e importe se resuelven por separado.** El catálogo lo elige una
-preferencia de tres estados —Automático, Español, English—; el formato de
-números, moneda y fechas sigue **siempre la región del dispositivo**, aunque el
-idioma se fuerce, y ese formato se **compone** con el `regionCode` del
-dispositivo —no con `languageTag`, que lleva la región del idioma—. Los dos
-locales están marcados como tipos distintos para que
-confundirlos no compile. La persistencia de la preferencia llegará con Ajustes.
+**Idioma y formato se resuelven por separado, y son tipos distintos** —
+`MessageLocale` y `FormatLocale`— para que confundirlos no compile.
+
+- **Catálogo:** `es-ES` y `en`. Cualquier `es-*` va al español, cualquier `en-*`
+  al inglés, y un idioma no soportado cae a `es-ES`.
+- **Preferencia**, con tres estados —**Automático** (por defecto), Español,
+  English—. Existe la API; **no está persistida ni expuesta en UI**, y ambas
+  cosas llegan con Ajustes.
+- **Formato regional:** sigue **siempre la Region real del dispositivo**, aunque
+  el idioma se fuerce. Se **compone** desde `languageCode`, el script cuando
+  exista y `regionCode` — nunca desde `languageTag`, que lleva la región del
+  idioma y no la del ajuste Region.
+- **La Region no toca el dinero.** Un `Money` en EUR sigue siendo EUR en México:
+  la definición monetaria manda sobre código, escala y valor; la región solo
+  sobre separadores, agrupación, posición del símbolo y convenciones de fecha.
+- **La exactitud se conserva.** Los dígitos salen del `bigint`; `Intl` solo
+  recibe sondas de magnitud fija.
 
 **La navegación NO está cerrada.** Se decide viéndola en un iPhone real durante
 F4.C, no razonándola antes.
@@ -188,6 +207,12 @@ F4.C, no razonándola antes.
 [`design-direction.md`](product/design-direction.md)**: es la fuente de verdad de
 la estética y su regla de accesibilidad es vinculante. F4 la convierte en
 tokens; **no la redefine**.
+
+**Pendiente de validar en dispositivo**, sin bloquear a nadie: el icono y el
+splash **nativos**, que Expo Go sustituye por los suyos y esperan a la primera
+build iOS propia; y la tabla diagnóstica de `Intl`, cuya **validación funcional
+sí se hizo** en iPhone —arranque, EUR, JPY, fecha e importe de 21 dígitos— pero
+**no fila a fila**.
 
 Fuera de alcance de F4: biblioteca de componentes completa, design system
 consolidado y el flujo detallado de entrada rápida, que se diseña en F7 contra
@@ -207,6 +232,8 @@ una feature escribible real.
 | Vocabulario                                  | [`product/glossary.md`](product/glossary.md)                                       |
 | Estética, antes de cualquier UI              | [`product/design-direction.md`](product/design-direction.md)                       |
 | Bloques y decisiones de la fase en curso     | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                         |
+| **Empezar F4.C**                             | [`ux/phase-4c-handoff.md`](ux/phase-4c-handoff.md)                                 |
+| Cómo se usan i18n y el formateo              | [`src/lib/README.md`](../src/lib/README.md)                                        |
 | Levantar el entorno, migrar, ejecutar checks | [`runbooks/local-setup.md`](runbooks/local-setup.md)                               |
 | **Por qué** la Fase 3 quedó como quedó       | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico |
 
