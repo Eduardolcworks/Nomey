@@ -6,8 +6,10 @@ inglés.
 > **Estado: Fase 4 — arquitectura UX e internacionalización. ABIERTA el 2026-08-27.**
 >
 > - **Fases 0, 1, 2 y 3:** cerradas. **ADR-001 … ADR-016 aceptados.**
-> - **El plan aprobado de la fase en curso está en**
->   [`ux/phase-4-plan.md`](ux/phase-4-plan.md). F4 **no toca el backend**.
+> - **F4.A y F4.B están cerradas y mergeadas; el siguiente bloque es F4.C.** El
+>   plan está en [`ux/phase-4-plan.md`](ux/phase-4-plan.md) y el punto de entrada
+>   de F4.C en [`ux/phase-4c-handoff.md`](ux/phase-4c-handoff.md). F4 **no toca
+>   el backend**.
 > - **Para reconstruir el estado del proyecto, empieza por
 >   [`PROJECT_STATE.md`](PROJECT_STATE.md)**, que es la memoria comprimida: fase
 >   actual, arquitectura vigente, superficie `api`, invariantes que no se deben
@@ -65,6 +67,7 @@ lo es el ADR correspondiente, cuando se acepta.
 | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md)         | 3    | Continuidad de 3.C y **el porqué** de cada pieza. **Histórico** desde el cierre de F3, y no normativo            |
 | [`architecture/phase-3c-design.md`](architecture/phase-3c-design.md)           | 3    | Análisis de 3.C por bloques: D1–D11, evidencia E12 y alternativas. **No normativo**, también para lo ya aprobado |
 | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                     | 4    | Bloques de F4, decisiones que la abren y dirección **provisional** de navegación. **No normativo**               |
+| [`ux/phase-4c-handoff.md`](ux/phase-4c-handoff.md)                             | 4    | Punto de entrada operativo de F4.C: qué existe, qué no se reabre y qué validar. **No normativo**                 |
 
 Al aceptarse el ADR que lo cierra, se decide si el documento se conserva como
 historial de análisis o se retira.

@@ -7,7 +7,10 @@
 > [`design-direction.md`](../product/design-direction.md), que **este documento
 > no redefine**.
 >
-> Aprobado el 2026-08-27, al abrir la fase.
+> Aprobado el 2026-08-27, al abrir la fase. **F4.A y F4.B están cerradas y
+> mergeadas; el bloque siguiente es F4.C.** El estado vivo lo lleva
+> [`PROJECT_STATE.md`](../PROJECT_STATE.md); esto es el plan, no un registro de
+> avance.
 
 ---
 
@@ -15,15 +18,15 @@
 
 Cuatro, con fronteras claras. **No se subdivide más salvo necesidad material.**
 
-| Bloque   | Objetivo                                                                 |
-| -------- | ------------------------------------------------------------------------ |
-| **F4.A** | Fundación visual y marca: tokens, tipografía, profundidad, icono, splash |
-| **F4.B** | i18n (`es-ES`, `en`) y fundación de formateo localizado                  |
-| **F4.C** | App shell y navegación                                                   |
-| **F4.D** | Primitives mínimos, estados de carga/vacío/error y wireframes            |
+| Bloque   | Objetivo                                                                 | Estado        |
+| -------- | ------------------------------------------------------------------------ | ------------- |
+| **F4.A** | Fundación visual y marca: tokens, tipografía, profundidad, icono, splash | **Cerrado**   |
+| **F4.B** | i18n (`es-ES`, `en`) y fundación de formateo localizado                  | **Cerrado**   |
+| **F4.C** | App shell y navegación                                                   | **Siguiente** |
+| **F4.D** | Primitives mínimos, estados de carga/vacío/error y wireframes            | Pendiente     |
 
-**Dependencias.** F4.A y F4.B pueden solaparse. F4.C exige ambos. F4.D exige
-F4.C. **Orden: A → B → C → D**, una rama por bloque.
+**Dependencias.** F4.A y F4.B pueden solaparse. F4.C exige ambos —y ya los
+tiene—. F4.D exige F4.C. **Orden: A → B → C → D**, una rama por bloque.
 
 **Primer hito visualmente útil en iPhone: el cierre de F4.C.** F4.A ya da señal
 en dispositivo —fondo, paleta, tipografía y el amarillo real en OLED—, pero no
@@ -63,7 +66,8 @@ Se suman a los cuatro del roadmap, que son los de la fase completa.
   en EUR y otro en JPY se formatean con **su** escala · ninguna cadena literal
   fuera de los catálogos · `Intl` **medido** en Hermes sobre iPhone.
 - **F4.C** — la barra inferior navega en iPhone físico · etiquetas en ambos
-  idiomas · el glass mantiene contraste sobre contenido claro y oscuro.
+  idiomas, desde los catálogos · el glass mantiene contraste sobre contenido
+  claro y oscuro · **la pantalla técnica de F4.B deja de ser el home**.
 - **F4.D** — los tres estados renderizan y se reutilizan en más de una pantalla ·
   cada pantalla principal tiene su vacío y su error · ninguna primitive alcanza
   `lib/` ni `features/`.
@@ -144,6 +148,18 @@ F4 **no** construye una biblioteca completa. En F4.D solo entran primitives con
 **un consumidor real** en los wireframes: `Surface`/`Card`, `Button`/`Pressable`,
 `Chip`, `Toggle`/`Segmented`, `ListRow`, `Amount`, y los estados de carga, vacío
 y error. La consolidación crece después, sobre casos reales, en F6.
+
+**Glass y neumorfismo se empiezan a consumir aquí.** F4.A dejó los tokens
+—`Glass`, `Tactile`, `MinGlassTintAlpha`— y nadie los usa todavía, así que su
+render en dispositivo está sin verificar. El primer consumidor real es la barra
+de navegación de F4.C, y los controles en F4.D. Dos cosas no negociables al
+hacerlo: el tinte del glass **no baja de `MinGlassTintAlpha`**, que es un suelo
+de legibilidad medido y no un valor estético; y la profundidad **refuerza** una
+affordance, nunca la sostiene sola.
+
+**Toda UI nueva pasa por i18n y por `lib/format`.** No hay excepción para una
+etiqueta «provisional»: hay un test que falla si una pantalla incrusta texto,
+un símbolo monetario o una fecha escrita a mano.
 
 ---
 
