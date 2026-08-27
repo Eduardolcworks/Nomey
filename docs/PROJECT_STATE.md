@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-27**, al cerrar la Fase 4.
+Actualizado el **2026-08-27**, al cerrar F5.A.
 
 ---
 
@@ -21,15 +21,20 @@ Actualizado el **2026-08-27**, al cerrar la Fase 4.
 
 |                         |                                                                                   |
 | ----------------------- | --------------------------------------------------------------------------------- |
+| **Fase en curso**       | **Fase 5 — Identidad y sesión.** F5.A cerrado · **F5.B es el siguiente bloque**   |
 | **Última fase cerrada** | **Fase 4 — Arquitectura UX e internacionalización** (4.A · 4.B · 4.C · 4.D)       |
-| **Siguiente**           | **Fase 5 — Identidad y sesión**                                                   |
-| **ADR aceptados**       | ADR-001 … ADR-016                                                                 |
+| **ADR aceptados**       | ADR-001 … ADR-017                                                                 |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR               |
 | **App visible**         | Shell navegable con primitives y estados comunes. **Sin funcionalidad económica** |
+| **Sesión**              | Existe la frontera técnica. **No hay registro, ni login, ni rutas protegidas**    |
 
-**La Fase 4 está completa.** Dejó la fundación visual, la de idioma y formato,
-el shell navegable y las primitives con sus estados comunes. **No introdujo
-ninguna funcionalidad económica**, que era su alcance.
+**La Fase 5 NO está completa.** F5.A dejó la frontera con el backend —cliente,
+entorno validado y almacenamiento seguro de sesión— **sin una sola pantalla de
+autenticación**. Nadie puede entrar todavía.
+
+Los bloques que faltan: **F5.B** estado de sesión y guardas de ruta · **F5.C**
+registro e inicio de sesión · **F5.D** cierre de sesión y Perfil · **F5.E**
+recuperación de acceso · **F5.F** cierre de fase.
 
 ---
 
@@ -94,6 +99,50 @@ dominio de `src/domain/errors.ts`, también 422.
 
 ---
 
+## Frontera de sesión en el cliente
+
+**Lo que existe (F5.A), y nada más:** un cliente Supabase, el entorno público
+validado y la sesión persistida en el llavero. **No hay pantallas de
+autenticación, ni proveedor de sesión, ni rutas protegidas.**
+
+```
+lib/env/          las dos EXPO_PUBLIC_, validadas al arrancar
+lib/supabase/
+├── bootstrap        el polyfill de URL, ANTES de createClient
+├── client           db.schema 'api' · persistSession · autoRefreshToken
+├── client-options   puro, para poder afirmarlo en un test
+├── chunked-storage  troceado y manifiesto. PURO, inyectable
+└── session-storage  la ÚNICA que nombra expo-secure-store
+```
+
+Cuatro cosas que conviene no re-descubrir:
+
+- **La identidad interna de Nomey es el `sub` del JWT.** No hay tabla de
+  usuario, ni perfil, ni segunda identidad. El nombre de presentación vivirá en
+  la metadata de Auth y **nunca** participa en RLS ni en autorización.
+- **El almacenamiento trocea siempre**, y su seguridad es una sola regla: el
+  manifiesto se escribe el último y se borra el primero. Una escritura
+  interrumpida degrada a _sin sesión_, jamás a media sesión.
+  [ADR-017](adr/ADR-017-secure-session-storage.md).
+- **React Native 0.86 no cumple el contrato `URL.protocol`** que exige
+  `supabase-js`: su `URL` global no tiene setter de `protocol` y el constructor
+  del cliente asigna a uno. Lo resuelve `react-native-url-polyfill` en un único
+  punto de arranque. Quitarlo rompe la creación del cliente, no solo realtime.
+- **El cliente no gestiona el ciclo de vida.** No restaura al arrancar ni
+  refresca al volver a primer plano; eso es F5.B.
+
+**Validado en iPhone físico**, con `app/session-probe.tsx` bajo `__DEV__` —no es
+una feature y no se expone al usuario—: SecureStore disponible · un payload de
+nueve chunks va y vuelve idéntico · el borrado deja `null` · el cliente se crea
+bajo Hermes · `getSession()` sin sesión responde `null`.
+
+**Lo que aún no se ha medido:** el tamaño real de una sesión de Nomey
+serializada, porque todavía no existe ninguna auténtica. ADR-017 lo exige
+documentado **antes de cerrar la Fase 5**, y no puede cambiar el diseño: se
+trocea siempre por decisión.
+
+---
+
 ## Invariantes que una fase futura no debe romper
 
 1. **El cliente no escribe efectos.** Envía intención; el servidor deriva. Las
@@ -137,25 +186,36 @@ verificado porque pase en Vitest**, que corre sobre V8.
 
 ## Decisiones aplazadas relevantes
 
-Ninguna bloquea la Fase 5. El detalle completo, con motivo y destino de cada una,
+Ninguna bloquea a F5.B. El detalle completo, con motivo y destino de cada una,
 está en [`model-coverage.md`](architecture/model-coverage.md).
 
-| Aplazado                                        | Dónde queda             |
-| ----------------------------------------------- | ----------------------- |
-| **Resolución autoritativa del FX**              | Decisión de producto    |
-| **Provisioning**: crear ámbitos y participantes | Fases de producto       |
-| **Modo Pareja** completo, con su `Cierre`       | Su fase                 |
-| Mecanismo de claim, revocación y fusión         | **F10**                 |
-| Notificación                                    | Abierto                 |
-| Acceso residual                                 | Abierto                 |
-| Anulación, distinta de la corrección            | Abierto                 |
-| Idempotencia de recurrencias e importaciones    | Abierto                 |
-| Preflight de `btree_gist` en producción         | Antes del primer deploy |
+| Aplazado                                                       | Dónde queda                                |
+| -------------------------------------------------------------- | ------------------------------------------ |
+| **Confirmación obligatoria de email**, y adaptar el check HTTP | **F5.C**                                   |
+| **Medición del payload real de sesión**                        | **F5.C**                                   |
+| Persistencia de la preferencia de idioma                       | Con la UI de Ajustes                       |
+| **Resolución autoritativa del FX**                             | Decisión de producto                       |
+| **Provisioning**: crear ámbitos y participantes                | Fases de producto — **fuera de la Fase 5** |
+| **Modo Pareja** completo, con su `Cierre`                      | Su fase                                    |
+| Mecanismo de claim, revocación y fusión                        | **F10**                                    |
+| Notificación                                                   | Abierto                                    |
+| Acceso residual                                                | Abierto                                    |
+| Anulación, distinta de la corrección                           | Abierto                                    |
+| Idempotencia de recurrencias e importaciones                   | Abierto                                    |
+| Preflight de `btree_gist` en producción                        | Antes del primer deploy                    |
 
 > **Consecuencia práctica del provisioning aplazado:** hoy nada crea un Grupo ni
 > un participante, así que `record_group_expense` y las dos liquidaciones no son
 > alcanzables de extremo a extremo por un cliente real. Los checks siembran ese
 > estado como `postgres`, que es exactamente lo que hará el provisioning.
+>
+> **Y una que aparece al terminar la Fase 5:** una cuenta recién creada no
+> tendrá ámbito Personal, porque **provisioning está fuera de la Fase 5**. Sin
+> `scope` con `owner_user_id` **y** su fila de `membership` —hacen falta las
+> dos, invariante 11— el dueño no ve ni sus propios efectos. **F6 no puede
+> abrir sin resolverlo.** Dirección fijada, sin implementar: una función `api.*`
+> autenticada e idempotente que derive el actor del JWT; ni trigger sobre
+> `auth.users` ni Edge Function salvo razón material.
 
 ---
 
@@ -164,8 +224,7 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 **La Fase 4 cerró en cuatro bloques**, todos validados en iPhone físico:
 **F4.A** fundación visual y marca · **F4.B** i18n y formateo · **F4.C** app
 shell y navegación · **F4.D** primitives y estados comunes. El detalle está en
-[`ux/phase-4-plan.md`](ux/phase-4-plan.md); el punto de entrada de la fase
-siguiente, en [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md).
+[`ux/phase-4-plan.md`](ux/phase-4-plan.md).
 
 **Lo visual.** Nomey es **dark-only**: `app.config.ts` fija
 `userInterfaceStyle: 'dark'` y la paleta se resuelve en un único sitio,
@@ -250,8 +309,8 @@ una feature escribible real.
 | Secuencia de fases y criterios de cierre     | [`product/roadmap.md`](product/roadmap.md)                                         |
 | Vocabulario                                  | [`product/glossary.md`](product/glossary.md)                                       |
 | Estética, antes de cualquier UI              | [`product/design-direction.md`](product/design-direction.md)                       |
-| Bloques y decisiones de la fase en curso     | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                         |
-| **Empezar F5**                               | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)               |
+| **Continuar la Fase 5 — empezar F5.B**       | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)               |
+| Cómo quedó la Fase 4, ya cerrada             | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                         |
 | Cómo se usan i18n y el formateo              | [`src/lib/README.md`](../src/lib/README.md)                                        |
 | Levantar el entorno, migrar, ejecutar checks | [`runbooks/local-setup.md`](runbooks/local-setup.md)                               |
 | **Por qué** la Fase 3 quedó como quedó       | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico |

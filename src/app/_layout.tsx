@@ -39,6 +39,7 @@ export default function RootLayout() {
         <Stack.Screen name="profile" />
         <Stack.Screen name="diagnostics" />
         <Stack.Screen name="states" />
+        <Stack.Screen name="session-probe" />
       </Stack>
     </ScopeProvider>
   );

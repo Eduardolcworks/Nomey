@@ -53,6 +53,16 @@ export const en: Record<MessageKey, string> = {
 
   'dev.states': 'Common states',
   'dev.statesHint': 'Development only. For checking them on the device.',
+  'dev.sessionProbe': 'Session probe',
+
+  'probe.hint': 'Checks on the device what Vitest cannot check.',
+  'probe.secureStore': 'SecureStore available',
+  'probe.largeValue': 'Large value, round trip',
+  'probe.cleared': 'Cleared completely',
+  'probe.client': 'Supabase client created',
+  'probe.session': 'With no session, answers empty',
+  'probe.run': 'Run',
+  'probe.rerun': 'Run again',
 
   'foundation.caption': 'Visual foundation',
   'foundation.palette': 'Palette',

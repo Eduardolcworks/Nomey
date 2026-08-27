@@ -5,10 +5,10 @@ inglés.
 
 > **Estado: Fase 4 — arquitectura UX e internacionalización. ABIERTA el 2026-08-27.**
 >
-> - **Fases 0, 1, 2 y 3:** cerradas. **ADR-001 … ADR-016 aceptados.**
-> - **La Fase 4 está completa** —4.A, 4.B, 4.C y 4.D—, con su plan en
->   [`ux/phase-4-plan.md`](ux/phase-4-plan.md). **La siguiente es la Fase 5**, y
->   su punto de entrada está en
+> - **Fases 0, 1, 2, 3 y 4:** cerradas. **ADR-001 … ADR-017 aceptados.** El plan
+>   de la Fase 4 está en [`ux/phase-4-plan.md`](ux/phase-4-plan.md).
+> - **La Fase 5 está EN CURSO**: F5.A cerrado, F5.B es el siguiente bloque. Su
+>   punto de entrada, y el único vivo, está en
 >   [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md).
 > - **Para reconstruir el estado del proyecto, empieza por
 >   [`PROJECT_STATE.md`](PROJECT_STATE.md)**, que es la memoria comprimida: fase

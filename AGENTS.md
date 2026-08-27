@@ -479,14 +479,13 @@ the `adr` skill to draft one.
 > This section keeps the detail that only matters while touching the data layer.
 
 **Phase 3 (persistence and data boundary) is CLOSED**, on 2026-08-27 — 3.A, 3.B
-and 3.C. Phases 0, 1 and 2 were already closed. **ADR-001 through ADR-016 are
-accepted**; ADR-003 met its E11 gate against a real local Supabase stack.
+and 3.C. Phases 0, 1, 2 and 4 were already closed. **ADR-001 through ADR-017
+are accepted**; ADR-003 met its E11 gate against a real local Supabase stack.
 
-**Phase 4 is OPEN** — UX architecture and internationalisation. It does not
-depend on Phase 3 and does not touch the backend, so nothing below this line is
-in play while working on it. Its blocks, its approved product decisions and its
-still-open navigation direction are in
-[`docs/ux/phase-4-plan.md`](docs/ux/phase-4-plan.md).
+**Phase 5 is OPEN** — identity and session. Unlike Phase 4, **it does touch the
+backend**, so what follows is in play. Its state, its closed product decisions
+and its next block are in
+[`docs/architecture/phase-5-handoff.md`](docs/architecture/phase-5-handoff.md).
 
 Two artefacts closed the phase and are worth knowing about:
 
