@@ -1,60 +1,76 @@
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AuthField, missingFields, signIn, useAuthSubmit } from '@/features/auth';
-import { useSession } from '@/features/session';
+import { AuthField, missingFields, normaliseEmail, signUp, useAuthSubmit } from '@/features/auth';
 import { useTranslation } from '@/lib/i18n';
-import { ActionButton, ErrorState, ThemedText, ThemedView } from '@/ui/components';
+import { ActionButton, Section, ThemedText, ThemedView } from '@/ui/components';
 import { Spacing } from '@/ui/theme';
 
 /**
- * Signing in.
+ * Creating an account.
  *
- * There is no `router.replace` here, and that is the design rather than an
- * omission. A successful `signInWithPassword` emits an auth event, the
- * provider from F5.B is the single subscriber, the state becomes `signed-in`
- * and `Stack.Protected` swaps the branch. Navigating imperatively as well
- * would be a second mechanism racing the first, and the loser would decide
- * what the user sees.
+ * With confirmations mandatory this never produces a session, so unlike
+ * sign-in there IS a screen change to make - but it stays inside the public
+ * branch: the form gives way to "check your email". The branch swap is still
+ * the session provider's job, and it happens later, when the confirmed user
+ * signs in.
  *
- * Nothing on this screen keeps a session, a token or a user. It collects two
- * strings and hands them to `features/auth`.
+ * The name is collected here and goes to Auth as `display_name` metadata.
+ * Presentation only: it is not an identity, it never appears in RLS, and it
+ * never resolves a membership or a scope.
  */
-export default function SignInScreen() {
+export default function SignUpScreen() {
   const { t } = useTranslation();
-  const { state: session, retry } = useSession();
+  const router = useRouter();
   const { state, submit, clearError, running } = useAuthSubmit();
 
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [incomplete, setIncomplete] = useState(false);
-
-  // The session could not be resolved at startup. Offering a sign-in form on
-  // top of that would be asking the user to fix something that is not theirs.
-  if (session.status === 'unavailable') {
-    return (
-      <ThemedView style={styles.screen}>
-        <SafeAreaView style={styles.safe}>
-          <ErrorState
-            title={t('session.unavailableTitle')}
-            description={t('session.unavailableBody')}
-            retry={{ label: t('action.retry'), onPress: retry }}
-          />
-        </SafeAreaView>
-      </ThemedView>
-    );
-  }
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
   async function onSubmit() {
-    const missing = missingFields({ email, password });
+    const missing = missingFields({ displayName, email, password });
     setIncomplete(missing.length > 0);
     if (missing.length > 0) return;
 
     clearError();
-    await submit(() => signIn({ email, password }));
-    // No navigation on success. See the note above.
+    const result = await submit(() => signUp({ displayName, email, password }));
+    if (result?.ok === true) setSentTo(normaliseEmail(email));
+  }
+
+  if (sentTo !== null) {
+    return (
+      <ThemedView style={styles.screen}>
+        <SafeAreaView style={styles.safe}>
+          <ScrollView contentContainerStyle={styles.content}>
+            <View style={styles.heading}>
+              <ThemedText variant="display">{t('auth.checkEmailTitle')}</ThemedText>
+              <ThemedText variant="body" themeColor="textSecondary">
+                {t('auth.checkEmailBody', { email: sentTo })}
+              </ThemedText>
+            </View>
+
+            <Section title={t('auth.checkEmailTitle')}>
+              <ThemedText variant="body" themeColor="textSecondary">
+                {t('auth.checkEmailStep')}
+              </ThemedText>
+            </Section>
+
+            <ActionButton
+              label={t('auth.checkEmailBack')}
+              tone="primary"
+              onPress={() => {
+                router.replace('/(auth)/sign-in');
+              }}
+            />
+          </ScrollView>
+        </SafeAreaView>
+      </ThemedView>
+    );
   }
 
   const error =
@@ -75,13 +91,24 @@ export default function SignInScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag">
             <View style={styles.heading}>
-              <ThemedText variant="display">{t('auth.signInTitle')}</ThemedText>
+              <ThemedText variant="display">{t('auth.signUpTitle')}</ThemedText>
               <ThemedText variant="body" themeColor="textSecondary">
-                {t('auth.signInSubtitle')}
+                {t('auth.signUpSubtitle')}
               </ThemedText>
             </View>
 
             <View style={styles.form}>
+              <AuthField
+                label={t('auth.name')}
+                placeholder={t('auth.namePlaceholder')}
+                value={displayName}
+                onChangeText={setDisplayName}
+                editable={!running}
+                autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
+                returnKeyType="next"
+              />
               <AuthField
                 label={t('auth.email')}
                 placeholder={t('auth.emailPlaceholder')}
@@ -103,18 +130,15 @@ export default function SignInScreen() {
                 editable={!running}
                 secureTextEntry
                 autoCapitalize="none"
-                autoComplete="current-password"
-                textContentType="password"
+                // `new-password` so the OS offers to generate and store one
+                // rather than autofilling the current one.
+                autoComplete="new-password"
+                textContentType="newPassword"
                 returnKeyType="go"
                 onSubmitEditing={() => void onSubmit()}
               />
             </View>
 
-            {/*
-             * The message is a live region so a screen reader announces a
-             * failed attempt, which otherwise happens silently below the
-             * fold. It is text, never a colour on its own.
-             */}
             {error === undefined ? null : (
               <ThemedText
                 variant="bodySmall"
@@ -126,20 +150,20 @@ export default function SignInScreen() {
             )}
 
             <ActionButton
-              label={running ? t('auth.working') : t('auth.signInAction')}
+              label={running ? t('auth.working') : t('auth.signUpAction')}
               onPress={() => void onSubmit()}
               tone="primary"
               disabled={running}
               busy={running}
             />
 
-            <Link href="/(auth)/sign-up" asChild>
+            <Link href="/(auth)/sign-in" asChild>
               <ThemedText
                 variant="bodySmall"
                 themeColor="accent"
                 accessibilityRole="link"
                 style={styles.switch}>
-                {t('auth.toSignUp')}
+                {t('auth.toSignIn')}
               </ThemedText>
             </Link>
           </ScrollView>
