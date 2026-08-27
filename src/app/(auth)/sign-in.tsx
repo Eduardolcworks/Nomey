@@ -139,6 +139,24 @@ export default function SignInScreen() {
           {t('auth.toSignUp')}
         </ThemedText>
       </Link>
+
+      {/*
+       * Below "create an account", and quieter than both.
+       *
+       * Recovering access is the rarest of the three things this screen can
+       * lead to, and the only one that starts from a problem. It gets the
+       * tertiary colour rather than the accent so it reads as a way out
+       * rather than as a third thing to consider.
+       */}
+      <Link href="/(auth)/forgot-password" asChild>
+        <ThemedText
+          variant="bodySmall"
+          themeColor="textTertiary"
+          accessibilityRole="link"
+          style={styles.switch}>
+          {t('auth.forgotAction')}
+        </ThemedText>
+      </Link>
     </AuthScreen>
   );
 }
