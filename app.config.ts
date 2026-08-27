@@ -25,8 +25,19 @@ const BUNDLE_ID = IS_DEV ? 'es.lcworks.nomey.dev' : 'es.lcworks.nomey';
  */
 const SCHEME = IS_DEV ? 'nomey-dev' : 'nomey';
 
-// Placeholder brand colours. Nomey's identity is black and yellow; the exact
-// palette is pending. Icon and splash artwork are still the Expo template's.
+/**
+ * Nomey's ground colour, for the native chrome.
+ *
+ * It MUST equal `Colors.dark.background`. It is duplicated here rather than
+ * imported because this file is transpiled and loaded as CommonJS by the Expo
+ * config loader, which does not resolve a relative TypeScript import -
+ * measured: `npx expo config` fails with "Cannot find module".
+ *
+ * A comment is not a guarantee, so the equality is asserted by
+ * `tests/infra/brand-chrome.test.ts`. If the two drift apart, the native root
+ * view and the first React frame paint different blacks and the seam shows on
+ * every launch.
+ */
 const BACKGROUND_COLOR = '#000000';
 
 const config: ExpoConfig = {
@@ -36,7 +47,27 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   icon: './assets/icons/icon.png',
   scheme: SCHEME,
-  userInterfaceStyle: 'automatic',
+
+  /**
+   * Nomey ships dark-only. Forcing it here means the OS, the native views and
+   * React all start dark, instead of the app painting light chrome for a frame
+   * before the theme resolves. A light theme is not blocked: it becomes
+   * 'automatic' here plus one edit in `src/ui/theme/use-theme.ts`.
+   *
+   * https://docs.expo.dev/versions/v57.0.0/config/app/#userinterfacestyle
+   */
+  userInterfaceStyle: 'dark',
+
+  /**
+   * Root view background, behind every React view. It defaults to white, and
+   * that white shows through between the splash disappearing and the first
+   * frame painting.
+   *
+   * On iOS this requires `expo-system-ui`, which is installed. It cannot be
+   * set at runtime - changing it needs a new native build.
+   * https://docs.expo.dev/versions/v57.0.0/config/app/#backgroundcolor
+   */
+  backgroundColor: BACKGROUND_COLOR,
 
   // Nomey is a mobile-only product. Web is deliberately not a target.
   platforms: ['ios', 'android'],

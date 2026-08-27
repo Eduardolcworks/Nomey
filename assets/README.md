@@ -2,21 +2,42 @@
 
 ```
 assets/
-├── icons/    # app icon + Android adaptive icon layers
-└── splash/   # splash screen artwork
+├── icons/    # app icon + capas del icono adaptativo de Android
+└── splash/   # arte del splash
 ```
+
+## Identidad
+
+La marca de Nomey tiene **dos variantes reales**, y ninguna sustituye a la otra:
+
+| Variante                     | Uso                                  |
+| ---------------------------- | ------------------------------------ |
+| Símbolo amarillo sobre negro | **Principal.** Dark-first y app icon |
+| Símbolo negro sobre amarillo | Secundaria                           |
+
+El amarillo **funcional** de la interfaz es `#FDC506` y vive en
+`src/ui/theme/colors.ts`. El arte del logo tiene brillos y degradados propios:
+son del asset, **no** de la interfaz, y no se extrapolan a los componentes.
 
 ## Estado actual
 
-**Todo el arte de esta carpeta sigue siendo el del template de Expo.** Se
-conserva únicamente para que la app compile y arranque. Debe sustituirse por la
-identidad visual de Nomey (negro y amarillo) antes de cualquier build de tienda.
+**El arte de esta carpeta sigue siendo el del template de Expo.** Se conserva
+únicamente para que la app compile y arranque.
 
-Pendiente de recibir:
+Pendiente de sustituir, **conservando exactamente estos nombres** para que no
+haga falta tocar `app.config.ts`:
 
-- icono de app (`icons/icon.png`)
-- capas del icono adaptativo de Android (foreground / background / monochrome)
-- arte del splash (`splash/splash-icon.png`)
+| Archivo                             | Qué debe ser                                           |
+| ----------------------------------- | ------------------------------------------------------ |
+| `icons/icon.png`                    | 1024×1024, símbolo amarillo sobre negro                |
+| `icons/android-icon-foreground.png` | Solo el símbolo, con el margen seguro de Android       |
+| `icons/android-icon-background.png` | Negro liso — o eliminarlo y dejar `backgroundColor`    |
+| `icons/android-icon-monochrome.png` | Silueta del símbolo para el tema monocromo             |
+| `splash/splash-icon.png`            | Símbolo sobre transparente; el fondo lo pone la config |
+
+`app.config.ts` fija el fondo del splash, del icono adaptativo y de la vista
+raíz al **mismo** negro que el tema, y `tests/infra/brand-chrome.test.ts` falla
+si dejan de coincidir.
 
 ## Sobre el icono de iOS 26 (`.icon`)
 
@@ -27,10 +48,9 @@ andamiaje útil, es una trampa para quien lo encuentre.
 
 `app.config.ts` usa `icons/icon.png` y **no declara `ios.icon`**.
 
-Cuando llegue la identidad visual de Nomey, si se quiere el formato `.icon` de
-iOS 26 hay que crear `assets/nomey.icon/` con sus capas y su `icon.json`, y
-entonces apuntar `ios.icon` a `./assets/nomey.icon`. Lo genera Icon Composer
-(Xcode); no debe escribirse a mano.
+Si se quiere el formato `.icon` de iOS 26 hay que crear `assets/nomey.icon/` con
+sus capas y su `icon.json`, y entonces apuntar `ios.icon` a `./assets/nomey.icon`.
+Lo genera Icon Composer (Xcode); no debe escribirse a mano.
 
 ## Presupuesto de peso
 

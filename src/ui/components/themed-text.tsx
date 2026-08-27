@@ -1,66 +1,24 @@
-import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
+import { Text, type TextProps } from 'react-native';
 
-import { Fonts, type ThemeColor, useTheme } from '@/ui/theme';
+import { type ThemeColor, Typography, type TypographyRole, useTheme } from '@/ui/theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'code';
+  /**
+   * Type role, never a size. See `ui/theme/typography.ts`.
+   *
+   * Named `variant` and not `role` on purpose: React Native's `TextProps`
+   * already carries an ARIA `role`, and intersecting the two collapses this
+   * prop to the single value the two unions happen to share - `'heading'` -
+   * with an error message that points nowhere near the cause.
+   */
+  variant?: TypographyRole;
   themeColor?: ThemeColor;
 };
 
-export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
+export function ThemedText({ style, variant = 'body', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
 
   return (
-    <Text
-      style={[
-        { color: theme[themeColor ?? 'text'] },
-        type === 'default' && styles.default,
-        type === 'title' && styles.title,
-        type === 'small' && styles.small,
-        type === 'smallBold' && styles.smallBold,
-        type === 'subtitle' && styles.subtitle,
-        type === 'link' && styles.link,
-        type === 'code' && styles.code,
-        style,
-      ]}
-      {...rest}
-    />
+    <Text style={[{ color: theme[themeColor ?? 'text'] }, Typography[variant], style]} {...rest} />
   );
 }
-
-const styles = StyleSheet.create({
-  small: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-  },
-  smallBold: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
-  default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '500',
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: '600',
-    lineHeight: 52,
-  },
-  subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
-    fontWeight: '600',
-  },
-  link: {
-    lineHeight: 30,
-    fontSize: 14,
-  },
-  code: {
-    fontFamily: Fonts.mono,
-    fontWeight: Platform.select({ android: '700' as const }) ?? ('500' as const),
-    fontSize: 12,
-  },
-});
