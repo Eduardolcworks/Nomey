@@ -13,40 +13,44 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-27**, al cerrar F5.C1.
+Actualizado el **2026-08-28**, al cerrar F5.D.
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                                    |
-| ----------------------- | ---------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 5 — Identidad y sesión.** F5.A, F5.B y F5.C1 cerrados · **F5.C2 pendiente** |
-| **Última fase cerrada** | **Fase 4 — Arquitectura UX e internacionalización** (4.A · 4.B · 4.C · 4.D)        |
-| **ADR aceptados**       | ADR-001 … ADR-017                                                                  |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR                |
-| **App visible**         | Shell navegable con primitives y estados comunes. **Sin funcionalidad económica**  |
-| **Sesión**              | Email y contraseña, de extremo a extremo. **Faltan Google y Apple**                |
+|                         |                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| **Fase en curso**       | **Fase 5 — Identidad y sesión.** A, B, C1 y D cerrados · **F5.C2 pendiente**      |
+| **Última fase cerrada** | **Fase 4 — Arquitectura UX e internacionalización** (4.A · 4.B · 4.C · 4.D)       |
+| **ADR aceptados**       | ADR-001 … ADR-017                                                                 |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR               |
+| **App visible**         | Shell navegable, y **Perfil con identidad real**. **Sin funcionalidad económica** |
+| **Sesión**              | Email y contraseña, entrar **y salir**. **Faltan Google y Apple**                 |
 
-**La Fase 5 NO está completa.** Ya se puede entrar: registro con confirmación
-obligatoria, login, y la sesión sobrevive al reinicio. Pero **el requisito de
-producto creció durante el bloque** y ahora incluye Google y Apple, que no
-están hechos.
+**La Fase 5 NO está completa.** El ciclo de acceso ya se cierra: registro con
+confirmación obligatoria, login, sesión que sobrevive al reinicio y **cierre de
+sesión real**. Lo que falta no es un criterio del roadmap, sino **el requisito
+de producto que creció a mitad de fase**: Google y Apple.
 
-| Bloque    | Qué es                           | Estado                          |
-| --------- | -------------------------------- | ------------------------------- |
-| **F5.A**  | Frontera con el backend y sesión | Cerrado                         |
-| **F5.B**  | Estado de sesión y rutas         | Cerrado                         |
-| **F5.C1** | Email y contraseña               | **Cerrado**, validado en iPhone |
-| **F5.C2** | Google y Apple                   | **Pendiente**, bloqueo externo  |
-| **F5.D**  | Cierre de sesión y Perfil        | Sin empezar                     |
-| **F5.E**  | Recuperación de acceso           | Sin empezar                     |
-| **F5.F**  | Cierre de fase                   | Sin empezar                     |
+| Bloque    | Qué es                    | Estado                          |
+| --------- | ------------------------- | ------------------------------- |
+| **F5.A**  | Frontera y almacenamiento | **Cerrado**, validado en iPhone |
+| **F5.B**  | Estado de sesión y rutas  | **Cerrado**, validado en iPhone |
+| **F5.C1** | Email y contraseña        | **Cerrado**, validado en iPhone |
+| **F5.C2** | Google y Apple            | **Pendiente**, bloqueo externo  |
+| **F5.D**  | Cierre de sesión y Perfil | **Cerrado**, validado en iPhone |
+| **F5.E**  | Recuperación de acceso    | **Siguiente bloque**            |
+| **F5.F**  | Cierre de fase            | El último                       |
 
 **F5.C2 está parcialmente bloqueado por capacidad externa**: no hay Apple
 Developer Program disponible, y no se hace una implementación provisional que
 luego haya que sustituir. **La Fase 5 no puede cerrarse mientras C2 siga
 pendiente.**
+
+**F5.E no depende de C2**, y es el siguiente bloque implementable: la
+recuperación de acceso opera sobre la misma sesión de Supabase venga del
+proveedor que venga. **No está empezada.**
 
 ---
 
@@ -114,8 +118,9 @@ dominio de `src/domain/errors.ts`, también 422.
 ## Frontera de sesión en el cliente
 
 **Lo que existe:** el cliente y el almacenamiento seguro (F5.A), el estado de
-sesión con su restauración y las rutas protegidas (F5.B), y el acceso con email
-y contraseña (F5.C1). **Lo que no: Google y Apple.**
+sesión con su restauración y las rutas protegidas (F5.B), el acceso con email y
+contraseña (F5.C1), y **el cierre de sesión con la Cuenta y el Perfil** (F5.D).
+**Lo que no: Google y Apple.**
 
 ```
 lib/env/              las dos EXPO_PUBLIC_, validadas al arrancar
@@ -130,10 +135,15 @@ features/session/
 ├── session-lifecycle    suscripción, watchdog y AppState. PURO, inyectable
 └── session-provider     el ÚNICO dueño del estado, y el único suscriptor
 features/auth/
-├── auth-service         signUp y signIn. Lo ÚNICO que llama a supabase.auth
+├── auth-service         signUp, signIn, signOut, forgetLocalSession y
+│                        updateDisplayName. Lo ÚNICO que llama a supabase.auth
 ├── auth-errors          código de GoTrue -> clave i18n. PURO
 ├── credentials          normalización y «¿está vacío?». PURO
+├── display-name         iniciales del avatar. PURO, sin React Native
 ├── submit-guard         un envío a la vez. PURO
+├── sign-out-confirmation  el diálogo como dato, no como efecto. PURO
+├── account-avatar       el hueco de la foto y su affordance
+├── display-name-editor  el nombre y el lápiz que lo cambia
 └── auth-screen          el andamio de teclado que comparten las pantallas
 ```
 
@@ -145,7 +155,7 @@ nadie» de «aún no hemos mirado», y esas dos pintan cosas distintas.
 restoring   ->  NINGUNA rama se monta. El splash sigue puesto
 signed-out  ->  (auth)
 unavailable ->  (auth), con salida: error recuperable, no callejón
-signed-in   ->  (tabs) · add · notifications · profile
+signed-in   ->  (tabs) · add · notifications · profile · account
                 y, solo con __DEV__, diagnostics · states · session-probe
 ```
 
@@ -159,9 +169,39 @@ Lo que conviene no re-descubrir:
   hay que confirmar y luego entrar. `scripts/http-boundary-check.sh` lo sabe:
   da de alta, confirma por SQL y pide el JWT con `grant_type=password`, y falla
   si el alta vuelve a emitir sesión.
-- **Nada de `router.replace` tras entrar.** El evento de auth mueve el árbol por
-  sí solo, medido en dispositivo. Una navegación imperativa sería un segundo
-  mecanismo compitiendo con el primero.
+- **Nada de `router.replace`, ni al entrar ni al salir.** El evento de auth
+  mueve el árbol por sí solo, medido en dispositivo. Una navegación imperativa
+  sería un segundo mecanismo compitiendo con el primero — y al salir dejaría
+  historial: hoy la rama protegida **deja de existir** en vez de quedar tapada,
+  así que no se puede volver atrás a Perfil.
+- **Cerrar sesión es `signOut({ scope: 'local' })`, explícitamente.** El defecto
+  de la librería es `'global'`, que cierra la sesión en **todos** los
+  dispositivos; un toque en el móvil no debe echar a nadie de su tablet.
+  `'local'` sí revoca en el servidor el refresh token **de este** dispositivo.
+- **La purga normal del almacenamiento es de `auth-js`, y no se duplica.**
+  `_signOut` borra la sesión a través del adaptador, que aquí es el troceado, y
+  cuyo `removeItem` ya purga manifiesto y chunks. Escribir una segunda purga
+  «por seguridad» sería reimplementar lo que posee ADR-017.
+- **Un error de `signOut` no significa «sigues dentro».** Medido: si falla la
+  llamada remota, la librería borra la sesión local **primero** y devuelve el
+  error después. Sólo hay un caso que deja dentro —token caducado y refresh
+  inalcanzable—, y ahí el refresh token no fue **rechazado** sino no alcanzado,
+  así que Nomey no puede demostrar que la sesión esté muerta. Para eso existe
+  **«Cerrar sesión solo en este dispositivo»**: explícito, elegido por la
+  persona, y con su coste dicho —la sesión sigue viva en el servidor hasta
+  caducar—. **Nunca automático.**
+- **`ScopeProvider` se resetea al cambiar la identidad**, en render y no en un
+  efecto. El evento de salida tira la rama protegida en ese mismo commit, así
+  que una limpieza que viviera dentro de ella no llegaría a ejecutarse; el
+  provider está por encima del navegador y los hijos pintan ya con el valor
+  inicial. La identidad se la pasa `app/_layout.tsx`, único sitio que ve los dos
+  providers — `features/` no puede importar `features/`.
+- **`display_name` se edita desde Perfil**, y se escribe donde siempre estuvo:
+  `user_metadata`, vía `updateUser`. Nadie propaga el cambio a mano — `auth-js`
+  guarda la sesión y emite `USER_UPDATED`, el suscriptor único lo mapea, y
+  Perfil e Inicio se repintan porque **ya derivaban el nombre de la sesión**.
+  La escritura **no es optimista**: el campo sólo se cierra con la respuesta del
+  servidor.
 - **El teclado de las pantallas de auth no lleva `KeyboardAvoidingView`.** El
   hueco lo hace `automaticallyAdjustKeyboardInsets`, y el contenido **no se
   centra**: centrarlo hacía que la posición de cada campo dependiera de la
@@ -195,10 +235,12 @@ Lo que conviene no re-descubrir:
   `displayName`, nada más; quien llame a la API usa `supabase`, que adjunta y
   refresca él.
 - **`display_name` es `user_metadata`, y solo presentación.** Lo edita el propio
-  titular de la cuenta, así que **nunca** entra en RLS, ni resuelve una
-  membresía o un ámbito, ni sustituye al `sub`. Su forma se valida en un único
-  sitio: lo que no sea una cadena no vacía es `null`, y `null` significa saludar
-  sin nombre — nunca un placeholder ni una suposición desde el email.
+  titular de la cuenta **desde Perfil**, así que **nunca** entra en RLS, ni
+  resuelve una membresía o un ámbito, ni sustituye al `sub`. Su forma se valida
+  en un único sitio: lo que no sea una cadena no vacía es `null`, y `null`
+  significa saludar sin nombre — nunca un placeholder ni una suposición desde el
+  email. **Las iniciales del avatar siguen la misma regla** y tampoco salen de
+  la dirección: sin nombre se pinta una silueta.
 
 **Validado en iPhone físico**, con `app/session-probe.tsx` bajo `__DEV__` —no es
 una feature y no se expone al usuario—: SecureStore disponible, el cliente se crea
@@ -206,6 +248,14 @@ bajo Hermes, un arranque sin crash que aterriza en la rama pública **sin que
 Inicio ni la barra aparezcan un instante**, y el recorrido completo de
 email/contraseña de extremo a extremo, incluida la restauración tras cerrar y
 reabrir Expo Go.
+
+**F5.D también está validado en iPhone físico**: Perfil con su cabecera de
+identidad, edición del nombre —cancelar, guardar, iniciales que cambian y el
+saludo de Inicio actualizado—, el nombre conservado tras recargar, General con
+sus tres opciones visibles, Planes y suscripciones, la confirmación de cierre de
+sesión, la vuelta automática a la rama pública sin poder retroceder a Perfil, la
+sesión ausente tras recargar y tras reabrir Expo Go, y el ámbito de vuelta en
+Personal al entrar de nuevo.
 
 **El splash propio no es verificable en Expo Go**, que sustituye el nativo por el
 suyo; espera a una build iOS propia. El gate es React puro y sí está comprobado:
@@ -273,12 +323,13 @@ verificado porque pase en Vitest**, que corre sobre V8.
 
 ## Decisiones aplazadas relevantes
 
-Ninguna bloquea a F5.D ni a F5.E. El detalle completo, con motivo y destino de
-cada una, está en [`model-coverage.md`](architecture/model-coverage.md).
+Ninguna bloquea a F5.E. El detalle completo, con motivo y destino de cada una,
+está en [`model-coverage.md`](architecture/model-coverage.md).
 
 | Aplazado                                        | Dónde queda                                |
 | ----------------------------------------------- | ------------------------------------------ |
 | **Google y Apple**, requisito de producto       | **F5.C2** — bloqueo externo                |
+| **Subida real de la foto de perfil**            | Bloque posterior, con decisión propia      |
 | **Timeout de las operaciones de autenticación** | Deuda abierta, sin ADR                     |
 | Persistencia de la preferencia de idioma        | Con la UI de Ajustes                       |
 | **Resolución autoritativa del FX**              | Decisión de producto                       |
@@ -290,6 +341,17 @@ cada una, está en [`model-coverage.md`](architecture/model-coverage.md).
 | Anulación, distinta de la corrección            | Abierto                                    |
 | Idempotencia de recurrencias e importaciones    | Abierto                                    |
 | Preflight de `btree_gist` en producción         | Antes del primer deploy                    |
+
+> **La foto de perfil, y qué está hecho exactamente:** la **affordance** está
+> terminada y aprobada en dispositivo —hueco circular con iniciales o silueta,
+> insignia de cámara, e interacción que informa de que todavía no está
+> disponible—. **La subida no existe, y eso es una función diferida, no un
+> defecto de F5.D.** Hacerla real es un bloque posterior con su propia decisión
+> sobre picker, Supabase Storage, bucket y ruta, RLS del bucket, reemplazo y
+> borrado, y límites y compresión. Esa solución **no está diseñada** y no se
+> improvisa aquí. Lo único ya descartado es meter la imagen en `user_metadata`:
+> viajaría dentro del JWT y de la sesión guardada, que mide 2285 B en 5 chunks,
+> y rompería el inicio de sesión en vez de sólo el avatar.
 
 > **El timeout de autenticación, dicho entero porque su forma importa:** las
 > operaciones de autenticación dependen hoy del timeout del transporte. Nomey

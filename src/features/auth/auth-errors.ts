@@ -94,3 +94,45 @@ export function signUpErrorKey(failure: AuthFailure): AuthErrorKey {
   const code = failure.code ?? '';
   return SIGN_UP[code] ?? SHARED[code] ?? GENERIC;
 }
+
+/**
+ * The two operations with nothing of their own to map.
+ *
+ * Both end here rather than sharing a name, because they are the same
+ * decision reached for different reasons and a single misnamed export would
+ * hide that. What they have in common is that the interesting codes never
+ * arrive: `SHARED` still applies, everything else is generic.
+ */
+function unremarkableErrorKey(failure: AuthFailure): AuthErrorKey {
+  if (isNetworkFailure(failure)) return NETWORK;
+  return SHARED[failure.code ?? ''] ?? GENERIC;
+}
+
+/**
+ * Why signing out has almost nothing to map.
+ *
+ * `@supabase/auth-js@2.112.4` swallows the codes that would be interesting -
+ * 401, 403, 404 and a missing session are all treated as "already signed
+ * out" and never surface as an error. What is left is a transport failure or
+ * something genuinely unexpected, and neither has a sentence of its own worth
+ * writing. The rate limit is shared and does, so `SHARED` still applies.
+ */
+export function signOutErrorKey(failure: AuthFailure): AuthErrorKey {
+  return unremarkableErrorKey(failure);
+}
+
+/**
+ * Why changing the display name has almost nothing to map either.
+ *
+ * A different reason from sign-out's. `PUT /user` carrying only
+ * `user_metadata` has no policy to violate - no password rules, no address
+ * validation, no confirmation flow - so GoTrue has nothing specific to
+ * refuse. The one local rule, "a name cannot be empty", is checked before the
+ * request is made and never becomes a round trip.
+ *
+ * If the session has expired underneath, the answer is not a sentence on this
+ * screen: the provider receives it and the tree changes branch.
+ */
+export function updateUserErrorKey(failure: AuthFailure): AuthErrorKey {
+  return unremarkableErrorKey(failure);
+}

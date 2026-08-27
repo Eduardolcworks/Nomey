@@ -1,9 +1,16 @@
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 
-import { isPublic, isResolved, isSignedIn, SessionProvider, useSession } from '@/features/session';
+import {
+  identityKey,
+  isPublic,
+  isResolved,
+  isSignedIn,
+  SessionProvider,
+  useSession,
+} from '@/features/session';
 import { ScopeProvider } from '@/features/shell';
 import { Colors } from '@/ui/theme';
 import { ThemedView } from '@/ui/components';
@@ -17,8 +24,8 @@ import { ThemedView } from '@/ui/components';
  *
  * `ScopeProvider` stays exactly where it was, wrapping the navigator. Personal
  * and Pareja are two different sets of books, not two filters, so the choice
- * has to survive going to Grupos and coming back. Clearing it on sign-out
- * belongs to F5.D, where sign-out exists.
+ * has to survive going to Grupos and coming back - but NOT survive a change of
+ * account, which is what `ScopeBinding` below is for.
  */
 
 /*
@@ -33,7 +40,7 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
 export default function RootLayout() {
   return (
     <SessionProvider>
-      <ScopeProvider>
+      <ScopeBinding>
         {/*
          * Fixed light, not "auto". The app is dark-only, so the status bar
          * content is always light-on-dark; "auto" would resolve from the
@@ -41,9 +48,32 @@ export default function RootLayout() {
          */}
         <StatusBar style="light" />
         <RootNavigator />
-      </ScopeProvider>
+      </ScopeBinding>
     </SessionProvider>
   );
+}
+
+/**
+ * Ties the scope's lifetime to whoever is signed in.
+ *
+ * The smallest thing that can do this, and it has to live here. `features/`
+ * modules may not import each other, so `ScopeProvider` cannot ask who the
+ * user is and `SessionProvider` has no business knowing a scope exists. This
+ * file is the composition root - the one place that already imports both - so
+ * the single value that connects them is passed here and nowhere else.
+ *
+ * A component rather than an inline call because `useSession` can only be
+ * read from INSIDE `SessionProvider`, and `RootLayout` is the thing rendering
+ * it.
+ *
+ * Note what this deliberately is not: it is not a `key` on `ScopeProvider`.
+ * Keying it would remount the navigator on every sign-in and sign-out, which
+ * throws away far more than the scope and does it as a side effect of a
+ * reconciliation detail. The reset is explicit instead.
+ */
+function ScopeBinding({ children }: { children: ReactNode }) {
+  const { state } = useSession();
+  return <ScopeProvider identityKey={identityKey(state)}>{children}</ScopeProvider>;
 }
 
 function RootNavigator() {
@@ -95,6 +125,7 @@ function RootNavigator() {
         <Stack.Screen name="add" options={{ presentation: 'modal' }} />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="profile" />
+        <Stack.Screen name="account" />
       </Stack.Protected>
 
       {/*

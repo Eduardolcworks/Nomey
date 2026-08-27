@@ -5,6 +5,7 @@ export { NomeyTabBar } from './nomey-tab-bar';
 export { PlaceholderScreen } from './placeholder-screen';
 export { ScopeSwitch } from './scope-switch';
 export {
+  INITIAL_SCOPE,
   type Scope,
   SCOPE_AVAILABLE,
   SCOPE_LABEL,

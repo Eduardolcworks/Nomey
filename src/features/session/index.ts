@@ -7,6 +7,7 @@ export {
   type LifecycleOptions,
 } from './session-lifecycle';
 export {
+  identityKey,
   isPublic,
   isResolved,
   isSignedIn,

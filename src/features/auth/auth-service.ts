@@ -1,15 +1,22 @@
-import { supabase } from '@/lib/supabase';
+import { SESSION_STORAGE_KEY, sessionStorage, supabase } from '@/lib/supabase';
 
-import { type AuthErrorKey, signInErrorKey, signUpErrorKey } from './auth-errors';
+import {
+  type AuthErrorKey,
+  signInErrorKey,
+  signOutErrorKey,
+  signUpErrorKey,
+  updateUserErrorKey,
+} from './auth-errors';
 import {
   type Credentials,
   normaliseCredentials,
+  normaliseDisplayName,
   normaliseRegistration,
   type Registration,
 } from './credentials';
 
 /**
- * The two calls Nomey makes to Auth, and nothing else.
+ * Every call Nomey makes to Auth, and nothing else.
  *
  * Screens never touch `supabase.auth` directly: they get a result they can
  * render. That keeps three things out of the UI - the shape of GoTrue's
@@ -67,5 +74,119 @@ export async function signIn(raw: Credentials): Promise<AuthResult> {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error !== null) return { ok: false, messageKey: signInErrorKey(error) };
+  return { ok: true };
+}
+
+/**
+ * Sign out.
+ *
+ * MEASURED against `@supabase/auth-js@2.112.4`, not recalled. `_signOut`
+ * reads the session, POSTs `/logout`, and then removes the stored session
+ * through the storage adapter - which here is the chunked store, whose
+ * `removeItem` is an unconditional purge of the manifest and every possible
+ * chunk. **There is therefore no second purge to write for the ordinary
+ * path**, and writing one "just in case" would be a parallel implementation
+ * of something ADR-017 already owns.
+ *
+ * The outcomes, all four of them:
+ *
+ * 1. **No session stored.** The remote call is skipped, the session is
+ *    removed anyway and `SIGNED_OUT` is emitted with no error. An already
+ *    invalid local session signs out cleanly rather than failing.
+ * 2. **Remote answers 401 / 403 / 404, or says the session is missing.**
+ *    Swallowed by the library on purpose - the session is already gone
+ *    server-side - and it falls through to the same clean removal.
+ * 3. **Remote fails for any other reason, transport included.** The library
+ *    removes the local session FIRST and returns the error second. So the
+ *    user IS signed out, the event does fire, and the branch does switch.
+ * 4. **The session could not be read at all** because its access token had
+ *    expired and the refresh was unreachable. This is the ONLY path that
+ *    returns an error while leaving the session on disk and emitting nothing.
+ *    See `forgetLocalSession` for the way out.
+ *
+ * `scope: 'local'`, explicitly, and not the library's default.
+ * `signOut()` defaults to `'global'`, which ends the session on **every
+ * device the person is signed in on** - the installed version's own doc
+ * comment calls that out and says `'local'` "is usually what apps want on a
+ * 'Sign out' button". A tap on this phone must not sign the user out of their
+ * tablet. `'local'` still revokes THIS session's refresh token server-side,
+ * so nothing is weakened for the device actually signing out.
+ */
+export async function signOut(): Promise<AuthResult> {
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
+
+  if (error !== null) return { ok: false, messageKey: signOutErrorKey(error) };
+  return { ok: true };
+}
+
+/**
+ * Give up on the remote and drop the session from this device only.
+ *
+ * The escape from outcome 4 above, and **deliberately not automatic**. In that
+ * outcome the refresh token was never rejected - it was merely unreachable -
+ * so Nomey cannot demonstrate the session is unusable, and silently deleting
+ * a credential the server still considers valid is not a decision to take on
+ * the user's behalf. They are told what it costs and they choose.
+ *
+ * What it costs, stated plainly: the refresh token is removed from this
+ * device but stays valid on the server until it expires. Nothing is left
+ * behind that anyone can reach; nothing is revoked either.
+ *
+ * Two steps, and the second is not redundant:
+ *
+ * 1. Purge the stored session through `sessionStorage`, which owns the
+ *    chunking. The key is a constant from `lib/supabase`; **no caller ever
+ *    names a chunk**, and this feature could not compose one if it tried.
+ * 2. Ask the library to sign out again. It now reads an absent session, takes
+ *    outcome 1 above, and emits `SIGNED_OUT` - which is the whole point.
+ *    Purging storage on its own changes no state anyone is subscribed to, so
+ *    the tree would stay on the protected branch until the next launch.
+ */
+export async function forgetLocalSession(): Promise<AuthResult> {
+  await sessionStorage.removeItem(SESSION_STORAGE_KEY);
+
+  // Also clears `<key>-user` and any PKCE verifier, and emits the event.
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
+
+  if (error !== null) return { ok: false, messageKey: signOutErrorKey(error) };
+  return { ok: true };
+}
+
+/**
+ * Change the name the app greets you by.
+ *
+ * It writes to exactly where sign-up wrote it: `user_metadata.display_name`,
+ * through `PUT /user`. **No second identity, no `profiles` table, no store of
+ * our own** - the handoff closed that decision and this consumes it rather
+ * than reopening it. The name stays what it has always been: presentation,
+ * editable by its owner, never an authority. It does not appear in RLS, does
+ * not resolve a membership or a scope, and does not stand in for the JWT's
+ * `sub`.
+ *
+ * Nothing here propagates the change, and that is the point. MEASURED in
+ * `@supabase/auth-js@2.112.4`: `_updateUser` assigns the fresh user onto the
+ * session, calls `_saveSession` - so the new name is persisted to the chunked
+ * keychain store - and then emits `USER_UPDATED` with that session. The single
+ * subscriber in `SessionProvider` is event-agnostic, so it maps the user
+ * through `stateFromUser` exactly as it does for a sign-in, and every screen
+ * deriving its name from the session moves on its own. Inicio's greeting is
+ * already written that way and needs no change at all.
+ *
+ * That is why there is no refetch, no cache to invalidate and nothing to keep
+ * in sync: one write, one event, one owner of the state.
+ *
+ * Empty is refused here rather than at the server. It is the only rule Nomey
+ * owns about a name - GoTrue has no opinion on metadata contents - and the
+ * alternative is a round trip that comes back with nothing useful to say.
+ * Beyond "not blank" nothing is judged: a name is trimmed and otherwise left
+ * exactly as the person wrote it.
+ */
+export async function updateDisplayName(raw: string): Promise<AuthResult> {
+  const displayName = normaliseDisplayName(raw);
+  if (displayName === '') return { ok: false, messageKey: 'authError.nameRequired' };
+
+  const { error } = await supabase.auth.updateUser({ data: { display_name: displayName } });
+
+  if (error !== null) return { ok: false, messageKey: updateUserErrorKey(error) };
   return { ok: true };
 }
