@@ -59,6 +59,21 @@ export const Glass = {
     border: 'rgba(255, 255, 255, 0.08)',
     highlight: 'rgba(255, 255, 255, 0.05)',
   },
+  /**
+   * The primary action, and the only glass that is not neutral.
+   *
+   * The brand yellow at 0.90 rather than flat: measured, near-black on it
+   * clears 10:1 against a black backdrop and 13:1 against a white one, so the
+   * translucency costs nothing legible while letting the button belong to the
+   * same material as the controls beside it. A flat circle would read as an
+   * object borrowed from another design system.
+   */
+  action: {
+    tint: 'rgba(253, 197, 6, 0.90)',
+    blurRadius: 24,
+    border: 'rgba(255, 255, 255, 0.30)',
+    highlight: 'rgba(255, 255, 255, 0.38)',
+  },
   /** Sheets, modals, menus: they must dominate whatever they cover. */
   heavy: {
     tint: 'rgba(10, 10, 10, 0.92)',

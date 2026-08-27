@@ -8,90 +8,139 @@ import { useTranslation } from '@/lib/i18n';
 import { GlassSurface, ThemedText } from '@/ui/components';
 import { Radius, Spacing, Tactile, useTheme } from '@/ui/theme';
 
-import { DESTINATIONS, destinationFor } from './destinations';
+import { DESTINATIONS, type Destination, destinationFor } from './destinations';
 import { DOCK } from './dock';
 import { SCOPE_LABEL, useScope } from './scope-context';
 
 /**
- * The dock: two destinations, and one action that is not a destination.
+ * Two independent controls and one action, floating over the content.
  *
- * **The `+` sits fully above the bar, with a real gap.** That is not a styling
- * preference. With two tabs the boundary between their touch areas falls dead
- * centre, which is exactly where a centred button wants to be - so a button
- * overlapping the bar would put its lower half on the seam between two tabs,
- * and a thumb aiming for the action would keep landing on a destination. Fully
- * above, the two never share a pixel.
+ * **There is no bar.** The container positions things and reserves the safe
+ * area; it paints nothing. Inicio and Grupos are two separate pills, each with
+ * its own surface, radius, depth and states, because they are two separate
+ * places - a single capsule split into halves reads as one object with two
+ * regions, which is the wrong model for two root destinations.
  *
- * **The brand yellow appears exactly once on screen, and it is this button.**
- * The active tab is marked by contrast instead - full-strength text and icon
- * against tertiary grey. If the accent did both jobs, the `+` would look
- * permanently selected and the tab that is actually selected would lose its
- * only signal.
+ * **The action sits fully above them, with a real gap.** With two destinations
+ * the space between them falls dead centre, exactly where a centred button
+ * wants to be, so any overlap would put the action on the seam and a thumb
+ * aiming for it would keep landing on a destination.
+ *
+ * **The brand yellow appears exactly once on screen, and it is that button.**
+ * Selection is carried by the surface instead - a lifted glass pill with a
+ * stronger edge against a recessed, quieter one - and reinforced by text
+ * weight and colour. If the accent did both jobs the action would look
+ * permanently selected and the selected destination would lose its signal.
  */
 export function NomeyTabBar({ state, navigation }: BottomTabBarProps) {
-  const { t } = useTranslation();
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
-
   const activeRoute = state.routes[state.index]?.name ?? '';
 
   return (
-    <View style={styles.dock} pointerEvents="box-none">
+    <View
+      style={[styles.dock, { paddingBottom: insets.bottom + Spacing.sm }]}
+      pointerEvents="box-none">
       <AddButton activeRoute={activeRoute} />
 
-      <GlassSurface
-        level="bar"
-        radius={0}
-        style={[styles.bar, { paddingBottom: insets.bottom, height: DOCK.bar + insets.bottom }]}>
-        {DESTINATIONS.map((destination, index) => {
-          const focused = state.index === index;
-          const colour = focused ? theme.text : theme.textTertiary;
-
-          return (
-            <Pressable
-              key={destination.route}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: focused }}
-              accessibilityLabel={t(destination.label)}
-              style={styles.tab}
-              onPress={() => {
-                const event = navigation.emit({
-                  type: 'tabPress',
-                  target: state.routes[index].key,
-                  canPreventDefault: true,
-                });
-                if (!focused && !event.defaultPrevented) {
-                  navigation.navigate(state.routes[index].name);
-                }
-              }}>
-              <SymbolView
-                name={destination.symbol}
-                size={24}
-                tintColor={colour}
-                fallback={<View style={[styles.fallback, { borderColor: colour }]} />}
-              />
-              <ThemedText
-                variant="caption"
-                themeColor={focused ? 'text' : 'textTertiary'}
-                style={focused ? styles.tabLabelActive : undefined}>
-                {t(destination.label)}
-              </ThemedText>
-            </Pressable>
-          );
-        })}
-      </GlassSurface>
+      <View style={styles.destinations} pointerEvents="box-none">
+        {DESTINATIONS.map((destination, index) => (
+          <DestinationButton
+            key={destination.route}
+            destination={destination}
+            focused={state.index === index}
+            onPress={() => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: state.routes[index].key,
+                canPreventDefault: true,
+              });
+              if (state.index !== index && !event.defaultPrevented) {
+                navigation.navigate(state.routes[index].name);
+              }
+            }}
+          />
+        ))}
+      </View>
     </View>
   );
 }
 
 /**
- * The action, and the only place the accent is filled.
+ * One destination, as its own object.
  *
- * It carries the meaning "add something to where I am": on Inicio that is the
- * active scope, on Grupos it is a group. The sheet it opens states which,
- * rather than trusting the user to remember a selector behind it - misreading
- * that is how a couple's dinner lands in someone's personal books, and the
- * figure looks plausible in both places.
+ * Selected and unselected differ by surface, not only by text: the selected
+ * pill is lifted with `Tactile.selected` and edged with `borderStrong`, the
+ * unselected one is recessed into a well and edged with the quiet `border`.
+ * Colour and weight then reinforce what the depth already said - which is the
+ * rule that keeps the state readable for anyone who cannot see the depth.
+ *
+ * The unselected label stays at `textSecondary`, not `textTertiary`: discreet
+ * is not the same as faint, and this is a navigation control.
+ */
+function DestinationButton({
+  destination,
+  focused,
+  onPress,
+}: {
+  destination: Destination;
+  focused: boolean;
+  onPress: () => void;
+}) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const label = t(destination.label);
+
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected: focused }}
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.destination,
+        { boxShadow: pressed ? Tactile.pressed : focused ? Tactile.selected : Tactile.well },
+      ]}>
+      <GlassSurface
+        level={focused ? 'regular' : 'bar'}
+        radius={Radius.full}
+        style={[
+          styles.pill,
+          { borderColor: focused ? theme.borderStrong : theme.border },
+          focused ? null : styles.pillQuiet,
+        ]}>
+        <SymbolView
+          name={destination.symbol}
+          size={20}
+          tintColor={focused ? theme.text : theme.textSecondary}
+          fallback={
+            <View
+              style={[styles.fallback, { borderColor: focused ? theme.text : theme.textSecondary }]}
+            />
+          }
+        />
+        <ThemedText
+          variant="label"
+          themeColor={focused ? 'text' : 'textSecondary'}
+          style={focused ? null : styles.labelQuiet}>
+          {label}
+        </ThemedText>
+      </GlassSurface>
+    </Pressable>
+  );
+}
+
+/**
+ * The action, in the same material as the controls beside it.
+ *
+ * Yellow glass rather than a flat yellow disc: `Glass.action` is the brand
+ * colour at 0.90, which measured 10:1 for near-black on it against a black
+ * backdrop and 13:1 against a white one, so it keeps every bit of its
+ * legibility while belonging to the same surface family as the pills. A flat
+ * circle looked like an object borrowed from another design system.
+ *
+ * It carries the meaning "add something to where I am": on Inicio the active
+ * scope, on Grupos a group. The sheet it opens restates which, rather than
+ * trusting the user to remember the switch at the top of the screen.
  */
 function AddButton({ activeRoute }: { activeRoute: string }) {
   const { t } = useTranslation();
@@ -114,17 +163,21 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
       }}
       style={({ pressed }) => [
         styles.add,
-        {
-          backgroundColor: pressed ? theme.accentPressed : theme.accent,
-          boxShadow: pressed ? Tactile.pressed : Tactile.raised,
-        },
+        { boxShadow: pressed ? Tactile.pressed : Tactile.raised },
       ]}>
-      <SymbolView
-        name="plus"
-        size={30}
-        tintColor={theme.onAccent}
-        fallback={<View style={[styles.plusFallback, { backgroundColor: theme.onAccent }]} />}
-      />
+      {({ pressed }) => (
+        <GlassSurface
+          level="action"
+          radius={Radius.full}
+          style={[styles.addSurface, pressed ? { borderColor: theme.onAccent } : null]}>
+          <SymbolView
+            name="plus"
+            size={28}
+            tintColor={theme.onAccent}
+            fallback={<View style={[styles.plusFallback, { backgroundColor: theme.onAccent }]} />}
+          />
+        </GlassSurface>
+      )}
     </Pressable>
   );
 }
@@ -132,35 +185,45 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
 const styles = StyleSheet.create({
   dock: {
     alignItems: 'center',
+    gap: DOCK.gap,
   },
-  add: {
-    width: DOCK.add,
-    height: DOCK.add,
+  destinations: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  destination: {
     borderRadius: Radius.full,
+    minWidth: DOCK.destinationWidth,
+  },
+  pill: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: DOCK.gap,
+    gap: Spacing.sm,
+    minHeight: DOCK.bar,
+    paddingHorizontal: Spacing.lg,
   },
-  bar: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    alignSelf: 'stretch',
-    paddingTop: Spacing.sm,
-    borderWidth: 0,
-    borderTopWidth: StyleSheet.hairlineWidth,
+  /** Recessed rather than absent: still a control, just not the current one. */
+  pillQuiet: {
+    opacity: 0.92,
   },
-  tab: {
-    flex: 1,
+  labelQuiet: {
+    fontWeight: '500',
+  },
+  add: {
+    borderRadius: Radius.full,
+  },
+  addSurface: {
+    width: DOCK.add,
+    height: DOCK.add,
     alignItems: 'center',
-    gap: Spacing.xxs,
-    paddingTop: Spacing.xxs,
-  },
-  tabLabelActive: {
-    fontWeight: '600',
+    justifyContent: 'center',
   },
   fallback: {
-    width: 20,
-    height: 20,
+    width: 18,
+    height: 18,
     borderWidth: 2,
     borderRadius: Radius.sm,
   },

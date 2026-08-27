@@ -34,7 +34,7 @@ export default function GroupsScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: DOCK_HEIGHT + insets.bottom + Spacing.xl },
+            { paddingBottom: DOCK_HEIGHT + insets.bottom + Spacing.lg },
           ]}>
           <View style={[styles.empty, { borderColor: theme.border }]}>
             <SymbolView

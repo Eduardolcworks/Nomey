@@ -7,6 +7,8 @@ import { type MessageKey, useTranslation } from '@/lib/i18n';
 import { ThemedText } from '@/ui/components';
 import { Radius, Spacing, useTheme } from '@/ui/theme';
 
+import { ScopeSwitch } from './scope-switch';
+
 const MARK = require('../../../assets/splash/splash-icon.png') as number;
 
 /**
@@ -20,46 +22,72 @@ const MARK = require('../../../assets/splash/splash-icon.png') as number;
  * rule that is otherwise teachable in one sentence - your account and your
  * alerts live top right.
  *
- * Only the left side changes: Inicio carries the mark and the wordmark,
- * because it is where the app introduces itself; Grupos carries its section
- * title, because by then the user knows what app they are in.
+ * Only the left side changes: Inicio carries the mark, the wordmark and the
+ * signature, because it is where the app introduces itself; Grupos carries its
+ * section title, because by then the user knows what app they are in.
+ *
+ * Inicio adds a second row - the greeting and the scope switch - so the row
+ * that identifies the app and the row that says whose money is on screen never
+ * compete for the same line.
  */
-export function AppHeader({ title }: { title?: MessageKey }) {
+export function AppHeader({ title, greeting }: { title?: MessageKey; greeting?: boolean }) {
   const { t } = useTranslation();
   const theme = useTheme();
   const router = useRouter();
 
   return (
     <View style={styles.header}>
-      {title === undefined ? (
-        <View style={styles.brand}>
-          <Image source={MARK} style={styles.mark} contentFit="contain" />
-          <ThemedText variant="heading">Nomey</ThemedText>
-        </View>
-      ) : (
-        <ThemedText variant="title">{t(title)}</ThemedText>
-      )}
+      <View style={styles.topRow}>
+        {title === undefined ? (
+          <View style={styles.brand}>
+            <Image source={MARK} style={styles.mark} contentFit="contain" />
+            <View>
+              <ThemedText variant="heading">Nomey</ThemedText>
+              {/*
+               * The signature, and deliberately quiet: two roles down from the
+               * wordmark and in tertiary grey, which still measures 6.1:1 on
+               * the ground. It reads as a maker's mark rather than as a second
+               * title competing with the first.
+               */}
+              <ThemedText variant="caption" themeColor="textTertiary" style={styles.signature}>
+                {t('brand.signature')}
+              </ThemedText>
+            </View>
+          </View>
+        ) : (
+          <ThemedText variant="title">{t(title)}</ThemedText>
+        )}
 
-      <View style={styles.actions}>
-        <HeaderAction
-          symbol="bell"
-          label={t('nav.notifications')}
-          colour={theme.text}
-          border={theme.border}
-          onPress={() => {
-            router.push('/notifications');
-          }}
-        />
-        <HeaderAction
-          symbol="person.crop.circle"
-          label={t('nav.profile')}
-          colour={theme.text}
-          border={theme.border}
-          onPress={() => {
-            router.push('/profile');
-          }}
-        />
+        <View style={styles.actions}>
+          <HeaderAction
+            symbol="bell"
+            label={t('nav.notifications')}
+            colour={theme.text}
+            border={theme.border}
+            onPress={() => {
+              router.push('/notifications');
+            }}
+          />
+          <HeaderAction
+            symbol="person.crop.circle"
+            label={t('nav.profile')}
+            colour={theme.text}
+            border={theme.border}
+            onPress={() => {
+              router.push('/profile');
+            }}
+          />
+        </View>
       </View>
+
+      {greeting === true ? (
+        <View style={styles.greetingRow}>
+          <ThemedText variant="title" style={styles.greeting} numberOfLines={1}>
+            {t('home.greeting', { name: t('home.namePlaceholder') })}
+          </ThemedText>
+          <ScopeSwitch />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -102,11 +130,14 @@ function HeaderAction({
 
 const styles = StyleSheet.create({
   header: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    gap: Spacing.md,
+  },
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
     minHeight: 44,
   },
   brand: {
@@ -115,8 +146,20 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   mark: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
+  },
+  signature: {
+    marginTop: -2,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+  },
+  greeting: {
+    flexShrink: 1,
   },
   actions: {
     flexDirection: 'row',

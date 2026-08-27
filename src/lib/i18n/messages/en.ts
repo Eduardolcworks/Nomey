@@ -8,6 +8,8 @@ import type { MessageKey } from './es-ES';
  * quietly ships in the wrong language.
  */
 export const en: Record<MessageKey, string> = {
+  'brand.signature': 'by LCWorks',
+
   'nav.home': 'Home',
   'nav.groups': 'Groups',
   'nav.notifications': 'Notifications',
@@ -16,12 +18,15 @@ export const en: Record<MessageKey, string> = {
   'scope.personal': 'Personal',
   'scope.couple': 'Couple',
   'scope.label': 'Scope',
+  'scope.switchTo': 'Switch to {scope}',
 
   'action.addTo': 'Add to {scope}',
   'action.addToGroups': 'Add to a group',
   'action.close': 'Close',
   'action.soon': 'Coming soon',
 
+  'home.greeting': 'Hi, {name}',
+  'home.namePlaceholder': 'your name',
   'home.available': 'Available',
   'home.activity': 'Recent activity',
   'home.activityEmpty': 'No movements yet.',
