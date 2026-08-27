@@ -482,8 +482,11 @@ the `adr` skill to draft one.
 and 3.C. Phases 0, 1 and 2 were already closed. **ADR-001 through ADR-016 are
 accepted**; ADR-003 met its E11 gate against a real local Supabase stack.
 
-**The next entry point is Phase 4** — UX architecture and internationalisation.
-It does not depend on Phase 3 and does not touch the backend.
+**Phase 4 is OPEN** — UX architecture and internationalisation. It does not
+depend on Phase 3 and does not touch the backend, so nothing below this line is
+in play while working on it. Its blocks, its approved product decisions and its
+still-open navigation direction are in
+[`docs/ux/phase-4-plan.md`](docs/ux/phase-4-plan.md).
 
 Two artefacts closed the phase and are worth knowing about:
 

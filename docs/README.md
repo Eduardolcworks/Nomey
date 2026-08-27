@@ -3,11 +3,11 @@
 Wiki técnica y de producto. **En español**; el código y los commits van en
 inglés.
 
-> **Estado: Fase 3 — persistencia y frontera de datos. CERRADA el 2026-08-27.**
+> **Estado: Fase 4 — arquitectura UX e internacionalización. ABIERTA el 2026-08-27.**
 >
 > - **Fases 0, 1, 2 y 3:** cerradas. **ADR-001 … ADR-016 aceptados.**
-> - **El siguiente punto de entrada es la Fase 4** — arquitectura UX e
->   internacionalización—, que **no depende de la Fase 3** y no toca el backend.
+> - **El plan aprobado de la fase en curso está en**
+>   [`ux/phase-4-plan.md`](ux/phase-4-plan.md). F4 **no toca el backend**.
 > - **Para reconstruir el estado del proyecto, empieza por
 >   [`PROJECT_STATE.md`](PROJECT_STATE.md)**, que es la memoria comprimida: fase
 >   actual, arquitectura vigente, superficie `api`, invariantes que no se deben
@@ -32,7 +32,7 @@ inglés.
 | `architecture/` | Visión técnica, modelo de datos, estructura, offline | Parcial    |
 | `database/`     | Esquema, políticas RLS, migraciones                  | Fase 3     |
 | `security/`     | Modelo de amenazas, tratamiento de datos             | Parcial    |
-| `ux/`           | Design system, flujos                                | Fase 4     |
+| `ux/`           | Design system, flujos                                | **Activa** |
 | `adr/`          | Architecture Decision Records                        | **Activa** |
 | `runbooks/`     | Procedimientos operativos                            | Parcial    |
 
@@ -64,6 +64,7 @@ lo es el ADR correspondiente, cuando se acepta.
 | [`architecture/money-representation.md`](architecture/money-representation.md) | 2    | Evidencia medida, decisiones confirmadas y alternativas descartadas que preceden a **ADR-003**. **No normativo** |
 | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md)         | 3    | Continuidad de 3.C y **el porqué** de cada pieza. **Histórico** desde el cierre de F3, y no normativo            |
 | [`architecture/phase-3c-design.md`](architecture/phase-3c-design.md)           | 3    | Análisis de 3.C por bloques: D1–D11, evidencia E12 y alternativas. **No normativo**, también para lo ya aprobado |
+| [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                     | 4    | Bloques de F4, decisiones que la abren y dirección **provisional** de navegación. **No normativo**               |
 
 Al aceptarse el ADR que lo cierra, se decide si el documento se conserva como
 historial de análisis o se retira.
