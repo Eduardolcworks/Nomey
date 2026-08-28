@@ -1,4 +1,5 @@
 export { ActionButton, type ActionButtonProps } from './action-button';
+export { FadeEdge, type FadeEdgeProps } from './fade-edge';
 export { GlassSurface, type GlassSurfaceProps } from './glass-surface';
 export { Icon, type IconProps } from './icon';
 export { IconButton, type IconButtonProps } from './icon-button';
