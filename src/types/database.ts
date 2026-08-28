@@ -103,6 +103,7 @@ export type Database = {
       };
     };
     Functions: {
+      annul_operation: { Args: { payload: Json }; Returns: Json };
       claimed_dimension: {
         Args: never;
         Returns: {

@@ -102,6 +102,9 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [019](ADR-019-personal-provisioning.md)               | Provisioning del Modo Personal y catálogo monetario   | Aceptado  |
 | [020](ADR-020-version-content-and-time.md)            | Contenido no monetario y grano temporal de la versión | Aceptado  |
 | [021](ADR-021-category-catalogue.md)                  | Catálogo de categorías y su autorización              | Aceptado  |
+| [022](ADR-022-balance-target-and-serialization.md)    | Ajuste por saldo objetivo y serialización del saldo   | Aceptado  |
+| [023](ADR-023-balance-observation.md)                 | Observación histórica de saldo                        | Aceptado  |
+| [024](ADR-024-annulment.md)                           | Anulación de una operación                            | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos

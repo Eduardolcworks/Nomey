@@ -480,7 +480,7 @@ the `adr` skill to draft one.
 
 **Phases 0 through 5 are CLOSED.** Phase 3 (persistence and data boundary) closed
 on 2026-08-27 and Phase 5 (identity and session) on 2026-08-28. **ADR-001 through
-ADR-021 are accepted**; ADR-003 met its E11 gate against a real local Supabase
+ADR-024 are accepted**; ADR-003 met its E11 gate against a real local Supabase
 stack.
 
 **Phase 6 is OPEN** — Modo Personal, the first showable milestone. It touches the
@@ -524,6 +524,23 @@ code calls it**, so a freshly confirmed account still has no personal scope unti
 something does. Wiring it into the authenticated lifecycle is F6.E, and it comes
 before Inicio consumes the scope.
 
+**The balance is serialized, observed and annullable.** F6.C added
+`target_balance` — the client declares the balance it claims to hold and **the
+server derives the delta under lock**, so no delta is ever computed on a
+possibly stale read. Three things to know before touching any of it.
+**The protocol now covers two dimensions under one ascending order**:
+`sec.lock_debt_scopes` became `sec.lock_scopes`, and the **seven** classes that
+produce a balance effect all participate — not just the adjustment, because
+`core.balance_observation` turns every balance write into a read and a partial
+serialization serializes nothing. **That observation is not a cache**: written
+once under lock, per version and per scope, insert-only, and a catalogue guard
+fails if any `api` view derives the `Disponible` from it. And **deleting a
+movement is a version with no effects** — nothing is deleted, `current_version_id`
+stays the only authority on what counts, and annulment is terminal in F6.
+[ADR-022](docs/adr/ADR-022-balance-target-and-serialization.md),
+[ADR-023](docs/adr/ADR-023-balance-observation.md) and
+[ADR-024](docs/adr/ADR-024-annulment.md); races measured in `supabase/e22/`.
+
 **A movement now means something, and `ingreso` finally has a route.** F6.B added
 a mandatory free-text concept, a category that is always present with separate
 expense and income catalogues, an effective time of day, and
@@ -537,7 +554,7 @@ operation of another**, guarded in `sec.persist_version`, which all eight pass
 through. [ADR-020](docs/adr/ADR-020-version-content-and-time.md) and
 [ADR-021](docs/adr/ADR-021-category-catalogue.md).
 
-**Migrations have started.** `supabase/migrations/` holds twelve. The first is the
+**Migrations have started.** `supabase/migrations/` holds fifteen. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is ADR-014: `api` is served and `public`, `core` and `sec`

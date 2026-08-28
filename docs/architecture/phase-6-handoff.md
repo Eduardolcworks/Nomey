@@ -17,7 +17,7 @@ Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 | -------- | -------------------------------------------- | ----------------------------------- |
 | **F6.A** | Fundación: catálogo monetario y provisioning | **Cerrado como fundamento backend** |
 | **F6.B** | Anatomía del movimiento                      | **Cerrado como fundamento backend** |
-| **F6.C** | Saldo objetivo, observación y anulación      | No empezado                         |
+| **F6.C** | Saldo objetivo, observación y anulación      | **Cerrado como fundamento backend** |
 | **F6.D** | Superficie de lectura                        | No empezado                         |
 | **F6.E** | Inicio · **y el cableado del provisioning**  | No empezado                         |
 | **F6.F** | Alta, edición y eliminación                  | No empezado                         |
@@ -213,29 +213,36 @@ un oráculo de la clase de una operación ajena. `OPERATION_CLASS_MISMATCH · 42
 G7 mide la corrupción —dos efectos vigentes con clase contable ajena a la de su
 operación—. Ver [ADR-020](../adr/ADR-020-version-content-and-time.md) §6.
 
-### Para F6.C — de F6.B
+### ~~Para F6.C~~ · **RESUELTAS en F6.C**
 
-- **Decidir si el ajuste declara hora efectiva.** Hoy `effective_time` es nula en
-  las seis clases que no la piden, y por eso una lista mixta ordenaría los
-  movimientos por hora y los ajustes por `created_at`. Se dice en vez de
-  rellenarse; F6.C tiene el contexto para decidirlo, porque es quien trae el
-  ajuste por saldo objetivo.
-- **El ajuste sigue sin concepto ni categoría**, y es correcto: su línea de
-  historial la deriva el producto —«Saldo ajustado a X»— y no la escribe nadie.
-  Si F6.C quisiera darle una, sería una fila de `core.movement_detail` y una
-  familia nueva en `core.category`, no un valor sintético.
+- **La hora del ajuste**: sí, y **obligatoria**. Un ajuste por objetivo es por
+  naturaleza una observación en un instante, y una lista mixta necesita **un**
+  criterio de orden. Sigue **sin concepto ni categoría**, como decidió ADR-020.
+- **El bloqueo del saldo** usa el mismo orden global ascendente que la deuda, y
+  `sec.lock_debt_scopes` pasó a `sec.lock_scopes`: **un mecanismo, un nombre, un
+  orden**. Ninguna función queda huérfana del protocolo — participan las **siete**
+  que producen saldo, no solo el ajuste.
+- **La unión de ámbitos** —nueva versión y sustituida— gobierna el lock y la
+  observación, así que **una anulación sí deja observación** pese a no tener
+  efectos propios.
 
-### Para F6.C
+### Para F6.D — de F6.C
 
-- El bloqueo de la dimensión saldo debe usar **el mismo orden global ascendente**
-  que ya usa el protocolo de deuda de ADR-013 §11.
-  `api.set_personal_base_currency` **ya bloquea** con ese criterio, de modo que el
-  ADR de serialización **extiende** en vez de corregir. Ninguna función queda
-  huérfana del protocolo.
-- La observación de saldo y el bloqueo operan sobre la **unión de los ámbitos
-  afectados por la versión nueva y por la que sustituye** — mismo principio que
-  ADR-013 §11 ya fija para la deuda. Sin eso, **una anulación no dejaría
-  observación**, porque no tiene efectos propios de los que derivar el ámbito.
+- **Las anuladas se excluyen por `version_kind`, no por ausencia de efectos.**
+  Detectarlas con un `NOT EXISTS` sobre `core.effect` dentro de una vista lo
+  rechaza la guarda de ADR-013 §9; el discriminante existe precisamente para
+  eso.
+- **`observed_balance_after` sale de `core.balance_observation`, y solo como
+  dato ilustrativo.** El `Disponible` se deriva de `core.current_effect` y **no
+  puede** salir de ahí: una vista de `api` que dependa de la observación hace
+  fallar el check.
+- **La línea del ajuste se compone del objetivo y del «antes»**: el objetivo
+  está en `core.adjustment_detail` —intención— y el «antes» en la observación
+  —fotografía—. Son dos fuentes distintas a propósito.
+- **La observación de una versión es del instante en que se escribió.** Corregir
+  hoy un movimiento de hace tres meses observa el saldo **de hoy**; hay que
+  presentarlo como observación del sistema, no como «el saldo que tenías aquel
+  día».
 
 ### Para F6.D
 
