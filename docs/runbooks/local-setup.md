@@ -261,6 +261,11 @@ docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
   -X -q -v ON_ERROR_STOP=1 < supabase/checks/personal-provisioning.sql
 ```
 
+```bash
+docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
+  -X -q -v ON_ERROR_STOP=1 < supabase/checks/movement-anatomy.sql
+```
+
 > **Los dos últimos se encadenan con el prólogo de vectores.** `psql` corre
 > dentro del contenedor y no ve el checkout, así que `tests/vectors/*.json`
 > viajan por la misma entrada estándar. ADR-002 §7 exige que la implementación
@@ -271,7 +276,7 @@ Fallan con código distinto de cero en la primera violación, y **no dejan datos
 lo que insertan ocurre dentro de una transacción que termina en `ROLLBACK`. La
 configuración versionada la comprueba `npm test`, en `tests/infra/`.
 
-**CI ejecuta estos mismos nueve ficheros** en el job `Migrations rebuilt from
+**CI ejecuta estos mismos diez ficheros** en el job `Migrations rebuilt from
 zero`, sobre un stack levantado desde cero.
 
 > **El último lleva dos regresiones deliberadas dentro.** Quita una policy del

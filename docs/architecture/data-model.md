@@ -139,6 +139,38 @@ cero, lo que ya liquidó se queda sin nada que respaldar, y es el mismo rechazo.
 
 ---
 
+### Qué describe un movimiento, además de su importe
+
+Un **movimiento** —un ingreso o un gasto— lleva, junto a su importe y su clase:
+
+- **Concepto.** Texto libre **obligatorio**, escrito por la persona. Es lo
+  principal que verá en su historial. Se conserva tal cual: se recortan los
+  espacios exteriores y se normaliza Unicode, y nada más. `Mercadona` y
+  `MERCADONA` son **conceptos distintos**.
+- **Categoría.** **Siempre presente**, nunca ausente. Los catálogos de ingreso y
+  de gasto son **distintos**, y `Otros` es una categoría real de cada uno, no la
+  ausencia de categoría. Cada persona puede añadir las suyas, renombrarlas y
+  darlas de baja; una baja retira la categoría del selector y **nunca** del
+  histórico.
+- **Hora efectiva**, junto a la fecha. El par es un **reloj local**: «el 28 de
+  agosto a las 21:30». Ordena los movimientos dentro del mismo día. El instante
+  de **registro** es otro dato y no lo sustituye.
+
+**Los tres pertenecen a la versión**, así que corregir cualquiera de ellos crea
+una versión nueva y la anterior queda intacta. Y los tres son **intención de la
+persona**: reintentar el mismo comando con un concepto, una categoría o una hora
+materialmente distintos es un **conflicto**, no una repetición.
+
+> **No toda operación es un movimiento.** Un ajuste, una transferencia o una
+> liquidación no tienen concepto ni categoría —la línea que el usuario lee la
+> deriva el producto—, y **no se les inventa ninguno**. Qué contiene toda versión
+> y qué depende de la clase lo fija
+> [ADR-020](../adr/ADR-020-version-content-and-time.md); el catálogo de
+> categorías y su autorización,
+> [ADR-021](../adr/ADR-021-category-catalogue.md).
+
+---
+
 ## 4. Escenarios resueltos
 
 Todos verificados contra los invariantes. **Son la referencia directa para los

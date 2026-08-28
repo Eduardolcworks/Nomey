@@ -59,12 +59,14 @@ begin
     end if;
   end loop;
 
-  -- A2 · la superficie de escritura completa son SIETE funciones y ninguna mas.
+  -- A2 · la superficie de escritura completa son OCHO funciones y ninguna mas.
+  -- Eran siete hasta que F6.B trajo el ingreso, que es la clase contable que el
+  -- modelo contempla desde la Fase 1 y que no tenia ruta de escritura.
   select count(*) into v_n
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.proname like 'record\_%';
-  if v_n <> 7 then
-    fallos := array_append(fallos, format('A2: hay %s funciones api.record_* y deberian ser 7', v_n));
+  if v_n <> 8 then
+    fallos := array_append(fallos, format('A2: hay %s funciones api.record_* y deberian ser 8', v_n));
   end if;
 
   -- A3 · los privilegios que VUELVEN, porque ahora tienen ruta.
@@ -1709,7 +1711,7 @@ begin
       -- las de 7b, un integrante — salvo la liquidacion por transferencia, que
       -- SOLO la origina el deudor.
       v_actor := case
-        when v_kind in ('adjustment','personalExpense','externalTransfer')
+        when v_kind in ('adjustment','personalExpense','personalIncome','externalTransfer')
           then (select owner_user_id from core.scope
                  where id = (v_scope_map ->> (v_op ->> 'scope'))::uuid)
         when v_kind = 'internalTransfer'
@@ -1737,9 +1739,22 @@ begin
         elsif v_kind = 'personalExpense' then
           perform api.record_personal_expense(jsonb_build_object(
             'client_operation_id', ('70000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
-            'command_contract_version', 1, 'effective_date', v_fecha::text,
+            'command_contract_version', 2, 'effective_date', v_fecha::text,
+            'effective_time', '09:30',
             'scope_id', v_scope_map ->> (v_op ->> 'scope'),
-            'amount', v_op ->> 'amount', 'currency_definition_id', EUR::text));
+            'amount', v_op ->> 'amount', 'currency_definition_id', EUR::text,
+            'concept', 'Compra',
+            'category_id', '4ed30a44-9f82-578f-828c-b491a25ebdd9'));
+
+        elsif v_kind = 'personalIncome' then
+          perform api.record_personal_income(jsonb_build_object(
+            'client_operation_id', ('70000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
+            'command_contract_version', 1, 'effective_date', v_fecha::text,
+            'effective_time', '09:30',
+            'scope_id', v_scope_map ->> (v_op ->> 'scope'),
+            'amount', v_op ->> 'amount', 'currency_definition_id', EUR::text,
+            'concept', 'Nomina',
+            'category_id', 'ea9f1167-f497-5edf-af01-c7e1c3a64d9d'));
 
         elsif v_kind = 'externalTransfer' then
           perform api.record_external_transfer(jsonb_build_object(
@@ -1960,15 +1975,19 @@ begin
   -- Diecinueve de los veinte escenarios. El que falta —`gasto-de-grupo-con-tres-
   -- monedas`— exige conversion, y la seccion H comprueba que se RECHAZA en vez
   -- de resolverse mal. Es una limitacion real de 3.C, dicha y no rellenada.
-  if v_seen <> 19 then
+  -- Eran 19; con los vectores de ingreso de F6.B son 22. El de escala cero se
+  -- excluye solo, por la misma regla de FORMA que aparta el de tres monedas:
+  -- este runner solo siembra EUR, y el vector en JPY lo ejercita el check de 7a,
+  -- cuyo fixture si tiene un ambito de escala cero.
+  if v_seen <> 22 then
     fallos := array_append(fallos,
-      format('J: se ejercitaron %s escenarios y deberian ser 19; el unico excluido es el de tres monedas', v_seen));
+      format('J: se ejercitaron %s escenarios y deberian ser 22; los excluidos son el de tres monedas y el de escala cero', v_seen));
   end if;
 
   if array_length(fallos, 1) is not null then
     raise exception E'FALLOS DE PARIDAD CON LOS VECTORES:\n  - %', array_to_string(fallos, E'\n  - ');
   end if;
-  raise notice 'OK · J · los 19 escenarios alcanzables se reproducen exactamente';
+  raise notice 'OK · J · los 22 escenarios alcanzables se reproducen exactamente';
 end
 $vectores$;
 
@@ -2060,6 +2079,7 @@ declare
   v_map constant jsonb := jsonb_build_object(
     'adjustment',           'adjustment',
     'personalExpense',      'personal_expense',
+    'personalIncome',       'personal_income',
     'externalTransfer',     'external_transfer',
     'internalTransfer',     'internal_transfer',
     'groupExpense',         'group_expense',
@@ -2089,7 +2109,7 @@ begin
   if array_length(fallos, 1) is not null then
     raise exception E'FALLOS DE VOCABULARIO:\n  - %', array_to_string(fallos, E'\n  - ');
   end if;
-  raise notice 'OK · L · las siete clases del vocabulario tienen ruta autoritativa';
+  raise notice 'OK · L · las ocho clases del vocabulario tienen ruta autoritativa';
 end
 $vocab$;
 

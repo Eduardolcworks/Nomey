@@ -29,8 +29,8 @@ begin
   select count(*) into v_n
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.proname like 'record\_%';
-  if v_n <> 7 then
-    fallos := array_append(fallos, format('A1: hay %s funciones api.record_* y deberian ser 7', v_n));
+  if v_n <> 8 then
+    fallos := array_append(fallos, format('A1: hay %s funciones api.record_* y deberian ser 8', v_n));
   end if;
 
   -- A2 · atributos exigidos por ADR-009 §4 y §5, una por una.
@@ -154,11 +154,15 @@ $estructura$;
 -- ================================================================ fixture ===
 insert into core.currency_definition (id, code, scale) values
   ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','EUR',2),
-  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','USD',2);
+  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','USD',2),
+  -- Escala CERO, para que los vectores de ingreso en JPY se ejecuten tambien
+  -- por la ruta real y no solo en TypeScript.
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','JPY',0);
 
 insert into core.scope (id,kind,base_currency_definition_id,owner_user_id) values
   ('a0000000-0000-4000-8000-0000000000a1','personal','cccccccc-cccc-4ccc-8ccc-cccccccccccc','11111111-1111-4111-8111-111111111111'),
-  ('a0000000-0000-4000-8000-0000000000b1','personal','cccccccc-cccc-4ccc-8ccc-cccccccccccc','22222222-2222-4222-8222-222222222222');
+  ('a0000000-0000-4000-8000-0000000000b1','personal','cccccccc-cccc-4ccc-8ccc-cccccccccccc','22222222-2222-4222-8222-222222222222'),
+  ('a0000000-0000-4000-8000-0000000000c1','personal','eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','44444444-4444-4444-8444-444444444444');
 insert into core.scope (id,kind,base_currency_definition_id) values
   ('a0000000-0000-4000-8000-0000000000f1','group','cccccccc-cccc-4ccc-8ccc-cccccccccccc');
 
@@ -189,7 +193,9 @@ begin
   r := api.record_personal_expense(jsonb_build_object(
         'client_operation_id','10000000-0000-4000-8000-000000000002',
         'command_contract_version',1,'effective_date','2026-01-11',
-        'scope_id',SPA,'amount','2000','currency_definition_id',EUR));
+        'scope_id',SPA,'amount','2000','currency_definition_id',EUR,
+          'effective_time','09:30',
+          'concept','Compra','category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9'));
 
   r := api.record_external_transfer(jsonb_build_object(
         'client_operation_id','10000000-0000-4000-8000-000000000003',
@@ -343,7 +349,9 @@ begin
     r := api.record_personal_expense(jsonb_build_object(
           'client_operation_id','10000000-0000-4000-8000-000000000001',
           'command_contract_version',1,'effective_date','2026-01-10',
-          'scope_id',SPA,'amount','50000','currency_definition_id',EUR));
+          'scope_id',SPA,'amount','50000','currency_definition_id',EUR,
+          'effective_time','09:30',
+          'concept','Compra','category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9'));
     fallos := array_append(fallos, 'C3: la misma clave con otra clase fue aceptada');
   exception when sqlstate 'PGRST' then
     if sqlerrm not like '%IDEMPOTENCY_KEY_REUSED%' then
@@ -390,7 +398,9 @@ begin
   r := api.record_personal_expense(jsonb_build_object(
         'client_operation_id','20000000-0000-4000-8000-000000000001',
         'command_contract_version',1,'effective_date','2026-02-01',
-        'scope_id',SPA,'amount','6000','currency_definition_id',EUR));
+        'scope_id',SPA,'amount','6000','currency_definition_id',EUR,
+          'effective_time','09:30',
+          'concept','Compra','category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9'));
   v_op := (r ->> 'operation_id')::uuid;
   reset role;
   select current_version_id into v_v1 from core.operation where id = v_op;
@@ -402,7 +412,9 @@ begin
         'client_operation_id','20000000-0000-4000-8000-000000000002',
         'command_contract_version',1,'effective_date','2026-02-01',
         'operation_id',v_op,'expected_version_id',v_v1,
-        'scope_id',SPA,'amount','7500','currency_definition_id',EUR));
+        'scope_id',SPA,'amount','7500','currency_definition_id',EUR,
+          'effective_time','09:30',
+          'concept','Compra','category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9'));
   if (r ->> 'operation_id')::uuid <> v_op then
     fallos := array_append(fallos, 'D1: la correccion devolvio otra operacion');
   end if;
@@ -443,7 +455,9 @@ begin
           'client_operation_id','20000000-0000-4000-8000-000000000003',
           'command_contract_version',1,'effective_date','2026-02-01',
           'operation_id',v_op,'expected_version_id',v_v1,
-          'scope_id',SPA,'amount','9000','currency_definition_id',EUR));
+          'scope_id',SPA,'amount','9000','currency_definition_id',EUR,
+          'effective_time','09:30',
+          'concept','Compra','category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9'));
     fallos := array_append(fallos, 'D4: se acepto una correccion contra una version obsoleta');
   exception when sqlstate 'PGRST' then
     if sqlerrm not like '%VERSION_CONFLICT%' then
@@ -459,7 +473,9 @@ begin
         'client_operation_id','20000000-0000-4000-8000-000000000002',
         'command_contract_version',1,'effective_date','2026-02-01',
         'operation_id',v_op,'expected_version_id',v_v1,
-        'scope_id',SPA,'amount','7500','currency_definition_id',EUR));
+        'scope_id',SPA,'amount','7500','currency_definition_id',EUR,
+          'effective_time','09:30',
+          'concept','Compra','category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9'));
   if not (r ->> 'already_processed')::boolean then
     fallos := array_append(fallos, 'D5: el reintento de la correccion no se resolvio como replay');
   end if;
@@ -491,7 +507,9 @@ begin
           'client_operation_id','20000000-0000-4000-8000-000000000004',
           'command_contract_version',1,'effective_date','2026-02-01',
           'operation_id',v_op,'expected_version_id',v_v2,
-          'scope_id',SPA,'amount','1000','currency_definition_id',EUR));
+          'scope_id',SPA,'amount','1000','currency_definition_id',EUR,
+          'effective_time','09:30',
+          'concept','Compra','category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9'));
     fallos := array_append(fallos, 'D7: otro actor corrigio un gasto del Modo Personal ajeno');
   exception when sqlstate 'PGRST' then
     if sqlerrm not like '%NOT_AUTHORIZED%' then
@@ -624,7 +642,9 @@ begin
     r := api.record_personal_expense(jsonb_build_object(
           'client_operation_id','30000000-0000-4000-8000-000000000008',
           'command_contract_version',1,'effective_date','2026-03-01',
-          'scope_id',SPA,'amount','0','currency_definition_id',EUR));
+          'scope_id',SPA,'amount','0','currency_definition_id',EUR,
+          'effective_time','09:30',
+          'concept','Compra','category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9'));
     fallos := array_append(fallos, 'E7: se acepto un gasto de cero');
   exception when sqlstate 'PGRST' then null;
   end;
@@ -821,10 +841,19 @@ declare
   v_got bigint; v_want bigint;
   v_ids jsonb := jsonb_build_object(
     'personal-A','a0000000-0000-4000-8000-0000000000a1',
-    'personal-B','a0000000-0000-4000-8000-0000000000b1');
+    'personal-B','a0000000-0000-4000-8000-0000000000b1',
+    'personal-JPY','a0000000-0000-4000-8000-0000000000c1');
   v_owner jsonb := jsonb_build_object(
     'personal-A','11111111-1111-4111-8111-111111111111',
-    'personal-B','22222222-2222-4222-8222-222222222222');
+    'personal-B','22222222-2222-4222-8222-222222222222',
+    'personal-JPY','44444444-4444-4444-8444-444444444444');
+  -- La moneda del vector se resuelve a la definicion del AMBITO, no a EUR
+  -- siempre: sin esto un vector en JPY entraria con la moneda equivocada y lo
+  -- rechazaria `assert_no_conversion` en vez de ejecutarse.
+  v_cur jsonb := jsonb_build_object(
+    'eur','cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    'jpy','eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
+  v_moneda text;
   v_seen int := 0;
 begin
   if to_regclass('pg_temp.vector_doc') is null then
@@ -838,7 +867,7 @@ begin
     -- 7a. Los demas necesitan `group_expense` o `debt_settlement`, que son 7b.
     continue when exists (
       select 1 from jsonb_array_elements(v_case -> 'operations') o
-       where not (o ->> 'kind' = any(array['adjustment','personalExpense','internalTransfer'])));
+       where not (o ->> 'kind' = any(array['adjustment','personalExpense','personalIncome','internalTransfer'])));
 
     v_seen := v_seen + 1;
     v_fecha := date '2026-04-01' + (v_seen - 1);
@@ -847,6 +876,7 @@ begin
       v_key := v_key + 1;
       v_scope := coalesce(v_op ->> 'scope', v_op ->> 'fromScope');
       v_actor := v_owner ->> v_scope;
+      v_moneda := v_cur ->> coalesce(v_op ->> 'currency', 'eur');
       set local role authenticated;
       perform set_config('request.jwt.claims',
                          json_build_object('sub', v_actor)::text, true);
@@ -857,15 +887,27 @@ begin
           'command_contract_version', 1, 'effective_date', v_fecha::text,
           'scope_id', v_ids ->> v_scope,
           'delta', v_op ->> 'delta',
-          'currency_definition_id', EUR));
+          'currency_definition_id', v_moneda));
 
       elsif v_op ->> 'kind' = 'personalExpense' then
         perform api.record_personal_expense(jsonb_build_object(
           'client_operation_id', ('40000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
+          'command_contract_version', 2, 'effective_date', v_fecha::text,
+          'scope_id', v_ids ->> v_scope,
+          'amount', v_op ->> 'amount',
+          'currency_definition_id', v_moneda,
+          'effective_time','09:30',
+          'concept','Compra','category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9'));
+
+      elsif v_op ->> 'kind' = 'personalIncome' then
+        perform api.record_personal_income(jsonb_build_object(
+          'client_operation_id', ('40000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
           'command_contract_version', 1, 'effective_date', v_fecha::text,
           'scope_id', v_ids ->> v_scope,
           'amount', v_op ->> 'amount',
-          'currency_definition_id', EUR));
+          'currency_definition_id', v_moneda,
+          'effective_time','09:30',
+          'concept','Nomina','category_id','ea9f1167-f497-5edf-af01-c7e1c3a64d9d'));
 
       elsif v_op ->> 'kind' = 'internalTransfer' then
         -- 7a solo cubre el caso sin conversion, en el que los dos importes del
@@ -882,7 +924,7 @@ begin
           'from_scope_id', v_ids ->> (v_op ->> 'fromScope'),
           'to_scope_id',   v_ids ->> (v_op ->> 'toScope'),
           'amount', v_op ->> 'fromAmount',
-          'currency_definition_id', EUR));
+          'currency_definition_id', v_moneda));
       end if;
       reset role;
     end loop;
@@ -922,11 +964,13 @@ begin
     -- la fecha efectiva viaja intacta desde el payload hasta la version.
   end loop;
 
-  -- Los tres escenarios alcanzables por 7a. `externalTransfer` NO tiene ninguno
-  -- propio: su unico caso, 4.7, es compuesto y necesita `group_expense` y
-  -- `debt_settlement`, asi que su vector se ejercita en 7b.
-  if v_seen <> 3 then
-    fallos := array_append(fallos, format('G: se ejercitaron %s escenarios de vectores y deberian ser 3', v_seen));
+  -- Los escenarios alcanzables por esta mitad. Eran tres; con el ingreso de
+  -- F6.B son SIETE, porque sus cuatro vectores nuevos solo usan clases de aqui.
+  -- `externalTransfer` sigue sin tener ninguno propio: su unico caso, 4.7, es
+  -- compuesto y necesita `group_expense` y `debt_settlement`, asi que su vector
+  -- se ejercita en 7b.
+  if v_seen <> 7 then
+    fallos := array_append(fallos, format('G: se ejercitaron %s escenarios de vectores y deberian ser 7', v_seen));
   end if;
 
   if array_length(fallos, 1) is not null then
@@ -947,6 +991,7 @@ declare
   v_map jsonb := jsonb_build_object(
     'adjustment',           'adjustment',
     'personalExpense',      'personal_expense',
+    'personalIncome',       'personal_income',
     'externalTransfer',     'external_transfer',
     'internalTransfer',     'internal_transfer',
     'groupExpense',         'group_expense',

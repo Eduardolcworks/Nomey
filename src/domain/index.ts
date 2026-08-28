@@ -37,6 +37,7 @@ export {
   deriveGroupExpense,
   deriveInternalTransfer,
   derivePersonalExpense,
+  derivePersonalIncome,
   deriveSettlementByTransfer,
 } from './effects/derive';
 export type { DebtSettlementInput, GroupExpenseInput, PayerCashMovement } from './effects/derive';

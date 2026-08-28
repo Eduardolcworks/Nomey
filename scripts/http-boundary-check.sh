@@ -165,6 +165,11 @@ sesion() {
 }
 
 # --------------------------------------------------------------- fixture ----
+# Categorias SEMBRADAS POR MIGRACION, no del fixture: `Otros` de cada familia.
+# Se referencian por su identidad fija, que es lo que la migracion garantiza.
+CAT_GASTO=4ed30a44-9f82-578f-828c-b491a25ebdd9
+CAT_INGRESO=ea9f1167-f497-5edf-af01-c7e1c3a64d9d
+
 EUR=cccccccc-cccc-4ccc-8ccc-cccccccccccc
 USD=dddddddd-dddd-4ddd-8ddd-dddddddddddd
 PA=a0000000-0000-4000-8000-00000000aa01
@@ -183,6 +188,7 @@ set constraints all deferred;
 delete from core.client_command;
 delete from core.split_participant;
 delete from core.split;
+delete from core.movement_detail;
 delete from core.effect;
 delete from core.operation_version;
 delete from core.operation;
@@ -199,6 +205,7 @@ delete from core.scope where id in ('${PA}','${PB}','${GX}','${GY}')
    or owner_user_id in (select id from auth.users where email like 'nomey-http-%');
 -- SOLO las dos definiciones de este check. Desde la Fase 6.A el catalogo
 -- monetario esta SEMBRADO POR MIGRACION y un borrado sin filtro lo arrasaria.
+delete from core.category where owner_user_id in (select id from auth.users where email like 'nomey-http-%');
 delete from core.currency_definition where id in ('${EUR}','${USD}');
 commit;
 SQL
@@ -303,9 +310,9 @@ select count(*) from information_schema.role_routine_grants
  where routine_schema='api' and routine_name like 'record\_%' and grantee='authenticated';
 SQL
 )
-[ "$(tr -d '[:space:]' <<<"${rol}")" = "7" ] \
-  && ok "las siete funciones estan concedidas a authenticated y a ningun otro rol cliente" \
-  || fallo "los grants de api.record_* a authenticated son $(tr -d '[:space:]' <<<"${rol}") y deben ser 7"
+[ "$(tr -d '[:space:]' <<<"${rol}")" = "8" ] \
+  && ok "las ocho funciones estan concedidas a authenticated y a ningun otro rol cliente" \
+  || fallo "los grants de api.record_* a authenticated son $(tr -d '[:space:]' <<<"${rol}") y deben ser 8"
 
 # ============================================================================
 echo ""
@@ -378,8 +385,9 @@ llamada "record_adjustment" record_adjustment "${TOK_A}" "{
 
 llamada "record_personal_expense" record_personal_expense "${TOK_A}" "{
   \"client_operation_id\":\"a1000000-0000-4000-8000-000000000002\",
-  \"command_contract_version\":1,\"effective_date\":\"2026-02-02\",
-  \"scope_id\":\"${PA}\",\"amount\":\"2000\",\"currency_definition_id\":\"${EUR}\"}"
+  \"command_contract_version\":2,\"effective_date\":\"2026-02-02\",\"effective_time\":\"09:30\",
+  \"scope_id\":\"${PA}\",\"amount\":\"2000\",\"currency_definition_id\":\"${EUR}\",
+  \"concept\":\"Compra\",\"category_id\":\"${CAT_GASTO}\"}"
 
 llamada "record_external_transfer" record_external_transfer "${TOK_A}" "{
   \"client_operation_id\":\"a1000000-0000-4000-8000-000000000003\",
@@ -671,7 +679,7 @@ let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
   # 8.7 · el primer movimiento REAL, por el writer, en la moneda recien elegida.
   #       Prueba de paso que el catalogo sembrado es utilizable por el writer.
   r=$(rpc record_personal_expense "${TOK_C}" \
-        "$(env_payload "{\"client_operation_id\":\"c0000000-0000-4000-8000-00000000c001\",\"command_contract_version\":1,\"effective_date\":\"2026-08-28\",\"scope_id\":\"${SC}\",\"currency_definition_id\":\"${JPY_ID}\",\"amount\":\"1200\"}")")
+        "$(env_payload "{\"client_operation_id\":\"c0000000-0000-4000-8000-00000000c001\",\"command_contract_version\":2,\"effective_date\":\"2026-08-28\",\"effective_time\":\"09:30\",\"scope_id\":\"${SC}\",\"currency_definition_id\":\"${JPY_ID}\",\"amount\":\"1200\",\"concept\":\"Compra\",\"category_id\":\"${CAT_GASTO}\"}")")
   e=$(estado_de "${r}")
   [ "${e}" = "200" ] \
     && ok "el writer escribe en el ambito recien creado por el provisioning" \
@@ -713,6 +721,128 @@ let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
     *)       ok "sin JWT, el provisioning no responde 200 (${e})" ;;
   esac
 fi
+
+# ============================================================================
+echo ""
+echo "== 9 · anatomia del movimiento, por HTTP =="
+#
+# Lo que solo esta ruta puede demostrar: que los campos nuevos sobreviven al
+# viaje por PostgREST con sus tipos, que la vista del catalogo responde con la
+# RLS del actor, y que la guarda de clase produce el estado HTTP correcto.
+
+# 9.1 · el catalogo de categorias, por la Data API.
+n=$(curl -s "${API}/rest/v1/category?select=id,applies_to,is_custom&order=ordinal" \
+      -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);
+const g=a.filter(x=>x.applies_to==="expense").length,i=a.filter(x=>x.applies_to==="income").length;
+console.log(a.length===15&&g===12&&i===3&&a.every(x=>x.is_custom===false)?"ok":`${a.length}/${g}/${i}`)}catch{console.log("err")}})')
+[ "${n}" = "ok" ] \
+  && ok "api.category entrega las 15 de sistema: 12 de gasto y 3 de ingreso" \
+  || fallo "api.category devolvio ${n}"
+
+# 9.2 · un INGRESO por la ruta real, con concepto, categoria y hora.
+r=$(rpc record_personal_income "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000001\",\"command_contract_version\":1,\"effective_date\":\"2026-02-10\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"amount\":\"150000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Nomina agosto\",\"category_id\":\"${CAT_INGRESO}\"}")")
+e=$(estado_de "${r}"); OP_ING=$(printf '%s' "$(cuerpo_de "${r}")" | jget operation_id)
+[ "${e}" = "200" ] && [ -n "${OP_ING}" ] \
+  && ok "record_personal_income: 200 por HTTP" \
+  || fallo "record_personal_income devolvio ${e} $(cuerpo_de "${r}")"
+
+# 9.3 · concepto vacio: rechazado con su estado.
+r=$(rpc record_personal_income "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000002\",\"command_contract_version\":1,\"effective_date\":\"2026-02-10\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"amount\":\"1000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"   \",\"category_id\":\"${CAT_INGRESO}\"}")")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+if [ "${e}" = "400" ] && printf '%s' "${c}" | grep -q 'PAYLOAD_INVALID'; then
+  ok "concepto en blanco: PAYLOAD_INVALID · 400"
+else
+  fallo "el concepto en blanco devolvio ${e} ${c}"
+fi
+
+# 9.4 · categoria de la familia equivocada.
+r=$(rpc record_personal_income "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000003\",\"command_contract_version\":1,\"effective_date\":\"2026-02-10\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"amount\":\"1000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"X\",\"category_id\":\"${CAT_GASTO}\"}")")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+if [ "${e}" = "422" ] && printf '%s' "${c}" | grep -q 'CATEGORY_NOT_USABLE'; then
+  ok "categoria de gasto en un ingreso: CATEGORY_NOT_USABLE · 422"
+else
+  fallo "la categoria cruzada devolvio ${e} ${c}"
+fi
+
+# 9.5 · LA GUARDA DE CLASE, por HTTP y con el expected_version_id correcto.
+V_ING=$("${DBQ[@]}" <<SQL 2>/dev/null
+select current_version_id from core.operation where id = '${OP_ING}';
+SQL
+)
+V_ING=$(tr -d '[:space:]' <<<"${V_ING}")
+r=$(rpc record_personal_expense "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000004\",\"command_contract_version\":2,\"effective_date\":\"2026-02-11\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"amount\":\"1000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Colado\",\"category_id\":\"${CAT_GASTO}\",\"operation_id\":\"${OP_ING}\",\"expected_version_id\":\"${V_ING}\"}")")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+if [ "${e}" = "422" ] && printf '%s' "${c}" | grep -q 'OPERATION_CLASS_MISMATCH'; then
+  ok "el writer de gasto no corrige un ingreso: OPERATION_CLASS_MISMATCH · 422"
+else
+  fallo "la correccion cruzada de clase devolvio ${e} ${c}"
+fi
+
+# 9.6 · misma clave con concepto distinto: conflicto, no replay silencioso.
+BASE_ING="{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000005\",\"command_contract_version\":1,\"effective_date\":\"2026-02-12\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"amount\":\"2000\",\"currency_definition_id\":\"${EUR}\",\"category_id\":\"${CAT_INGRESO}\""
+r=$(rpc record_personal_income "${TOK_A}" "$(env_payload "${BASE_ING},\"concept\":\"Uno\"}")")
+[ "$(estado_de "${r}")" = "200" ] || fallo "el ingreso base de 9.6 devolvio $(estado_de "${r}")"
+r=$(rpc record_personal_income "${TOK_A}" "$(env_payload "${BASE_ING},\"concept\":\"Uno\"}")")
+[ "$(printf '%s' "$(cuerpo_de "${r}")" | jget already_processed)" = "true" ] \
+  && ok "reintento identico: replay" || fallo "el reintento identico no fue replay"
+r=$(rpc record_personal_income "${TOK_A}" "$(env_payload "${BASE_ING},\"concept\":\"Otro\"}")")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+if [ "${e}" = "409" ] && printf '%s' "${c}" | grep -q 'IDEMPOTENCY_KEY_REUSED'; then
+  ok "misma clave con otro concepto: IDEMPOTENCY_KEY_REUSED · 409"
+else
+  fallo "el conflicto por concepto devolvio ${e} ${c}"
+fi
+
+# 9.7 · crear una categoria propia y verla en el catalogo, sin que B la vea.
+r=$(rpc create_custom_category "${TOK_A}" \
+      "$(env_payload '{"applies_to":"expense","label":"Gimnasio","icon":"figure.run"}')")
+e=$(estado_de "${r}"); CAT_MIA=$(printf '%s' "$(cuerpo_de "${r}")" | jget category_id)
+[ "${e}" = "200" ] && [ -n "${CAT_MIA}" ] \
+  && ok "create_custom_category: 200 por HTTP" \
+  || fallo "create_custom_category devolvio ${e} $(cuerpo_de "${r}")"
+
+n=$(curl -s "${API}/rest/v1/category?select=id,label,is_custom&id=eq.${CAT_MIA}" \
+      -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);console.log(a.length===1&&a[0].is_custom===true&&a[0].label==="Gimnasio"?"ok":JSON.stringify(a))}catch{console.log("err")}})')
+[ "${n}" = "ok" ] && ok "A ve su categoria propia como is_custom" || fallo "la propia devolvio ${n}"
+
+n=$(curl -s "${API}/rest/v1/category?select=id&id=eq.${CAT_MIA}" \
+      -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_B}" \
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).length)}catch{console.log("err")}})')
+[ "${n}" = "0" ] \
+  && ok "B no alcanza la categoria personalizada de A: ni su existencia" \
+  || fallo "B vio ${n} categorias ajenas"
+
+# 9.8 · renombrar alcanza al historico, y el cliente no puede escribir la vista.
+r=$(rpc record_personal_expense "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000006\",\"command_contract_version\":2,\"effective_date\":\"2026-02-13\",\"effective_time\":\"20:00\",\"scope_id\":\"${PA}\",\"amount\":\"5000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Cuota\",\"category_id\":\"${CAT_MIA}\"}")")
+[ "$(estado_de "${r}")" = "200" ] || fallo "el gasto con categoria propia devolvio $(estado_de "${r}")"
+r=$(rpc rename_custom_category "${TOK_A}" \
+      "$(env_payload "{\"category_id\":\"${CAT_MIA}\",\"label\":\"Deporte\"}")")
+[ "$(estado_de "${r}")" = "200" ] || fallo "rename_custom_category devolvio $(estado_de "${r}")"
+n=$("${DBQ[@]}" <<SQL 2>/dev/null
+select c.label from core.movement_detail d
+  join core.category c on c.id = d.category_id
+ where d.category_id = '${CAT_MIA}' limit 1;
+SQL
+)
+[ "$(tr -d '[:space:]' <<<"${n}")" = "Deporte" ] \
+  && ok "el renombrado alcanza al movimiento historico" \
+  || fallo "el historico muestra '${n}' tras renombrar"
+
+e=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${API}/rest/v1/category" \
+      -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
+      -H 'Content-Type: application/json' \
+      --data-binary '{"applies_to":"expense","label":"Directa","icon":"tag"}')
+case "${e}" in
+  200|201) fallo "el cliente ESCRIBIO directamente en api.category (${e})" ;;
+  *)       ok "el cliente no puede escribir api.category por la Data API (${e})" ;;
+esac
 
 # ============================================================================
 echo ""

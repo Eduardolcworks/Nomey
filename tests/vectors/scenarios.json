@@ -969,6 +969,148 @@
         ],
         "balanceEffectScopes": ["personal-M"]
       }
+    },
+    {
+      "id": "ingreso-personal-simple",
+      "source": "data-model.md §3 · clase ingreso",
+      "operations": [
+        {
+          "kind": "personalIncome",
+          "scope": "personal-A",
+          "currency": "eur",
+          "amount": "150000"
+        }
+      ],
+      "expect": {
+        "balances": [
+          {
+            "scope": "personal-A",
+            "currency": "eur",
+            "amount": "150000"
+          }
+        ],
+        "economicIncome": [
+          {
+            "scope": "personal-A",
+            "currency": "eur",
+            "amount": "150000"
+          }
+        ],
+        "economicExpense": [
+          {
+            "scope": "personal-A",
+            "currency": "eur",
+            "amount": "0"
+          }
+        ],
+        "debts": []
+      }
+    },
+    {
+      "id": "ingreso-y-gasto-no-se-mezclan",
+      "source": "data-model.md §3 · invariante 7",
+      "operations": [
+        {
+          "kind": "personalIncome",
+          "scope": "personal-A",
+          "currency": "eur",
+          "amount": "200000"
+        },
+        {
+          "kind": "personalExpense",
+          "scope": "personal-A",
+          "currency": "eur",
+          "amount": "4550"
+        }
+      ],
+      "expect": {
+        "balances": [
+          {
+            "scope": "personal-A",
+            "currency": "eur",
+            "amount": "195450"
+          }
+        ],
+        "economicIncome": [
+          {
+            "scope": "personal-A",
+            "currency": "eur",
+            "amount": "200000"
+          }
+        ],
+        "economicExpense": [
+          {
+            "scope": "personal-A",
+            "currency": "eur",
+            "amount": "4550"
+          }
+        ],
+        "debts": []
+      }
+    },
+    {
+      "id": "ingreso-con-escala-cero",
+      "source": "ADR-003 §3 · la escala la fija la definicion",
+      "operations": [
+        {
+          "kind": "personalIncome",
+          "scope": "personal-JPY",
+          "currency": "jpy",
+          "amount": "380000"
+        }
+      ],
+      "expect": {
+        "balances": [
+          {
+            "scope": "personal-JPY",
+            "currency": "jpy",
+            "amount": "380000"
+          }
+        ],
+        "economicIncome": [
+          {
+            "scope": "personal-JPY",
+            "currency": "jpy",
+            "amount": "380000"
+          }
+        ],
+        "debts": []
+      }
+    },
+    {
+      "id": "un-ajuste-no-alimenta-estadisticas",
+      "source": "data-model.md §3 · lista de admitidos",
+      "operations": [
+        {
+          "kind": "personalIncome",
+          "scope": "personal-A",
+          "currency": "eur",
+          "amount": "100000"
+        },
+        {
+          "kind": "adjustment",
+          "scope": "personal-A",
+          "currency": "eur",
+          "delta": "5000"
+        }
+      ],
+      "expect": {
+        "balances": [
+          {
+            "scope": "personal-A",
+            "currency": "eur",
+            "amount": "105000"
+          }
+        ],
+        "economicIncome": [
+          {
+            "scope": "personal-A",
+            "currency": "eur",
+            "amount": "100000"
+          }
+        ],
+        "debts": []
+      }
     }
   ]
 }

@@ -155,6 +155,15 @@ jobs:
       - name: Personal provisioning checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/personal-provisioning.sql
 
+      # Movement anatomy: concept, category, effective time, the income class and
+      # the cross-class correction guard. Section G is the one that matters most:
+      # it proves a writer of one class cannot correct an operation of another,
+      # and G7 checks the property the guard protects -no live effect carries an
+      # accounting class foreign to its operation's class- over everything the
+      # check wrote, not just the cases it set up.
+      - name: Movement anatomy checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/movement-anatomy.sql
+
       # Real concurrency. A single psql session has none, so the debt
       # serialization protocol of ADR-013 §11 cannot be proven by a check: this
       # opens simultaneous sessions, the way E15-C did. It runs LAST because it

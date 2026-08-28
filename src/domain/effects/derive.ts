@@ -34,6 +34,29 @@ export function derivePersonalExpense(input: { scope: ScopeId; amount: Money }):
   ];
 }
 
+/**
+ * Ingreso en el Modo Personal · espejo exacto del gasto personal.
+ *
+ * **No es un gasto negativo ni un ajuste positivo**, y la diferencia no es
+ * estética: las estadísticas son una **lista de admitidos** —solo `income` y
+ * `expense` las alimentan, invariante 7— así que un ingreso disfrazado de
+ * ajuste desaparecería de ellas **sin que nada fallara**. Es exactamente el
+ * fallo silencioso contra el que existe esa lista.
+ *
+ * Como en el gasto, el participante económico es **legítimamente nulo**: el
+ * Modo Personal no nomina participante.
+ */
+export function derivePersonalIncome(input: { scope: ScopeId; amount: Money }): Effect[] {
+  return [
+    effect({
+      scope: input.scope,
+      accountingClass: 'income',
+      balance: input.amount,
+      economic: { participant: null, amount: input.amount },
+    }),
+  ];
+}
+
 /** Escenario 4.11 · ajuste, incluida la declaración inicial de saldo. */
 export function deriveAdjustment(input: { scope: ScopeId; delta: Money }): Effect[] {
   return [
