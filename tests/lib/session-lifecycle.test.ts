@@ -20,7 +20,7 @@ import type { AuthenticatedUser, SessionState } from '../../src/features/session
  */
 
 function fakeAuth() {
-  const listeners: ((event: string, user: AuthenticatedUser | null) => void)[] = [];
+  const listeners: ((user: AuthenticatedUser | null) => void)[] = [];
   const calls: string[] = [];
   let unsubscribes = 0;
 
@@ -50,20 +50,8 @@ function fakeAuth() {
     calls,
     listenerCount: () => listeners.length,
     unsubscribeCount: () => unsubscribes,
-    /**
-     * Un evento ordinario, que es lo que era el puerto antes de F5.E.
-     *
-     * Se mantiene tal cual para que ninguna prueba de F5.B cambie: lo que
-     * comprobaban -restauracion, watchdog, refresco, teardown- no depende del
-     * nombre del evento, y reescribirlas habria sido debilitar la cobertura
-     * existente para acomodar codigo nuevo.
-     */
     emit: (user: AuthenticatedUser | null) => {
-      for (const listener of listeners) listener(user === null ? 'SIGNED_OUT' : 'SIGNED_IN', user);
-    },
-    /** Para lo unico que si depende del evento: el recovery. */
-    emitEvent: (event: string, user: AuthenticatedUser | null) => {
-      for (const listener of listeners) listener(event, user);
+      for (const listener of listeners) listener(user);
     },
   };
 }
@@ -366,77 +354,5 @@ describe('ciclo de vida de la sesión', () => {
       expect(onRefreshError).toHaveBeenCalledWith(boom);
       stop();
     });
-  });
-});
-
-describe('recuperación de contraseña', () => {
-  const ALICE_USER = { id: 'alice-1', email: 'alice@example.com' };
-
-  it('`PASSWORD_RECOVERY` resuelve a `recovering`, no a `signed-in`', () => {
-    const h = harness();
-    h.emitEvent('PASSWORD_RECOVERY', ALICE_USER);
-
-    expect(h.emitted.at(-1)).toEqual({ status: 'recovering' });
-    h.stop();
-  });
-
-  it('y SIGUE en recovering aunque lleguen eventos ordinarios con sesión', () => {
-    /*
-     * Ésta es la prueba que sostiene el bloque entero.
-     *
-     * Guardar la contraseña nueva emite `USER_UPDATED`, y un refresco emite
-     * `TOKEN_REFRESHED`; los dos traen una sesión perfectamente válida. Si el
-     * estado saliera del último evento, el primero de ellos pasaría la app a
-     * `signed-in` y soltaría a la persona en Inicio a media recuperación.
-     */
-    const h = harness();
-    h.emitEvent('PASSWORD_RECOVERY', ALICE_USER);
-    h.emitEvent('USER_UPDATED', ALICE_USER);
-    h.emitEvent('TOKEN_REFRESHED', ALICE_USER);
-
-    expect(h.emitted.at(-1)).toEqual({ status: 'recovering' });
-    h.stop();
-  });
-
-  it('termina cuando la sesión desaparece', () => {
-    // El cierre de sesión deliberado del final del flujo, y también el
-    // abandono. Es la ÚNICA salida.
-    const h = harness();
-    h.emitEvent('PASSWORD_RECOVERY', ALICE_USER);
-    h.emitEvent('SIGNED_OUT', null);
-
-    expect(h.emitted.at(-1)).toEqual({ status: 'signed-out' });
-    h.stop();
-  });
-
-  it('y después un login normal vuelve a ser un login normal', () => {
-    const h = harness();
-    h.emitEvent('PASSWORD_RECOVERY', ALICE_USER);
-    h.emitEvent('SIGNED_OUT', null);
-    h.emitEvent('SIGNED_IN', ALICE_USER);
-
-    expect(h.emitted.at(-1)?.status).toBe('signed-in');
-    h.stop();
-  });
-
-  it('un login ordinario NUNCA entra en recovering', () => {
-    const h = harness();
-    h.emitEvent('INITIAL_SESSION', null);
-    h.emitEvent('SIGNED_IN', ALICE_USER);
-    h.emitEvent('TOKEN_REFRESHED', ALICE_USER);
-
-    expect(h.emitted.map((s) => s.status)).toEqual(['signed-out', 'signed-in', 'signed-in']);
-    h.stop();
-  });
-
-  it('el recovery también retira el watchdog: es una respuesta real', () => {
-    const h = harness();
-    h.emitEvent('PASSWORD_RECOVERY', ALICE_USER);
-    // Si el watchdog siguiera vivo, pisaria el recovery con `unavailable`.
-    expect(h.timers.pendingCount()).toBe(0);
-    h.timers.fire();
-
-    expect(h.emitted.at(-1)).toEqual({ status: 'recovering' });
-    h.stop();
   });
 });

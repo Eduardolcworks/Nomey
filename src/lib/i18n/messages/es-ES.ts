@@ -61,6 +61,8 @@ export const esES = {
   'auth.recoverSentBody':
     'Si existe una cuenta con ese email, recibirás un enlace para restablecer tu contraseña.',
   'auth.recoverSentHint': 'El enlace sirve una sola vez y caduca.',
+  'auth.recoveryChecking': 'Comprobando el enlace…',
+  'auth.recoveryFailedTitle': 'Enlace no válido',
   'auth.newPasswordTitle': 'Nueva contraseña',
   'auth.newPasswordSubtitle': 'Elige una contraseña nueva para tu cuenta.',
   'auth.newPassword': 'Contraseña nueva',

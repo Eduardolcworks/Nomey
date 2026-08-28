@@ -43,5 +43,7 @@ export {
 } from './credentials';
 export { createExclusiveRunner, SKIPPED, type ExclusiveRunner } from './submit-guard';
 export { useAuthSubmit, type SubmitState } from './use-auth-submit';
+export { RecoveryProvider, useRecovery } from './recovery-controller';
+export { isRecoveryActive, RECOVERY_IDLE, type RecoveryState } from './recovery-state';
 export { readRecoveryLink, type RecoveryProof } from './recovery-link';
 export { useRecoveryLink } from './use-recovery-link';

@@ -1,4 +1,4 @@
-import { SESSION_STORAGE_KEY, sessionStorage, supabase } from '@/lib/supabase';
+import { recoveryClient, SESSION_STORAGE_KEY, sessionStorage, supabase } from '@/lib/supabase';
 
 import {
   type AuthErrorKey,
@@ -243,7 +243,10 @@ export async function requestPasswordReset(rawEmail: string): Promise<AuthResult
  * otp_expired` and are deliberately indistinguishable from each other.
  */
 export async function redeemRecovery(tokenHash: string): Promise<AuthResult> {
-  const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
+  const { error } = await recoveryClient().auth.verifyOtp({
+    token_hash: tokenHash,
+    type: 'recovery',
+  });
 
   if (error !== null) return { ok: false, messageKey: recoveryErrorKey(error) };
   return { ok: true };
@@ -271,10 +274,12 @@ export async function redeemRecovery(tokenHash: string): Promise<AuthResult> {
  * password change did succeed. The state that matters is on the server.
  */
 export async function completeRecovery(rawPassword: string): Promise<AuthResult> {
-  const { error } = await supabase.auth.updateUser({ password: rawPassword });
+  const ephemeral = recoveryClient();
+
+  const { error } = await ephemeral.auth.updateUser({ password: rawPassword });
 
   if (error !== null) return { ok: false, messageKey: updateUserErrorKey(error) };
 
-  await supabase.auth.signOut({ scope: 'local' });
+  await ephemeral.auth.signOut({ scope: 'local' });
   return { ok: true };
 }

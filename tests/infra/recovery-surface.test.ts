@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import LAYOUT from '../../src/app/_layout.tsx?raw';
+import CLIENT_RAW from '../../src/lib/supabase/recovery-client.ts?raw';
+import CONTROLLER_RAW from '../../src/features/auth/recovery-controller.tsx?raw';
+import LIFECYCLE_RAW from '../../src/features/session/session-lifecycle.ts?raw';
+import SESSION_STATE_RAW from '../../src/features/session/session-state.ts?raw';
 import SIGN_IN from '../../src/app/(auth)/sign-in.tsx?raw';
 import FORGOT_RAW from '../../src/app/(auth)/forgot-password.tsx?raw';
 import NEW_PASSWORD_RAW from '../../src/app/(recovery)/new-password.tsx?raw';
@@ -28,6 +32,10 @@ const NEW_PASSWORD = stripComments(NEW_PASSWORD_RAW);
 const HOOK = stripComments(HOOK_RAW);
 const SERVICE = stripComments(SERVICE_RAW);
 const PARSER = stripComments(PARSER_RAW);
+const CLIENT = stripComments(CLIENT_RAW);
+const CONTROLLER = stripComments(CONTROLLER_RAW);
+const LIFECYCLE = stripComments(LIFECYCLE_RAW);
+const SESSION_STATE = stripComments(SESSION_STATE_RAW);
 
 describe('la puerta de entrada', () => {
   it('Entrar ofrece recuperar la contraseña', () => {
@@ -82,7 +90,8 @@ describe('el token nunca se queda en ningún sitio', () => {
 
 describe('el enlace lo canjea verifyOtp, no setSession', () => {
   it('el servicio usa `verifyOtp` con tipo recovery', () => {
-    expect(SERVICE).toContain("verifyOtp({ token_hash: tokenHash, type: 'recovery' })");
+    expect(SERVICE).toContain("type: 'recovery'");
+    expect(SERVICE).toContain('verifyOtp');
   });
 
   it('y NUNCA `setSession`, que es la forma del rebote por navegador', () => {
@@ -118,7 +127,7 @@ describe('el correo', () => {
 
 describe('las guardas de ruta', () => {
   it('recovery es su propia rama, con su propio predicado', () => {
-    expect(LAYOUT).toContain('isRecovering(state)');
+    expect(LAYOUT).toContain('isRecoveryActive(recovery)');
     expect(LAYOUT).toContain('<Stack.Screen name="(recovery)" />');
   });
 
@@ -153,10 +162,93 @@ describe('nadie navega a mano', () => {
   });
 
   it('la contraseña nueva no se autoconcede la pantalla', () => {
-    // No hay bandera local que la monte: existe porque el estado de sesión es
-    // `recovering`, y eso lo produjo el servidor.
-    expect(NEW_PASSWORD).not.toContain('isRecovering');
-    expect(NEW_PASSWORD).not.toContain('setRecovering');
+    // No decide ella si se monta: lo decide el controlador, y el controlador
+    // sólo se activa porque `verifyOtp` tuvo éxito contra el servidor.
+    expect(NEW_PASSWORD).not.toContain('isRecoveryActive');
+    expect(NEW_PASSWORD).not.toContain('redeem(');
+  });
+});
+
+describe('el cliente de recovery está aislado del principal', () => {
+  it('son dos instancias distintas', () => {
+    expect(CLIENT).toContain('createClient(');
+    expect(CLIENT).not.toContain("from './client'");
+    expect(SERVICE).toContain('recoveryClient()');
+  });
+
+  it('NO persiste la sesión', () => {
+    /*
+     * El defecto material que corrige. Con `persistSession: true` la sesión de
+     * recovery quedaba en el llavero; matar la app y reabrir la restauraba como
+     * INITIAL_SESSION y la app aterrizaba en `signed-in`, con la contraseña sin
+     * cambiar. Medido antes de corregirlo.
+     */
+    expect(CLIENT).toContain('persistSession: false');
+  });
+
+  it('ni refresca, ni lee sesiones de una URL', () => {
+    expect(CLIENT).toContain('autoRefreshToken: false');
+    expect(CLIENT).toContain('detectSessionInUrl: false');
+  });
+
+  it('no usa NUESTRO almacenamiento, ni ningún otro', () => {
+    // Con `persistSession: false` auth-js ignora `settings.storage` y usa un
+    // adaptador en memoria: no hay configuración que llegue al llavero.
+    expect(CLIENT).not.toContain('sessionStorage');
+    expect(CLIENT).not.toContain('SecureStore');
+    expect(CLIENT).not.toContain('AsyncStorage');
+    expect(CLIENT).not.toMatch(/storage:/);
+  });
+
+  it('tiene su propio namespace, distinto del de la sesión ordinaria', () => {
+    expect(CLIENT).toContain('RECOVERY_STORAGE_KEY');
+    expect(CLIENT).not.toContain('SESSION_STORAGE_KEY');
+  });
+
+  it('y sus eventos no pueden llegar al SessionProvider', () => {
+    // El provider principal se suscribe al cliente principal y a ninguno más.
+    expect(CONTROLLER).not.toContain('onAuthStateChange');
+    expect(CLIENT).not.toContain('onAuthStateChange');
+  });
+});
+
+describe('el SessionProvider volvió a representar sólo la sesión ordinaria', () => {
+  it('no tiene estado de recovery', () => {
+    expect(SESSION_STATE).not.toContain('recovering');
+    expect(SESSION_STATE).not.toContain('isRecovering');
+  });
+
+  it('ni el lifecycle mira el nombre del evento', () => {
+    // El puerto volvió a entregar sólo el usuario, como en F5.B. El evento
+    // `PASSWORD_RECOVERY` pertenece al flujo de recovery, no a este ciclo.
+    expect(LIFECYCLE).not.toContain('PASSWORD_RECOVERY');
+    expect(LIFECYCLE).toContain('onAuthStateChange((user)');
+  });
+
+  it('durante un recovery la rama pública queda cedida, no falseada', () => {
+    // `isPublic(state)` sigue siendo cierto por debajo; lo único que ocurre es
+    // que la superficie de recovery tiene prioridad mientras dura.
+    expect(LAYOUT).toContain('isPublic(state) && !recovering');
+    expect(LAYOUT).toContain('isSignedIn(state) && !recovering');
+  });
+});
+
+describe('un recovery interrumpido no se reanuda', () => {
+  it('no hay estado de recovery restaurable', () => {
+    /*
+     * El fail-closed es intencionado: si la persona cerró la app a medias, pide
+     * otro enlace. No hay "continuar recuperación", porque no hay nada
+     * guardado que continuar.
+     */
+    expect(CONTROLLER).not.toContain('restoring');
+    expect(CONTROLLER).not.toContain('getItem');
+    expect(CONTROLLER).not.toContain('setItem');
+  });
+
+  it('y el controlador no escribe en ningún sitio', () => {
+    expect(CONTROLLER).not.toContain('AsyncStorage');
+    expect(CONTROLLER).not.toContain('SecureStore');
+    expect(CONTROLLER).not.toContain('sessionStorage');
   });
 });
 

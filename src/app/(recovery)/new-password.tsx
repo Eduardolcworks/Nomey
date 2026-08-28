@@ -4,62 +4,77 @@ import { StyleSheet, type TextInput, View } from 'react-native';
 import {
   AuthField,
   AuthScreen,
-  completeRecovery,
+  createExclusiveRunner,
   passwordProblem,
-  useAuthSubmit,
+  SKIPPED,
+  useRecovery,
 } from '@/features/auth';
 import { useTranslation } from '@/lib/i18n';
-import { ActionButton, IconButton, ThemedText } from '@/ui/components';
+import { ActionButton, IconButton, LoadingState, ThemedText } from '@/ui/components';
 import { Spacing, useTheme } from '@/ui/theme';
 
 /**
- * Choosing the new password.
+ * The whole recovery transaction, as one surface.
  *
- * **This screen cannot be reached without a redeemed recovery.** It is not
- * guarded by a flag it sets itself: it is mounted only while the session state
- * is `recovering`, and that state exists only because `verifyOtp` answered
- * successfully and the server emitted `PASSWORD_RECOVERY`. A signed-out person
- * cannot navigate here, and if they somehow did, `updateUser` would be an
- * unauthenticated call and fail - the routing is convenience, the session is
- * the authority.
+ * It renders every state the controller can be in - redeeming, recovering,
+ * error, completed - rather than pushing between routes, because a recovery is
+ * one transaction and its steps are not places. Nothing here navigates.
  *
- * It shows no name and no email. The recovering state carries no identity on
- * purpose: whoever is holding the phone opened a link from an inbox, and
- * printing the account's address back at them would confirm whose it is.
+ * **This screen cannot be reached without a redeemed link.** It is mounted
+ * only while the recovery controller is active, and the controller becomes
+ * active only because `verifyOtp` succeeded against the ephemeral client. The
+ * session behind it lives in that client's memory and nowhere else; the main
+ * `SessionProvider` stays `signed-out` throughout, truthfully, because the main
+ * client holds nothing.
  *
- * On success the session that the link created is closed, so the ending is the
- * public branch and a normal sign-in. Nothing here navigates: the sign-out
- * emits the event, `recovering` clears, and the tree moves by itself.
+ * It shows no name and no email. Whoever holds the phone opened a link from an
+ * inbox, and printing the account's address back at them confirms whose it is.
+ *
+ * **Killing the app here loses the recovery, deliberately.** The ephemeral
+ * session is never written down, so there is nothing to resume and no
+ * "continue where you left off". The next launch is the sign-in screen and the
+ * person asks for a new link - which is the correct outcome for a password
+ * change nobody finished.
  */
-export default function NewPasswordScreen() {
+export default function RecoveryScreen() {
   const { t } = useTranslation();
   const theme = useTheme();
-  const { state, submit, clearError, running } = useAuthSubmit();
+  const { state, setPassword, dismiss } = useRecovery();
 
-  const [password, setPassword] = useState('');
+  const [password, setPasswordText] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [local, setLocal] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
-  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
   const confirmField = useRef<TextInput>(null);
+
+  /*
+   * One submission at a time, for the same reason every other form in this
+   * feature has one: disabling the button is the visible half, and between the
+   * tap and the re-render there is a window. Two saves of the same password
+   * would be two `PUT /user` calls on a session meant to be spent once.
+   */
+  const run = useRef(createExclusiveRunner()).current;
 
   async function onSubmit() {
     const problem = passwordProblem(password, confirmation);
     setLocal(problem);
     if (problem !== null) return;
 
-    clearError();
-    const result = await submit(() => completeRecovery(password));
-    /*
-     * The success frame is shown, and then the sign-out inside
-     * `completeRecovery` takes the branch away. Setting it is not pointless:
-     * the two happen in the same beat, and without it the screen would blank
-     * with no confirmation that anything worked.
-     */
-    if (result?.ok === true) setDone(true);
+    setBusy(true);
+    const outcome = await run(async () => setPassword(password));
+    if (outcome !== SKIPPED) setBusy(false);
   }
 
-  if (done) {
+  if (state.status === 'redeeming') {
+    return (
+      <AuthScreen>
+        <LoadingState label={t('auth.recoveryChecking')} />
+      </AuthScreen>
+    );
+  }
+
+  if (state.status === 'completed') {
     return (
       <AuthScreen>
         <View style={styles.heading}>
@@ -68,18 +83,41 @@ export default function NewPasswordScreen() {
             {t('auth.newPasswordDoneBody')}
           </ThemedText>
         </View>
+        <ActionButton label={t('auth.checkEmailBack')} onPress={dismiss} tone="primary" />
+      </AuthScreen>
+    );
+  }
+
+  /*
+   * A refused link is terminal for THIS link and nothing else: the way forward
+   * is a new one, so the only action is back to sign-in. It never offers a
+   * retry, because used, expired and invented are the same answer and none of
+   * them gets better by asking again.
+   */
+  if (state.status === 'error') {
+    return (
+      <AuthScreen>
+        <View style={styles.heading}>
+          <ThemedText variant="display">{t('auth.recoveryFailedTitle')}</ThemedText>
+          <ThemedText
+            variant="body"
+            themeColor="textSecondary"
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert">
+            {t(state.messageKey)}
+          </ThemedText>
+        </View>
+        <ActionButton label={t('auth.checkEmailBack')} onPress={dismiss} tone="primary" />
       </AuthScreen>
     );
   }
 
   const error =
-    state.status === 'failed'
-      ? t(state.messageKey)
-      : local === 'empty'
-        ? t('authError.passwordRequired')
-        : local === 'mismatch'
-          ? t('authError.passwordMismatch')
-          : undefined;
+    local === 'empty'
+      ? t('authError.passwordRequired')
+      : local === 'mismatch'
+        ? t('authError.passwordMismatch')
+        : undefined;
 
   return (
     <AuthScreen>
@@ -96,8 +134,8 @@ export default function NewPasswordScreen() {
             label={t('auth.newPassword')}
             placeholder={t('auth.passwordPlaceholder')}
             value={password}
-            onChangeText={setPassword}
-            editable={!running}
+            onChangeText={setPasswordText}
+            editable={!busy}
             secureTextEntry={!visible}
             autoCapitalize="none"
             autoComplete="new-password"
@@ -107,9 +145,8 @@ export default function NewPasswordScreen() {
             submitBehavior="submit"
           />
           {/*
-           * One toggle for both fields. Two would let them disagree, and a
-           * confirmation you can read while the original is hidden defeats
-           * the point of having a confirmation at all.
+           * One toggle for both fields. Two could disagree, and a confirmation
+           * you can read while the original is hidden is not a confirmation.
            */}
           <IconButton
             name={visible ? 'eye.slash' : 'eye'}
@@ -127,7 +164,7 @@ export default function NewPasswordScreen() {
           placeholder={t('auth.passwordPlaceholder')}
           value={confirmation}
           onChangeText={setConfirmation}
-          editable={!running}
+          editable={!busy}
           secureTextEntry={!visible}
           autoCapitalize="none"
           autoComplete="new-password"
@@ -148,11 +185,11 @@ export default function NewPasswordScreen() {
       )}
 
       <ActionButton
-        label={running ? t('auth.working') : t('auth.newPasswordAction')}
+        label={busy ? t('auth.working') : t('auth.newPasswordAction')}
         onPress={() => void onSubmit()}
         tone="primary"
-        disabled={running}
-        busy={running}
+        disabled={busy}
+        busy={busy}
       />
     </AuthScreen>
   );

@@ -1,6 +1,5 @@
 import {
   type AuthenticatedUser,
-  RECOVERING,
   type SessionState,
   stateFromUser,
   UNAVAILABLE,
@@ -38,25 +37,9 @@ import {
 /** Only what a subscription needs to be cancellable. */
 export type AuthSubscription = { unsubscribe(): void };
 
-/**
- * The auth event name, kept rather than discarded.
- *
- * It used to be dropped: the port handed over a user and nothing else, because
- * "who is signed in" was the only question being asked. Recovery makes the
- * event itself load-bearing - `PASSWORD_RECOVERY` and `SIGNED_IN` both arrive
- * with a perfectly good session, and the difference between them is the whole
- * difference between letting someone change their password and dropping them
- * on Inicio holding a session that came from an email link.
- *
- * Typed as an open string on purpose. `auth-js` adds events between versions,
- * and an exhaustive union here would turn a new one into a typecheck failure
- * rather than into the default branch, which is where an unknown event belongs.
- */
-export type AuthEvent = 'PASSWORD_RECOVERY' | 'SIGNED_OUT' | (string & {});
-
 /** The slice of the Supabase auth client this needs. */
 export type AuthPort = {
-  onAuthStateChange(callback: (event: AuthEvent, user: AuthenticatedUser | null) => void): {
+  onAuthStateChange(callback: (user: AuthenticatedUser | null) => void): {
     data: { subscription: AuthSubscription };
   };
   startAutoRefresh(): Promise<void>;
@@ -129,35 +112,12 @@ export function startSessionLifecycle(options: LifecycleOptions): () => void {
   }
 
   // ------------------------------------------------------------------ auth --
-  /**
-   * Whether we are in the middle of a password recovery.
-   *
-   * STICKY, and that is the entire point rather than an implementation
-   * detail. `PASSWORD_RECOVERY` arrives once, but the events that follow it
-   * are ordinary ones carrying an ordinary session: saving the new password
-   * emits `USER_UPDATED`, and a refresh emits `TOKEN_REFRESHED`. If the state
-   * were derived from the latest event alone, the first of those would flip
-   * the app to `signed-in` and drop the person on Inicio - mid-recovery, and
-   * holding a session that came out of an email link.
-   *
-   * It clears on exactly one condition: the session going away. That covers
-   * both endings - finishing the recovery, which signs out on purpose, and
-   * abandoning it - and it cannot be cleared by anything the recovery flow
-   * itself does.
-   */
-  let recovering = false;
-
-  const { data } = auth.onAuthStateChange((event, user) => {
+  const { data } = auth.onAuthStateChange((user) => {
     // Any real answer retires the watchdog, including the one that arrives
     // after it already fired: `unavailable` is a holding state, not a verdict.
     answered = true;
     cancelWatchdog();
-
-    if (event === 'PASSWORD_RECOVERY') recovering = true;
-    // No session, no recovery. `stateFromUser` resolves this to `signed-out`.
-    if (user === null || user === undefined) recovering = false;
-
-    publish(recovering ? RECOVERING : stateFromUser(user));
+    publish(stateFromUser(user));
   });
 
   watchdog = setTimer(() => {

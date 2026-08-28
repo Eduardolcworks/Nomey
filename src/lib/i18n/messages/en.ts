@@ -58,6 +58,8 @@ export const en: Record<MessageKey, string> = {
   'auth.recoverSentBody':
     'If an account exists for that email, you will receive a link to reset your password.',
   'auth.recoverSentHint': 'The link works once and expires.',
+  'auth.recoveryChecking': 'Checking the link…',
+  'auth.recoveryFailedTitle': 'Link not valid',
   'auth.newPasswordTitle': 'New password',
   'auth.newPasswordSubtitle': 'Choose a new password for your account.',
   'auth.newPassword': 'New password',

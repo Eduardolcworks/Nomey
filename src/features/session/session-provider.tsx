@@ -29,12 +29,8 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 /** Adapts the auth client to the port: the token never crosses this boundary. */
 const authPort: AuthPort = {
   onAuthStateChange: (callback) =>
-    // The event name is forwarded now, and the token still is not. Recovery
-    // arrives as `PASSWORD_RECOVERY` carrying a session that is
-    // indistinguishable from a sign-in by its user alone, so the name is the
-    // only thing that tells them apart.
-    supabase.auth.onAuthStateChange((event, session) => {
-      callback(event, session?.user ?? null);
+    supabase.auth.onAuthStateChange((_event, session) => {
+      callback(session?.user ?? null);
     }),
   startAutoRefresh: () => supabase.auth.startAutoRefresh(),
   stopAutoRefresh: () => supabase.auth.stopAutoRefresh(),
