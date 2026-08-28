@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import BUNDLE_CHECK from '../../scripts/bundle-secrets-check.sh?raw';
+
 /**
  * Ninguna credencial de backend en lo que se empaqueta.
  *
@@ -96,5 +98,55 @@ describe('ausencia de credenciales de backend en el fuente', () => {
       'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
       'EXPO_PUBLIC_SUPABASE_URL',
     ]);
+  });
+});
+
+describe('la tercera capa: el bundle exportado', () => {
+  /**
+   * El contrato de `scripts/bundle-secrets-check.sh`, no su ejecución.
+   *
+   * Ejecutarlo aquí exigiría exportar la app, que tarda medio minuto y necesita
+   * el `.env` de la máquina — ninguna de las dos cosas cabe en `npm test`. Lo
+   * que sí cabe, y es lo que de verdad se puede romper por descuido, es la
+   * clasificación: **la clave publicable viaja en el bundle A PROPÓSITO**, y
+   * «endurecer» el check para que también falle con ella lo convertiría en un
+   * check que hay que silenciar. Esto lo fija.
+   */
+  it('busca las mismas formas privadas que rechaza `supabase-env.ts`', () => {
+    expect(BUNDLE_CHECK).toContain('sb_secret_[A-Za-z0-9_-]{8,}');
+    expect(BUNDLE_CHECK).toContain('eyJ[A-Za-z0-9_-]{10,}');
+    expect(BUNDLE_CHECK).toContain('BEGIN [A-Z ]*PRIVATE KEY');
+  });
+
+  it('y NUNCA trata la clave publicable como un hallazgo', () => {
+    // Se busca, sí: pero para exigir que ESTÉ, no para prohibirla.
+    const denuncias = BUNDLE_CHECK.split('\n').filter(
+      (line) => line.includes('comprueba_ausencia') && line.includes('sb_publishable_'),
+    );
+    expect(denuncias).toEqual([]);
+    expect(BUNDLE_CHECK).toContain('la clave publicable esta inlineada');
+  });
+
+  it('exige que el artefacto lleve configuración real', () => {
+    // Un grep de ausencia sobre un bundle vacío pasa sin demostrar nada.
+    expect(BUNDLE_CHECK).toContain("'sb_publishable_[A-Za-z0-9_-]{8,}'");
+    expect(BUNDLE_CHECK).toMatch(/ficheros" -lt 3/);
+  });
+
+  it('exporta sin bytecode y con la caché limpia, que fue lo medido', () => {
+    /*
+     * Sin `--no-bytecode`, la tabla de cadenas de Hermes pega literales
+     * contiguos y el prefijo legítimo `sb_secret_` se lee como una clave.
+     * Sin `--clear`, Metro reutiliza el inlineado anterior y el check valida
+     * una configuración que ya no existe. Las dos, medidas.
+     */
+    expect(BUNDLE_CHECK).toContain('--no-bytecode');
+    expect(BUNDLE_CHECK).toContain('--clear');
+  });
+
+  it('y el propio script no lleva ninguna credencial dentro', () => {
+    for (const { pattern } of CREDENTIAL_SHAPES) {
+      expect(BUNDLE_CHECK).not.toMatch(pattern);
+    }
   });
 });
