@@ -188,12 +188,15 @@ export type RecoveryErrorTitleKey =
   /** The server's verdict: this is no longer a proof. */
   | 'auth.recoveryFailedTitle'
   /** No verdict. The link may be perfectly good. */
-  | 'auth.recoveryUnresolvedTitle';
+  | 'auth.recoveryUnresolvedTitle'
+  /** The link was fine; the session it opened is provably gone. */
+  | 'auth.recoveryExpiredTitle';
 
 export type RecoveryFailure = {
   /** `dead` only when the server said so. Anything else proved nothing. */
   readonly outcome: 'dead' | 'unresolved';
-  readonly titleKey: RecoveryErrorTitleKey;
+  /** Never the session title: this classifier only ever judges the proof. */
+  readonly titleKey: Exclude<RecoveryErrorTitleKey, 'auth.recoveryExpiredTitle'>;
   readonly messageKey: AuthErrorKey;
 };
 
@@ -235,8 +238,79 @@ export function recoveryFailure(failure: AuthFailure): RecoveryFailure {
  * throw - answers with the neutral sentence. GoTrue's own text never reaches
  * the screen, here least of all: this is the one form where the value being
  * refused is a password.
+ *
+ * And one class of failure ends the transaction instead of annotating the
+ * form: an ephemeral session the server has told us is unusable. See
+ * `SESSION_LOST` for exactly which codes, and why the list is short.
  */
-export function recoveryPasswordErrorKey(failure: AuthFailure): AuthErrorKey {
-  if (failure.code === 'weak_password') return 'authError.weakPassword';
-  return 'authError.passwordChangeFailed';
+export type RecoverySaveFailure =
+  /**
+   * Stay on the form. Either the person can fix it, or nothing was proven -
+   * and in both cases another tap on Guardar is a sensible thing to do.
+   */
+  | { readonly outcome: 'retryable'; readonly messageKey: AuthErrorKey }
+  /**
+   * The ephemeral session is provably unusable, so the transaction is over.
+   *
+   * This is the one save failure that must NOT keep offering a retry: the
+   * proof was already spent by `verifyOtp`, and no number of `updateUser`
+   * calls can bring back the session it produced. Leaving the form up would
+   * be an invitation to loop forever.
+   */
+  | {
+      readonly outcome: 'session-lost';
+      readonly titleKey: 'auth.recoveryExpiredTitle';
+      readonly messageKey: 'authError.recoverySessionLost';
+    };
+
+/**
+ * The codes that DEMONSTRATE the ephemeral session cannot be used again.
+ *
+ * Read from `@supabase/auth-js@2.112.4`'s own `ErrorCode` union rather than
+ * guessed, and kept to the ones whose meaning is unambiguous:
+ *
+ * - `session_not_found` / `session_expired` - the session behind the token is
+ *   gone or past its lifetime.
+ * - `bad_jwt` - the token itself is not acceptable.
+ * - `refresh_token_not_found` / `refresh_token_already_used` - `updateUser`
+ *   loads the session first and will refresh an expired access token even with
+ *   `autoRefreshToken: false`, so these do reach this path, and both mean the
+ *   session cannot be renewed.
+ * - `no_authorization` - the request carried no bearer at all.
+ *
+ * **Status is deliberately NOT a rule.** A bare `401` would be a blunt
+ * instrument: it covers cases that say nothing about our session, and this
+ * classification decides whether someone loses their recovery. The local
+ * `AuthSessionMissingError` is included by name because auth-js raises it with
+ * no code, `status: 400`, and it means exactly this - the client holds no
+ * session, which is also what a disposed ephemeral client looks like.
+ *
+ * Everything else stays retryable, on purpose. `reauthentication_needed` is the
+ * interesting near-miss: it demands a nonce, but the session is perfectly
+ * valid, so it is not this. If a code cannot be shown to mean "unusable", the
+ * conservative answer is to keep the form.
+ */
+const SESSION_LOST: ReadonlySet<string> = new Set([
+  'session_not_found',
+  'session_expired',
+  'bad_jwt',
+  'refresh_token_not_found',
+  'refresh_token_already_used',
+  'no_authorization',
+]);
+
+export function recoverySaveFailure(failure: AuthFailure): RecoverySaveFailure {
+  if (failure.name === 'AuthSessionMissingError' || SESSION_LOST.has(failure.code ?? '')) {
+    return {
+      outcome: 'session-lost',
+      titleKey: 'auth.recoveryExpiredTitle',
+      messageKey: 'authError.recoverySessionLost',
+    };
+  }
+
+  if (failure.code === 'weak_password') {
+    return { outcome: 'retryable', messageKey: 'authError.weakPassword' };
+  }
+
+  return { outcome: 'retryable', messageKey: 'authError.passwordChangeFailed' };
 }

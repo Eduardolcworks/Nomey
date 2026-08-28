@@ -37,6 +37,11 @@ const CLIENT = stripComments(CLIENT_RAW);
 const CONTROLLER = stripComments(CONTROLLER_RAW);
 const LIFECYCLE = stripComments(LIFECYCLE_RAW);
 const SESSION_STATE = stripComments(SESSION_STATE_RAW);
+/** Sólo `setPassword`: `dismiss` también descarta el cliente, y no es esto. */
+const SET_PASSWORD = CONTROLLER.slice(
+  CONTROLLER.indexOf('const setPassword'),
+  CONTROLLER.indexOf('const dismiss'),
+);
 
 describe('la puerta de entrada', () => {
   it('Entrar ofrece recuperar la contraseña', () => {
@@ -478,25 +483,44 @@ describe('cada error dice de qué está hablando', () => {
     expect(redeem).toContain('titleKey: result.titleKey');
   });
 
-  it('y guardar la contraseña no produce NINGÚN estado, ni siquiera de error', () => {
+  it('y guardar la contraseña no produce estado alguno cuando se puede reintentar', () => {
     /*
      * Cuando esto falla, `verifyOtp` ya tuvo éxito y la sesión efímera sigue
      * ahí. Pasar a `error` mandaba a una pantalla terminal cuya única salida
      * descartaba esa sesión: una contraseña rechazada costaba el recovery
      * entero y un enlace nuevo que nadie necesitaba.
      */
-    const setPassword = CONTROLLER.slice(CONTROLLER.indexOf('const setPassword'));
-    const failure = setPassword.slice(0, setPassword.indexOf('disposeRecoveryClient'));
+    const retryable = SET_PASSWORD.slice(
+      SET_PASSWORD.indexOf('if (!result.ok) {'),
+      SET_PASSWORD.lastIndexOf('disposeRecoveryClient'),
+    );
 
-    expect(failure).not.toContain("status: 'error'");
-    expect(failure).not.toContain('titleKey');
-    expect(failure).not.toContain('authError.recoveryLinkDead');
-    expect(failure).toContain('return result.messageKey');
+    expect(retryable).not.toContain('setState');
+    expect(retryable).not.toContain('titleKey');
+    expect(retryable).not.toContain('authError.recoveryLinkDead');
+    expect(retryable).toContain('return result.messageKey');
+  });
+
+  it('salvo que el servidor establezca que la sesión efímera ya no sirve', () => {
+    /*
+     * El único fallo de guardado que termina la transacción, y por eso va
+     * ANTES del reintentable: la prueba ya se gastó, así que reintentar no
+     * puede devolver la sesión. Se descarta el cliente y no se afirma nada
+     * nuevo sobre el enlace.
+     */
+    const lost = SET_PASSWORD.slice(
+      SET_PASSWORD.indexOf("result.outcome === 'session-lost'"),
+      SET_PASSWORD.indexOf('if (!result.ok) {'),
+    );
+
+    expect(lost).toContain('disposeRecoveryClient()');
+    expect(lost).toContain("status: 'error'");
+    expect(lost).toContain('titleKey: result.titleKey');
+    expect(lost).not.toContain('authError.recoveryLinkDead');
   });
 
   it('y el éxito conserva su cierre: descartar y `completed`', () => {
-    const setPassword = CONTROLLER.slice(CONTROLLER.indexOf('const setPassword'));
-    const success = setPassword.slice(setPassword.indexOf('disposeRecoveryClient'));
+    const success = SET_PASSWORD.slice(SET_PASSWORD.lastIndexOf('disposeRecoveryClient'));
 
     expect(success).toContain('disposeRecoveryClient()');
     expect(success).toContain("setState({ status: 'completed' })");
@@ -530,9 +554,11 @@ describe('cada error dice de qué está hablando', () => {
       for (const key of [
         'auth.recoveryFailedTitle',
         'auth.recoveryUnresolvedTitle',
+        'auth.recoveryExpiredTitle',
         'authError.recoveryLinkDead',
         'authError.recoveryLinkUnchecked',
         'authError.passwordChangeFailed',
+        'authError.recoverySessionLost',
       ] as const) {
         expect(catalogue[key]).toBeTruthy();
       }
@@ -544,6 +570,7 @@ describe('cada error dice de qué está hablando', () => {
       for (const key of [
         'authError.recoveryLinkUnchecked',
         'authError.passwordChangeFailed',
+        'authError.recoverySessionLost',
       ] as const) {
         const copy = catalogue[key].toLowerCase();
         for (const leak of ['otp', 'token', '403', '429', '500', 'gotrue', 'supabase']) {

@@ -7,7 +7,7 @@ import type { AuthErrorKey } from '../../src/features/auth/auth-errors';
 import {
   recoveryErrorKey,
   recoveryFailure,
-  recoveryPasswordErrorKey,
+  recoverySaveFailure,
 } from '../../src/features/auth/auth-errors';
 import { en } from '../../src/lib/i18n/messages/en';
 import { esES } from '../../src/lib/i18n/messages/es-ES';
@@ -30,6 +30,13 @@ import {
  * es lo que más merece ejecutarse en vez de leerse. Todo lo de aquí es puro:
  * ni React Native, ni red, ni Supabase.
  */
+
+/** La frase de un fallo de guardado que sigue admitiendo reintento. */
+function saveMessage(failure: Parameters<typeof recoverySaveFailure>[0]): AuthErrorKey {
+  const result = recoverySaveFailure(failure);
+  if (result.outcome !== 'retryable') throw new Error('no es reintentable');
+  return result.messageKey;
+}
 
 const HASH = 'af45ad58765ec951b302ce027a00180e83d2ee16404fc61eb0b12f28';
 const LINK = `nomey-dev://auth/recovery?token_hash=${HASH}&type=recovery`;
@@ -215,11 +222,14 @@ describe('guardar la contraseña nueva no es un veredicto sobre el enlace', () =
     };
 
     expect(linkError.titleKey).toBe('auth.recoveryFailedTitle');
-    expect(recoveryPasswordErrorKey({ status: 500 })).toBe('authError.passwordChangeFailed');
+    expect(recoverySaveFailure({ status: 500 })).toEqual({
+      outcome: 'retryable',
+      messageKey: 'authError.passwordChangeFailed',
+    });
   });
 
   it('y su frase no es ninguna de las del enlace', () => {
-    const messageKey = recoveryPasswordErrorKey({ status: 500 });
+    const messageKey = saveMessage({ status: 500 });
 
     for (const catalogue of [esES, en]) {
       expect(catalogue[messageKey]).not.toBe(catalogue['authError.recoveryLinkDead']);
@@ -228,22 +238,12 @@ describe('guardar la contraseña nueva no es un veredicto sobre el enlace', () =
     expect(esES[messageKey]).toBe('No hemos podido cambiarla. Inténtalo de nuevo.');
   });
 
-  it('una sesión efímera que dejó de servir tampoco culpa al enlace', () => {
-    // GoTrue lo afirma con autoridad, pero afirma algo sobre la SESIÓN, no
-    // sobre la prueba. Va al mensaje neutral, como todo lo demás.
-    for (const failure of [
-      { code: 'session_not_found', status: 401 },
-      { code: 'bad_jwt', status: 401 },
-    ]) {
-      expect(recoveryPasswordErrorKey(failure)).toBe('authError.passwordChangeFailed');
-    }
-  });
-
   it('una razón de contraseña que ya sabemos decir, se dice', () => {
     // La única que la persona puede accionar, y Nomey ya la tenía normalizada.
-    expect(recoveryPasswordErrorKey({ code: 'weak_password', status: 422 })).toBe(
-      'authError.weakPassword',
-    );
+    expect(recoverySaveFailure({ code: 'weak_password', status: 422 })).toEqual({
+      outcome: 'retryable',
+      messageKey: 'authError.weakPassword',
+    });
   });
 
   it('y lo inesperado no expone nada de GoTrue', () => {
@@ -253,13 +253,78 @@ describe('guardar la contraseña nueva no es un veredicto sobre el enlace', () =
       { name: 'AuthRetryableFetchError' },
       { code: 'algo_que_no_conocemos', status: 400 },
     ]) {
-      expect(recoveryPasswordErrorKey(failure)).toBe('authError.passwordChangeFailed');
+      expect(recoverySaveFailure(failure)).toEqual({
+        outcome: 'retryable',
+        messageKey: 'authError.passwordChangeFailed',
+      });
     }
   });
 
   it('el fallo al guardar tampoco puede dar el enlace por muerto', () => {
-    for (const failure of [{ status: 500 }, { code: 'weak_password', status: 422 }]) {
-      expect(recoveryPasswordErrorKey(failure)).not.toBe('authError.recoveryLinkDead');
+    for (const failure of [
+      { status: 500 },
+      { code: 'weak_password', status: 422 },
+      { code: 'session_not_found', status: 401 },
+    ]) {
+      expect(recoverySaveFailure(failure).messageKey).not.toBe('authError.recoveryLinkDead');
+    }
+  });
+
+  it('pero una sesión efímera inutilizable SÍ termina la transacción', () => {
+    /*
+     * La prueba ya se gastó en `verifyOtp`, así que ningún `updateUser` puede
+     * devolver la sesión que produjo. Dejar el formulario ahí sería invitar a
+     * reintentar algo que no puede salir bien.
+     *
+     * Los códigos salen de la unión `ErrorCode` de `@supabase/auth-js@2.112.4`,
+     * no de la memoria, y son sólo los que no admiten otra lectura.
+     */
+    for (const failure of [
+      { code: 'session_not_found', status: 401 },
+      { code: 'session_expired', status: 401 },
+      { code: 'bad_jwt', status: 401 },
+      { code: 'refresh_token_not_found', status: 401 },
+      { code: 'refresh_token_already_used', status: 401 },
+      { code: 'no_authorization', status: 401 },
+      // auth-js la lanza sin código y con 400 cuando el cliente no tiene
+      // sesión — que es también lo que parece un cliente ya descartado.
+      { name: 'AuthSessionMissingError', status: 400 },
+    ]) {
+      expect(recoverySaveFailure(failure)).toEqual({
+        outcome: 'session-lost',
+        titleKey: 'auth.recoveryExpiredTitle',
+        messageKey: 'authError.recoverySessionLost',
+      });
+    }
+  });
+
+  it('y su copy habla de la RECUPERACIÓN, nunca del enlace ni del JWT', () => {
+    for (const catalogue of [esES, en]) {
+      const copy = `${catalogue['auth.recoveryExpiredTitle']} ${catalogue['authError.recoverySessionLost']}`;
+      expect(copy).not.toBe(catalogue['authError.recoveryLinkDead']);
+      for (const leak of ['jwt', 'token', 'sesión efímera', 'supabase', '401']) {
+        expect(copy.toLowerCase()).not.toContain(leak);
+      }
+    }
+    expect(esES['auth.recoveryExpiredTitle']).toBe('La recuperación ha caducado');
+  });
+
+  it('la clasificación es CONSERVADORA: lo que no lo demuestra, no lo es', () => {
+    /*
+     * Nada de una regla por `status: 401`, y nada de convertir 429, 500 o un
+     * fallo de transporte en terminal. `reauthentication_needed` es el caso
+     * límite que mejor lo explica: exige un nonce, pero la sesión está viva,
+     * así que no es esto.
+     */
+    for (const failure of [
+      { status: 401 },
+      { code: 'reauthentication_needed', status: 401 },
+      { code: 'over_request_rate_limit', status: 429 },
+      { status: 500 },
+      { name: 'AuthRetryableFetchError' },
+      { code: 'algo_que_no_conocemos', status: 401 },
+    ]) {
+      expect(recoverySaveFailure(failure).outcome).toBe('retryable');
     }
   });
 
@@ -430,7 +495,7 @@ describe('guardar la contraseña se reintenta en el mismo formulario', () => {
 
   it('429 y 500 se quedan igual, y ninguno habla del enlace', async () => {
     for (const failure of [{ code: 'over_request_rate_limit', status: 429 }, { status: 500 }]) {
-      const f = form([recoveryPasswordErrorKey(failure), null]);
+      const f = form([saveMessage(failure), null]);
       await f.submit('CorrectHorseBatteryStaple1!');
 
       expect(f.shown()).toBe('authError.passwordChangeFailed');

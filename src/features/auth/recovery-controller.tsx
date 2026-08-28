@@ -35,10 +35,15 @@ type RecoveryContextValue = {
   /**
    * Set the new password, then end the ephemeral session.
    *
-   * Answers `null` on success and the sentence to show otherwise. A failure
-   * does NOT move the transaction: the proof was already redeemed and the
-   * ephemeral session is still there, so the form stays up and the person
-   * corrects and saves again. Nothing here sends anyone back for a new link.
+   * Answers with the sentence to show IN THE FORM, or `null` when the form has
+   * nothing left to say - because it succeeded, or because the transaction
+   * ended underneath it.
+   *
+   * Almost every failure keeps the form: the proof was already redeemed and
+   * the ephemeral session is still there, so the person corrects and saves
+   * again, and nothing sends them back for a new link. The exception is a
+   * session the server has told us is unusable, which ends the transaction
+   * rather than offering a retry that cannot work.
    */
   readonly setPassword: (password: string) => Promise<AuthErrorKey | null>;
   /** Leave the flow: after an error, or after finishing. */
@@ -101,7 +106,25 @@ export function RecoveryProvider({ children }: { children: ReactNode }) {
     try {
       result = await completeRecovery(password);
     } catch {
-      result = { ok: false, messageKey: 'authError.passwordChangeFailed' };
+      result = { ok: false, outcome: 'retryable', messageKey: 'authError.passwordChangeFailed' };
+    }
+
+    if (!result.ok && result.outcome === 'session-lost') {
+      /*
+       * THE ONE SAVE FAILURE THAT ENDS THE TRANSACTION.
+       *
+       * The proof was already spent by `verifyOtp`, so no number of
+       * `updateUser` calls can bring back the session it produced. Keeping the
+       * form up here would be an invitation to retry something that cannot
+       * succeed, which is why this is a terminal state of its own rather than
+       * another sentence in the form.
+       *
+       * It says nothing new about the LINK - it never was the problem - and
+       * the ephemeral client goes with it, so nothing is left to call.
+       */
+      disposeRecoveryClient();
+      setState({ status: 'error', titleKey: result.titleKey, messageKey: result.messageKey });
+      return null;
     }
 
     if (!result.ok) {

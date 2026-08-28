@@ -4,7 +4,7 @@ export { AuthScreen } from './auth-screen';
 export {
   recoveryErrorKey,
   recoveryFailure,
-  recoveryPasswordErrorKey,
+  recoverySaveFailure,
   signInErrorKey,
   signOutErrorKey,
   signUpErrorKey,
@@ -13,6 +13,7 @@ export {
   type AuthFailure,
   type RecoveryErrorTitleKey,
   type RecoveryFailure,
+  type RecoverySaveFailure,
 } from './auth-errors';
 export {
   completeRecovery,
@@ -24,6 +25,7 @@ export {
   signUp,
   updateDisplayName,
   type AuthResult,
+  type RecoveryCompletion,
   type RecoveryRedemption,
 } from './auth-service';
 export { initialsFrom } from './display-name';

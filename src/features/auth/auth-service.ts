@@ -5,7 +5,8 @@ import {
   type RecoveryFailure,
   recoveryErrorKey,
   recoveryFailure,
-  recoveryPasswordErrorKey,
+  type RecoverySaveFailure,
+  recoverySaveFailure,
   signInErrorKey,
   signOutErrorKey,
   signUpErrorKey,
@@ -285,7 +286,10 @@ export async function redeemRecovery(tokenHash: string): Promise<RecoveryRedempt
  * A failed sign-out is not reported as a failed password change, because the
  * password change did succeed. The state that matters is on the server.
  */
-export async function completeRecovery(rawPassword: string): Promise<AuthResult> {
+export type RecoveryCompletion =
+  { readonly ok: true } | ({ readonly ok: false } & RecoverySaveFailure);
+
+export async function completeRecovery(rawPassword: string): Promise<RecoveryCompletion> {
   const ephemeral = recoveryClient();
 
   // ------------------------------------------ before the point of no return
@@ -293,9 +297,10 @@ export async function completeRecovery(rawPassword: string): Promise<AuthResult>
   // server, so the caller may show an error and let the person try again.
   try {
     const { error } = await ephemeral.auth.updateUser({ password: rawPassword });
-    if (error !== null) return { ok: false, messageKey: recoveryPasswordErrorKey(error) };
+    if (error !== null) return { ok: false, ...recoverySaveFailure(error) };
   } catch {
-    return { ok: false, messageKey: 'authError.passwordChangeFailed' };
+    // A throw establishes nothing about the session, so it stays retryable.
+    return { ok: false, outcome: 'retryable', messageKey: 'authError.passwordChangeFailed' };
   }
 
   /*

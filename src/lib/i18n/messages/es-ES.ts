@@ -71,6 +71,7 @@ export const esES = {
   'auth.recoveryChecking': 'Comprobando el enlace…',
   'auth.recoveryFailedTitle': 'Enlace no válido',
   'auth.recoveryUnresolvedTitle': 'No se pudo comprobar el enlace',
+  'auth.recoveryExpiredTitle': 'La recuperación ha caducado',
   'auth.newPasswordTitle': 'Nueva contraseña',
   'auth.newPasswordSubtitle': 'Elige una contraseña nueva para tu cuenta.',
   'auth.newPassword': 'Contraseña nueva',
@@ -97,6 +98,8 @@ export const esES = {
   'authError.recoveryLinkUnchecked':
     'No hemos podido comprobarlo. Vuelve a abrir el enlace en un momento.',
   'authError.passwordChangeFailed': 'No hemos podido cambiarla. Inténtalo de nuevo.',
+  'authError.recoverySessionLost':
+    'Por seguridad, solicita un nuevo enlace para cambiar tu contraseña.',
   'authError.network': 'Sin conexión. Inténtalo de nuevo.',
   'authError.generic': 'Algo ha ido mal. Inténtalo de nuevo.',
 
