@@ -61,9 +61,23 @@ export default function RecoveryScreen() {
     setLocal(problem);
     if (problem !== null) return;
 
+    /*
+     * `busy` is released in a `finally`, and that is the whole point of the
+     * shape. A spinner that never clears is exactly what an unhandled
+     * rejection looks like from the outside - the failure this flow already
+     * chased once - so nothing between here and the release is allowed to
+     * skip it.
+     *
+     * The one case that must NOT release it is a skipped submission: the first
+     * one is still running and owns the state.
+     */
+    let skipped = false;
     setBusy(true);
-    const outcome = await run(async () => setPassword(password));
-    if (outcome !== SKIPPED) setBusy(false);
+    try {
+      skipped = (await run(async () => setPassword(password))) === SKIPPED;
+    } finally {
+      if (!skipped) setBusy(false);
+    }
   }
 
   if (state.status === 'redeeming') {

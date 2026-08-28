@@ -27,6 +27,7 @@ export const en: Record<MessageKey, string> = {
   'action.retry': 'Try again',
   'action.cancel': 'Cancel',
   'action.save': 'Save',
+  'action.understood': 'Got it',
 
   'auth.signInTitle': 'Sign in',
   'auth.signInSubtitle': 'Welcome back.',
@@ -58,6 +59,9 @@ export const en: Record<MessageKey, string> = {
   'auth.recoverSentBody':
     'If an account exists for that email, you will receive a link to reset your password.',
   'auth.recoverSentHint': 'The link works once and expires.',
+  'auth.recoveryBlockedTitle': 'Sign out to continue',
+  'auth.recoveryBlockedBody':
+    'To reset a password, sign out of the current session first and open the link from your email again.',
   'auth.recoveryChecking': 'Checking the link…',
   'auth.recoveryFailedTitle': 'Link not valid',
   'auth.newPasswordTitle': 'New password',

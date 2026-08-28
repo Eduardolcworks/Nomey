@@ -30,6 +30,7 @@ export const esES = {
   'action.retry': 'Reintentar',
   'action.cancel': 'Cancelar',
   'action.save': 'Guardar',
+  'action.understood': 'Entendido',
 
   'auth.signInTitle': 'Entrar',
   'auth.signInSubtitle': 'Bienvenido de vuelta.',
@@ -61,6 +62,9 @@ export const esES = {
   'auth.recoverSentBody':
     'Si existe una cuenta con ese email, recibirás un enlace para restablecer tu contraseña.',
   'auth.recoverSentHint': 'El enlace sirve una sola vez y caduca.',
+  'auth.recoveryBlockedTitle': 'Cierra sesión para continuar',
+  'auth.recoveryBlockedBody':
+    'Para restablecer una contraseña, cierra primero la sesión actual y vuelve a abrir el enlace desde tu correo.',
   'auth.recoveryChecking': 'Comprobando el enlace…',
   'auth.recoveryFailedTitle': 'Enlace no válido',
   'auth.newPasswordTitle': 'Nueva contraseña',

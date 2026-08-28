@@ -57,7 +57,17 @@ export function RecoveryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setPassword = useCallback(async (password: string) => {
-    const result = await completeRecovery(password);
+    /*
+     * `completeRecovery` already swallows what it can, and this is the
+     * belt behind that: an unexpected throw must not escape into the screen,
+     * where the awaited call would leave the button busy forever.
+     */
+    let result: Awaited<ReturnType<typeof completeRecovery>>;
+    try {
+      result = await completeRecovery(password);
+    } catch {
+      result = { ok: false, messageKey: 'authError.generic' };
+    }
 
     if (!result.ok) {
       /*

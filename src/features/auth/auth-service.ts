@@ -276,10 +276,58 @@ export async function redeemRecovery(tokenHash: string): Promise<AuthResult> {
 export async function completeRecovery(rawPassword: string): Promise<AuthResult> {
   const ephemeral = recoveryClient();
 
-  const { error } = await ephemeral.auth.updateUser({ password: rawPassword });
+  // ------------------------------------------ before the point of no return
+  // A failure here is a failure of the recovery: nothing changed on the
+  // server, so the caller may show an error and let the person try again.
+  try {
+    const { error } = await ephemeral.auth.updateUser({ password: rawPassword });
+    if (error !== null) return { ok: false, messageKey: updateUserErrorKey(error) };
+  } catch {
+    return { ok: false, messageKey: 'authError.generic' };
+  }
 
-  if (error !== null) return { ok: false, messageKey: updateUserErrorKey(error) };
+  /*
+   * ---------------------------------------------------- POINT OF NO RETURN
+   *
+   * The password HAS changed. The old one already answers 400 and the new one
+   * 200 - measured - so the recovery has succeeded no matter what happens
+   * next.
+   *
+   * Everything below is cleanup, and cleanup may not contradict a committed
+   * result. Reporting a failure here would tell someone their password did
+   * not change when it did, which sends them to try the old one and to burn
+   * another link. So the revocation is attempted, its failure is recorded,
+   * and the result stays `ok`.
+   *
+   * The lost revocation is not the same class of problem as F5.D's: that
+   * session was never persisted, so discarding the client removes it from the
+   * device entirely. What survives is a refresh token on the server that
+   * nothing on this phone can reach - the orphan ADR-018 already accepts.
+   */
+  try {
+    const { error } = await ephemeral.auth.signOut({ scope: 'local' });
+    if (error !== null) reportRevocationUnconfirmed(error);
+  } catch (thrown) {
+    reportRevocationUnconfirmed(thrown);
+  }
 
-  await ephemeral.auth.signOut({ scope: 'local' });
   return { ok: true };
+}
+
+/**
+ * Record that the ephemeral session could not be revoked remotely.
+ *
+ * `console.warn` because the project has no logging abstraction and this
+ * is not the moment to invent one - `session-provider` reports a failed
+ * refresh the same way.
+ *
+ * The error NAME and nothing else. AGENTS.md is explicit that whole objects
+ * never get logged, and here the object would be an auth error whose fields
+ * can carry a session. No token, no email, no URL, no hash.
+ */
+function reportRevocationUnconfirmed(error: unknown): void {
+  console.warn(
+    '[recovery] ephemeral session revocation unconfirmed',
+    error instanceof Error ? error.name : typeof error,
+  );
 }

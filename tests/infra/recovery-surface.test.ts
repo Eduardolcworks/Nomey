@@ -149,7 +149,7 @@ describe('las guardas de ruta', () => {
     // Un enlace puede llegar en frío, en la pantalla de entrar o con la app
     // abierta. Un listener dentro de una rama se perdería los que su rama no
     // estuviera montada para recibir.
-    expect(LAYOUT).toContain('useRecoveryLink()');
+    expect(LAYOUT).toContain('useRecoveryLink({ signedIn: isSignedIn(state) })');
   });
 });
 
@@ -288,5 +288,138 @@ describe('el final del flujo', () => {
   it('y el cierre va DESPUÉS del cambio, no antes', () => {
     const complete = SERVICE.slice(SERVICE.indexOf('export async function completeRecovery'));
     expect(complete.indexOf('updateUser')).toBeLessThan(complete.indexOf('signOut'));
+  });
+});
+
+describe('un recovery nunca coexiste con una sesión ordinaria', () => {
+  it('con sesión abierta NO se canjea el enlace', () => {
+    /*
+     * Medido antes de decidirlo: sin esta puerta quedaban dos identidades a la
+     * vez -la cuenta A dentro y persistida, la B viva en memoria- y la
+     * superficie de recovery escondía el producto a A.
+     */
+    expect(HOOK).toContain('if (signedIn)');
+    const guarded = HOOK.slice(
+      HOOK.indexOf('if (signedIn)'),
+      HOOK.indexOf('warned.current = null'),
+    );
+    expect(guarded).not.toContain('redeem(');
+    expect(guarded).not.toContain('verifyOtp');
+  });
+
+  it('y el token NO se marca como gastado, así que sigue sirviendo', () => {
+    // La persona cierra sesión y vuelve a abrir EL MISMO enlace del correo.
+    const guarded = HOOK.slice(
+      HOOK.indexOf('if (signedIn)'),
+      HOOK.indexOf('warned.current = null'),
+    );
+    expect(guarded).not.toContain('spent.current = proof.tokenHash');
+  });
+
+  it('el aviso se olvida al salir, o el enlace quedaría inservible', () => {
+    // `useURL` no reemite una URL idéntica, así que sin esto el enlace que se
+    // acaba de pedir reabrir no podría canjearse nunca.
+    expect(HOOK).toContain('warned.current = null');
+  });
+
+  it('el aviso no dice de qué cuenta es el enlace', () => {
+    for (const catalogue of [esES, en]) {
+      const copy = `${catalogue['auth.recoveryBlockedTitle']} ${catalogue['auth.recoveryBlockedBody']}`;
+      expect(copy).not.toMatch(/\{email\}|\{name\}|\{account\}/);
+      expect(copy.toLowerCase()).not.toContain('@');
+    }
+  });
+
+  it('y es un aviso, no una superficie que tape la app', () => {
+    // Taparla dejaría a la persona sin poder llegar a Cuenta, que es
+    // exactamente lo que se le está pidiendo que haga.
+    expect(HOOK).toContain('Alert.alert');
+    expect(HOOK).not.toContain("status: 'blocked'");
+  });
+
+  it('un segundo enlace no abre una segunda transacción', () => {
+    expect(HOOK).toContain('if (isRecoveryActive(state)) return');
+    const gate = HOOK.slice(0, HOOK.indexOf('if (isRecoveryActive(state)) return'));
+    // La comprobación va ANTES de gastar nada.
+    expect(gate).not.toContain('spent.current = proof.tokenHash');
+  });
+});
+
+describe('el punto de compromiso de la contraseña', () => {
+  const complete = SERVICE.slice(SERVICE.indexOf('export async function completeRecovery'));
+  const afterCommit = complete.slice(complete.indexOf('signOut'));
+
+  it('antes de confirmar, un fallo SÍ es un fallo del recovery', () => {
+    const beforeCommit = complete.slice(0, complete.indexOf('signOut'));
+    expect(beforeCommit).toContain('updateUser');
+    expect(beforeCommit).toContain('ok: false');
+  });
+
+  it('y un throw inesperado antes de confirmar tampoco escapa', () => {
+    const beforeCommit = complete.slice(0, complete.indexOf('signOut'));
+    expect(beforeCommit).toContain('try {');
+    expect(beforeCommit).toContain('} catch {');
+  });
+
+  it('después de confirmar, NADA puede devolver fallo', () => {
+    /*
+     * La contraseña ya cambió: la vieja responde 400 y la nueva 200. Decir que
+     * no cambió mandaría a la persona a probar la antigua y a quemar otro
+     * enlace.
+     */
+    expect(afterCommit).not.toContain('ok: false');
+    expect(afterCommit).toContain('return { ok: true }');
+  });
+
+  it('ni un error devuelto ni una excepción del signOut', () => {
+    expect(afterCommit).toContain('reportRevocationUnconfirmed');
+    expect(afterCommit).toContain('} catch (thrown) {');
+  });
+
+  it('y nunca se reintenta `updateUser` después del compromiso', () => {
+    expect(afterCommit).not.toContain('updateUser');
+  });
+
+  it('el fallo de revocación se registra sin nada sensible', () => {
+    const report = SERVICE.slice(SERVICE.indexOf('function reportRevocationUnconfirmed'));
+    expect(report).toContain('error.name');
+    for (const forbidden of ['access_token', 'refresh_token', 'token_hash', 'email', 'password']) {
+      expect(report).not.toContain(forbidden);
+    }
+    // El objeto entero jamás: AGENTS.md §8.
+    expect(report).not.toMatch(/console\.warn\([^)]*,\s*error\s*[,)]/);
+  });
+});
+
+describe('el controlador no deja el envío colgado', () => {
+  it('`setPassword` no propaga excepciones', () => {
+    const setPassword = CONTROLLER.slice(CONTROLLER.indexOf('const setPassword'));
+    expect(setPassword).toContain('try {');
+    expect(setPassword).toContain('} catch {');
+  });
+
+  it('y descarta el cliente efímero al completar', () => {
+    const setPassword = CONTROLLER.slice(CONTROLLER.indexOf('const setPassword'));
+    expect(setPassword).toContain('disposeRecoveryClient()');
+  });
+
+  it('la pantalla libera `busy` pase lo que pase', () => {
+    expect(NEW_PASSWORD).toContain('finally');
+    expect(NEW_PASSWORD).toContain('setBusy(false)');
+  });
+});
+
+describe('recovery es una superficie exclusiva', () => {
+  it('las rutas DEV tampoco se montan durante un recovery', () => {
+    expect(LAYOUT).toContain('isSignedIn(state) && !recovering && __DEV__');
+  });
+
+  it('así que ninguna guarda ordinaria coexiste con la de recovery', () => {
+    const guards = [...LAYOUT.matchAll(/<Stack\.Protected\s+guard=\{([^}]*)\}>/g)].map((m) => m[1]);
+    const others = guards.filter((g) => g.trim() !== 'recovering');
+    expect(others.length).toBeGreaterThan(0);
+    for (const guard of others) {
+      expect(guard).toContain('!recovering');
+    }
   });
 });

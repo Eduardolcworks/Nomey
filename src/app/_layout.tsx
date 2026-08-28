@@ -105,8 +105,14 @@ function RootNavigator() {
    * It returns nothing and renders nothing. Redeeming the proof moves the
    * recovery controller, and the guard below does the rest - so the deep link
    * never touches navigation and the token hash never reaches a route param.
+   *
+   * Whether a session is already open has to be passed in: `features/` may not
+   * import `features/`, so the hook cannot ask the session provider itself.
+   * This file is the composition root, and it already sees both. A link
+   * arriving while somebody is signed in is refused rather than redeemed, so
+   * an ordinary session and a recovery transaction never coexist.
    */
-  useRecoveryLink();
+  useRecoveryLink({ signedIn: isSignedIn(state) });
 
   /*
    * The recovery surface wins over both ordinary branches while it is active.
@@ -191,7 +197,7 @@ function RootNavigator() {
        * by URL in a release build. Guarding them here closes that, and keeps
        * them from becoming a public door around the sign-in branch.
        */}
-      <Stack.Protected guard={isSignedIn(state) && __DEV__}>
+      <Stack.Protected guard={isSignedIn(state) && !recovering && __DEV__}>
         <Stack.Screen name="diagnostics" />
         <Stack.Screen name="states" />
         <Stack.Screen name="session-probe" />
