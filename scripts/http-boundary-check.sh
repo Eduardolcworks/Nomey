@@ -1120,6 +1120,61 @@ rm -f "${sin_cuerpo}"
 
 # ============================================================================
 echo ""
+echo "== 12 · las estadisticas agregadas, por HTTP =="
+#
+# Lo que solo esta ruta demuestra: que los importes viajan como STRING TAMBIEN
+# DENTRO DEL `jsonb` —el check de catalogo cuenta columnas `bigint` y no ve
+# dentro de un jsonb—, y que el intervalo llega como fecha de calendario y no
+# como instante.
+
+# 12.1 · el intervalo cerrado responde con la forma acordada.
+r=$(rpc personal_statistics "${TOK_A}" '{"p_from":"2026-03-01","p_to":"2026-03-31"}')
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+forma=$(printf '%s' "${c}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const o=JSON.parse(s);console.log(["scope_id","currency_definition_id","income_total","expense_total","categories"].every(k=>k in o)?"ok":"faltan")}catch{console.log("err")}})')
+if [ "${e}" = "200" ] && [ "${forma}" = "ok" ]; then
+  ok "api.personal_statistics responde 200 con ambito, moneda, totales y categorias"
+else
+  fallo "la estadistica devolvio ${e} forma=${forma}: ${c}"
+fi
+
+# 12.2 · LOS IMPORTES SON CADENAS, tambien los de dentro del array.
+tipos=$(printf '%s' "${c}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const o=JSON.parse(s);const t=typeof o.income_total==="string"&&typeof o.expense_total==="string"&&(o.categories||[]).every(x=>typeof x.expense_total==="string"&&typeof x.operation_count==="number");console.log(t?"ok":"number")}catch{console.log("err")}})')
+[ "${tipos}" = "ok" ] \
+  && ok "los totales y los importes por categoria cruzan como string JSON" \
+  || fallo "algun importe de la estadistica salio como number JSON (${tipos})"
+
+# 12.3 · el reparto CUADRA con el total. Es la afirmacion central de ADR-026
+# —dos superficies, un solo conjunto de hechos— comprobada sobre la ruta real.
+cuadra=$(printf '%s' "${c}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const o=JSON.parse(s);const sum=(o.categories||[]).reduce((a,x)=>a+BigInt(x.expense_total),0n);console.log(sum===BigInt(o.expense_total)?"ok":sum+" vs "+o.expense_total)}catch{console.log("err")}})')
+[ "${cuadra}" = "ok" ] \
+  && ok "la suma de las categorias es identica al total de gastos" \
+  || fallo "el reparto no cuadra con el total (${cuadra})"
+
+# 12.4 · `Todo`: sin limites, y sigue respondiendo.
+r=$(rpc personal_statistics "${TOK_A}" '{}')
+[ "$(estado_de "${r}")" = "200" ] \
+  && ok "sin limites -el caso Todo- responde 200" \
+  || fallo "el caso Todo devolvio $(estado_de "${r}")"
+
+# 12.5 · AISLAMIENTO: B no recibe ni un euro de A.
+r=$(rpc personal_statistics "${TOK_B}" '{}')
+ajeno=$(printf '%s' "$(cuerpo_de "${r}")" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const o=JSON.parse(s);console.log(o===null?"sin-ambito":o.scope_id)}catch{console.log("err")}})')
+if [ "${ajeno}" != "${PA}" ]; then
+  ok "B no recibe las estadisticas del ambito de A"
+else
+  fallo "B recibio el ambito de A"
+fi
+
+# 12.6 · sin JWT, la puerta cerrada antes de que la RLS decida nada.
+sin=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${API}/rest/v1/rpc/personal_statistics" \
+        -H "apikey: ${KEY}" -H 'Content-Type: application/json' --data-binary '{}')
+case "${sin}" in
+  200|201) fallo "sin JWT se obtuvieron estadisticas (${sin})" ;;
+  *)       ok "sin JWT la estadistica no responde (${sin})" ;;
+esac
+
+# ============================================================================
+echo ""
 echo "== retirada =="
 retirar
 borrar_usuarios

@@ -233,6 +233,10 @@ export type Database = {
           scope_id: string;
         }[];
       };
+      personal_statistics: {
+        Args: { p_from?: string; p_to?: string };
+        Returns: Json;
+      };
       record_adjustment: { Args: { payload: Json }; Returns: Json };
       record_debt_settlement: { Args: { payload: Json }; Returns: Json };
       record_external_transfer: { Args: { payload: Json }; Returns: Json };
