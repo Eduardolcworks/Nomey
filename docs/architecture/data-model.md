@@ -746,6 +746,20 @@ participantes e invitaciones no la bloquean, porque todavía no existe ningún
 hecho financiero cuyo significado pueda alterarse, y el cambio **no genera
 notificación**.
 
+**Lo mismo vale para el Modo Personal, y por la misma razón.** Su moneda base se
+fija al crearlo —recomendada por la región del dispositivo, que es una
+sugerencia y no una imposición— y **su dueño puede cambiarla mientras el ámbito
+no haya producido ningún efecto**. El invariante 12 es agnóstico del tipo de
+ámbito: lo que fija la moneda no es haber creado el ámbito, es haber registrado
+el primer hecho.
+
+> **Cambiarla cuando ya hay historia es otro problema, y está diferido.** Exige
+> conservar los movimientos en su moneda original y **convertir** el disponible
+> vigente, y la conversión depende de una resolución de tipo de cambio que
+> todavía no existe. Es una capacidad prevista del producto, no descartada; llega
+> con la multimoneda operativa. Hasta entonces se rechaza explícitamente en vez
+> de resolverse mal. Ver [ADR-019](../adr/ADR-019-personal-provisioning.md).
+
 Una operación creada bajo una configuración monetaria anterior **nunca se
 reinterpreta en silencio**: entra en conflicto y requiere revisión antes de
 convertirse en operación financiera válida del ámbito.

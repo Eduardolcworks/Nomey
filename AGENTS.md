@@ -478,13 +478,16 @@ the `adr` skill to draft one.
 > surface, the invariants a future phase must not break, and what is deferred.
 > This section keeps the detail that only matters while touching the data layer.
 
-**Phase 3 (persistence and data boundary) is CLOSED**, on 2026-08-27 — 3.A, 3.B
-and 3.C. Phases 0, 1, 2 and 4 were already closed. **ADR-001 through ADR-017
-are accepted**; ADR-003 met its E11 gate against a real local Supabase stack.
+**Phases 0 through 5 are CLOSED.** Phase 3 (persistence and data boundary) closed
+on 2026-08-27 and Phase 5 (identity and session) on 2026-08-28. **ADR-001 through
+ADR-019 are accepted**; ADR-003 met its E11 gate against a real local Supabase
+stack.
 
-**Phase 5 is OPEN** — identity and session. Unlike Phase 4, **it does touch the
-backend**, so what follows is in play. Its state, its closed product decisions
-and its next block are in
+**Phase 6 is OPEN** — Modo Personal, the first showable milestone. It touches the
+backend, the domain and the screens. Its state block by block, and the
+obligations each block leaves the next, are in
+[`docs/architecture/phase-6-handoff.md`](docs/architecture/phase-6-handoff.md).
+What it inherits from Phase 5 is in
 [`docs/architecture/phase-5-handoff.md`](docs/architecture/phase-5-handoff.md).
 
 Two artefacts closed the phase and are worth knowing about:
@@ -500,27 +503,28 @@ Two artefacts closed the phase and are worth knowing about:
   longer excludes GoTrue.
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
-and ten reproducible probes that measured the decisions of this phase
-(`supabase/e11/` … `supabase/e20/`, **none of them a migration**). A pure
+and eleven reproducible probes that measured the decisions behind the schema
+(`supabase/e11/` … `supabase/e21/`, **none of them a migration**). A pure
 reference implementation of the financial domain in `src/domain/`, with shared
 test vectors in `tests/vectors/` and a Vitest suite — 116 tests. **The
 authoritative server write boundary will have to reproduce those vectors
 exactly** (ADR-002 §7).
 
-**What does not exist yet.** No provisioning — nothing creates a scope, a
-participant, a membership, a participant-account link or a presence period — and
-no screens. That is deliberate, not an oversight: the visible app is still an
-intentionally blank screen, and the writer assumes those rows exist because the
-phase that creates them is a later one. The database checks seed them as
-`postgres`, which is exactly what provisioning will do.
+**What does not exist yet.** No screens with economic function, and no
+provisioning for Groups — nothing creates a group, a participant, a
+participant-account link or a presence period. The writer assumes those rows
+exist because the phase that creates them is a later one, and the database checks
+seed them as `postgres`. **The Modo Personal is no longer on that list**: F6.A
+creates its scope and its membership through `api.ensure_personal_scope`, under a
+third role `nomey_provisioner` — [ADR-019](docs/adr/ADR-019-personal-provisioning.md).
 
-**Migrations have started.** `supabase/migrations/` holds eight. The first is the
+**Migrations have started.** `supabase/migrations/` holds ten. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is ADR-014: `api` is served and `public`, `core` and `sec`
 answer `406 PGRST106`.
 
-> `supabase/e11`–`e20` were disposable evidence over toy models and **must never
+> `supabase/e11`–`e21` were disposable evidence over toy models and **must never
 > become a migration**. `supabase/migrations/` is real versioned state.
 > `supabase/checks/bootstrap.sql` validates it against the live catalogue.
 

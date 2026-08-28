@@ -1,0 +1,229 @@
+# Punto de entrada — Fase 6 · Modo Personal
+
+> **Documento vivo de la fase, y NO normativo.** Recoge dónde está la Fase 6, qué
+> queda decidido bloque a bloque y qué obligaciones hereda el siguiente. Las
+> decisiones viven en [`docs/adr/`](../adr/README.md), en
+> [`data-model.md`](data-model.md) y en el [roadmap](../product/roadmap.md); si
+> este documento los contradice, mandan ellos.
+
+Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
+[`PROJECT_STATE.md`](../PROJECT_STATE.md) · este documento.
+
+---
+
+## 1 · Dónde está la fase
+
+| Bloque   | Qué es                                       | Estado                       |
+| -------- | -------------------------------------------- | ---------------------------- |
+| **F6.A** | Fundación: catálogo monetario y provisioning | **Cerrado en base de datos** |
+| **F6.B** | Anatomía del movimiento                      | No empezado                  |
+| **F6.C** | Saldo objetivo, observación y anulación      | No empezado                  |
+| **F6.D** | Superficie de lectura                        | No empezado                  |
+| **F6.E** | Inicio                                       | No empezado                  |
+| **F6.F** | Alta, edición y eliminación                  | No empezado                  |
+| **F6.G** | Cierre de fase                               | No empezado                  |
+
+**F6.A no tiene pantalla, y es deliberado.** Sus criterios se verifican por check
+SQL y por HTTP con JWT real, no por vista. El cableado en el cliente —cuándo se
+invoca el provisioning y qué se ve si falla— pertenece al primer bloque que
+construya UI.
+
+---
+
+## 2 · Qué promete la Fase 6
+
+Del [roadmap](../product/roadmap.md), sin interpretación:
+
+> **Alcance.** Ingresos, gastos, categorías, listado e historial, corrección por
+> versionado del propio registro, y saldo derivado. El sistema de diseño crece
+> aquí, a partir de un caso real.
+
+Y sus cinco criterios de cierre: registrar, consultar y corregir un ingreso y un
+gasto de principio a fin · la corrección versiona y **no muta** · saldo y
+estadísticas **derivados**, sin saldo almacenado como segunda fuente · solo
+`ingreso` y `gasto` alimentan estadísticas · tests de dominio en el mismo PR que
+la lógica.
+
+**F6 es el primer hito enseñable.**
+
+---
+
+## 3 · Qué entregó F6.A
+
+### Lo que existe ahora y antes no
+
+```
+core.currency_definition   20 definiciones sembradas, con identidad FIJA
+nomey_provisioner          tercer rol: NOLOGIN, NOBYPASSRLS, no propietario
+
+api.ensure_personal_scope(payload)       crea ámbito + membresía. Idempotente
+api.set_personal_base_currency(payload)  cambia la moneda si nunca hubo efecto
+api.personal_scope                       vista: el ámbito del actor y su moneda
+api.currency_definition                  vista: el catálogo, para el selector
+```
+
+**Una cuenta nueva ya tiene Modo Personal.** Era la condición sin la cual F6 no
+podía abrir: sin `scope` con `owner_user_id` **y** su fila de `core.membership`
+—las dos, invariante 11— el dueño no ve ni sus propios efectos.
+
+La decisión es [ADR-019](../adr/ADR-019-personal-provisioning.md). La evidencia
+medida, [`supabase/e21/`](../../supabase/e21/README.md).
+
+### Lo que hay que saber para construir encima
+
+- **Hay tres fronteras de privilegio, no dos.** `nomey_writer` escribe
+  contabilidad **debajo** de la RLS; `postgres` es owner de
+  `api.claimed_dimension()` porque una lectura de reclamación debe
+  **atravesarla**; y ahora `nomey_provisioner` crea ámbitos y membresías. **El
+  escritor contable sigue sin poder crear un ámbito, y el provisioner no puede
+  escribir ni un solo hecho contable.** No unificar ninguna de las tres.
+- **La barrera del provisioner va acotada al actor**, no solo a
+  `kind = 'personal'`. E21 midió que `sec.request_actor_id()` funciona dentro de
+  un definer de ese rol **y dentro de una policy** evaluada durante él.
+- **Las policies de `SELECT` del provisioner son parte de la corrección.** E21
+  midió tres veces el mismo modo de fallo: con `GRANT` y sin policy aplicable, la
+  lectura devuelve **cero filas sin error**. Y una de ellas es contraintuitiva:
+  **el `WITH CHECK` de la membresía consulta `core.scope`, y esa subconsulta está
+  sujeta a la RLS del propio provisioner**; sin su policy de lectura, el alta
+  legítima se rechaza.
+- **La moneda se elige, no se cambia.** Recomendada por la Region del
+  dispositivo, con **fallback EUR** si el código no está en el catálogo, y
+  modificable **mientras el ámbito nunca haya tenido un efecto**. Desde el primer
+  movimiento queda bloqueada con `BASE_CURRENCY_LOCKED · 409`.
+- **La autoridad de ese bloqueo es la FK compuesta**, no el `IF` del cuerpo.
+  Medido: con un efecto existente PostgreSQL rechaza el `UPDATE` con `23503`
+  ejecute el código lo que ejecute. La comprobación existe para **fallar bien**.
+- **Se mira `core.effect`, nunca `core.current_effect`.** Un movimiento creado y
+  luego anulado dejará la proyección vigente vacía y sus efectos históricos en la
+  moneda vieja. Esto ya está escrito pensando en la anulación de F6.C.
+- **Los UUID monetarios no se regeneran jamás.** Son la identidad. Regenerarlos
+  divide los entornos en silencio: los importes cuadran dentro de cada uno y
+  dejan de ser comparables entre ellos.
+- **No se crea `core.participant` para el Modo Personal**, y no es un olvido: los
+  efectos personales llevan participante legítimamente nulo y la atribución es
+  por propiedad. Si F10 lo necesita, añadirlo es aditivo.
+- **Ninguna de las dos funciones usa `core.client_command`.** Esa relación es la
+  unidad de idempotencia del **comando contable**; el provisioning no crea
+  ninguna operación. Son idempotentes **por estado**.
+
+### Dos trampas que costaron descubrir, y no hay que repetir
+
+**1 · `api.personal_scope` no puede llevar una columna «¿queda alguna huella
+contable?».** La primera versión tenía un `is_currency_locked` resuelto con un
+`EXISTS` sobre `core.effect`, y **la guarda de catálogo de ADR-013 §9 lo
+rechazó**: la única relación autorizada a depender directamente de `core.effect`
+es la proyección canónica. Y **no se arregla leyendo `core.current_effect`**,
+porque sería incorrecto —lo que bloquea la moneda es haber tenido algún efecto
+_alguna vez_—. Exponer esa pregunta es una decisión propia y pertenece a **F6.D**.
+
+**2 · Las retiradas de los scripts de concurrencia y de la frontera HTTP borraban
+`core.currency_definition` sin filtro.** Desde F6.A el catálogo lo siembra una
+migración, así que un borrado sin filtro lo arrasa y los checks siguientes dejan
+de encontrarlo. Los tres scripts ahora **borran solo lo suyo**, y dos de ellos
+comprueban al final que **las veinte definiciones siguen ahí**.
+
+---
+
+## 4 · Obligaciones que F6.A deja a los bloques siguientes
+
+### Para F6.B — obligatoria
+
+**La corrección no puede pasar por el writer de otra clase.** Medido:
+`sec.lock_and_cas` comprueba **existencia y CAS**, y **no** que la clase de la
+operación coincida con la función invocada. Hoy es teórico; con
+`record_personal_income` deja de serlo, porque su payload será de **forma
+idéntica** al del gasto y bastaría intercambiar el `operation_id` para que
+`core.operation.operation_class` y `core.effect.accounting_class` **divergieran**
+sin que nada lance.
+
+- La frontera común debe validar la clase esperada.
+- `record_personal_expense` solo corrige `expense`; `record_personal_income` solo
+  corrige `income`; y así las ocho.
+- La divergencia debe ser **imposible** y tener **regresión deliberada**.
+
+### Para F6.C
+
+- El bloqueo de la dimensión saldo debe usar **el mismo orden global ascendente**
+  que ya usa el protocolo de deuda de ADR-013 §11.
+  `api.set_personal_base_currency` **ya bloquea** con ese criterio, de modo que
+  ADR-022 **extiende** en vez de corregir. Ninguna función queda huérfana del
+  protocolo.
+- La observación de saldo y el bloqueo operan sobre la **unión de los ámbitos
+  afectados por la versión nueva y por la que sustituye** — mismo principio que
+  ADR-013 §11 ya fija para la deuda. Sin eso, **una anulación no dejaría
+  observación**, porque no tiene efectos propios de los que derivar el ámbito.
+
+### Para F6.D
+
+- Decidir cómo se expone —si se expone— «¿este ámbito ha tenido algún efecto?».
+  Es lo que quedó fuera de `api.personal_scope`.
+- La unidad de lectura es la **operación**, no el efecto. `api.personal_effect`
+  se conserva **para su propósito técnico existente** y no se convierte en lista
+  de movimientos.
+- Las anuladas se excluyen de la superficie normal, y debe existir una vía
+  interna comprobable de que la trazabilidad permanece.
+
+### Para el primer bloque con UI
+
+- **El cliente debe invocar `api.ensure_personal_scope` y tener camino de
+  reintento.** Si falla, la cuenta se queda sin Modo Personal y la app no sale
+  sola de ese estado. La idempotencia hace el reintento seguro; hace falta que
+  exista, con un estado visible y con salida, como `unavailable` en F5.B.
+- La moneda recomendada sale de `expo-localization`: `getLocales()[0].currencyCode`
+  es el de la **Region**, y `languageCurrencyCode` el del **idioma**. Es la misma
+  distinción que F4.B ya fijó para el formato; usar el segundo sería el error.
+
+---
+
+## 5 · Reglas de F5 y F4 que siguen vigentes
+
+- **No añadir un `getSession()`**, no suscribirse otra vez a `onAuthStateChange`,
+  no copiar el token, y no tratar `displayName` como identidad.
+- **Nada de `router.replace`**, ni al entrar ni al salir.
+- **Toda UI nueva pasa por i18n y por `lib/format`.** Un test falla si una
+  pantalla incrusta una cadena, un símbolo monetario o una fecha.
+- **`src/ui/` no puede importar de `lib/`**, y `features/` no importa `features/`.
+- **El `Intl` de Hermes no es el de Node.** Nada que corra en el dispositivo se da
+  por verificado porque pase en Vitest.
+- **El color nunca es la única señal**, y ningún efecto se cobra contraste
+  ([`design-direction.md`](../product/design-direction.md) §8).
+- **Ninguna credencial privada de backend en el bundle**, con sus tres capas.
+
+---
+
+## 6 · Fuera de la Fase 6, y conviene que se vea
+
+Premium, entitlements, paywall y análisis avanzado (**F14/F15**) · FX y
+multimoneda operativa (**F11**) · transferencias reales (**F12/F13**) · Grupos
+(**F9**) · claim (**F10**) · cola offline y optimismo (**F7**) · widgets
+(**F16**).
+
+**F6 sí deja affordances visuales inertes** cuando ya forman parte del diseño
+aprobado —el botón de calendario y la opción `⇄`—, sin lógica detrás y sin
+comprobar ningún plan.
+
+---
+
+## 7 · Cómo se verifica F6.A
+
+```bash
+# los nueve checks SQL, con el stack levantado
+docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
+  -X -q -v ON_ERROR_STOP=1 < supabase/checks/personal-provisioning.sql
+
+# concurrencia real: dos provisionings simultáneos
+./scripts/provisioning-concurrency.sh
+
+# la frontera entera, por HTTP y con JWT real
+./scripts/http-boundary-check.sh
+```
+
+La medición que sostiene el diseño se reproduce con:
+
+```bash
+docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
+  -X -q -v ON_ERROR_STOP=1 < supabase/e21/privilege-boundary.sql
+```
+
+**Los tres primeros los ejecuta CI en cada PR**, sobre un stack levantado desde
+cero. E21 no: es evidencia, y se ejecuta a mano cuando haga falta releerla.
