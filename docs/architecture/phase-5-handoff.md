@@ -1,26 +1,27 @@
 # Punto de entrada — Fase 5 · Identidad y sesión
 
-> **El único punto de entrada vivo de la Fase 5.** Operativo, no histórico: qué
-> hay, qué no se toca y qué hay que producir. El **porqué** de cada decisión
-> vive donde se tomó — los ADR, el commit, los comentarios del código.
+> **La Fase 5 está CERRADA.** Este documento deja de ser un plan y pasa a ser lo
+> que la Fase 6 hereda: qué existe para consumir, qué no se reabre y qué
+> invariantes no puede romper. El **porqué** de cada decisión vive donde se tomó
+> — los ADR, el commit, los comentarios del código.
 
 ---
 
 ## 1 · Dónde está la fase
 
-**La Fase 5 está EN CURSO.** F5.A, F5.B, F5.C1, F5.D y F5.E están cerrados y
-validados en iPhone físico. **Ya se puede entrar en Nomey, salir y recuperar la
-contraseña**, pero la fase no cierra.
+**La Fase 5 está CERRADA**, el 2026-08-28, con sus cuatro criterios del roadmap
+cumplidos. Todos sus bloques están validados en iPhone físico. **La siguiente
+fase es la 6 — Modo Personal.**
 
 | Bloque    | Qué es                           | Estado                            |
 | --------- | -------------------------------- | --------------------------------- |
 | **F5.A**  | Frontera con el backend y sesión | **Cerrado**, 5/5 en iPhone        |
 | **F5.B**  | Estado de sesión y guardas       | **Cerrado**, en iPhone            |
 | **F5.C1** | Email y contraseña               | **Cerrado**, de extremo a extremo |
-| **F5.C2** | Google y Apple                   | **Pendiente** · bloqueo externo   |
+| **F5.C2** | Google y Apple                   | **Diferido** · ver §7             |
 | **F5.D**  | Cierre de sesión y Perfil        | **Cerrado**, validado en iPhone   |
 | **F5.E**  | Recuperación de acceso           | **Cerrado**, validado en iPhone   |
-| **F5.F**  | Cierre de fase                   | **Siguiente bloque**              |
+| **F5.F**  | Cierre de fase                   | **Cerrado**, validado en iPhone   |
 
 **Por qué C está partido en dos.** El requisito de producto creció a mitad del
 bloque: Nomey debe permitir entrar con **email y contraseña, Google y Apple**.
@@ -29,16 +30,14 @@ está investigado y decidido en §7— sino porque **no hay Apple Developer Prog
 disponible**, y una implementación provisional que luego haya que sustituir es
 peor que no tenerla.
 
-### Qué puede continuar, y qué no
+### Qué hereda la Fase 6
 
-- **F5.C2 está parcialmente bloqueado por capacidad externa.** Se desbloquea con
-  el Apple Developer Program; el resto está resuelto sobre el papel.
-- **F5.E ya está cerrado**, y no dependía de C2: opera sobre la **misma sesión
-  de Supabase que ya estaba construida** y no le importa qué proveedor la creó.
-- **La Fase 5 NO puede cerrarse mientras C2 siga pendiente.** Sin Google y Apple
-  el acceso está incompleto, y F5.F es lo último de todo.
-- **El siguiente trabajo es F5.F**, con C2 aún bloqueado por encima. Cuándo se
-  aborda cada uno es una decisión de producto que este documento no toma.
+- **Identidad resuelta.** Una persona puede registrarse, entrar, salir y
+  recuperar el acceso, y la app sabe quién es en cada render. F6 construye
+  producto encima; no vuelve a construir esto.
+- **Nada de provisioning.** Sigue sin existir: una cuenta nueva no tiene ámbito
+  Personal, y crearlo es trabajo de producto, no de identidad. Ver §7.
+- **C2 diferido, no bloqueante.** Ver §7. No condiciona nada de la Fase 6.
 
 Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 [`PROJECT_STATE.md`](../PROJECT_STATE.md) · este documento.
@@ -172,6 +171,15 @@ Aprobado en iPhone físico y fuera de discusión salvo defecto material:
   comprueba un test.
 - **Las primitives y los tres estados comunes.**
 - Todo lo cerrado en la Fase 3: modelo, `api`, RLS, writer.
+- **La identidad interna es el `sub` del JWT**, que es el `id` de
+  `auth.users`. No hay tabla de usuario, ni perfil, ni segunda identidad, y
+  añadir proveedores no crea ninguna. El nombre visible es presentación y jamás
+  una autoridad.
+- **Lo cerrado en F5.E**, validado en iPhone: la recuperación corre sobre un
+  cliente Auth **efímero y en memoria** que el `SessionProvider` principal no ve
+  nunca, el deep link tiene un dueño único, una sesión abierta bloquea el enlace
+  sin canjearlo, y la prueba sólo se gasta cuando el servidor lo establece —
+  [ADR-018](../adr/ADR-018-ephemeral-recovery-session.md). El detalle, en §7.
 - **Lo cerrado en F5.B**, validado en iPhone: los cuatro estados de sesión, la
   restauración por `INITIAL_SESSION` sin `getSession()`, el watchdog, el
   refresco atado a `AppState`, las guardas con `Stack.Protected` y el gate que
@@ -211,8 +219,14 @@ Aprobado en iPhone físico y fuera de discusión salvo defecto material:
   `signDisplay` se ignora. Nada que corra en el dispositivo se da por verificado
   porque pase en Vitest.
 - **El color nunca es la única señal**, y ningún efecto se cobra contraste.
-- **Ninguna credencial de backend en el bundle.** `EXPO_PUBLIC_*` se inlinea y
-  es legible por cualquiera que descargue el binario — `AGENTS.md` §7.
+- **Ninguna credencial PRIVADA de backend en el bundle.** `EXPO_PUBLIC_*` se
+  inlinea y es legible por cualquiera que descargue el binario — `AGENTS.md` §7.
+  La regla tiene **tres capas**, y ninguna sustituye a las otras:
+  `tests/infra/no-backend-secrets.test.ts` sobre el fuente versionado,
+  `src/lib/env/supabase-env.ts` en ejecución, y
+  [`scripts/bundle-secrets-check.sh`](../../scripts/bundle-secrets-check.sh)
+  sobre el artefacto exportado. **La URL pública y la clave publicable SÍ viajan
+  en el bundle, y es correcto**: se diseñan para eso.
 
 ---
 
@@ -233,20 +247,15 @@ inaccesibles sin sesión; y **ninguna credencial de backend está en el bundle**
 [ADR-017](../adr/ADR-017-secure-session-storage.md), F5.A—. Cualquier decisión
 nueva de la misma clase sigue pasando por ADR antes de escribirse.
 
-**Los criterios del roadmap están todos cumplidos.** Registrarse, entrar,
-**salir** y **recuperar el acceso** están hechos y validados en dispositivo; la
-sesión sobrevive al reinicio y se renueva sola; las rutas protegidas son
-inaccesibles sin sesión; y ninguna credencial de backend está en el bundle.
-
-Aun así la fase **no cierra**. Lo que lo impide no es el roadmap sino **el
-requisito de producto que creció**: sin Google y Apple, el acceso está
-incompleto.
+**Los cuatro criterios del roadmap están cumplidos y verificados**, y con ellos
+la fase cerró el 2026-08-28. La evidencia de cada uno vive en el propio roadmap,
+junto a los criterios.
 
 ---
 
 ## 7 · Deuda abierta
 
-### F5.C2 — Google y Apple, lo único que falta del acceso
+### Google y Apple — diferido, no bloqueante
 
 **Está investigado y decidido; lo que falta es una capacidad externa.** No hay
 Apple Developer Program disponible, y una implementación provisional que luego
