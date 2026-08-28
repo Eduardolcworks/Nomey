@@ -292,12 +292,12 @@ la sesión sobre almacenamiento seguro y rutas protegidas.
 
 **Los cuatro quedaron cumplidos el 2026-08-28:**
 
-| #   | Evidencia                                                                                                                                                        |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Recorrido físico completo en iPhone, sobre un solo build: alta, confirmación, login, cierre de sesión y recuperación                                             |
-| 2   | El mismo recorrido, matando y reabriendo la app sin cerrar sesión; refresco atado a `AppState`                                                                   |
-| 3   | `tests/infra/route-guards.test.ts`, y en dispositivo: sin sesión la rama protegida deja de existir, no queda tapada                                              |
-| 4   | Tres capas: fuente versionada, validación en ejecución y [`scripts/bundle-secrets-check.sh`](../../scripts/bundle-secrets-check.sh) sobre el artefacto exportado |
+| #   | Evidencia                                                                                                                                                                                                                                                                                                                     |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Recorrido físico completo en iPhone, sobre un solo build: alta, confirmación, login, cierre de sesión y recuperación                                                                                                                                                                                                          |
+| 2   | Dos evidencias distintas: la **persistencia y su restauración**, validada físicamente matando y reabriendo la app sin cerrar sesión; y la **renovación automática**, cubierta por `tests/lib/session-lifecycle.test.ts` —«refresco atado al AppState»— y por `tests/lib/supabase-client.test.ts`, que fija `autoRefreshToken` |
+| 3   | `tests/infra/route-guards.test.ts`, y en dispositivo: sin sesión la rama protegida deja de existir, no queda tapada                                                                                                                                                                                                           |
+| 4   | Tres capas: fuente versionada, validación en ejecución y [`scripts/bundle-secrets-check.sh`](../../scripts/bundle-secrets-check.sh) sobre el artefacto exportado                                                                                                                                                              |
 
 > **Entrar con Google y con Apple queda DIFERIDO, y no es criterio de cierre de
 > esta fase.** Se añadió como requisito de producto a mitad de fase y **no forma
