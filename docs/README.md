@@ -3,14 +3,18 @@
 Wiki técnica y de producto. **En español**; el código y los commits van en
 inglés.
 
-> **Estado: Fase 4 — arquitectura UX e internacionalización. ABIERTA el 2026-08-27.**
+> **Estado: Fase 5 — identidad y sesión. CERRADA el 2026-08-28.**
 >
-> - **Fases 0, 1, 2, 3 y 4:** cerradas. **ADR-001 … ADR-017 aceptados.** El plan
->   de la Fase 4 está en [`ux/phase-4-plan.md`](ux/phase-4-plan.md).
-> - **La Fase 5 está EN CURSO**: F5.A, F5.B y F5.C1 cerrados; **F5.C2 —Google y
->   Apple— pendiente**, con bloqueo externo. Su punto de entrada, y el único
->   vivo, está en
+> - **Fases 0, 1, 2, 3, 4 y 5:** cerradas. **ADR-001 … ADR-018 aceptados.**
+> - **La Fase 5 cerró con sus cuatro criterios cumplidos**: registrarse, entrar,
+>   salir y recuperar el acceso; sesión que sobrevive al reinicio y se renueva
+>   sola; rutas protegidas inaccesibles sin sesión; y ninguna credencial privada
+>   de backend en el bundle. **Entrar con Google y con Apple queda diferido**
+>   hasta que existan sus prerrequisitos —development builds y cuentas de
+>   desarrollador—, que introduce la Fase 8. Lo que la Fase 6 hereda está en
 >   [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md).
+> - **La siguiente fase es la 6 — Modo Personal**, el primer hito enseñable. No
+>   está empezada.
 > - **Para reconstruir el estado del proyecto, empieza por
 >   [`PROJECT_STATE.md`](PROJECT_STATE.md)**, que es la memoria comprimida: fase
 >   actual, arquitectura vigente, superficie `api`, invariantes que no se deben
@@ -68,7 +72,7 @@ lo es el ADR correspondiente, cuando se acepta.
 | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md)         | 3    | Continuidad de 3.C y **el porqué** de cada pieza. **Histórico** desde el cierre de F3, y no normativo            |
 | [`architecture/phase-3c-design.md`](architecture/phase-3c-design.md)           | 3    | Análisis de 3.C por bloques: D1–D11, evidencia E12 y alternativas. **No normativo**, también para lo ya aprobado |
 | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                     | 4    | Bloques de F4, decisiones que la abren y dirección **provisional** de navegación. **No normativo**               |
-| [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)           | 5    | Punto de entrada operativo de la Fase 5: qué existe, qué no se reabre y qué validar. **No normativo**            |
+| [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)           | 5    | Lo que la Fase 6 hereda de la 5: qué existe, qué no se reabre y qué invariantes no romper. **No normativo**      |
 
 Al aceptarse el ADR que lo cierra, se decide si el documento se conserva como
 historial de análisis o se retira.

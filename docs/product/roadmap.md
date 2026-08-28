@@ -290,6 +290,27 @@ la sesión sobre almacenamiento seguro y rutas protegidas.
 4. Ninguna credencial de backend está presente en el bundle, según `AGENTS.md`
    §7.
 
+**Los cuatro quedaron cumplidos el 2026-08-28:**
+
+| #   | Evidencia                                                                                                                                                        |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Recorrido físico completo en iPhone, sobre un solo build: alta, confirmación, login, cierre de sesión y recuperación                                             |
+| 2   | El mismo recorrido, matando y reabriendo la app sin cerrar sesión; refresco atado a `AppState`                                                                   |
+| 3   | `tests/infra/route-guards.test.ts`, y en dispositivo: sin sesión la rama protegida deja de existir, no queda tapada                                              |
+| 4   | Tres capas: fuente versionada, validación en ejecución y [`scripts/bundle-secrets-check.sh`](../../scripts/bundle-secrets-check.sh) sobre el artefacto exportado |
+
+> **Entrar con Google y con Apple queda DIFERIDO, y no es criterio de cierre de
+> esta fase.** Se añadió como requisito de producto a mitad de fase y **no forma
+> parte de su alcance ni de sus cuatro criterios**, así que no se incorpora
+> retroactivamente como un quinto. Sigue siendo una capacidad de autenticación
+> pendiente, no descartada.
+>
+> Lo que la difiere es una dependencia real: **el inicio de sesión nativo de
+> Google no funciona en Expo Go y exige un development build**, y Apple exige el
+> programa de desarrollador. Las dos capacidades —**development builds** y
+> **cuentas de desarrollador**— las introduce **F8**. Se ejecutará cuando esos
+> prerrequisitos existan, sin reabrir la Fase 5.
+
 **Puertas.** Ninguna.
 
 ---
@@ -356,6 +377,10 @@ fijar el modelo de build antes de que condicione todo lo demás.
 
 **Alcance.** EAS, entornos de desarrollo y staging, firma, cuentas de
 desarrollador, TestFlight y Play Internal Testing, y development builds.
+
+**Desbloquea, además, algo ya diferido.** Los development builds y las cuentas
+de desarrollador son los prerrequisitos del inicio de sesión nativo con Google y
+Apple, diferido en F5. Esta fase no lo implementa: lo hace ejecutable.
 
 **Por qué aquí y no al final.** Las notificaciones de F9 requieren un
 development build; no funcionan completas en Expo Go. Y resolver cuentas, firma

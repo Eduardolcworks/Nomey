@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-28**, al cerrar F5.E.
+Actualizado el **2026-08-28**, al cerrar la **Fase 5**.
 
 ---
 
@@ -21,37 +21,40 @@ Actualizado el **2026-08-28**, al cerrar F5.E.
 
 |                         |                                                                                   |
 | ----------------------- | --------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 5 — Identidad y sesión.** A, B, C1, D y E cerrados · **F5.C2 pendiente**   |
-| **Última fase cerrada** | **Fase 4 — Arquitectura UX e internacionalización** (4.A · 4.B · 4.C · 4.D)       |
+| **Próxima fase**        | **Fase 6 — Modo Personal.** Primer hito enseñable. No empezada                    |
+| **Última fase cerrada** | **Fase 5 — Identidad y sesión** (A · B · C1 · D · E · F), el 2026-08-28           |
 | **ADR aceptados**       | ADR-001 … ADR-018                                                                 |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR               |
 | **App visible**         | Shell navegable, y **Perfil con identidad real**. **Sin funcionalidad económica** |
 | **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**      |
 
-**La Fase 5 NO está completa.** El ciclo de acceso ya se cierra: registro con
-confirmación obligatoria, login, sesión que sobrevive al reinicio, **cierre de
-sesión real** y **recuperación de contraseña**. Lo que falta no es un criterio
-del roadmap, sino **el requisito de producto que creció a mitad de fase**:
-Google y Apple.
+**La Fase 5 está cerrada**, con sus cuatro criterios del roadmap cumplidos y
+verificados: se puede registrar, entrar, salir y recuperar el acceso; la sesión
+sobrevive al reinicio y se renueva sola; las rutas protegidas son inaccesibles
+sin sesión; y ninguna credencial privada de backend viaja en el bundle.
 
 | Bloque    | Qué es                    | Estado                          |
 | --------- | ------------------------- | ------------------------------- |
 | **F5.A**  | Frontera y almacenamiento | **Cerrado**, validado en iPhone |
 | **F5.B**  | Estado de sesión y rutas  | **Cerrado**, validado en iPhone |
 | **F5.C1** | Email y contraseña        | **Cerrado**, validado en iPhone |
-| **F5.C2** | Google y Apple            | **Pendiente**, bloqueo externo  |
+| **F5.C2** | Google y Apple            | **Diferido**, ver abajo         |
 | **F5.D**  | Cierre de sesión y Perfil | **Cerrado**, validado en iPhone |
 | **F5.E**  | Recuperación de acceso    | **Cerrado**, validado en iPhone |
-| **F5.F**  | Cierre de fase            | **Siguiente bloque**            |
+| **F5.F**  | Cierre de fase            | **Cerrado**, validado en iPhone |
 
-**F5.C2 está parcialmente bloqueado por capacidad externa**: no hay Apple
-Developer Program disponible, y no se hace una implementación provisional que
-luego haya que sustituir. **La Fase 5 no puede cerrarse mientras C2 siga
-pendiente.**
+**Entrar con Google y con Apple queda diferido, y no bloqueó el cierre.** No
+forma parte del alcance ni de los cuatro criterios de la Fase 5 en el roadmap:
+se añadió como requisito de producto a mitad de fase. Sigue siendo una capacidad
+de autenticación pendiente, y lo que la difiere es una dependencia real — el
+login nativo de Google no funciona en Expo Go y exige un development build, y
+Apple exige el programa de desarrollador. **Las dos capacidades las introduce la
+Fase 8**, y se ejecutará cuando existan, sin reabrir la Fase 5.
 
-**El siguiente trabajo de la Fase 5 es F5.F**, el cierre de fase. F5.E quedó
-cerrado y validado en iPhone, y no dependía de C2: la recuperación opera sobre
-la misma sesión de Supabase venga del proveedor que venga.
+**F5.F fue el cierre de fase**: verificar los cuatro criterios normativos,
+validar la integración completa en un solo recorrido físico, añadir la evidencia
+que faltaba sobre credenciales en el bundle, y dejar la documentación de estado
+sin contradicciones.
 
 ---
 
@@ -121,7 +124,8 @@ dominio de `src/domain/errors.ts`, también 422.
 **Lo que existe:** el cliente y el almacenamiento seguro (F5.A), el estado de
 sesión con su restauración y las rutas protegidas (F5.B), el acceso con email y
 contraseña (F5.C1), **el cierre de sesión con la Cuenta y el Perfil** (F5.D) y
-**la recuperación de contraseña** (F5.E). **Lo que no: Google y Apple.**
+**la recuperación de contraseña** (F5.E). **Lo que no: Google y Apple**, que
+están diferidos hasta que existan sus prerrequisitos.
 
 ```
 lib/env/              las dos EXPO_PUBLIC_, validadas al arrancar
@@ -168,6 +172,14 @@ signed-in   ->  (tabs) · add · notifications · profile · account
 ```
 
 Lo que conviene no re-descubrir:
+
+- **La frontera de credenciales tiene TRES capas, y ninguna sustituye a las
+  otras**: `tests/infra/no-backend-secrets.test.ts` sobre el fuente versionado,
+  `src/lib/env/supabase-env.ts` en ejecución, y
+  [`scripts/bundle-secrets-check.sh`](../scripts/bundle-secrets-check.sh) sobre
+  el artefacto exportado. **La URL pública y la clave publicable SÍ viajan en el
+  bundle, y es correcto**: se diseñan para eso. Lo que no puede aparecer es una
+  clave `sb_secret_`, un JWT heredado o una clave privada.
 
 - **La identidad interna de Nomey es el `sub` del JWT.** No hay tabla de
   usuario, ni perfil, ni segunda identidad, y no se crea ninguna al añadir
@@ -360,12 +372,13 @@ verificado porque pase en Vitest**, que corre sobre V8.
 
 ## Decisiones aplazadas relevantes
 
-Ninguna bloquea a F5.E. El detalle completo, con motivo y destino de cada una,
+Ninguna bloqueó el cierre de la Fase 5. El detalle completo, con motivo y
+destino de cada una,
 está en [`model-coverage.md`](architecture/model-coverage.md).
 
 | Aplazado                                        | Dónde queda                                |
 | ----------------------------------------------- | ------------------------------------------ |
-| **Google y Apple**, requisito de producto       | **F5.C2** — bloqueo externo                |
+| **Google y Apple**, requisito de producto       | Diferido: prerrequisitos en la **Fase 8**  |
 | **Subida real de la foto de perfil**            | Bloque posterior, con decisión propia      |
 | **Timeout de las operaciones de autenticación** | Deuda abierta, sin ADR                     |
 | Persistencia de la preferencia de idioma        | Con la UI de Ajustes                       |
