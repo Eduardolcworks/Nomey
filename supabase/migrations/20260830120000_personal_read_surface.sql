@@ -33,11 +33,22 @@
 --     salen como TEXTO, y el check A9 cuenta cero columnas `bigint` en `api`.
 --
 -- `security_invoker` en las tres vistas NO es un detalle de estilo: E19 midio
--- que en una cadena de vistas decide el eslabon mas cercano a las tablas, y que
--- sin el se filtran filas de otro ambito INCLUSO SIN SESION, devolviendo cifras
--- creibles. La cadena de dos vistas de este bloque
--- —`personal_operation_version` sobre `personal_operation`— es exactamente el
--- caso que E19 midio, y las dos son `security_invoker`.
+-- que en una cadena de vistas decide el eslabon mas cercano a las tablas. La
+-- cadena de dos vistas de este bloque —`personal_operation_version` sobre
+-- `personal_operation`— es exactamente ese caso, y las dos lo llevan.
+--
+-- DONDE ESTA LA BARRERA DE VERDAD, medido sobre esta superficie y no supuesto.
+-- Se retiraron las protecciones una a una con una fila de U1 y leyendo como U2:
+--
+--   predicado de propiedad fuera, invoker puesto ................. 0 filas
+--   ademas invoker fuera EN LA VISTA DE `api` .................... 0 filas
+--   ademas invoker fuera EN `core.current_effect` ................ SE FILTRA
+--
+-- Es literalmente el hallazgo de E19: con el eslabon interno `security_invoker`,
+-- una vista externa ejecutada como propietario NO reintroduce el bypass. La
+-- proyeccion canonica es el limite de privilegio (ADR-013 §9), y quien lo
+-- vigila es el check A2 de `canonical-attribution.sql`. El `security_invoker`
+-- de estas tres vistas es una capa mas, no la que aguanta sola.
 --
 -- NINGUN GRANT NUEVO SOBRE `core`, y no es casualidad: `authenticated` ya tiene
 -- SELECT sobre las siete relaciones que esta superficie recorre, cada una con su
@@ -58,18 +69,25 @@
 --
 -- ============================ LAS ANULADAS =================================
 --
--- Quedan fuera por DOS razones independientes, y ninguna es una segunda fuente
--- de vigencia:
+-- Quedan fuera por DOS vias, y conviene decir exactamente cual sostiene el peso
+-- porque NO son equivalentes:
 --
---   1. una anulacion no tiene efectos, asi que la proyeccion canonica no le
---      aporta ni una fila: sale excluida por construccion;
---   2. `ov.version_kind = 'record'` lo DECLARA, que es lo que ADR-024 §2 pide
---      expresamente. Sin esa linea el criterio quedaria implicito, y el proximo
---      que lo necesitara podria resolverlo con un `NOT EXISTS` sobre
---      `core.effect` — que es justo lo que la guarda A3 rechaza y lo que ya
---      ocurrio en F6.A con `is_currency_locked`.
+--   1. LA QUE HOY EXCLUYE, medida: una anulacion no tiene efectos, asi que la
+--      proyeccion canonica no le aporta ni una fila. Sale excluida por
+--      construccion, sin ayuda de nadie.
+--   2. `ov.version_kind = 'record'`, que DECLARA el criterio y que hoy es
+--      REDUNDANTE. Se falsifico: quitandolo, el check pasa igual.
 --
--- En los dos casos se LEE un atributo descriptivo de la version que
+-- Y se conserva a proposito, con el motivo dicho en vez de disimulado. Es lo que
+-- ADR-024 §2 pide —«las anuladas se excluyen por `version_kind`, no por ausencia
+-- de efectos»— y su valor es impedir que el criterio quede implicito: quien
+-- mañana cambie la relacion base de esta vista y descubra que las anuladas
+-- reaparecen ira a buscar un `NOT EXISTS` sobre `core.effect`, que es lo que la
+-- guarda A3 rechaza y lo que ya ocurrio en F6.A con `is_currency_locked`. El
+-- check §A10 afirma que la clausula sigue aqui, para que nadie la retire por
+-- «codigo muerto» sin leer esto.
+--
+-- En las dos vias se LEE un atributo descriptivo de la version que
 -- `current_version_id` ya selecciono. No se decide la vigencia en ningun sitio.
 --
 -- ===================== LAS CLASES QUE ESTA SUPERFICIE SABE =================
