@@ -4,96 +4,101 @@ import { Alert } from 'react-native';
 
 import { useTranslation } from '@/lib/i18n';
 
+import { createRecoveryArrivalHandler } from './recovery-arrival';
 import { useRecovery } from './recovery-controller';
 import { isRecoveryActive } from './recovery-state';
-import { readRecoveryLink } from './recovery-link';
 
 /**
- * The single owner of the recovery deep link, and the gate in front of it.
+ * The single owner of the recovery deep link: one subscription, one handler.
  *
- * One hook, mounted once at the composition root, above every branch: a link
- * can arrive while the app is cold, while it sits on the sign-in screen, or
- * while it is already open, and a listener living inside a branch would miss
- * whichever arrivals its branch was not mounted for.
+ * **`Linking.useURL()` is deliberately not used.** It keeps the last URL in
+ * state, and anything that reads it is reading a value rather than an event -
+ * so an effect depending on `signedIn` re-ran on sign-out and redeemed a link
+ * nobody had re-opened. Measured, and the reason this file is shaped the way
+ * it is.
  *
- * **The token hash never becomes state, a param or a prop.** It is read out of
- * the URL, handed to the controller, and forgotten. expo-router keeps params
- * for the life of a route, so a hash parked in navigation state would outlive
- * its single use and end up in whatever inspects navigation. It is never
- * logged either.
+ * What replaces it is the pair `useURL` is built from, used directly:
+ * `getInitialURL()` once for the URL that launched the app, and an `url`
+ * listener for every later delivery. `addEventListener` is a pass-through to
+ * React Native's emitter, so it fires **per delivery** - re-opening the very
+ * same link fires again, which is exactly the case the retained value could
+ * not represent.
  *
- * TWO REFUSALS, and neither spends the token.
+ * The effect has an EMPTY dependency list, and that is the guarantee rather
+ * than an optimisation: the subscription is installed once, so no change of
+ * session, controller state or locale can re-run the processing. The live
+ * values the handler needs are read through a ref at the moment a link
+ * arrives, which is when the decision belongs.
  *
- * **An ordinary session is already open.** Measured before deciding: nothing
- * stopped this, and the result was two identities at once - account A signed
- * in and persisted, account B's recovery session live in memory - with the
- * recovery surface hiding the product from A. So a link arriving now is not
- * redeemed at all: `verifyOtp` is never called, the token stays valid, and the
- * person is told to sign out and open the link again.
- *
- * That notice is an `Alert` rather than a surface, and the reason is
- * practical rather than aesthetic: a surface would take over the tree, and the
- * one thing the person needs to do next - reach Perfil, then Cuenta, then
- * Cerrar sesión - lives inside the tree it would be covering.
- *
- * **A recovery is already in flight.** A second link does not start a second
- * transaction and does not silently replace the session of the first. It is
- * ignored without being redeemed, so its token survives.
- *
- * WHY THE WARNING IS REMEMBERED, and why the redemption path clears it.
- * `Linking.useURL()` stores the URL with `setLink(event.url)`, and React bails
- * out of an identical string - so re-delivering the same link to a running app
- * does not re-run this effect. The refusal therefore has to be remembered per
- * URL, or signing out would re-trigger the notice; and it has to be forgotten
- * the moment the session goes away, or the very link the person was told to
- * re-open could never be redeemed.
+ * The token hash never becomes state, a param or a prop, and is never logged.
  */
 export function useRecoveryLink({ signedIn }: { signedIn: boolean }): void {
-  const url = Linking.useURL();
   const { t } = useTranslation();
   const { state, redeem } = useRecovery();
 
   /**
-   * Hashes already handed to the server, so a re-render cannot spend one twice.
+   * The current values, for a handler that outlives the render that made them.
    *
-   * `useURL` re-emits the same value across re-renders, and a hash is
-   * single-use: the first redemption succeeds and a second answers 403, which
-   * would replace a working recovery with a dead-link error.
+   * Written on every render and read only inside the handler. A ref rather
+   * than dependencies precisely so that changing any of them cannot re-trigger
+   * the work.
    */
-  const spent = useRef<string | null>(null);
+  const live = useRef({ signedIn, state, redeem, t });
 
-  /** Links already refused for an open session. Never marked as spent. */
-  const warned = useRef<string | null>(null);
+  // Kept current in an effect rather than during render: a ref written while
+  // rendering is a value React is entitled to discard, and the lint rule that
+  // forbids it is right. This runs after every render, so the handler always
+  // reads the latest values without any of them becoming a dependency.
+  useEffect(() => {
+    live.current = { signedIn, state, redeem, t };
+  });
 
   useEffect(() => {
-    const proof = readRecoveryLink(url);
-    if (proof === null) return;
+    const handle = createRecoveryArrivalHandler({
+      isSignedIn: () => live.current.signedIn,
+      isRecovering: () => isRecoveryActive(live.current.state),
+      redeem: (tokenHash) => {
+        void live.current.redeem(tokenHash);
+      },
+      warn: () => {
+        /*
+         * Neutral, and never naming the account the link belongs to: that
+         * would answer "does this address have an account here?" to whoever is
+         * holding the phone.
+         *
+         * An Alert rather than a surface because a surface would take over the
+         * tree, and the one thing the person needs to do next - Perfil,
+         * Cuenta, Cerrar sesión - lives inside the tree it would cover.
+         */
+        const { t: translate } = live.current;
+        Alert.alert(translate('auth.recoveryBlockedTitle'), translate('auth.recoveryBlockedBody'), [
+          { text: translate('action.understood'), style: 'cancel' },
+        ]);
+      },
+    });
 
-    // A transaction is already running. Do not start a second one, and do not
-    // burn the second link doing it.
-    if (isRecoveryActive(state)) return;
+    /*
+     * `active` covers the gap between an unmount and `getInitialURL` settling.
+     * Redeeming after teardown would spend a token for a screen that is gone.
+     */
+    let active = true;
 
-    if (spent.current === proof.tokenHash) return;
+    void Linking.getInitialURL()
+      .then((url) => {
+        if (active) handle(url);
+      })
+      .catch(() => {
+        // No launch URL, or the platform refused to say. Neither is a
+        // recovery, and neither is worth surfacing.
+      });
 
-    if (signedIn) {
-      if (warned.current === proof.tokenHash) return;
-      warned.current = proof.tokenHash;
-      /*
-       * Neutral on purpose. It never names the account the link belongs to,
-       * because that would answer "does this address have an account here?"
-       * to whoever is holding the phone - the enumeration this whole flow
-       * refuses to do anywhere else.
-       */
-      Alert.alert(t('auth.recoveryBlockedTitle'), t('auth.recoveryBlockedBody'), [
-        { text: t('action.understood'), style: 'cancel' },
-      ]);
-      return;
-    }
+    const subscription = Linking.addEventListener('url', (event) => {
+      if (active) handle(event.url);
+    });
 
-    // Signed out now. The link the person was told to re-open must work, so
-    // the refusal is forgotten before redeeming.
-    warned.current = null;
-    spent.current = proof.tokenHash;
-    void redeem(proof.tokenHash);
-  }, [url, signedIn, state, redeem, t]);
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
 }

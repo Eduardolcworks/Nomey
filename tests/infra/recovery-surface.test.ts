@@ -9,6 +9,7 @@ import SIGN_IN from '../../src/app/(auth)/sign-in.tsx?raw';
 import FORGOT_RAW from '../../src/app/(auth)/forgot-password.tsx?raw';
 import NEW_PASSWORD_RAW from '../../src/app/(recovery)/new-password.tsx?raw';
 import HOOK_RAW from '../../src/features/auth/use-recovery-link.ts?raw';
+import ARRIVAL_RAW from '../../src/features/auth/recovery-arrival.ts?raw';
 import SERVICE_RAW from '../../src/features/auth/auth-service.ts?raw';
 import PARSER_RAW from '../../src/features/auth/recovery-link.ts?raw';
 import TEMPLATE from '../../supabase/templates/recovery.html?raw';
@@ -80,11 +81,12 @@ describe('el token nunca se queda en ningún sitio', () => {
     }
   });
 
-  it('y no se gasta dos veces por un re-render', () => {
-    // `useURL` reemite el mismo valor; el hash es de un solo uso, así que un
-    // segundo canje convertiría un recovery bueno en un enlace muerto.
-    expect(HOOK).toContain('spent');
-    expect(HOOK).toContain('useRef');
+  it('y no se gasta dos veces', () => {
+    // El hash es de un solo uso: un segundo canje convertiría un recovery
+    // bueno en un enlace muerto. La guarda vive con la decisión, en el módulo
+    // de llegada, y su comportamiento lo ejercita `recovery-arrival.test.ts`.
+    expect(stripComments(ARRIVAL_RAW)).toContain('spent.has(proof.tokenHash)');
+    expect(HOOK).not.toContain('spent');
   });
 });
 
@@ -291,57 +293,56 @@ describe('el final del flujo', () => {
   });
 });
 
-describe('un recovery nunca coexiste con una sesión ordinaria', () => {
-  it('con sesión abierta NO se canjea el enlace', () => {
+describe('el deep link se procesa por llegada, no por valor retenido', () => {
+  it('ya NO usa `Linking.useURL()`', () => {
     /*
-     * Medido antes de decidirlo: sin esta puerta quedaban dos identidades a la
-     * vez -la cuenta A dentro y persistida, la B viva en memoria- y la
-     * superficie de recovery escondía el producto a A.
+     * `useURL` retiene la última URL en estado. Leerla desde un efecto que
+     * dependía de `signedIn` hacía que cerrar sesión canjeara un enlace que
+     * nadie había reabierto - medido. La suscripción cruda no retiene nada.
      */
-    expect(HOOK).toContain('if (signedIn)');
-    const guarded = HOOK.slice(
-      HOOK.indexOf('if (signedIn)'),
-      HOOK.indexOf('warned.current = null'),
-    );
-    expect(guarded).not.toContain('redeem(');
-    expect(guarded).not.toContain('verifyOtp');
+    expect(HOOK).not.toContain('useURL');
+    expect(HOOK).toContain('getInitialURL()');
+    expect(HOOK).toContain("addEventListener('url'");
   });
 
-  it('y el token NO se marca como gastado, así que sigue sirviendo', () => {
-    // La persona cierra sesión y vuelve a abrir EL MISMO enlace del correo.
-    const guarded = HOOK.slice(
-      HOOK.indexOf('if (signedIn)'),
-      HOOK.indexOf('warned.current = null'),
-    );
-    expect(guarded).not.toContain('spent.current = proof.tokenHash');
+  it('la suscripción se instala UNA vez y no depende de la sesión', () => {
+    // Dependencias vacías: ningún cambio de sesión, de estado ni de idioma
+    // puede reejecutar el procesamiento.
+    expect(HOOK).toMatch(/\}, \[\]\);/);
+    expect(HOOK).not.toMatch(/\}, \[[^\]]*signedIn[^\]]*\]\);/);
   });
 
-  it('el aviso se olvida al salir, o el enlace quedaría inservible', () => {
-    // `useURL` no reemite una URL idéntica, así que sin esto el enlace que se
-    // acaba de pedir reabrir no podría canjearse nunca.
-    expect(HOOK).toContain('warned.current = null');
+  it('y el listener se limpia al desmontar', () => {
+    expect(HOOK).toContain('subscription.remove()');
+    expect(HOOK).toContain('active = false');
+  });
+
+  it('nada desbloquea un enlace por cambiar la sesión', () => {
+    // La línea que causaba el auto-canje. No debe volver.
+    const arrival = stripComments(ARRIVAL_RAW);
+    expect(arrival).not.toMatch(/warned[^\n]*=\s*null/);
+    expect(arrival).not.toContain('warned.clear()');
+  });
+
+  it('con sesión abierta no se canjea ni se gasta el token', () => {
+    const arrival = stripComments(ARRIVAL_RAW);
+    const blocked = arrival.slice(arrival.indexOf('if (ports.isSignedIn())'));
+    const guarded = blocked.slice(0, blocked.indexOf('spent.add'));
+    expect(guarded).toContain('ports.warn()');
+    expect(guarded).not.toContain('ports.redeem');
+    expect(guarded).not.toContain('spent.add');
   });
 
   it('el aviso no dice de qué cuenta es el enlace', () => {
     for (const catalogue of [esES, en]) {
       const copy = `${catalogue['auth.recoveryBlockedTitle']} ${catalogue['auth.recoveryBlockedBody']}`;
       expect(copy).not.toMatch(/\{email\}|\{name\}|\{account\}/);
-      expect(copy.toLowerCase()).not.toContain('@');
+      expect(copy).not.toContain('@');
     }
   });
 
   it('y es un aviso, no una superficie que tape la app', () => {
-    // Taparla dejaría a la persona sin poder llegar a Cuenta, que es
-    // exactamente lo que se le está pidiendo que haga.
     expect(HOOK).toContain('Alert.alert');
-    expect(HOOK).not.toContain("status: 'blocked'");
-  });
-
-  it('un segundo enlace no abre una segunda transacción', () => {
-    expect(HOOK).toContain('if (isRecoveryActive(state)) return');
-    const gate = HOOK.slice(0, HOOK.indexOf('if (isRecoveryActive(state)) return'));
-    // La comprobación va ANTES de gastar nada.
-    expect(gate).not.toContain('spent.current = proof.tokenHash');
   });
 });
 

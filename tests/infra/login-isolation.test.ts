@@ -4,6 +4,7 @@ import SERVICE_RAW from '../../src/features/auth/auth-service.ts?raw';
 import CONTROLLER_RAW from '../../src/features/auth/recovery-controller.tsx?raw';
 import CLIENT_RAW from '../../src/lib/supabase/recovery-client.ts?raw';
 import HOOK_RAW from '../../src/features/auth/use-recovery-link.ts?raw';
+import ARRIVAL_RAW from '../../src/features/auth/recovery-arrival.ts?raw';
 import SUBMIT_RAW from '../../src/features/auth/use-auth-submit.ts?raw';
 import LAYOUT from '../../src/app/_layout.tsx?raw';
 import { createExclusiveRunner, SKIPPED } from '../../src/features/auth/submit-guard';
@@ -31,6 +32,7 @@ const CONTROLLER = stripComments(CONTROLLER_RAW);
 const CLIENT = stripComments(CLIENT_RAW);
 const HOOK = stripComments(HOOK_RAW);
 const SUBMIT = stripComments(SUBMIT_RAW);
+const ARRIVAL = stripComments(ARRIVAL_RAW);
 
 describe('el login ordinario usa SOLO el cliente principal', () => {
   it('`signIn` llama al cliente principal y a ningún otro', () => {
@@ -111,7 +113,8 @@ describe('el RecoveryProvider no intercepta ni bloquea nada', () => {
     expect(readRecoveryLink('exp://192.168.8.110:8081')).toBeNull();
     expect(readRecoveryLink('exp://192.168.8.110:8081/--/')).toBeNull();
     expect(readRecoveryLink('nomey-dev://')).toBeNull();
-    expect(HOOK).toContain('if (proof === null) return');
+    // La salida corta vive con la decisión, en el módulo de llegada.
+    expect(ARRIVAL).toContain('if (proof === null) return');
   });
 });
 
