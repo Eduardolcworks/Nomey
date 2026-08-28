@@ -956,6 +956,170 @@ esac
 
 # ============================================================================
 echo ""
+echo "== 11 · la superficie de lectura del Modo Personal, por HTTP =="
+#
+# Lo que solo esta ruta demuestra, y ningun check SQL puede: que PostgREST sirve
+# las tres vistas y la funcion de lote con un JWT REAL, que los importes cruzan
+# como STRING —A9 cuenta columnas `bigint`, pero quien decide como se serializa
+# es PostgREST—, y que un identificador ajeno enviado por la red devuelve
+# 200 con lista vacia en vez de un error del que deducir existencia.
+
+jarr() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);console.log(eval(process.argv[1]))}catch{console.log("err")}})' "$1"; }
+
+GA=(-H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}")
+GB=(-H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_B}")
+
+# 11.1 · la lista responde, y no trae ninguna clase fuera de las de F6.
+lista=$(curl -s "${API}/rest/v1/personal_operation?select=operation_id,operation_class,balance_amount,original_amount,version_no,previous_version_id,concept,target_balance" "${GA[@]}")
+n=$(printf '%s' "${lista}" | jarr 'a.length')
+malas=$(printf '%s' "${lista}" | jarr 'a.filter(x=>!["personal_expense","personal_income","adjustment"].includes(x.operation_class)).length')
+if [ "${n}" != "err" ] && [ "${n}" -gt 0 ] 2>/dev/null && [ "${malas}" = "0" ]; then
+  ok "api.personal_operation responde con ${n} operaciones, todas de las clases de F6"
+else
+  fallo "la lista devolvio n=${n} y ${malas} clases fuera de la lista blanca"
+fi
+
+# 11.2 · LOS IMPORTES CRUZAN COMO STRING. Es la mitad de ADR-008 §1 que solo la
+# ruta real comprueba: el catalogo dice que no hay columnas `bigint`, pero que
+# PostgREST no los reserialice como number lo demuestra este byte.
+tipos=$(printf '%s' "${lista}" | jarr 'a.every(x=>typeof x.balance_amount==="string" && typeof x.original_amount==="string")?"ok":"number"')
+[ "${tipos}" = "ok" ] \
+  && ok "balance_amount y original_amount cruzan como string JSON" \
+  || fallo "algun importe de la lista salio como number JSON (${tipos})"
+
+# 11.3 · LA ANULADA NO ASOMA, ni por la lista ni por el historial. Es la
+# obligacion de ADR-024 comprobada sobre la ruta real y no sobre `set_config`.
+enlista=$(printf '%s' "${lista}" | jarr 'a.filter(x=>x.operation_id==="'"${OP_ANU}"'").length')
+enhist=$(curl -s "${API}/rest/v1/personal_operation_version?select=operation_version_id&operation_id=eq.${OP_ANU}" "${GA[@]}" | jarr 'a.length')
+if [ "${enlista}" = "0" ] && [ "${enhist}" = "0" ]; then
+  ok "la operacion anulada no aparece ni en la lista ni en el historial"
+else
+  fallo "la anulada asoma: ${enlista} en la lista, ${enhist} en el historial"
+fi
+
+# 11.4 · EL SALDO. Una sola fila, y coincide EXACTAMENTE con el derivado por SQL
+# de la proyeccion canonica. Si divergieran, la vista habria dejado de derivar.
+saldo=$(curl -s "${API}/rest/v1/personal_balance?select=scope_id,balance_amount" "${GA[@]}")
+filas=$(printf '%s' "${saldo}" | jarr 'a.length')
+cifra=$(printf '%s' "${saldo}" | jarr 'a.length?a[0].balance_amount:"-"')
+derivado=$("${DBQ[@]}" <<SQL 2>/dev/null
+select coalesce(sum(e.balance_amount),0) from core.current_effect e
+ where e.scope_id = '${PA}' and e.balance_amount is not null;
+SQL
+)
+derivado=$(tr -d '[:space:]' <<<"${derivado}")
+if [ "${filas}" = "1" ] && [ "${cifra}" = "${derivado}" ]; then
+  ok "api.personal_balance devuelve una fila y su saldo es el derivado: ${cifra}"
+else
+  fallo "el saldo devolvio ${filas} filas con ${cifra} y el derivado es ${derivado}"
+fi
+
+# 11.5 · CORREGIR, Y LEER EL «EDITADO» EN UNA SOLA CONSULTA POR PAGINA.
+r=$(rpc record_personal_expense "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"ab000000-0000-4000-8000-000000000001\",\"command_contract_version\":2,\"effective_date\":\"2026-03-03\",\"effective_time\":\"10:00\",\"scope_id\":\"${PA}\",\"amount\":\"3000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Antes\",\"category_id\":\"${CAT_GASTO}\"}")")
+OP_ED=$(printf '%s' "$(cuerpo_de "${r}")" | jget operation_id)
+V_ED=$("${DBQ[@]}" <<SQL 2>/dev/null
+select current_version_id from core.operation where id = '${OP_ED}';
+SQL
+)
+V_ED=$(tr -d '[:space:]' <<<"${V_ED}")
+r=$(rpc record_personal_expense "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"ab000000-0000-4000-8000-000000000002\",\"command_contract_version\":2,\"effective_date\":\"2026-03-03\",\"effective_time\":\"20:00\",\"scope_id\":\"${PA}\",\"amount\":\"4500\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Despues\",\"category_id\":\"${CAT_INGRESO}\",\"operation_id\":\"${OP_ED}\",\"expected_version_id\":\"${V_ED}\"}")")
+# La categoria de INGRESO en un gasto tiene que ser rechazada: la FK compuesta de
+# F6.B lo hace estructural. Se corrige de verdad con una categoria de gasto.
+r=$(rpc record_personal_expense "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"ab000000-0000-4000-8000-000000000003\",\"command_contract_version\":2,\"effective_date\":\"2026-03-03\",\"effective_time\":\"20:00\",\"scope_id\":\"${PA}\",\"amount\":\"4500\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Despues\",\"category_id\":\"${CAT_GASTO}\",\"operation_id\":\"${OP_ED}\",\"expected_version_id\":\"${V_ED}\"}")")
+[ "$(estado_de "${r}")" = "200" ] || fallo "la correccion por HTTP devolvio $(estado_de "${r}")"
+
+fila=$(curl -s "${API}/rest/v1/personal_operation?select=version_no,previous_version_id,original_amount,concept&operation_id=eq.${OP_ED}" "${GA[@]}")
+vno=$(printf '%s' "${fila}" | jarr 'a.length?a[0].version_no:"-"')
+prev=$(printf '%s' "${fila}" | jarr 'a.length?(a[0].previous_version_id||"-"):"-"')
+if [ "${vno}" = "2" ] && [ "${prev}" != "-" ]; then
+  ok "la lista marca la operacion como editada y publica su predecesor"
+else
+  fallo "la operacion corregida devolvio version_no=${vno} previous=${prev}"
+fi
+
+# LA CONSULTA UNICA POR PAGINA: `in.(...)` sobre los predecesores. Es lo que
+# evita una llamada por fila para pintar la linea tachada.
+ant=$(curl -s "${API}/rest/v1/personal_operation_version?select=original_amount,concept,is_current&operation_version_id=in.(${prev})" "${GA[@]}")
+ant_imp=$(printf '%s' "${ant}" | jarr 'a.length?a[0].original_amount:"-"')
+ant_con=$(printf '%s' "${ant}" | jarr 'a.length?a[0].concept:"-"')
+ant_cur=$(printf '%s' "${ant}" | jarr 'a.length?String(a[0].is_current):"-"')
+if [ "${ant_imp}" = "3000" ] && [ "${ant_con}" = "Antes" ] && [ "${ant_cur}" = "false" ]; then
+  ok "el predecesor se resuelve en UNA consulta y conserva importe y concepto anteriores"
+else
+  fallo "el predecesor devolvio importe=${ant_imp} concepto=${ant_con} is_current=${ant_cur}"
+fi
+
+# 11.6 · EL HISTORIAL COMPLETO al abrir el movimiento.
+hist=$(curl -s "${API}/rest/v1/personal_operation_version?select=version_no,original_amount,is_current&operation_id=eq.${OP_ED}&order=version_no.desc" "${GA[@]}")
+hn=$(printf '%s' "${hist}" | jarr 'a.length')
+hc=$(printf '%s' "${hist}" | jarr 'a.filter(x=>x.is_current).length')
+if [ "${hn}" = "2" ] && [ "${hc}" = "1" ]; then
+  ok "el detalle trae las 2 versiones y solo una es la vigente"
+else
+  fallo "el historial devolvio ${hn} versiones con ${hc} vigentes"
+fi
+
+# 11.7 · LA OBSERVACION POR LOTE, en una sola llamada para varias operaciones.
+r=$(rpc observed_balance "${TOK_A}" "{\"p_operation_ids\":[\"${OP_ED}\"]}")
+e=$(estado_de "${r}")
+obs=$(cuerpo_de "${r}")
+on=$(printf '%s' "${obs}" | jarr 'a.length')
+otipo=$(printf '%s' "${obs}" | jarr 'a.every(x=>typeof x.observed_balance_before==="string"&&typeof x.observed_balance_after==="string")?"ok":"number"')
+if [ "${e}" = "200" ] && [ "${on}" = "2" ] && [ "${otipo}" = "ok" ]; then
+  ok "api.observed_balance devuelve por lote las 2 observaciones, como string"
+else
+  fallo "la observacion por lote devolvio ${e} con n=${on} tipos=${otipo}"
+fi
+
+# 11.8 · Y SIN ARGUMENTO no falla: devuelve las del actor.
+r=$(rpc observed_balance "${TOK_A}" '{}')
+[ "$(estado_de "${r}")" = "200" ] \
+  && ok "observed_balance sin argumento responde 200 con las del actor" \
+  || fallo "observed_balance sin argumento devolvio $(estado_de "${r}")"
+
+# 11.9 · AISLAMIENTO POR LA RUTA REAL. B no ve nada de A por ninguna de las tres
+# vistas, y su saldo es el suyo.
+bl=$(curl -s "${API}/rest/v1/personal_operation?select=operation_id" "${GB[@]}" | jarr 'a.filter(x=>x.operation_id==="'"${OP_ED}"'").length')
+bh=$(curl -s "${API}/rest/v1/personal_operation_version?select=operation_id&operation_id=eq.${OP_ED}" "${GB[@]}" | jarr 'a.length')
+bs=$(curl -s "${API}/rest/v1/personal_balance?select=scope_id" "${GB[@]}" | jarr 'a.filter(x=>x.scope_id==="'"${PA}"'").length')
+if [ "${bl}" = "0" ] && [ "${bh}" = "0" ] && [ "${bs}" = "0" ]; then
+  ok "por HTTP, B no alcanza ni la lista, ni el historial, ni el saldo de A"
+else
+  fallo "B alcanzo lista=${bl} historial=${bh} saldo=${bs} de A"
+fi
+
+# 11.10 · NO ES UN ORACULO. B pide por la red la observacion de una operacion de
+# A: tiene que responder 200 con lista VACIA, no un error. Un 403 o un 404 ya
+# serian una senal de que la operacion existe.
+r=$(rpc observed_balance "${TOK_B}" "{\"p_operation_ids\":[\"${OP_ED}\"]}")
+e=$(estado_de "${r}"); n=$(printf '%s' "$(cuerpo_de "${r}")" | jarr 'a.length')
+if [ "${e}" = "200" ] && [ "${n}" = "0" ]; then
+  ok "un identificador ajeno devuelve 200 con lista vacia: no hay oraculo de existencia"
+else
+  fallo "un identificador ajeno devolvio ${e} con ${n} filas"
+fi
+
+# 11.11 · Y SIN JWT NO SE LLEGA A NADA. Medido: con la clave publicable sola,
+# PostgREST resuelve al rol `anon`, que no tiene ni USAGE sobre `api`, y
+# responde `401` con `42501`. No es una lista vacia: es la puerta cerrada antes
+# de que la RLS tenga nada que decidir.
+sin_cuerpo=$(mktemp)
+for v in personal_operation personal_operation_version personal_balance; do
+  sin=$(curl -s -o "${sin_cuerpo}" -w '%{http_code}' "${API}/rest/v1/${v}?select=*&limit=1" -H "apikey: ${KEY}")
+  sinn=$(jarr 'a.length' <"${sin_cuerpo}")
+  if [ "${sin}" = "200" ] && [ "${sinn}" != "0" ] && [ "${sinn}" != "err" ]; then
+    fallo "sin JWT, api.${v} devolvio ${sin} con ${sinn} filas"
+  else
+    ok "sin JWT, api.${v} no entrega filas (${sin})"
+  fi
+done
+rm -f "${sin_cuerpo}"
+
+# ============================================================================
+echo ""
 echo "== retirada =="
 retirar
 borrar_usuarios

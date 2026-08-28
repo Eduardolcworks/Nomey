@@ -57,6 +57,22 @@ export type Database = {
         };
         Relationships: [];
       };
+      personal_balance: {
+        Row: {
+          balance_amount: string | null;
+          currency_definition_id: string | null;
+          scope_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'scope_base_currency_definition_id_fkey';
+            columns: ['currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'currency_definition';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       personal_effect: {
         Row: {
           accounting_class: string | null;
@@ -72,6 +88,13 @@ export type Database = {
             foreignKeyName: 'effect_moneda_del_ambito';
             columns: ['scope_id', 'currency_definition_id'];
             isOneToOne: false;
+            referencedRelation: 'personal_balance';
+            referencedColumns: ['scope_id', 'currency_definition_id'];
+          },
+          {
+            foreignKeyName: 'effect_moneda_del_ambito';
+            columns: ['scope_id', 'currency_definition_id'];
+            isOneToOne: false;
             referencedRelation: 'personal_scope';
             referencedColumns: ['id', 'base_currency_definition_id'];
           },
@@ -79,7 +102,90 @@ export type Database = {
             foreignKeyName: 'effect_scope_id_fkey';
             columns: ['scope_id'];
             isOneToOne: false;
+            referencedRelation: 'personal_balance';
+            referencedColumns: ['scope_id'];
+          },
+          {
+            foreignKeyName: 'effect_scope_id_fkey';
+            columns: ['scope_id'];
+            isOneToOne: false;
             referencedRelation: 'personal_scope';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      personal_operation: {
+        Row: {
+          balance_amount: string | null;
+          category_id: string | null;
+          concept: string | null;
+          currency_definition_id: string | null;
+          current_version_id: string | null;
+          effective_date: string | null;
+          effective_time: string | null;
+          operation_class: string | null;
+          operation_created_at: string | null;
+          operation_id: string | null;
+          original_amount: string | null;
+          previous_version_id: string | null;
+          scope_id: string | null;
+          target_balance: string | null;
+          version_no: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'effect_moneda_del_ambito';
+            columns: ['scope_id', 'currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_balance';
+            referencedColumns: ['scope_id', 'currency_definition_id'];
+          },
+          {
+            foreignKeyName: 'effect_moneda_del_ambito';
+            columns: ['scope_id', 'currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_scope';
+            referencedColumns: ['id', 'base_currency_definition_id'];
+          },
+          {
+            foreignKeyName: 'effect_scope_id_fkey';
+            columns: ['scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_balance';
+            referencedColumns: ['scope_id'];
+          },
+          {
+            foreignKeyName: 'effect_scope_id_fkey';
+            columns: ['scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_scope';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      personal_operation_version: {
+        Row: {
+          category_id: string | null;
+          concept: string | null;
+          currency_definition_id: string | null;
+          effective_date: string | null;
+          effective_time: string | null;
+          is_current: boolean | null;
+          operation_class: string | null;
+          operation_id: string | null;
+          operation_version_id: string | null;
+          original_amount: string | null;
+          supersedes_version_id: string | null;
+          target_balance: string | null;
+          version_created_at: string | null;
+          version_no: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'operation_version_original_currency_definition_id_fkey';
+            columns: ['currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'currency_definition';
             referencedColumns: ['id'];
           },
         ];
@@ -116,6 +222,17 @@ export type Database = {
       };
       create_custom_category: { Args: { payload: Json }; Returns: Json };
       ensure_personal_scope: { Args: { payload: Json }; Returns: Json };
+      observed_balance: {
+        Args: { p_operation_ids?: string[] };
+        Returns: {
+          is_current: boolean;
+          observed_balance_after: string;
+          observed_balance_before: string;
+          operation_id: string;
+          operation_version_id: string;
+          scope_id: string;
+        }[];
+      };
       record_adjustment: { Args: { payload: Json }; Returns: Json };
       record_debt_settlement: { Args: { payload: Json }; Returns: Json };
       record_external_transfer: { Args: { payload: Json }; Returns: Json };
