@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-28**, al cerrar el bloque **F6.B**.
+Actualizado el **2026-08-29**, al cerrar el bloque **F6.C**.
 
 ---
 
@@ -21,9 +21,9 @@ Actualizado el **2026-08-28**, al cerrar el bloque **F6.B**.
 
 |                         |                                                                                   |
 | ----------------------- | --------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 6 — Modo Personal.** Primer hito enseñable. **F6.A y F6.B cerrados**       |
+| **Fase en curso**       | **Fase 6 — Modo Personal.** Primer hito enseñable. **F6.A, F6.B y F6.C cerrados** |
 | **Última fase cerrada** | **Fase 5 — Identidad y sesión** (A · B · C1 · D · E · F), el 2026-08-28           |
-| **ADR aceptados**       | ADR-001 … ADR-021                                                                 |
+| **ADR aceptados**       | ADR-001 … ADR-024                                                                 |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR               |
 | **App visible**         | Shell navegable, y **Perfil con identidad real**. **Sin funcionalidad económica** |
 | **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**      |
@@ -45,6 +45,16 @@ eligen su moneda. La decisión es
 > hoy una cuenta recién confirmada **sigue sin Modo Personal** hasta que alguien
 > llama a la función. Ese cableado es de **F6.E**, antes de que Inicio consuma el
 > ámbito.
+
+**F6.C cerró el saldo objetivo, la observación y la anulación**, también sin
+pantalla. El cliente declara el saldo que dice tener y **el servidor deriva el
+delta bajo lock**; cada escritura de saldo deja una **fotografía congelada** del
+antes y el después que **nunca alimenta el Disponible**; y eliminar un
+movimiento es una **versión sin efectos** que no borra nada. Las decisiones son
+[ADR-022](adr/ADR-022-balance-target-and-serialization.md),
+[ADR-023](adr/ADR-023-balance-observation.md) y
+[ADR-024](adr/ADR-024-annulment.md); la evidencia de las carreras,
+[`supabase/e22/`](../supabase/e22/README.md).
 
 **F6.B dio anatomía al movimiento**, también sin pantalla: **concepto**
 obligatorio, **categoría** siempre presente con catálogos separados de gasto e
@@ -119,7 +129,7 @@ el writer— crea ámbitos y membresías, que es lo único que el escritor conta
 
 ## Superficie `api` disponible
 
-**Escritura — ocho funciones, y ninguna más.** Una por clase de operación,
+**Escritura — ocho funciones de clase.** Una por clase de operación,
 payload `jsonb` único, `GRANT EXECUTE` solo a `authenticated`:
 
 ```
@@ -133,11 +143,22 @@ record_internal_transfer
 Alta y corrección **comparten función**: las distingue `operation_id` +
 `expected_version_id` en el payload.
 
+**Más `api.annul_operation`, que no es una clase.** Anular no deriva efectos, así
+que una sola función vale para las ocho y no contradice «una por clase» de
+ADR-009 §1.
+
+**El ajuste declara `delta` o `target_balance`, exactamente uno.** Con objetivo,
+**el servidor deriva el delta bajo lock**: el cliente no calcula nada sobre una
+lectura que puede haber caducado. `target_balance` es el saldo declarado **al
+reconciliar**, y no hay reconstrucción `as-of`
+— [ADR-022](adr/ADR-022-balance-target-and-serialization.md).
+
 **Y una clase no corrige a otra.** La guarda vive en `sec.persist_version`, por
 donde pasan las ocho para existir, y usa la clase que cada una ya le pasaba: no
 hay parámetro que olvidar ni función que pueda quedarse fuera. Corre **después
 del CAS**, así que no es un oráculo de la clase de una operación ajena.
-`OPERATION_CLASS_MISMATCH · 422`.
+`OPERATION_CLASS_MISMATCH · 422`. Allí vive también la guarda que hace la
+**anulación terminal**: `OPERATION_ANNULLED · 409`.
 
 **Provisioning — dos funciones más, de F6.A.** No son clases de operación: no
 crean operación, ni versión, ni efecto, y **no usan `core.client_command`**.
@@ -169,7 +190,7 @@ create_custom_category   rename_custom_category   set_custom_category_active
 **Errores.** Código propio en el cuerpo y estado HTTP, medidos por la ruta real:
 `PAYLOAD_INVALID` 400 · `NOT_AUTHORIZED` 403 · `IDEMPOTENCY_KEY_REUSED` 409 ·
 `VERSION_CONFLICT` 409 · `BASE_CURRENCY_LOCKED` 409 · `CATEGORY_NAME_TAKEN` 409 ·
-`OPERATION_CLASS_MISMATCH` 422 · `CATEGORY_NOT_USABLE` 422 ·
+`OPERATION_ANNULLED` 409 · `OPERATION_CLASS_MISMATCH` 422 · `CATEGORY_NOT_USABLE` 422 ·
 `CURRENCY_CONVERSION_UNSUPPORTED` 422 · `CURRENCY_NOT_SUPPORTED` 422 ·
 `CURRENCY_CODE_AMBIGUOUS` 422 · y los códigos de dominio de
 `src/domain/errors.ts`, también 422.
@@ -402,9 +423,9 @@ la misma: se trocea siempre, y la cifra la valida en vez de cambiarla.
    vigente, y eso se consulta en `core.current_effect` — **nunca** se
    reimplementa el filtro de vigencia.
 6. **Saldos, deudas, estadísticas y disponibles son derivados**, sin caché en v1.
-7. **Toda escritura que pueda alterar deuda vigente bloquea los ámbitos
-   afectados**, en orden ascendente, **antes** de leer la deuda. Una
-   serialización parcial no serializa nada.
+7. **Toda escritura que pueda alterar el saldo o la deuda vigentes bloquea los
+   ámbitos afectados**, en un **único** orden ascendente, **antes** de leer.
+   Una serialización parcial no serializa nada.
 8. **Idempotencia por comando**: el UUID lo genera el cliente, la comparación es
    solo del servidor, y el replay se resuelve **antes** de autorizar y del CAS.
 9. **Los efectos referencian al participante contextual, nunca al usuario.**
@@ -448,7 +469,7 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 | Mecanismo de claim, revocación y fusión         | **F10**                                   |
 | Notificación                                    | Abierto                                   |
 | Acceso residual                                 | Abierto                                   |
-| Anulación, distinta de la corrección            | **F6.C**, con ADR propio                  |
+| ~~Anulación, distinta de la corrección~~        | **Resuelta en F6.C** — ADR-024            |
 | Idempotencia de recurrencias e importaciones    | Abierto                                   |
 | Preflight de `btree_gist` en producción         | Antes del primer deploy                   |
 

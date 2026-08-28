@@ -188,6 +188,8 @@ set constraints all deferred;
 delete from core.client_command;
 delete from core.split_participant;
 delete from core.split;
+delete from core.balance_observation;
+delete from core.adjustment_detail;
 delete from core.movement_detail;
 delete from core.effect;
 delete from core.operation_version;
@@ -291,7 +293,7 @@ echo "== 1 · el JWT real resuelve al rol authenticated =="
 # no habria identidad y la operacion no existiria.
 r=$(rpc record_adjustment "${TOK_A}" "$(env_payload "{
   \"client_operation_id\":\"a0000000-0000-4000-8000-000000000001\",
-  \"command_contract_version\":1,\"effective_date\":\"2026-01-10\",
+  \"command_contract_version\":2,\"effective_date\":\"2026-01-10\",\"effective_time\":\"09:00\",
   \"scope_id\":\"${PA}\",\"delta\":\"50000\",\"currency_definition_id\":\"${EUR}\"}")")
 est=$(estado_de "${r}"); cue=$(cuerpo_de "${r}")
 OP_AJUSTE=$(printf '%s' "${cue}" | jget operation_id)
@@ -319,7 +321,7 @@ echo ""
 echo "== 2 · sin JWT no se escribe =="
 r=$(rpc record_adjustment "" "$(env_payload "{
   \"client_operation_id\":\"a0000000-0000-4000-8000-0000000000f0\",
-  \"command_contract_version\":1,\"effective_date\":\"2026-01-10\",
+  \"command_contract_version\":2,\"effective_date\":\"2026-01-10\",\"effective_time\":\"09:00\",
   \"scope_id\":\"${PA}\",\"delta\":\"1\",\"currency_definition_id\":\"${EUR}\"}")")
 est=$(estado_de "${r}")
 case "${est}" in
@@ -334,7 +336,7 @@ echo "== 3 · el payload jsonb conserva el tipo JSON original =="
 # y que `jsonb` SI; esto lo comprueba contra la funcion real, por la ruta real.
 r=$(rpc record_adjustment "${TOK_A}" "$(env_payload "{
   \"client_operation_id\":\"a0000000-0000-4000-8000-000000000002\",
-  \"command_contract_version\":1,\"effective_date\":\"2026-01-10\",
+  \"command_contract_version\":2,\"effective_date\":\"2026-01-10\",\"effective_time\":\"09:00\",
   \"scope_id\":\"${PA}\",\"delta\":50000,\"currency_definition_id\":\"${EUR}\"}")")
 est=$(estado_de "${r}"); cue=$(cuerpo_de "${r}")
 if [ "${est}" = "400" ] && printf '%s' "${cue}" | grep -q PAYLOAD_INVALID; then
@@ -345,7 +347,7 @@ fi
 
 r=$(rpc record_adjustment "${TOK_A}" "$(env_payload "{
   \"client_operation_id\":\"a0000000-0000-4000-8000-000000000003\",
-  \"command_contract_version\":1,\"effective_date\":\"2026-01-10\",
+  \"command_contract_version\":2,\"effective_date\":\"2026-01-10\",\"effective_time\":\"09:00\",
   \"scope_id\":\"${PA}\",\"delta\":\"9007199254740993\",\"currency_definition_id\":\"${EUR}\"}")")
 est=$(estado_de "${r}")
 guardado=$("${DBQ[@]}" <<'SQL' 2>/dev/null
@@ -380,7 +382,7 @@ llamada() {
 
 llamada "record_adjustment" record_adjustment "${TOK_A}" "{
   \"client_operation_id\":\"a1000000-0000-4000-8000-000000000001\",
-  \"command_contract_version\":1,\"effective_date\":\"2026-02-01\",
+  \"command_contract_version\":2,\"effective_date\":\"2026-02-01\",\"effective_time\":\"09:00\",
   \"scope_id\":\"${PA}\",\"delta\":\"100000\",\"currency_definition_id\":\"${EUR}\"}"
 
 llamada "record_personal_expense" record_personal_expense "${TOK_A}" "{
@@ -479,13 +481,13 @@ comprobar_error() {
 
 comprobar_error "campo desconocido" record_adjustment "${TOK_A}" "{
   \"client_operation_id\":\"a2000000-0000-4000-8000-000000000001\",
-  \"command_contract_version\":1,\"effective_date\":\"2026-03-01\",
+  \"command_contract_version\":2,\"effective_date\":\"2026-03-01\",\"effective_time\":\"09:00\",
   \"scope_id\":\"${PA}\",\"delta\":\"1\",\"currency_definition_id\":\"${EUR}\",\"ordinal\":\"3\"}" \
   PAYLOAD_INVALID 400
 
 comprobar_error "actor suplantado" record_adjustment "${TOK_A}" "{
   \"client_operation_id\":\"a2000000-0000-4000-8000-000000000002\",
-  \"command_contract_version\":1,\"effective_date\":\"2026-03-02\",
+  \"command_contract_version\":2,\"effective_date\":\"2026-03-02\",\"effective_time\":\"09:00\",
   \"scope_id\":\"${PA}\",\"delta\":\"1\",\"currency_definition_id\":\"${EUR}\",
   \"created_by\":\"${UID_B}\"}" \
   PAYLOAD_INVALID 400
@@ -493,14 +495,14 @@ comprobar_error "actor suplantado" record_adjustment "${TOK_A}" "{
 # B no es dueno del Modo Personal de A, y la propiedad es la autorizacion.
 comprobar_error "ambito ajeno" record_adjustment "${TOK_B}" "{
   \"client_operation_id\":\"a2000000-0000-4000-8000-000000000003\",
-  \"command_contract_version\":1,\"effective_date\":\"2026-03-03\",
+  \"command_contract_version\":2,\"effective_date\":\"2026-03-03\",\"effective_time\":\"09:00\",
   \"scope_id\":\"${PA}\",\"delta\":\"1\",\"currency_definition_id\":\"${EUR}\"}" \
   NOT_AUTHORIZED 403
 
 # La misma clave con OTRA intencion.
 comprobar_error "clave reutilizada" record_adjustment "${TOK_A}" "{
   \"client_operation_id\":\"a1000000-0000-4000-8000-000000000001\",
-  \"command_contract_version\":1,\"effective_date\":\"2026-02-01\",
+  \"command_contract_version\":2,\"effective_date\":\"2026-02-01\",\"effective_time\":\"09:00\",
   \"scope_id\":\"${PA}\",\"delta\":\"999999\",\"currency_definition_id\":\"${EUR}\"}" \
   IDEMPOTENCY_KEY_REUSED 409
 
@@ -519,7 +521,7 @@ comprobar_error "CAS obsoleto" record_group_expense "${TOK_A}" "{
 # La moneda de la operacion no es la base del ambito alcanzado.
 comprobar_error "FX sin regla" record_adjustment "${TOK_A}" "{
   \"client_operation_id\":\"a2000000-0000-4000-8000-000000000006\",
-  \"command_contract_version\":1,\"effective_date\":\"2026-03-06\",
+  \"command_contract_version\":2,\"effective_date\":\"2026-03-06\",\"effective_time\":\"09:00\",
   \"scope_id\":\"${PA}\",\"delta\":\"1\",\"currency_definition_id\":\"${USD}\"}" \
   CURRENCY_CONVERSION_UNSUPPORTED 422
 
@@ -842,6 +844,114 @@ e=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${API}/rest/v1/category" \
 case "${e}" in
   200|201) fallo "el cliente ESCRIBIO directamente en api.category (${e})" ;;
   *)       ok "el cliente no puede escribir api.category por la Data API (${e})" ;;
+esac
+
+# ============================================================================
+echo ""
+echo "== 10 · saldo objetivo y anulacion, por HTTP =="
+#
+# Lo que solo esta ruta demuestra: que el objetivo viaja como STRING —es un
+# importe exacto y ADR-008 §1 no admite otra cosa—, que el delta lo deriva el
+# servidor, y que anular responde por PostgREST con el estado correcto.
+
+# 10.1 · el saldo de partida de A, derivado.
+SALDO_0=$("${DBQ[@]}" <<SQL 2>/dev/null
+select coalesce(sum(e.balance_amount),0) from core.current_effect e
+ where e.scope_id = '${PA}' and e.balance_amount is not null;
+SQL
+)
+SALDO_0=$(tr -d '[:space:]' <<<"${SALDO_0}")
+
+# 10.2 · ajuste por OBJETIVO. El cliente no calcula ningun delta.
+r=$(rpc record_adjustment "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"aa000000-0000-4000-8000-000000000001\",\"command_contract_version\":2,\"effective_date\":\"2026-03-01\",\"effective_time\":\"18:00\",\"scope_id\":\"${PA}\",\"currency_definition_id\":\"${EUR}\",\"target_balance\":\"777700\"}")")
+e=$(estado_de "${r}")
+SALDO_1=$("${DBQ[@]}" <<SQL 2>/dev/null
+select coalesce(sum(e.balance_amount),0) from core.current_effect e
+ where e.scope_id = '${PA}' and e.balance_amount is not null;
+SQL
+)
+SALDO_1=$(tr -d '[:space:]' <<<"${SALDO_1}")
+if [ "${e}" = "200" ] && [ "${SALDO_1}" = "777700" ]; then
+  ok "record_adjustment con target_balance: el saldo pasa de ${SALDO_0} a ${SALDO_1}"
+else
+  fallo "el ajuste por objetivo devolvio ${e} y dejo el saldo en ${SALDO_1}"
+fi
+
+# 10.3 · el objetivo como NUMBER JSON se rechaza: es un importe exacto.
+r=$(rpc record_adjustment "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"aa000000-0000-4000-8000-000000000002\",\"command_contract_version\":2,\"effective_date\":\"2026-03-01\",\"effective_time\":\"18:00\",\"scope_id\":\"${PA}\",\"currency_definition_id\":\"${EUR}\",\"target_balance\":777700}")")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+if [ "${e}" = "400" ] && printf '%s' "${c}" | grep -q 'PAYLOAD_INVALID'; then
+  ok "un objetivo como number JSON se rechaza: PAYLOAD_INVALID · 400"
+else
+  fallo "el objetivo numerico devolvio ${e} ${c}"
+fi
+
+# 10.4 · delta Y objetivo a la vez.
+r=$(rpc record_adjustment "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"aa000000-0000-4000-8000-000000000003\",\"command_contract_version\":2,\"effective_date\":\"2026-03-01\",\"effective_time\":\"18:00\",\"scope_id\":\"${PA}\",\"currency_definition_id\":\"${EUR}\",\"delta\":\"100\",\"target_balance\":\"100\"}")")
+[ "$(estado_de "${r}")" = "400" ] \
+  && ok "delta y objetivo a la vez: 400" \
+  || fallo "delta y objetivo a la vez devolvio $(estado_de "${r}")"
+
+# 10.5 · ANULAR un gasto por HTTP, y el saldo vuelve.
+r=$(rpc record_personal_expense "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"aa000000-0000-4000-8000-000000000004\",\"command_contract_version\":2,\"effective_date\":\"2026-03-02\",\"effective_time\":\"19:00\",\"scope_id\":\"${PA}\",\"amount\":\"5000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Se anula\",\"category_id\":\"${CAT_GASTO}\"}")")
+OP_ANU=$(printf '%s' "$(cuerpo_de "${r}")" | jget operation_id)
+V_ANU=$("${DBQ[@]}" <<SQL 2>/dev/null
+select current_version_id from core.operation where id = '${OP_ANU}';
+SQL
+)
+V_ANU=$(tr -d '[:space:]' <<<"${V_ANU}")
+
+r=$(rpc annul_operation "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"aa000000-0000-4000-8000-000000000005\",\"command_contract_version\":1,\"operation_id\":\"${OP_ANU}\",\"expected_version_id\":\"${V_ANU}\"}")")
+e=$(estado_de "${r}")
+SALDO_2=$("${DBQ[@]}" <<SQL 2>/dev/null
+select coalesce(sum(e.balance_amount),0) from core.current_effect e
+ where e.scope_id = '${PA}' and e.balance_amount is not null;
+SQL
+)
+SALDO_2=$(tr -d '[:space:]' <<<"${SALDO_2}")
+if [ "${e}" = "200" ] && [ "${SALDO_2}" = "777700" ]; then
+  ok "annul_operation: 200, y el saldo vuelve a ${SALDO_2}"
+else
+  fallo "la anulacion devolvio ${e} y dejo el saldo en ${SALDO_2}"
+fi
+
+# 10.6 · nada se borro.
+n=$("${DBQ[@]}" <<SQL 2>/dev/null
+select count(*) from core.effect e
+  join core.operation_version ov on ov.id = e.operation_version_id
+ where ov.operation_id = '${OP_ANU}';
+SQL
+)
+[ "$(tr -d '[:space:]' <<<"${n}")" = "1" ] \
+  && ok "el efecto historico de la operacion anulada sigue ahi" \
+  || fallo "quedan $(tr -d '[:space:]' <<<"${n}") efectos historicos y deberia quedar 1"
+
+# 10.7 · terminal: no se corrige una operacion anulada.
+V_ANU2=$("${DBQ[@]}" <<SQL 2>/dev/null
+select current_version_id from core.operation where id = '${OP_ANU}';
+SQL
+)
+V_ANU2=$(tr -d '[:space:]' <<<"${V_ANU2}")
+r=$(rpc record_personal_expense "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"aa000000-0000-4000-8000-000000000006\",\"command_contract_version\":2,\"effective_date\":\"2026-03-02\",\"effective_time\":\"19:00\",\"scope_id\":\"${PA}\",\"amount\":\"6000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Resucitar\",\"category_id\":\"${CAT_GASTO}\",\"operation_id\":\"${OP_ANU}\",\"expected_version_id\":\"${V_ANU2}\"}")")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+if [ "${e}" = "409" ] && printf '%s' "${c}" | grep -q 'OPERATION_ANNULLED'; then
+  ok "corregir una operacion anulada: OPERATION_ANNULLED · 409"
+else
+  fallo "corregir una anulada devolvio ${e} ${c}"
+fi
+
+# 10.8 · B no puede anular una operacion de A.
+r=$(rpc annul_operation "${TOK_B}" \
+      "$(env_payload "{\"client_operation_id\":\"aa000000-0000-4000-8000-000000000007\",\"command_contract_version\":1,\"operation_id\":\"${OP_ANU}\",\"expected_version_id\":\"${V_ANU}\"}")")
+case "$(estado_de "${r}")" in
+  200|201) fallo "B anulo una operacion de A" ;;
+  *)       ok "B no puede anular una operacion de A ($(estado_de "${r}"))" ;;
 esac
 
 # ============================================================================

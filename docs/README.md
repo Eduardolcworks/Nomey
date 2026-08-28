@@ -3,9 +3,9 @@
 Wiki técnica y de producto. **En español**; el código y los commits van en
 inglés.
 
-> **Estado: Fase 6 — Modo Personal. ABIERTA. Bloques F6.A y F6.B cerrados.**
+> **Estado: Fase 6 — Modo Personal. ABIERTA. Bloques F6.A, F6.B y F6.C cerrados.**
 >
-> - **Fases 0, 1, 2, 3, 4 y 5:** cerradas. **ADR-001 … ADR-021 aceptados.**
+> - **Fases 0, 1, 2, 3, 4 y 5:** cerradas. **ADR-001 … ADR-024 aceptados.**
 > - **F6.A** trajo la fundación de datos del Modo Personal: catálogo monetario
 >   con identidades fijas, el tercer rol `nomey_provisioner` y el provisioning
 >   del ámbito con su membresía. **Cerrado como fundamento backend**: la función
@@ -18,6 +18,13 @@ inglés.
 >   clase real** —la octava función—. Cerró además la corrección cruzada de
 >   clase. Decisiones: [ADR-020](adr/ADR-020-version-content-and-time.md) y
 >   [ADR-021](adr/ADR-021-category-catalogue.md).
+> - **F6.C** cerró el saldo objetivo, la observación histórica y la anulación:
+>   el servidor deriva el delta bajo lock, cada escritura de saldo deja una
+>   fotografía congelada que nunca alimenta el Disponible, y eliminar es una
+>   versión sin efectos que no borra nada. Decisiones:
+>   [ADR-022](adr/ADR-022-balance-target-and-serialization.md),
+>   [ADR-023](adr/ADR-023-balance-observation.md) y
+>   [ADR-024](adr/ADR-024-annulment.md).
 > - **La Fase 5 cerró con sus cuatro criterios cumplidos**: registrarse, entrar,
 >   salir y recuperar el acceso; sesión que sobrevive al reinicio y se renueva
 >   sola; rutas protegidas inaccesibles sin sesión; y ninguna credencial privada
@@ -69,7 +76,7 @@ se han escrito.
 | `architecture/code-structure.md` | **Previsto**      |
 | `database/rls-policies.md`       | **Previsto**      |
 | `security/threat-model.md`       | **Previsto**      |
-| Todos los ADR **aceptados**      | ADR-001 a ADR-021 |
+| Todos los ADR **aceptados**      | ADR-001 a ADR-024 |
 
 ## Documentos de trabajo — no normativos
 

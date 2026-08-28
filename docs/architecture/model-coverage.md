@@ -169,11 +169,12 @@ de F3: es una capacidad de **cliente**, y F3 no construye pantallas.
 `src/domain/` ya conserva el cálculo para hacerlo sin conexión. → Queda en la
 fase que construya la pantalla de corrección.
 
-**Aplazado — anulación o revocación de una operación.**
-Un concepto distinto de la corrección, que podría devolver la vigencia a una
-versión anterior. → No es de F3: ADR-011 lo deja expresamente fuera de alcance, y
-por eso **no** se añadió el `UNIQUE (operation_id, supersedes_version_id)` que
-impediría la bifurcación. → Queda abierto, sin fase asignada.
+~~**Aplazado — anulación o revocación de una operación.**~~
+**RESUELTO en la Fase 6.C** por [ADR-024](../adr/ADR-024-annulment.md): una
+**versión nueva sin efectos**, con `current_version_id` como única autoridad de
+vigencia y **sin borrar nada**. **El `UNIQUE (operation_id, supersedes_version_id)`
+sigue sin añadirse**, y a propósito: ADR-011 §11 reservó ese invariante a la
+frontera autoritativa, donde hoy lo garantizan el lock y el CAS.
 
 ---
 
@@ -325,7 +326,7 @@ Los aplazados, en una línea cada uno:
 | Mecanismo de claim, revocación y fusión        | **F10**              |
 | Acceso residual                                | Abierto              |
 | Notificación                                   | Abierto              |
-| Anulación como concepto distinto               | Abierto              |
+| ~~Anulación como concepto distinto~~           | **Resuelto en F6.C** |
 | Idempotencia de otros orígenes                 | Abierto              |
 | Previsualización de correcciones               | Fase de pantallas    |
 | ~~Clase `ingreso` sin ruta~~                   | **Resuelto en F6.B** |
