@@ -11,6 +11,7 @@ import {
   deriveInternalTransfer,
   deriveParticipantExpense,
   derivePersonalExpense,
+  derivePersonalIncome,
   deriveSettlementByTransfer,
   moneyFromMinorString,
   moneyToMinorString,
@@ -53,6 +54,12 @@ function applyOperation(op: Operation, prior: readonly Effect[]): Effect[] {
   switch (str(op, 'kind')) {
     case 'personalExpense':
       return derivePersonalExpense({
+        scope: scope(str(op, 'scope')),
+        amount: moneyFromMinorString(str(op, 'amount'), c),
+      });
+
+    case 'personalIncome':
+      return derivePersonalIncome({
         scope: scope(str(op, 'scope')),
         amount: moneyFromMinorString(str(op, 'amount'), c),
       });
