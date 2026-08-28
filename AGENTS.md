@@ -480,7 +480,7 @@ the `adr` skill to draft one.
 
 **Phases 0 through 5 are CLOSED.** Phase 3 (persistence and data boundary) closed
 on 2026-08-27 and Phase 5 (identity and session) on 2026-08-28. **ADR-001 through
-ADR-024 are accepted**; ADR-003 met its E11 gate against a real local Supabase
+ADR-025 are accepted**; ADR-003 met its E11 gate against a real local Supabase
 stack.
 
 **Phase 6 is OPEN** — Modo Personal, the first showable milestone. It touches the
@@ -524,6 +524,24 @@ code calls it**, so a freshly confirmed account still has no personal scope unti
 something does. Wiring it into the authenticated lifecycle is F6.E, and it comes
 before Inicio consumes the scope.
 
+**The Modo Personal can finally be read, and the unit is the operation.** F6.D
+added `api.personal_operation` (one row per operation, current version),
+`api.personal_operation_version` (the correction history), `api.personal_balance`
+(the Disponible, derived and already aggregated) and
+`api.observed_balance(uuid[])`. Four things to know before touching any of it.
+**The observation leaves through a FUNCTION and never a view** — the ADR-023
+guard still demands ZERO `api` views over `core.balance_observation`, so a new
+guard bounds the single function that may read it rather than the old one being
+relaxed. **The history cannot publish a signed amount**: a superseded version’s
+effects live in `core.effect`, which no view may read, so it publishes the
+DECLARED `original_amount` and nobody fabricates the sign with a `case`. **The
+class whitelist bounds the LIST, never the BALANCE** — the Disponible derives
+from every current effect, and from F9 the two need not agree. And **a page
+costs three queries, not 1+N**: the list publishes `previous_version_id` and the
+observation takes an array.
+[ADR-025](docs/adr/ADR-025-personal-read-surface.md); falsifications, including
+the one that did NOT falsify, in `supabase/checks/read-surface.sql`.
+
 **The balance is serialized, observed and annullable.** F6.C added
 `target_balance` — the client declares the balance it claims to hold and **the
 server derives the delta under lock**, so no delta is ever computed on a
@@ -554,7 +572,7 @@ operation of another**, guarded in `sec.persist_version`, which all eight pass
 through. [ADR-020](docs/adr/ADR-020-version-content-and-time.md) and
 [ADR-021](docs/adr/ADR-021-category-catalogue.md).
 
-**Migrations have started.** `supabase/migrations/` holds fifteen. The first is the
+**Migrations have started.** `supabase/migrations/` holds sixteen. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is ADR-014: `api` is served and `public`, `core` and `sec`

@@ -18,7 +18,7 @@ Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 | **F6.A** | Fundación: catálogo monetario y provisioning | **Cerrado como fundamento backend** |
 | **F6.B** | Anatomía del movimiento                      | **Cerrado como fundamento backend** |
 | **F6.C** | Saldo objetivo, observación y anulación      | **Cerrado como fundamento backend** |
-| **F6.D** | Superficie de lectura                        | No empezado                         |
+| **F6.D** | Superficie de lectura                        | **Cerrado como fundamento backend** |
 | **F6.E** | Inicio · **y el cableado del provisioning**  | No empezado                         |
 | **F6.F** | Alta, edición y eliminación                  | No empezado                         |
 | **F6.G** | Cierre de fase                               | No empezado                         |
@@ -196,6 +196,48 @@ Seis cosas que conviene no volver a deducir:
 
 ---
 
+## 3 quater · Qué entregó F6.D
+
+```
+api.personal_operation           la lista. UNA FILA POR OPERACION
+api.personal_operation_version   el historial de correcciones, por version
+api.personal_balance             el Disponible, derivado y ya agregado
+api.observed_balance(uuid[])     la observacion de ADR-023, POR LOTE
+```
+
+**Cuatro objetos, ni uno más, y ningún `GRANT` nuevo sobre `core`** — que la
+superficie no necesitara privilegios nuevos es la señal de que no está
+preguntando nada que la RLS no hubiera previsto.
+
+Cinco cosas que conviene no volver a deducir:
+
+- **La observación sale por una función y no por una vista**, y no es
+  preferencia: el check de ADR-023 exige **cero** vistas de `api` dependientes de
+  `core.balance_observation`. Convertir ese cero en «exactamente una» habría
+  debilitado el invariante literal; una función lo consigue **sin tocarlo**,
+  porque ADR-013 §9 ya escribe las lecturas económicas con `BEGIN ATOMIC` para
+  que el catálogo las cubra. La guarda nueva acota esa única vía.
+- **El historial no puede publicar un importe firmado.** Los efectos de una
+  versión superada están en `core.effect`, que ninguna vista puede leer, así que
+  publica `original_amount` —el hecho declarado— y **no** se fabrica el signo con
+  un `case` sobre la clase.
+- **La lista blanca de clases es intención, no límite técnico.** Falsificado: sin
+  ella, un `internal_transfer` entra en la lista.
+- **La barrera de verdad es la proyección canónica.** Medido retirando capas:
+  sin el predicado de propiedad pero con `security_invoker`, cero filas ajenas;
+  sin `security_invoker` en la vista de `api`, **cero también**; sin él en
+  `core.current_effect`, **se filtra**. Es el hallazgo de E19 reproducido sobre
+  esta superficie.
+- **La `api` es la única puerta del cliente**, y aquí se comprobó de frente:
+  `authenticated` no tiene `USAGE` sobre `core`, y sin JWT PostgREST responde
+  `401 / 42501` antes de que la RLS tenga nada que decidir.
+
+La decisión es [ADR-025](../adr/ADR-025-personal-read-surface.md). Se verifica
+con `supabase/checks/read-surface.sql` y con la **sección 11** de
+`scripts/http-boundary-check.sh`, las dos en CI.
+
+---
+
 ## 4 · Obligaciones que F6.A y F6.B dejan a los bloques siguientes
 
 ### ~~Para F6.B — obligatoria~~ · **RESUELTA en F6.B**
@@ -226,33 +268,73 @@ operación—. Ver [ADR-020](../adr/ADR-020-version-content-and-time.md) §6.
   observación, así que **una anulación sí deja observación** pese a no tener
   efectos propios.
 
-### Para F6.D — de F6.C
+### ~~Para F6.D~~ · **RESUELTAS en F6.D**
 
-- **Las anuladas se excluyen por `version_kind`, no por ausencia de efectos.**
-  Detectarlas con un `NOT EXISTS` sobre `core.effect` dentro de una vista lo
-  rechaza la guarda de ADR-013 §9; el discriminante existe precisamente para
-  eso.
-- **`observed_balance_after` sale de `core.balance_observation`, y solo como
-  dato ilustrativo.** El `Disponible` se deriva de `core.current_effect` y **no
-  puede** salir de ahí: una vista de `api` que dependa de la observación hace
-  fallar el check.
-- **La línea del ajuste se compone del objetivo y del «antes»**: el objetivo
-  está en `core.adjustment_detail` —intención— y el «antes» en la observación
-  —fotografía—. Son dos fuentes distintas a propósito.
-- **La observación de una versión es del instante en que se escribió.** Corregir
-  hoy un movimiento de hace tres meses observa el saldo **de hoy**; hay que
-  presentarlo como observación del sistema, no como «el saldo que tenías aquel
-  día».
+Las siete, y tres con un matiz que conviene leer entero:
 
-### Para F6.D
+- **La unidad es la operación**, y `api.personal_effect` se conservó intacta
+  para su propósito de ADR-016.
+- **Las anuladas fuera de la superficie normal.** Y con un matiz medido: lo que
+  hoy las excluye es la **proyección canónica** —una anulación no tiene efectos,
+  así que no aporta fila—. La cláusula `version_kind = 'record'` es
+  **redundante**: se falsificó, y el check pasa igual. Se conserva porque el
+  criterio tiene que estar **declarado** y no implícito, y una comprobación
+  textual impide retirarla por «código muerto».
+- **La vía interna de la trazabilidad NO es el cliente leyendo `core`.**
+  `authenticated` no tiene `USAGE` sobre ese schema, así que `api` es su única
+  puerta. La vía es que el hecho permanece íntegro en `core` bajo acceso
+  privilegiado, más la legibilidad bajo RLS que ADR-024 §D6 ya falsificó.
+- **`observed_balance_after` sale por una FUNCIÓN**, `api.observed_balance`, y
+  jamás por una vista: la guarda de ADR-023 sigue exigiendo cero vistas. Lo que
+  se añadió es una guarda **nueva** que acota a una sola función.
+- **La línea del ajuste** compone el objetivo —`target_balance`, en la lista— y
+  el «antes» —`observed_balance_before`, en la función—. Dos fuentes, como
+  estaba decidido.
+- **«¿Ha tenido algún efecto alguna vez?» NO se expone**, y es decisión tomada,
+  no olvido: `core.effect` está cerrado a vistas **y a funciones** (ADR-013 §9),
+  `core.current_effect` responde a otra pregunta, y ningún consumidor de F6 la
+  necesita. La autoridad sigue siendo `api.set_personal_base_currency` con su
+  `BASE_CURRENCY_LOCKED · 409`.
 
-- Decidir cómo se expone —si se expone— «¿este ámbito ha tenido algún efecto?».
-  Es lo que quedó fuera de `api.personal_scope`.
-- La unidad de lectura es la **operación**, no el efecto. `api.personal_effect`
-  se conserva **para su propósito técnico existente** y no se convierte en lista
-  de movimientos.
-- Las anuladas se excluyen de la superficie normal, y debe existir una vía
-  interna comprobable de que la trazabilidad permanece.
+La decisión completa es [ADR-025](../adr/ADR-025-personal-read-surface.md).
+
+### Para F6.E y F6.F — de F6.D
+
+- **Una página son TRES consultas, y hay que hacerlas así.** La lista; después
+  `personal_operation_version?operation_version_id=in.(…)` con los
+  `previous_version_id` de la página, para la línea tachada del «Editado»; y
+  `observed_balance([…ids])` para el «antes» del ajuste. **Nunca una llamada por
+  fila**: la función toma un array precisamente para eso.
+- **El predecesor es `previous_version_id`, no `version_no - 1`.** ADR-011 §11
+  no hizo estructural que el predecesor sea la versión anterior.
+- **Los dos importes no son el mismo dato.** `balance_amount` es lo que la
+  operación mueve en el saldo, firmado; `original_amount` es el importe
+  declarado de la versión. La línea tachada del historial **sólo** tiene
+  `original_amount`, así que la comparación «antes / ahora» se hace entre
+  `original_amount`, y el signo lo pone la presentación a partir de
+  `operation_class` —seguro, porque todas las versiones de una operación son de
+  la misma clase.
+- **El orden es contrato del cliente**, porque una vista no se lo puede imponer
+  a PostgREST:
+  `effective_date desc, effective_time desc nulls last, operation_created_at desc, operation_id desc`.
+  El desempate es el de la **operación** y no el de la versión, para que corregir
+  no reordene la lista.
+- **El saldo devuelve UNA fila siempre**, con `0` si el ámbito no tiene efectos.
+  No hay que tratar «cero filas» como saldo cero — y si llegan cero filas, lo que
+  falta es el **ámbito**, que es el caso de F6.E.
+- **La observación se rotula como observación del sistema**, nunca como «el saldo
+  que tenías aquel día»: corregir hoy un movimiento de hace tres meses observa el
+  saldo de hoy (ADR-023 §5).
+- **La categoría se resuelve contra `api.category`**, que la lista sólo publica
+  por `category_id`. Es lo que hace que renombrar alcance al histórico sin que
+  nadie propague nada, y lo que permite que una categoría dada de baja siga
+  resolviendo su nombre.
+- **El ajuste no tiene concepto ni categoría, y no hay que inventárselos.** Su
+  línea la compone el producto: con objetivo, «Saldo ajustado a X»; por delta,
+  `original_amount` con su signo.
+- **Ampliar la lista blanca de clases es deliberado y le toca a la fase que traiga
+  la clase.** Y ojo: la lista blanca acota **la lista**, nunca el **saldo**, así
+  que desde F9 la suma de lo listado puede no explicar el Disponible.
 
 ### Para F6.E — obligatoria, y **antes** de que Inicio consuma el ámbito
 

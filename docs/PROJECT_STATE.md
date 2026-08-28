@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-29**, al cerrar el bloque **F6.C**.
+Actualizado el **2026-08-30**, al cerrar el bloque **F6.D**.
 
 ---
 
@@ -21,9 +21,9 @@ Actualizado el **2026-08-29**, al cerrar el bloque **F6.C**.
 
 |                         |                                                                                   |
 | ----------------------- | --------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 6 — Modo Personal.** Primer hito enseñable. **F6.A, F6.B y F6.C cerrados** |
+| **Fase en curso**       | **Fase 6 — Modo Personal.** Primer hito enseñable. **F6.A … F6.D cerrados**       |
 | **Última fase cerrada** | **Fase 5 — Identidad y sesión** (A · B · C1 · D · E · F), el 2026-08-28           |
-| **ADR aceptados**       | ADR-001 … ADR-024                                                                 |
+| **ADR aceptados**       | ADR-001 … ADR-025                                                                 |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR               |
 | **App visible**         | Shell navegable, y **Perfil con identidad real**. **Sin funcionalidad económica** |
 | **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**      |
@@ -45,6 +45,16 @@ eligen su moneda. La decisión es
 > hoy una cuenta recién confirmada **sigue sin Modo Personal** hasta que alguien
 > llama a la función. Ese cableado es de **F6.E**, antes de que Inicio consuma el
 > ámbito.
+
+**F6.D cerró la superficie de lectura**, y con ella el backend de la fase.
+La **operación** es la unidad que se lee, no el efecto; una corrección deja
+visible **qué había antes** —importe, concepto, categoría y hora, cada uno tal
+como aquella versión lo declaró—; el **Disponible** se deriva y se entrega ya
+agregado; y las **anuladas** no asoman por ninguna de las tres vistas. La
+decisión es [ADR-025](adr/ADR-025-personal-read-surface.md).
+
+> **Backend sí, app todavía no**, igual que A, B y C. Las consultas concretas
+> del cliente y las pantallas son de F6.E y F6.F.
 
 **F6.C cerró el saldo objetivo, la observación y la anulación**, también sin
 pantalla. El cliente declara el saldo que dice tener y **el servidor deriva el
@@ -171,13 +181,33 @@ set_personal_base_currency   cambia la moneda si el ámbito nunca tuvo un efecto
 
 **Lectura:**
 
-| Objeto                    | Qué da                                                   |
-| ------------------------- | -------------------------------------------------------- |
-| `api.personal_effect`     | Saldo y económica **sin participante** del Modo Personal |
-| `api.claimed_dimension()` | Económica **con participante** y deuda, por vínculo      |
-| `api.personal_scope`      | El ámbito del actor, con su moneda base y su escala      |
-| `api.currency_definition` | Las 20 definiciones sembradas, para el selector          |
-| `api.category`            | Categorías de sistema y **propias**. Ni ve las ajenas    |
+| Objeto                           | Qué da                                                        |
+| -------------------------------- | ------------------------------------------------------------- |
+| `api.personal_operation`         | **La lista.** Una fila por operación, con su versión vigente  |
+| `api.personal_operation_version` | El **historial** de correcciones, una fila por versión        |
+| `api.personal_balance`           | El **Disponible**, derivado. Una fila, y `0` si no hay nada   |
+| `api.observed_balance(uuid[])`   | La observación de ADR-023, **por lote**. Ilustrativa          |
+| `api.personal_effect`            | Saldo y económica **sin participante**. De aquí, estadísticas |
+| `api.claimed_dimension()`        | Económica **con participante** y deuda, por vínculo           |
+| `api.personal_scope`             | El ámbito del actor, con su moneda base y su escala           |
+| `api.currency_definition`        | Las 20 definiciones sembradas, para el selector               |
+| `api.category`                   | Categorías de sistema y **propias**. Ni ve las ajenas         |
+
+**La unidad de lectura es la operación, y `api.personal_effect` no cambió.**
+Conserva su propósito de ADR-016 —atribución por dimensión, y con ella las
+estadísticas de ADR-002 §4— y no se convirtió en lista de movimientos. Tres
+cosas más que conviene no volver a deducir, todas de
+[ADR-025](adr/ADR-025-personal-read-surface.md):
+
+- **Una página cuesta tres consultas, no 1+N.** La lista publica
+  `previous_version_id` —no `version_no - 1`, que ADR-011 §11 nunca hizo
+  estructural— y la observación **toma un array**.
+- **La observación sale por una FUNCIÓN y jamás por una vista.** La guarda de
+  ADR-023 sigue exigiendo **cero** vistas de `api` sobre ella; lo que se añadió
+  es una guarda **nueva** que acota a una sola función, no una relajación.
+- **La lista blanca de clases acota la LISTA, nunca el SALDO.** El `Disponible`
+  se deriva de todos los efectos vigentes; en F6 coinciden porque sólo tres
+  clases son alcanzables, y desde F9 no tienen por qué.
 
 **Categorías — tres funciones más, de F6.B.** Tampoco son clases de operación, y
 comparten owner con el provisioning porque `nomey_provisioner` es **la frontera
