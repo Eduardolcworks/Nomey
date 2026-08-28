@@ -480,7 +480,7 @@ the `adr` skill to draft one.
 
 **Phases 0 through 5 are CLOSED.** Phase 3 (persistence and data boundary) closed
 on 2026-08-27 and Phase 5 (identity and session) on 2026-08-28. **ADR-001 through
-ADR-025 are accepted**; ADR-003 met its E11 gate against a real local Supabase
+ADR-026 are accepted**; ADR-003 met its E11 gate against a real local Supabase
 stack.
 
 **Phase 6 is OPEN** — Modo Personal, the first showable milestone. It touches the
@@ -523,6 +523,23 @@ It is safe, idempotent and verified over HTTP with a real JWT, but **no client
 code calls it**, so a freshly confirmed account still has no personal scope until
 something does. Wiring it into the authenticated lifecycle is F6.E, and it comes
 before Inicio consumes the scope.
+
+**Inicio shows real money, and the app finally provisions the scope.** F6.E
+wired `api.ensure_personal_scope` — F6.A left it ready and nothing called it —
+and built the screen on the read surfaces. It also added a FIFTH surface,
+`api.personal_statistics(p_from, p_to)`, because none of ADR-025’s four
+aggregates over an interval and doing it on the client was measured to be
+unsafe: PostgREST 16.1 refuses aggregate functions (`PGRST123`) and `max_rows`
+caps a request at 1000, so `Año` past a thousand movements would have shown an
+incomplete accounting figure that throws nothing. Two things to keep straight.
+**Totals come from `api.personal_effect` and the breakdown from
+`api.personal_operation`**, and that is one set of facts rather than two: the
+economic dimension of a personal scope is produced by exactly
+`record_personal_expense` and `record_personal_income` — a group expense moves
+the payer’s cash with no economic effect — and a check asserts the categories
+sum to `expense_total` to the minor unit. And **adjustments stay out of
+statistics with no clause excluding them**: they produce no economic dimension.
+[ADR-026](docs/adr/ADR-026-personal-statistics.md).
 
 **The Modo Personal can finally be read, and the unit is the operation.** F6.D
 added `api.personal_operation` (one row per operation, current version),
@@ -572,7 +589,7 @@ operation of another**, guarded in `sec.persist_version`, which all eight pass
 through. [ADR-020](docs/adr/ADR-020-version-content-and-time.md) and
 [ADR-021](docs/adr/ADR-021-category-catalogue.md).
 
-**Migrations have started.** `supabase/migrations/` holds sixteen. The first is the
+**Migrations have started.** `supabase/migrations/` holds seventeen. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is ADR-014: `api` is served and `public`, `core` and `sec`

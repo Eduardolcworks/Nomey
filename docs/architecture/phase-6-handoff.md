@@ -19,7 +19,7 @@ Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 | **F6.B** | Anatomía del movimiento                      | **Cerrado como fundamento backend** |
 | **F6.C** | Saldo objetivo, observación y anulación      | **Cerrado como fundamento backend** |
 | **F6.D** | Superficie de lectura                        | **Cerrado como fundamento backend** |
-| **F6.E** | Inicio · **y el cableado del provisioning**  | No empezado                         |
+| **F6.E** | Inicio · **y el cableado del provisioning**  | **Cerrado**                         |
 | **F6.F** | Alta, edición y eliminación                  | No empezado                         |
 | **F6.G** | Cierre de fase                               | No empezado                         |
 
@@ -238,6 +238,45 @@ con `supabase/checks/read-surface.sql` y con la **sección 11** de
 
 ---
 
+## 3 quinquies · Qué entregó F6.E
+
+**El primer bloque de la fase con pantalla.** Inicio muestra saldo real,
+selector de intervalo, ingresos y gastos desplegables, reparto por categoría e
+historial con su «Editado» — y la app **por fin provisiona el Modo Personal**.
+
+```
+api.personal_statistics(p_from, p_to)   LA QUINTA superficie de lectura
+src/features/personal/                  el dominio de Inicio, con su servicio
+src/ui/components/fade-edge.tsx         el desvanecido bajo el dock
+```
+
+Seis cosas que conviene no volver a deducir:
+
+- **El plan de consultas es el diseño**, no una consecuencia. Por visita: saldo
+  y catálogo una vez —**no dependen del intervalo y no se refetchean al
+  cambiarlo**—, estadísticas y operaciones por intervalo, versiones anteriores
+  sólo si alguna fila las tiene, y observaciones **sólo al desplegar y para la
+  página entera**. Ni una llamada por fila.
+- **Cifras exactas, listas paginadas.** Los totales los agrega el servidor y son
+  exactos a cualquier tamaño; la lista es una página y la pantalla **dice
+  cuántas faltan** en vez de dejar que se lea como completa.
+- **La quinta superficie existe porque se midió que hacía falta**: PostgREST
+  16.1 rechaza los agregados con `PGRST123` y `max_rows` corta en 1000, así
+  que agregar en cliente habría dado una cifra incompleta que no falla.
+  [ADR-026](../adr/ADR-026-personal-statistics.md).
+- **«Hoy» es el calendario del DISPOSITIVO, no el de UTC.** `effective_date` no
+  lleva zona y el par fecha+hora es un reloj de pared (ADR-020 §3): leerlo en UTC
+  movería de día los movimientos registrados de noche, y no fallaría nada.
+- **El «Editado» compara importe declarado con importe declarado.** La versión
+  anterior no tiene importe firmado, así que el signo lo pone la presentación a
+  partir de la clase — seguro porque todas las versiones de una operación son de
+  la misma clase, y comprobado contra el `balance_amount` de la vigente.
+- **No hay biblioteca de gráficos ni de SVG**, y no se añadió ninguna: el
+  diagrama de sectores y el desvanecido inferior se construyen con `View`.
+  Añadir una dependencia de runtime exige aprobación explícita.
+
+---
+
 ## 4 · Obligaciones que F6.A y F6.B dejan a los bloques siguientes
 
 ### ~~Para F6.B — obligatoria~~ · **RESUELTA en F6.B**
@@ -336,26 +375,54 @@ La decisión completa es [ADR-025](../adr/ADR-025-personal-read-surface.md).
   la clase.** Y ojo: la lista blanca acota **la lista**, nunca el **saldo**, así
   que desde F9 la suma de lo listado puede no explicar el Disponible.
 
-### Para F6.E — obligatoria, y **antes** de que Inicio consuma el ámbito
+### ~~Para F6.E~~ · **RESUELTA en F6.E**
 
-**El cableado del provisioning en el cliente es de F6.E.** F6.A dejó la función
-lista y **la app no la llama**. Cuatro requisitos, y el cuarto es el que evita el
-fallo silencioso:
+Los cuatro requisitos, cumplidos: se invoca al entrar en la rama autenticada ·
+el reintento es seguro y **no automático** —un fallo espera a que la persona lo
+pida, en vez de machacar un backend caído— · el fallo es `unavailable` con
+salida, la misma forma de F5.B · y **nada se pinta hasta que el ámbito está**,
+que es el requisito que evita el fallo silencioso.
 
-1. **Invocar o asegurar el provisioning al entrar en la experiencia autenticada**
-   correspondiente, no en el arranque a ciegas.
-2. **Reintento seguro**, que la idempotencia por estado ya permite: repetir la
-   llamada no crea un segundo ámbito ni deshace la moneda elegida.
-3. **Estado de fallo visible y recuperable**, con salida. La forma ya existe en
-   el proyecto: `unavailable` de F5.B es exactamente ese patrón —error
-   recuperable, no callejón sin salida.
-4. **No dar por hecho que el Modo Personal existe** hasta que el provisioning
-   haya terminado. Una pantalla que asuma el ámbito antes de tiempo pintará
-   cifras de un ámbito que todavía no está, y no fallará: leerá cero filas.
+La moneda sale de `getLocales()[0].currencyCode`, la de la **Región**. Y una
+nota que costó descubrir al escribirlo: el efecto **no puede** hacer `setState`
+síncrono —`react-hooks/set-state-in-effect` lo rechaza y encadena renders—, así
+que el estado inicial `idle` hace de «resolviéndose» y sólo `retry`, que es un
+manejador, anuncia el vuelo.
 
-- La moneda recomendada sale de `expo-localization`: `getLocales()[0].currencyCode`
-  es el de la **Region**, y `languageCurrencyCode` el del **idioma**. Es la misma
-  distinción que F4.B ya fijó para el formato; usar el segundo sería el error.
+### Para F6.F — de F6.E
+
+- **La pantalla ya tiene los botones y no tiene las acciones.** Editar, eliminar
+  y ajustar existen como affordance y hoy responden que aún no están. F6.F
+  conecta `api.record_personal_expense`, `api.record_personal_income`,
+  `api.record_adjustment` y `api.annul_operation` **detrás de esos mismos
+  controles**, sin rehacerlos.
+- **La confirmación de borrado se construye CON la acción, no antes.** Se dejó
+  fuera de F6.E a propósito: una confirmación que no confirma nada es peor que
+  no tenerla. El patrón existe ya en el proyecto —`sign-out-confirmation.ts`,
+  el diálogo como dato— y es el que toca reutilizar.
+- **El CAS es `current_version_id`**, que la lista ya publica. No hace falta
+  una consulta extra para corregir ni para anular.
+- **Anular es terminal** (ADR-024 §6): una operación anulada no admite versiones
+  nuevas y responde `OPERATION_ANNULLED · 409`. La interfaz no debe ofrecer
+  «restaurar», que es producto que nadie ha diseñado.
+- **Tras escribir hay que refrescar, y el hook ya tiene la puerta:**
+  `usePersonalHome().refresh()`. Lo que **no** se puede hacer es actualizar la
+  cifra en el cliente sumando el importe recién escrito — el saldo y los totales
+  los deriva el servidor, y una suma optimista es una segunda aritmética. El
+  optimismo de verdad es de F7, con su cola.
+- **Una escritura invalida las observaciones de la página**, porque cambia el
+  saldo: no reutilizar las que ya estaban cargadas.
+
+### Para la fase que traiga clases nuevas — de F6.E
+
+- **La lista blanca de `api.personal_operation` acota la LISTA, y
+  `accounting_class` acota los TOTALES.** Hoy describen el mismo conjunto de
+  hechos y el check lo afirma comparando la suma del reparto con
+  `expense_total`. Desde F9 no tiene por qué seguir siendo así, y ese check es
+  quien lo dirá.
+- **Y el saldo nunca estuvo acotado por ninguna de las dos.** El `Disponible`
+  se deriva de todos los efectos vigentes, así que desde F9 la suma de lo
+  listado puede legítimamente no explicarlo.
 
 ---
 

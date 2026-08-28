@@ -13,20 +13,20 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-30**, al cerrar el bloque **F6.D**.
+Actualizado el **2026-08-31**, al cerrar el bloque **F6.E**.
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                                   |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 6 — Modo Personal.** Primer hito enseñable. **F6.A … F6.D cerrados**       |
-| **Última fase cerrada** | **Fase 5 — Identidad y sesión** (A · B · C1 · D · E · F), el 2026-08-28           |
-| **ADR aceptados**       | ADR-001 … ADR-025                                                                 |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR               |
-| **App visible**         | Shell navegable, y **Perfil con identidad real**. **Sin funcionalidad económica** |
-| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**      |
+|                         |                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| **Fase en curso**       | **Fase 6 — Modo Personal.** Primer hito enseñable. **F6.A … F6.E cerrados**     |
+| **Última fase cerrada** | **Fase 5 — Identidad y sesión** (A · B · C1 · D · E · F), el 2026-08-28         |
+| **ADR aceptados**       | ADR-001 … ADR-026                                                               |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR             |
+| **App visible**         | **Inicio muestra dinero real**: saldo, ingresos, gastos, categorías e historial |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**    |
 
 **La Fase 6 está abierta.** Su estado, sus decisiones de producto cerradas y las
 obligaciones de cada bloque están en
@@ -45,6 +45,20 @@ eligen su moneda. La decisión es
 > hoy una cuenta recién confirmada **sigue sin Modo Personal** hasta que alguien
 > llama a la función. Ese cableado es de **F6.E**, antes de que Inicio consuma el
 > ámbito.
+
+**F6.E encendió la pantalla.** Inicio deja de ser un marcador de posición:
+saldo real, selector de intervalo, ingresos y gastos desplegables, reparto por
+categoría e historial con su «Editado». Y **la app por fin llama a**
+`api.ensure_personal_scope`, que F6.A dejó lista y nadie invocaba — hasta
+ahora una cuenta recién confirmada no tenía Modo Personal. Trajo además una
+quinta superficie de lectura, `api.personal_statistics`, porque ninguna de las
+cuatro de ADR-025 agrega por intervalo y agregarlo en cliente habría dado una
+cifra incompleta que no falla: medido, PostgREST 16.1 rechaza los agregados
+con `PGRST123` y `max_rows` corta en 1000.
+[ADR-026](adr/ADR-026-personal-statistics.md).
+
+> **Escribir sigue siendo de F6.F.** Editar, eliminar y ajustar existen como
+> affordance y dicen que aún no están. Premium no se simula.
 
 **F6.D cerró la superficie de lectura**, y con ella el backend de la fase.
 La **operación** es la unidad que se lee, no el efecto; una corrección deja
@@ -187,6 +201,7 @@ set_personal_base_currency   cambia la moneda si el ámbito nunca tuvo un efecto
 | `api.personal_operation_version` | El **historial** de correcciones, una fila por versión        |
 | `api.personal_balance`           | El **Disponible**, derivado. Una fila, y `0` si no hay nada   |
 | `api.observed_balance(uuid[])`   | La observación de ADR-023, **por lote**. Ilustrativa          |
+| `api.personal_statistics(…)`     | Totales e reparto por categoría de un **intervalo**           |
 | `api.personal_effect`            | Saldo y económica **sin participante**. De aquí, estadísticas |
 | `api.claimed_dimension()`        | Económica **con participante** y deuda, por vínculo           |
 | `api.personal_scope`             | El ámbito del actor, con su moneda base y su escala           |
