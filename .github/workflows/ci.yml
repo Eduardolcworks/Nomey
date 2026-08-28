@@ -164,6 +164,14 @@ jobs:
       - name: Movement anatomy checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/movement-anatomy.sql
 
+      # Target balance, the frozen balance observation and annulment. Section D6
+      # is the one that would fail silently without its RLS widening: an
+      # annulment version has no effects, so without it the client cannot read
+      # the current version and would fall back to showing the movement the user
+      # just deleted.
+      - name: Balance and annulment checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/balance-and-annulment.sql
+
       # Real concurrency. A single psql session has none, so the debt
       # serialization protocol of ADR-013 §11 cannot be proven by a check: this
       # opens simultaneous sessions, the way E15-C did. It runs LAST because it
@@ -171,6 +179,12 @@ jobs:
       # it removes them again, asserting that nothing is left behind.
       - name: Debt serialization under real concurrency
         run: ./scripts/writer-debt-concurrency.sh
+
+      # Balance serialization. Reproduces, corrected, the two races measured in
+      # supabase/e22: two concurrent target adjustments land on the target, and
+      # concurrent observations chain without gaps.
+      - name: Balance serialization under real concurrency
+        run: ./scripts/balance-concurrency.sh
 
       # Same reason, for provisioning: two simultaneous ensure_personal_scope
       # calls must produce ONE scope WITH its membership. A scope without its

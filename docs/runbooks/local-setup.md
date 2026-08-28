@@ -266,6 +266,11 @@ docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
   -X -q -v ON_ERROR_STOP=1 < supabase/checks/movement-anatomy.sql
 ```
 
+```bash
+docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
+  -X -q -v ON_ERROR_STOP=1 < supabase/checks/balance-and-annulment.sql
+```
+
 > **Los dos últimos se encadenan con el prólogo de vectores.** `psql` corre
 > dentro del contenedor y no ve el checkout, así que `tests/vectors/*.json`
 > viajan por la misma entrada estándar. ADR-002 §7 exige que la implementación
@@ -276,7 +281,7 @@ Fallan con código distinto de cero en la primera violación, y **no dejan datos
 lo que insertan ocurre dentro de una transacción que termina en `ROLLBACK`. La
 configuración versionada la comprueba `npm test`, en `tests/infra/`.
 
-**CI ejecuta estos mismos diez ficheros** en el job `Migrations rebuilt from
+**CI ejecuta estos mismos once ficheros** en el job `Migrations rebuilt from
 zero`, sobre un stack levantado desde cero.
 
 > **El último lleva dos regresiones deliberadas dentro.** Quita una policy del
@@ -319,7 +324,14 @@ simultáneas de verdad, igual que hizo E15-C:
 ./scripts/writer-debt-concurrency.sh
 ```
 
-> **Este sí escribe filas confirmadas**, porque un bloqueo de fila solo existe
+Y desde F6.C, la del **saldo**, que reproduce ya corregidas las dos carreras que
+[`supabase/e22/`](../../supabase/e22/README.md) midió antes de arreglarlas:
+
+```bash
+./scripts/balance-concurrency.sh
+```
+
+> **Estos sí escriben filas confirmadas**, porque un bloqueo de fila solo existe
 > entre transacciones distintas. Las retira al terminar y comprueba que no queda
 > ninguna. Ejecútalo **después** de los checks: si algo lo interrumpiera a
 > mitad, los datos que dejaría cambiarían los recuentos de los demás. Un

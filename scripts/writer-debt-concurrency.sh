@@ -103,6 +103,9 @@ limpiar_operaciones() {
 begin;
 set constraints all deferred;
 delete from core.client_command;
+delete from core.balance_observation;
+delete from core.adjustment_detail;
+delete from core.movement_detail;
 delete from core.split_participant;
 delete from core.split;
 delete from core.effect;
@@ -120,6 +123,9 @@ retirar() {
 begin;
 set constraints all deferred;
 delete from core.client_command;
+delete from core.balance_observation;
+delete from core.adjustment_detail;
+delete from core.movement_detail;
 delete from core.split_participant;
 delete from core.split;
 delete from core.effect;
