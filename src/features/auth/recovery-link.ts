@@ -25,7 +25,7 @@
  */
 
 /** The recovery destination, matched on path so any host form is accepted. */
-const RECOVERY_PATH = 'auth/recovery';
+export const RECOVERY_PATH = 'auth/recovery';
 
 /** GoTrue's hashes are lowercase hex. Anything else is not one. */
 const TOKEN_HASH = /^[a-f0-9]{16,128}$/;
