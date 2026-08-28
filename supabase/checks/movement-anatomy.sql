@@ -496,20 +496,25 @@ begin
     fallos := array_append(fallos, 'E3c: la version vigente no tiene la hora corregida');
   end if;
 
-  -- E4 · las clases que NO declaran hora la dejan nula, sin inventarse ninguna.
+  -- E4 · el AJUSTE declara hora desde F6.C, y es una decision, no una deriva:
+  -- un ajuste por objetivo es por naturaleza una observacion en un instante, y
+  -- una lista mixta necesita UN solo criterio de orden. Las otras cinco clases
+  -- siguen sin declararla, y su hora es pregunta de F9/F12.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub',U1)::text, true);
   r := api.record_adjustment(jsonb_build_object(
          'client_operation_id','a3000000-0000-4000-8000-000000000004',
-         'command_contract_version',1,'effective_date','2026-05-04',
+         'command_contract_version',2,'effective_date','2026-05-04', 'effective_time','09:00',
          'scope_id',S1,'delta','500','currency_definition_id',EUR));
   v_op := (r ->> 'operation_id')::uuid;
   reset role;
   if not exists (select 1 from core.operation_version ov join core.operation o on o.current_version_id=ov.id
-                  where o.id = v_op and ov.effective_time is null) then
-    fallos := array_append(fallos, 'E4: un ajuste recibio una hora que nadie declaro');
+                  where o.id = v_op and ov.effective_time = time '09:00') then
+    fallos := array_append(fallos, 'E4: el ajuste no conservo la hora declarada');
   end if;
-  -- E4b · y tampoco un detalle de movimiento.
+
+  -- E4b · pero SIGUE sin concepto ni categoria. Su linea de historial la deriva
+  -- el producto —«Saldo ajustado a X»— y nadie la escribe.
   if exists (select 1 from core.movement_detail d join core.operation o on o.current_version_id=d.operation_version_id
               where o.id = v_op) then
     fallos := array_append(fallos, 'E4b: un ajuste recibio concepto y categoria sinteticos');
@@ -693,7 +698,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
            'client_operation_id','a5000000-0000-4000-8000-000000000005',
-           'command_contract_version',1,'effective_date','2026-07-02',
+           'command_contract_version',2,'effective_date','2026-07-02', 'effective_time','09:00',
            'scope_id',S1,'delta','3000','currency_definition_id',EUR,
            'operation_id',v_gasto,'expected_version_id',v_vg));
     fallos := array_append(fallos, 'G3: el writer de ajuste corrigio una operacion de gasto');

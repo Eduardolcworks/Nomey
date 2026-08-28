@@ -211,7 +211,13 @@ echo "  observo la sesion 1: ${obs1}"
 echo "  observo la sesion 2: ${obs2}"
 echo "  saldo real final:    ${r2}"
 if [ "${obs1}" = "${r2}" ] && [ "${obs2}" = "${r2}" ]; then
-  fallo "R2: las dos observaciones coinciden con el saldo real; la carrera no se dio"
+  # NO es un fallo del experimento: es lo que debe ocurrir DESPUES de F6.C. Con
+  # las siete clases dentro del protocolo, las dos sesiones se serializan y las
+  # dos observaciones son ciertas. Quien lo verifica de forma permanente es
+  # `scripts/balance-concurrency.sh`; aqui solo se informa.
+  echo "  YA CORREGIDO: las dos observaciones coinciden con el saldo real (${r2})."
+  echo "     Es el resultado esperado con F6.C aplicada. Antes de F6.C esta"
+  echo "     seccion reproducia una observacion falsa; queda registrado en el README."
 else
   ok "R2: al menos una observacion es FALSA — vieron ${obs1} y ${obs2}, y el saldo es ${r2}"
   echo "     en READ COMMITTED ninguna ve el efecto no confirmado de la otra, asi que"

@@ -142,7 +142,7 @@ begin
   end if;
 
   -- A8 · los helpers internos siguen sin ser alcanzables desde fuera.
-  foreach v_fn in array array['sec.lock_debt_scopes(uuid[])',
+  foreach v_fn in array array['sec.lock_scopes(uuid[])',
                               'sec.pending_debt(uuid, uuid, uuid, uuid)',
                               'sec.resolve_split(bigint, uuid[], uuid, jsonb)',
                               'sec.allocate_by_largest_remainder(bigint, bigint[], integer[])',
@@ -231,7 +231,7 @@ begin
 
   -- 4 · el helper del protocolo bloquea varios en orden y no se queja.
   set local role nomey_writer;
-  perform sec.lock_debt_scopes(array[G::uuid, G::uuid, null::uuid]);
+  perform sec.lock_scopes(array[G::uuid, G::uuid, null::uuid]);
   reset role;
 
   delete from core.scope where id = G::uuid;
@@ -1732,7 +1732,7 @@ begin
         if v_kind = 'adjustment' then
           perform api.record_adjustment(jsonb_build_object(
             'client_operation_id', ('70000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
-            'command_contract_version', 1, 'effective_date', v_fecha::text,
+            'command_contract_version', 2, 'effective_date', v_fecha::text, 'effective_time','09:00',
             'scope_id', v_scope_map ->> (v_op ->> 'scope'),
             'delta', v_op ->> 'delta', 'currency_definition_id', EUR::text));
 

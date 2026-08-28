@@ -184,7 +184,7 @@ begin
   -- ajuste. Signo libre, porque ADR-013 §3 admite el ajuste negativo.
   r := api.record_adjustment(jsonb_build_object(
         'client_operation_id','10000000-0000-4000-8000-000000000001',
-        'command_contract_version',1,'effective_date','2026-01-10',
+        'command_contract_version',2,'effective_date','2026-01-10', 'effective_time','09:00',
         'scope_id',SPA,'delta','50000','currency_definition_id',EUR));
   if (r ->> 'already_processed')::boolean then
     fallos := array_append(fallos, 'B1: la primera ejecucion se marco como replay');
@@ -286,7 +286,7 @@ begin
   -- C1 · REPLAY IDENTICO: mismo resultado, y NADA nuevo escrito.
   r := api.record_adjustment(jsonb_build_object(
         'client_operation_id','10000000-0000-4000-8000-000000000001',
-        'command_contract_version',1,'effective_date','2026-01-10',
+        'command_contract_version',2,'effective_date','2026-01-10', 'effective_time','09:00',
         'scope_id',SPA,'delta','50000','currency_definition_id',EUR));
   if not (r ->> 'already_processed')::boolean then
     fallos := array_append(fallos, 'C1: el replay no se marco como ya procesado');
@@ -310,7 +310,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
           'client_operation_id','10000000-0000-4000-8000-000000000001',
-          'command_contract_version',1,'effective_date','2026-01-10',
+          'command_contract_version',2,'effective_date','2026-01-10', 'effective_time','09:00',
           'scope_id',SPA,'delta','0050000','currency_definition_id',EUR));
     fallos := array_append(fallos,
       'C1c: un importe con otra representacion textual se acepto como replay; la canonicalizacion esta reformateando valores exactos');
@@ -325,7 +325,7 @@ begin
   -- los defaults semanticos. Un UUID en mayusculas es el mismo replay.
   r := api.record_adjustment(jsonb_build_object(
         'client_operation_id','10000000-0000-4000-8000-000000000001',
-        'command_contract_version',1,'effective_date','2026-01-10',
+        'command_contract_version',2,'effective_date','2026-01-10', 'effective_time','09:00',
         'scope_id',upper(SPA),'delta','50000','currency_definition_id',EUR));
   if not (r ->> 'already_processed')::boolean then
     fallos := array_append(fallos, 'C1d: un UUID en mayusculas produjo conflicto falso');
@@ -335,7 +335,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
           'client_operation_id','10000000-0000-4000-8000-000000000001',
-          'command_contract_version',1,'effective_date','2026-01-10',
+          'command_contract_version',2,'effective_date','2026-01-10', 'effective_time','09:00',
           'scope_id',SPA,'delta','99999','currency_definition_id',EUR));
     fallos := array_append(fallos, 'C2: la misma clave con otra intencion fue aceptada');
   exception when sqlstate 'PGRST' then
@@ -364,7 +364,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
           'client_operation_id','10000000-0000-4000-8000-000000000001',
-          'command_contract_version',1,'effective_date','2026-01-10',
+          'command_contract_version',2,'effective_date','2026-01-10', 'effective_time','09:00',
           'scope_id','a0000000-0000-4000-8000-0000000000b1',
           'delta','1000','currency_definition_id',EUR));
     if (r ->> 'already_processed')::boolean then
@@ -544,7 +544,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
           'client_operation_id','30000000-0000-4000-8000-000000000001',
-          'command_contract_version',1,'effective_date','2026-03-01',
+          'command_contract_version',2,'effective_date','2026-03-01', 'effective_time','09:00',
           'scope_id',SPA,'delta','100','currency_definition_id',EUR,
           'sobra','x'));
     fallos := array_append(fallos, 'E1: se acepto un campo desconocido');
@@ -558,7 +558,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
           'client_operation_id','30000000-0000-4000-8000-000000000002',
-          'command_contract_version',1,'effective_date','2026-03-01',
+          'command_contract_version',2,'effective_date','2026-03-01', 'effective_time','09:00',
           'scope_id',SPA,'delta','100','currency_definition_id',EUR,
           'created_by','22222222-2222-4222-8222-222222222222'));
     fallos := array_append(fallos, 'E2: se acepto created_by en el payload');
@@ -587,7 +587,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
           'client_operation_id','30000000-0000-4000-8000-000000000004',
-          'command_contract_version',1,'effective_date','2026-03-01',
+          'command_contract_version',2,'effective_date','2026-03-01', 'effective_time','09:00',
           'scope_id',SPA,'delta','100','currency_definition_id',USD));
     fallos := array_append(fallos, 'E4: se acepto una operacion cross-currency');
   exception when sqlstate 'PGRST' then
@@ -600,7 +600,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
           'client_operation_id','30000000-0000-4000-8000-000000000005',
-          'command_contract_version',1,'effective_date','2026-03-01',
+          'command_contract_version',2,'effective_date','2026-03-01', 'effective_time','09:00',
           'scope_id',SPB,'delta','100','currency_definition_id',EUR));
     fallos := array_append(fallos, 'E5: se escribio en el Modo Personal de otro');
   exception when sqlstate 'PGRST' then
@@ -614,7 +614,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
           'client_operation_id','30000000-0000-4000-8000-000000000006',
-          'command_contract_version',1,'effective_date','2026-03-01',
+          'command_contract_version',2,'effective_date','2026-03-01', 'effective_time','09:00',
           'scope_id','a0000000-0000-4000-8000-0000000000ff','delta','100',
           'currency_definition_id',EUR));
     fallos := array_append(fallos, 'E5b: se acepto un ambito inexistente');
@@ -628,7 +628,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
           'client_operation_id','30000000-0000-4000-8000-000000000007',
-          'command_contract_version',1,'effective_date','2026-03-01',
+          'command_contract_version',2,'effective_date','2026-03-01', 'effective_time','09:00',
           'scope_id',GRP,'delta','100','currency_definition_id',EUR));
     fallos := array_append(fallos, 'E6: se registro un saldo en un ambito group');
   exception when sqlstate 'PGRST' then
@@ -680,7 +680,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
           'client_operation_id','30000000-0000-4000-8000-00000000000b',
-          'command_contract_version',1,'effective_date','2026-03-01',
+          'command_contract_version',2,'effective_date','2026-03-01', 'effective_time','09:00',
           'operation_id','20000000-0000-4000-8000-000000000001',
           'scope_id',SPA,'delta','100','currency_definition_id',EUR));
     fallos := array_append(fallos, 'E9: se acepto una correccion sin expected_version_id');
@@ -740,7 +740,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
   r := api.record_adjustment(jsonb_build_object(
         'client_operation_id', K,
-        'command_contract_version', 1, 'effective_date', '2026-05-01',
+        'command_contract_version', 2, 'effective_date', '2026-05-01', 'effective_time','09:00',
         'scope_id', SPA, 'delta', '12345', 'currency_definition_id', EUR));
   v_op := (r ->> 'operation_id')::uuid;
   if (r ->> 'already_processed')::boolean then
@@ -764,7 +764,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
           'client_operation_id', K,
-          'command_contract_version', 1, 'effective_date', '2026-05-01',
+          'command_contract_version', 2, 'effective_date', '2026-05-01', 'effective_time','09:00',
           'scope_id', SPA, 'delta', '12345', 'currency_definition_id', EUR));
   exception when others then
     r := null;
@@ -793,7 +793,7 @@ begin
   begin
     r := api.record_adjustment(jsonb_build_object(
           'client_operation_id','50000000-0000-4000-8000-000000000002',
-          'command_contract_version', 1, 'effective_date', '2026-05-02',
+          'command_contract_version', 2, 'effective_date', '2026-05-02', 'effective_time','09:00',
           'scope_id', SPA, 'delta', '999', 'currency_definition_id', EUR));
     v_op2 := (r ->> 'operation_id')::uuid;
     fallos := array_append(fallos,
@@ -884,7 +884,7 @@ begin
       if v_op ->> 'kind' = 'adjustment' then
         perform api.record_adjustment(jsonb_build_object(
           'client_operation_id', ('40000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
-          'command_contract_version', 1, 'effective_date', v_fecha::text,
+          'command_contract_version', 2, 'effective_date', v_fecha::text, 'effective_time','09:00',
           'scope_id', v_ids ->> v_scope,
           'delta', v_op ->> 'delta',
           'currency_definition_id', v_moneda));

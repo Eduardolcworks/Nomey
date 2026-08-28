@@ -10,6 +10,14 @@
 Medido el **2026-08-29**, sobre `main` en `caef2d7`, antes de escribir una sola
 línea de F6.C.
 
+> **Este documento registra el estado ANTERIOR a F6.C.** El script se conserva
+> ejecutable: **R1 sigue reproduciéndose siempre**, porque un delta calculado en
+> el cliente sigue siendo incorrecto y por eso existe el objetivo. **R2 deja de
+> reproducirse en cuanto F6.C está aplicada**, y eso es la prueba de que la
+> corrección funciona, no un fallo del experimento: el script lo dice en vez de
+> fallar. Quien verifica de forma permanente el comportamiento corregido es
+> [`scripts/balance-concurrency.sh`](../../scripts/balance-concurrency.sh).
+
 ## Por qué existe
 
 F6.C introduce dos cosas que **leen el saldo antes de escribir**: el ajuste por
