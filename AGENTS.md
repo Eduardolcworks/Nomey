@@ -480,7 +480,7 @@ the `adr` skill to draft one.
 
 **Phases 0 through 5 are CLOSED.** Phase 3 (persistence and data boundary) closed
 on 2026-08-27 and Phase 5 (identity and session) on 2026-08-28. **ADR-001 through
-ADR-019 are accepted**; ADR-003 met its E11 gate against a real local Supabase
+ADR-021 are accepted**; ADR-003 met its E11 gate against a real local Supabase
 stack.
 
 **Phase 6 is OPEN** — Modo Personal, the first showable milestone. It touches the
@@ -524,7 +524,20 @@ code calls it**, so a freshly confirmed account still has no personal scope unti
 something does. Wiring it into the authenticated lifecycle is F6.E, and it comes
 before Inicio consumes the scope.
 
-**Migrations have started.** `supabase/migrations/` holds ten. The first is the
+**A movement now means something, and `ingreso` finally has a route.** F6.B added
+a mandatory free-text concept, a category that is always present with separate
+expense and income catalogues, an effective time of day, and
+`api.record_personal_income` — the eighth function, for a class the model has
+carried since Phase 1 with nowhere to write it. Two things worth knowing before
+touching any of it: **what every version has and what a class needs are kept
+apart** — the time is a nullable column on the version, concept and category live
+in `core.movement_detail`, present only where the fact exists, so **no class
+invents a synthetic value** — and **a writer of one class can no longer correct an
+operation of another**, guarded in `sec.persist_version`, which all eight pass
+through. [ADR-020](docs/adr/ADR-020-version-content-and-time.md) and
+[ADR-021](docs/adr/ADR-021-category-catalogue.md).
+
+**Migrations have started.** `supabase/migrations/` holds twelve. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is ADR-014: `api` is served and `public`, `core` and `sec`

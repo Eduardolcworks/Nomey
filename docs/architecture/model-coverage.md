@@ -27,16 +27,18 @@ F3, y dónde queda.
 
 ## 1 · Operación y efecto (§1)
 
-| Concepto                                       | Categoría      | Dónde                                       |
-| ---------------------------------------------- | -------------- | ------------------------------------------- |
-| Operación: identidad, clase, autoría, instante | **Persistido** | `core.operation`                            |
-| Versión inmutable y su linaje                  | **Persistido** | `core.operation_version`                    |
-| Vigencia                                       | **Persistido** | `operation.current_version_id` (ADR-013 §4) |
-| Efecto y sus tres dimensiones                  | **Persistido** | `core.effect` — saldo · económica · deuda   |
-| Ámbito, clase contable, moneda del efecto      | **Persistido** | Cabecera de `core.effect`                   |
-| Efectos que cuentan económicamente             | **Proyección** | `core.current_effect` (ADR-013 §9)          |
-| Visibilidad de un efecto                       | **Runtime**    | RLS por membresía del ámbito; no es columna |
-| Aplicación inmediata, sin estados intermedios  | **Runtime**    | Una transacción por operación (ADR-009 §7)  |
+| Concepto                                       | Categoría      | Dónde                                               |
+| ---------------------------------------------- | -------------- | --------------------------------------------------- |
+| Operación: identidad, clase, autoría, instante | **Persistido** | `core.operation`                                    |
+| Versión inmutable y su linaje                  | **Persistido** | `core.operation_version`                            |
+| Vigencia                                       | **Persistido** | `operation.current_version_id` (ADR-013 §4)         |
+| Efecto y sus tres dimensiones                  | **Persistido** | `core.effect` — saldo · económica · deuda           |
+| Ámbito, clase contable, moneda del efecto      | **Persistido** | Cabecera de `core.effect`                           |
+| Efectos que cuentan económicamente             | **Proyección** | `core.current_effect` (ADR-013 §9)                  |
+| Visibilidad de un efecto                       | **Runtime**    | RLS por membresía del ámbito; no es columna         |
+| Aplicación inmediata, sin estados intermedios  | **Runtime**    | Una transacción por operación (ADR-009 §7)          |
+| Concepto, categoría y hora de un movimiento    | **Persistido** | `core.movement_detail` + `effective_time` (ADR-020) |
+| Catálogo de categorías, sistema y propias      | **Persistido** | `core.category` (ADR-021)                           |
 
 ---
 
@@ -76,12 +78,11 @@ Quedan en las fases de Grupo y de Modo Pareja, por migración.
 | Una liquidación no sobrepasa lo pendiente                | **Runtime**    | `record_debt_settlement`, tras el lock                |
 | Una corrección no deja pendiente negativo                | **Runtime**    | `record_group_expense`, tras el lock                  |
 
-**Aplazado — `ingreso` no tiene ruta de escritura.**
-La clase contable existe y el modelo la contempla. → No es de F3: F3 cierra la
-frontera de escritura, no el catálogo de operaciones de producto, y ninguna de
-las siete clases migradas produce ingreso. → Llega con la fase que lo introduzca,
-como una función más de `api`; el vocabulario es abierto a propósito y no exige
-cambiar nada de lo migrado.
+~~**Aplazado — `ingreso` no tiene ruta de escritura.**~~
+**RESUELTO en la Fase 6.B.** `api.record_personal_income` es la octava función:
+saldo positivo y económica positiva sin participante, con sus vectores
+compartidos. Como se anticipó, el vocabulario abierto no exigió cambiar nada de
+lo migrado — [ADR-020](../adr/ADR-020-version-content-and-time.md).
 
 ---
 
@@ -313,19 +314,19 @@ persistido, es derivable, tiene proyección, vive en la frontera, o está aplaza
 
 Los aplazados, en una línea cada uno:
 
-| Aplazado                                       | Destino                |
-| ---------------------------------------------- | ---------------------- |
-| Modo Pareja completo (4.9, 4.10, 4.12–4.14)    | Su fase                |
-| Atributos de Grupo                             | Su fase                |
-| Resolución autoritativa del FX                 | Decisión de producto   |
-| ~~Siembra del catálogo monetario~~             | **Resuelto en F6.A**   |
-| ~~Provisioning del Modo Personal~~             | **Resuelto en F6.A**   |
-| Provisioning de Grupos y participantes         | F9 y F10               |
-| Mecanismo de claim, revocación y fusión        | **F10**                |
-| Acceso residual                                | Abierto                |
-| Notificación                                   | Abierto                |
-| Anulación como concepto distinto               | Abierto                |
-| Idempotencia de otros orígenes                 | Abierto                |
-| Previsualización de correcciones               | Fase de pantallas      |
-| Clase `ingreso` sin ruta                       | Fase que la introduzca |
-| Conflicto por configuración monetaria anterior | Abierto                |
+| Aplazado                                       | Destino              |
+| ---------------------------------------------- | -------------------- |
+| Modo Pareja completo (4.9, 4.10, 4.12–4.14)    | Su fase              |
+| Atributos de Grupo                             | Su fase              |
+| Resolución autoritativa del FX                 | Decisión de producto |
+| ~~Siembra del catálogo monetario~~             | **Resuelto en F6.A** |
+| ~~Provisioning del Modo Personal~~             | **Resuelto en F6.A** |
+| Provisioning de Grupos y participantes         | F9 y F10             |
+| Mecanismo de claim, revocación y fusión        | **F10**              |
+| Acceso residual                                | Abierto              |
+| Notificación                                   | Abierto              |
+| Anulación como concepto distinto               | Abierto              |
+| Idempotencia de otros orígenes                 | Abierto              |
+| Previsualización de correcciones               | Fase de pantallas    |
+| ~~Clase `ingreso` sin ruta~~                   | **Resuelto en F6.B** |
+| Conflicto por configuración monetaria anterior | Abierto              |

@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-28**, al cerrar el bloque **F6.A**.
+Actualizado el **2026-08-28**, al cerrar el bloque **F6.B**.
 
 ---
 
@@ -21,9 +21,9 @@ Actualizado el **2026-08-28**, al cerrar el bloque **F6.A**.
 
 |                         |                                                                                   |
 | ----------------------- | --------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 6 — Modo Personal.** Primer hito enseñable. **F6.A cerrado**               |
+| **Fase en curso**       | **Fase 6 — Modo Personal.** Primer hito enseñable. **F6.A y F6.B cerrados**       |
 | **Última fase cerrada** | **Fase 5 — Identidad y sesión** (A · B · C1 · D · E · F), el 2026-08-28           |
-| **ADR aceptados**       | ADR-001 … ADR-019                                                                 |
+| **ADR aceptados**       | ADR-001 … ADR-021                                                                 |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR               |
 | **App visible**         | Shell navegable, y **Perfil con identidad real**. **Sin funcionalidad económica** |
 | **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**      |
@@ -45,6 +45,15 @@ eligen su moneda. La decisión es
 > hoy una cuenta recién confirmada **sigue sin Modo Personal** hasta que alguien
 > llama a la función. Ese cableado es de **F6.E**, antes de que Inicio consuma el
 > ámbito.
+
+**F6.B dio anatomía al movimiento**, también sin pantalla: **concepto**
+obligatorio, **categoría** siempre presente con catálogos separados de gasto e
+ingreso, **hora efectiva**, y el **ingreso como clase real** —la octava función,
+que el modelo contemplaba desde la Fase 1 sin ruta de escritura—. Y cerró la
+obligación que dejó F6.A: **una clase ya no puede corregir una operación de
+otra**. Las decisiones son
+[ADR-020](adr/ADR-020-version-content-and-time.md) y
+[ADR-021](adr/ADR-021-category-catalogue.md).
 
 **La Fase 5 está cerrada**, con sus cuatro criterios del roadmap cumplidos y
 verificados: se puede registrar, entrar, salir y recuperar el acceso; la sesión
@@ -110,18 +119,25 @@ el writer— crea ámbitos y membresías, que es lo único que el escritor conta
 
 ## Superficie `api` disponible
 
-**Escritura — siete funciones, y ninguna más.** Una por clase de operación,
+**Escritura — ocho funciones, y ninguna más.** Una por clase de operación,
 payload `jsonb` único, `GRANT EXECUTE` solo a `authenticated`:
 
 ```
 record_adjustment          record_group_expense
 record_personal_expense    record_debt_settlement
-record_external_transfer   record_settlement_by_transfer
+record_personal_income     record_settlement_by_transfer
+record_external_transfer
 record_internal_transfer
 ```
 
 Alta y corrección **comparten función**: las distingue `operation_id` +
 `expected_version_id` en el payload.
+
+**Y una clase no corrige a otra.** La guarda vive en `sec.persist_version`, por
+donde pasan las ocho para existir, y usa la clase que cada una ya le pasaba: no
+hay parámetro que olvidar ni función que pueda quedarse fuera. Corre **después
+del CAS**, así que no es un oráculo de la clase de una operación ajena.
+`OPERATION_CLASS_MISMATCH · 422`.
 
 **Provisioning — dos funciones más, de F6.A.** No son clases de operación: no
 crean operación, ni versión, ni efecto, y **no usan `core.client_command`**.
@@ -140,10 +156,20 @@ set_personal_base_currency   cambia la moneda si el ámbito nunca tuvo un efecto
 | `api.claimed_dimension()` | Económica **con participante** y deuda, por vínculo      |
 | `api.personal_scope`      | El ámbito del actor, con su moneda base y su escala      |
 | `api.currency_definition` | Las 20 definiciones sembradas, para el selector          |
+| `api.category`            | Categorías de sistema y **propias**. Ni ve las ajenas    |
+
+**Categorías — tres funciones más, de F6.B.** Tampoco son clases de operación, y
+comparten owner con el provisioning porque `nomey_provisioner` es **la frontera
+de las escrituras que no son contabilidad**:
+
+```
+create_custom_category   rename_custom_category   set_custom_category_active
+```
 
 **Errores.** Código propio en el cuerpo y estado HTTP, medidos por la ruta real:
 `PAYLOAD_INVALID` 400 · `NOT_AUTHORIZED` 403 · `IDEMPOTENCY_KEY_REUSED` 409 ·
-`VERSION_CONFLICT` 409 · `BASE_CURRENCY_LOCKED` 409 ·
+`VERSION_CONFLICT` 409 · `BASE_CURRENCY_LOCKED` 409 · `CATEGORY_NAME_TAKEN` 409 ·
+`OPERATION_CLASS_MISMATCH` 422 · `CATEGORY_NOT_USABLE` 422 ·
 `CURRENCY_CONVERSION_UNSUPPORTED` 422 · `CURRENCY_NOT_SUPPORTED` 422 ·
 `CURRENCY_CODE_AMBIGUOUS` 422 · y los códigos de dominio de
 `src/domain/errors.ts`, también 422.

@@ -16,7 +16,7 @@ Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 | Bloque   | Qué es                                       | Estado                              |
 | -------- | -------------------------------------------- | ----------------------------------- |
 | **F6.A** | Fundación: catálogo monetario y provisioning | **Cerrado como fundamento backend** |
-| **F6.B** | Anatomía del movimiento                      | No empezado                         |
+| **F6.B** | Anatomía del movimiento                      | **Cerrado como fundamento backend** |
 | **F6.C** | Saldo objetivo, observación y anulación      | No empezado                         |
 | **F6.D** | Superficie de lectura                        | No empezado                         |
 | **F6.E** | Inicio · **y el cableado del provisioning**  | No empezado                         |
@@ -146,22 +146,84 @@ comprueban al final que **las veinte definiciones siguen ahí**.
 
 ---
 
-## 4 · Obligaciones que F6.A deja a los bloques siguientes
+## 3 bis · Qué entregó F6.B
 
-### Para F6.B — obligatoria
+```
+core.operation_version.effective_time   hora local, ANULABLE
+core.category                           15 de sistema + personalizadas
+core.movement_detail                    concepto y categoria, POR VERSION
 
-**La corrección no puede pasar por el writer de otra clase.** Medido:
-`sec.lock_and_cas` comprueba **existencia y CAS**, y **no** que la clase de la
-operación coincida con la función invocada. Hoy es teórico; con
-`record_personal_income` deja de serlo, porque su payload será de **forma
-idéntica** al del gasto y bastaría intercambiar el `operation_id` para que
-`core.operation.operation_class` y `core.effect.accounting_class` **divergieran**
-sin que nada lance.
+api.record_personal_income(payload)     LA OCTAVA. Clase `income` real
+api.record_personal_expense(payload)    + concepto, categoria y hora
+api.category                            vista del catalogo visible
+api.create_custom_category(payload)     alta de personalizada
+api.rename_custom_category(payload)     renombrado, que alcanza al historico
+api.set_custom_category_active(payload) baja y alta logicas
+```
 
-- La frontera común debe validar la clase esperada.
-- `record_personal_expense` solo corrige `expense`; `record_personal_income` solo
-  corrige `income`; y así las ocho.
-- La divergencia debe ser **imposible** y tener **regresión deliberada**.
+Seis cosas que conviene no volver a deducir:
+
+- **Lo universal y lo que depende de la clase están separados.** `effective_time`
+  es columna de la versión y es **anulable**: nulo significa «sin hora
+  registrada», **nunca medianoche**. Concepto y categoría viven en
+  `core.movement_detail`, presente solo donde el hecho existe — mismo patrón que
+  `core.split`, y por el mismo motivo. **Ninguna clase se inventa nada.**
+- **`Otros` es una fila real** en las dos familias, y es lo que permite que
+  `category_id` sea `NOT NULL` sin que exista el caso nulo en ninguna parte.
+- **Los catálogos de gasto y de ingreso son distintos**, y la FK compuesta
+  `(category_id, applies_to) → category (id, applies_to)` lo hace **estructural**.
+  Medido: sin la comprobación de frontera, la FK rechaza igual. La frontera
+  existe para **fallar bien**, no para hacer cumplir la regla.
+- **Renombrar alcanza al histórico y no crea versión.** Una categoría es una
+  entidad, no una etiqueta copiada. **Dar de baja no borra**: retira del selector
+  y el histórico la sigue resolviendo. Y una categoría inactiva **se conserva** al
+  corregir aunque no pueda **asignarse** de nuevo — sin esa excepción, dar de baja
+  dejaría incorregible todo lo que la usara.
+- **Concepto, categoría y hora entran en la intención canónica.** Un reintento con
+  cualquiera de los tres materialmente distinto es conflicto, no replay. Y
+  `Mercadona` ≠ `MERCADONA`: la canonicalización recorta y normaliza a NFC, y
+  **no pliega mayúsculas**.
+- **`nomey_provisioner` no gana un rol hermano.** Su alcance real es **la
+  frontera de las escrituras que no son contabilidad**, y las categorías son su
+  segundo miembro. `authenticated` sigue sin escribir **nada** en `core`.
+
+> **Y una trampa que costó descubrir:** `CREATE OR REPLACE FUNCTION` con un
+> parámetro nuevo **no reemplaza** —crea una función distinta y conviven las
+> dos—. Si la resolución de sobrecarga hubiera elegido la antigua
+> `sec.persist_version`, las siete funciones previas habrían seguido escribiendo
+> **sin la guarda de clase**. Se suelta explícitamente, y un check afirma que
+> queda exactamente una.
+
+---
+
+## 4 · Obligaciones que F6.A y F6.B dejan a los bloques siguientes
+
+### ~~Para F6.B — obligatoria~~ · **RESUELTA en F6.B**
+
+Era: `sec.lock_and_cas` comprobaba existencia y CAS, y **no** que la clase de la
+operación coincidiera con la función invocada. Con `record_personal_income`
+dejaba de ser teórico, porque su payload es de **forma idéntica** al del gasto.
+
+**Cerrada.** La guarda vive en `sec.persist_version`, que **ya recibía la clase**
+y por la que pasan las ocho funciones para existir: no hay parámetro que olvidar
+ni función que pueda quedarse fuera. Corre **después del CAS**, de modo que no es
+un oráculo de la clase de una operación ajena. `OPERATION_CLASS_MISMATCH · 422`.
+
+**Falsificada:** retirando la guarda, el writer de ingreso corrige un gasto y
+G7 mide la corrupción —dos efectos vigentes con clase contable ajena a la de su
+operación—. Ver [ADR-020](../adr/ADR-020-version-content-and-time.md) §6.
+
+### Para F6.C — de F6.B
+
+- **Decidir si el ajuste declara hora efectiva.** Hoy `effective_time` es nula en
+  las seis clases que no la piden, y por eso una lista mixta ordenaría los
+  movimientos por hora y los ajustes por `created_at`. Se dice en vez de
+  rellenarse; F6.C tiene el contexto para decidirlo, porque es quien trae el
+  ajuste por saldo objetivo.
+- **El ajuste sigue sin concepto ni categoría**, y es correcto: su línea de
+  historial la deriva el producto —«Saldo ajustado a X»— y no la escribe nadie.
+  Si F6.C quisiera darle una, sería una fila de `core.movement_detail` y una
+  familia nueva en `core.category`, no un valor sintético.
 
 ### Para F6.C
 
