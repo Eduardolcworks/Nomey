@@ -27,9 +27,19 @@ const ROUTE_FILES = import.meta.glob('../../src/app/*.tsx', {
   eager: true,
 });
 
+/**
+ * Los ficheros de `src/app/` que NO son pantallas.
+ *
+ * `_layout` compone; los que empiezan por `+` son ficheros especiales de
+ * expo-router —hoy `+native-intent`, que decide qué URLs entrantes son
+ * navegables y cuál no—. Ninguno se registra en una guarda porque ninguno se
+ * monta: exigirles una sería exigir que existiera una pantalla que no existe.
+ */
+const NOT_A_SCREEN = (name: string) => name === '_layout' || name.startsWith('+');
+
 const ROUTE_NAMES = Object.keys(ROUTE_FILES)
   .map((path) => path.replace('../../src/app/', '').replace('.tsx', ''))
-  .filter((name) => name !== '_layout');
+  .filter((name) => !NOT_A_SCREEN(name));
 
 /** Cada bloque `<Stack.Protected guard={…}>` con los `name` que registra. */
 function protectedBlocks(): { guard: string; screens: string[] }[] {

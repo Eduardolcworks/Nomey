@@ -30,6 +30,7 @@ export const esES = {
   'action.retry': 'Reintentar',
   'action.cancel': 'Cancelar',
   'action.save': 'Guardar',
+  'action.understood': 'Entendido',
 
   'auth.signInTitle': 'Entrar',
   'auth.signInSubtitle': 'Bienvenido de vuelta.',
@@ -53,6 +54,34 @@ export const esES = {
   'auth.checkEmailStep': 'Confírmalo y vuelve aquí para entrar con tu contraseña.',
   'auth.checkEmailBack': 'Volver a entrar',
 
+  'auth.forgotAction': '¿Has olvidado tu contraseña?',
+  'auth.recoverTitle': 'Recuperar acceso',
+  'auth.recoverSubtitle': 'Te enviamos un enlace para elegir una contraseña nueva.',
+  'auth.recoverSend': 'Enviar enlace',
+  'auth.recoverSentTitle': 'Revisa tu correo',
+  'auth.recoverSentBody':
+    'Si existe una cuenta con ese email, recibirás un enlace para restablecer tu contraseña.',
+  'auth.recoverSentHint': 'El enlace sirve una sola vez y caduca.',
+  'auth.recoveryBlockedTitle': 'Cierra sesión para continuar',
+  'auth.recoveryBlockedBody':
+    'Para restablecer una contraseña, cierra primero la sesión actual y vuelve a abrir el enlace desde tu correo.',
+  'auth.recoveryUndeterminedTitle': 'No hemos podido comprobar tu sesión',
+  'auth.recoveryUndeterminedBody':
+    'Vuelve a abrir el enlace cuando haya conexión, para asegurarnos de que no queda ninguna sesión abierta.',
+  'auth.recoveryChecking': 'Comprobando el enlace…',
+  'auth.recoveryFailedTitle': 'Enlace no válido',
+  'auth.recoveryUnresolvedTitle': 'No se pudo comprobar el enlace',
+  'auth.recoveryExpiredTitle': 'La recuperación ha caducado',
+  'auth.newPasswordTitle': 'Nueva contraseña',
+  'auth.newPasswordSubtitle': 'Elige una contraseña nueva para tu cuenta.',
+  'auth.newPassword': 'Contraseña nueva',
+  'auth.newPasswordConfirm': 'Repite la contraseña',
+  'auth.newPasswordAction': 'Guardar contraseña',
+  'auth.newPasswordDoneTitle': 'Contraseña actualizada',
+  'auth.newPasswordDoneBody': 'Hemos cerrado la sesión del enlace. Entra con tu contraseña nueva.',
+  'auth.showPassword': 'Mostrar contraseña',
+  'auth.hidePassword': 'Ocultar contraseña',
+
   'authError.invalidCredentials': 'Email o contraseña incorrectos.',
   'authError.emailNotConfirmed': 'Todavía no has confirmado tu email. Revisa tu correo.',
   'authError.accountUnavailable': 'Esta cuenta no está disponible.',
@@ -62,6 +91,15 @@ export const esES = {
   'authError.signUpDisabled': 'El registro no está disponible ahora mismo.',
   'authError.checkYourEmail': 'Revisa tu correo para continuar.',
   'authError.nameRequired': 'Escribe un nombre.',
+  'authError.emailRequired': 'Escribe tu email.',
+  'authError.passwordRequired': 'Escribe una contraseña.',
+  'authError.passwordMismatch': 'Las dos contraseñas no coinciden.',
+  'authError.recoveryLinkDead': 'Este enlace ya no sirve. Pide uno nuevo.',
+  'authError.recoveryLinkUnchecked':
+    'No hemos podido comprobarlo. Vuelve a abrir el enlace en un momento.',
+  'authError.passwordChangeFailed': 'No hemos podido cambiarla. Inténtalo de nuevo.',
+  'authError.recoverySessionLost':
+    'Por seguridad, solicita un nuevo enlace para cambiar tu contraseña.',
   'authError.network': 'Sin conexión. Inténtalo de nuevo.',
   'authError.generic': 'Algo ha ido mal. Inténtalo de nuevo.',
 

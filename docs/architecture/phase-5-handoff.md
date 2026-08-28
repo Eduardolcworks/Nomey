@@ -8,9 +8,9 @@
 
 ## 1 · Dónde está la fase
 
-**La Fase 5 está EN CURSO.** F5.A, F5.B, F5.C1 y F5.D están cerrados y validados
-en iPhone físico. **Ya se puede entrar en Nomey y salir**, pero la fase no
-cierra.
+**La Fase 5 está EN CURSO.** F5.A, F5.B, F5.C1, F5.D y F5.E están cerrados y
+validados en iPhone físico. **Ya se puede entrar en Nomey, salir y recuperar la
+contraseña**, pero la fase no cierra.
 
 | Bloque    | Qué es                           | Estado                            |
 | --------- | -------------------------------- | --------------------------------- |
@@ -19,8 +19,8 @@ cierra.
 | **F5.C1** | Email y contraseña               | **Cerrado**, de extremo a extremo |
 | **F5.C2** | Google y Apple                   | **Pendiente** · bloqueo externo   |
 | **F5.D**  | Cierre de sesión y Perfil        | **Cerrado**, validado en iPhone   |
-| **F5.E**  | Recuperación de acceso           | **Siguiente bloque**, sin empezar |
-| **F5.F**  | Cierre de fase                   | El último                         |
+| **F5.E**  | Recuperación de acceso           | **Cerrado**, validado en iPhone   |
+| **F5.F**  | Cierre de fase                   | **Siguiente bloque**              |
 
 **Por qué C está partido en dos.** El requisito de producto creció a mitad del
 bloque: Nomey debe permitir entrar con **email y contraseña, Google y Apple**.
@@ -33,15 +33,12 @@ peor que no tenerla.
 
 - **F5.C2 está parcialmente bloqueado por capacidad externa.** Se desbloquea con
   el Apple Developer Program; el resto está resuelto sobre el papel.
-- **F5.E es el siguiente bloque implementable, y NO depende de C2.** Opera sobre
-  la **misma sesión de Supabase que ya está construida** y no le importa qué
-  proveedor la creó — igual que le dio igual a F5.D, que ya está cerrado.
-- **La Fase 5 NO puede cerrarse mientras C2 siga pendiente.** Que F5.E se pueda
-  hacer antes no adelanta el cierre: sin Google y Apple el acceso está
-  incompleto, y F5.F es lo último de todo.
-
-El orden en el que se atacan C2 y E es una decisión de producto, y este
-documento no la toma. Lo que sí fija es que **E no está bloqueado** y **C2 sí**.
+- **F5.E ya está cerrado**, y no dependía de C2: opera sobre la **misma sesión
+  de Supabase que ya estaba construida** y no le importa qué proveedor la creó.
+- **La Fase 5 NO puede cerrarse mientras C2 siga pendiente.** Sin Google y Apple
+  el acceso está incompleto, y F5.F es lo último de todo.
+- **El siguiente trabajo es F5.F**, con C2 aún bloqueado por encima. Cuándo se
+  aborda cada uno es una decisión de producto que este documento no toma.
 
 Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 [`PROJECT_STATE.md`](../PROJECT_STATE.md) · este documento.
@@ -153,12 +150,13 @@ falta inventar la forma de esos dos momentos.
 
 ```ts
 import { signIn, signOut, updateDisplayName } from '@/features/auth';
+import { requestPasswordReset } from '@/features/auth'; // el enlace por correo
 import { useAuthSubmit } from '@/features/auth'; // un envío a la vez, y su error
 ```
 
 **Todo lo que habla con `supabase.auth` vive en `features/auth/auth-service.ts`,
-y sólo ahí.** F5.E añadirá sus llamadas a ese mismo módulo; una segunda puerta
-al cliente de auth es cómo se pierde la cuenta de quién escribe qué.
+y sólo ahí**, recuperación incluida; una segunda puerta al cliente de auth es
+cómo se pierde la cuenta de quién escribe qué.
 
 ---
 
@@ -235,14 +233,14 @@ inaccesibles sin sesión; y **ninguna credencial de backend está en el bundle**
 [ADR-017](../adr/ADR-017-secure-session-storage.md), F5.A—. Cualquier decisión
 nueva de la misma clase sigue pasando por ADR antes de escribirse.
 
-**Del roadmap sólo queda un criterio por cumplir: recuperar el acceso, que es
-F5.E.** Registrarse, entrar y **salir** están hechos y validados en dispositivo;
-la sesión sobrevive al reinicio y se renueva sola; las rutas protegidas son
+**Los criterios del roadmap están todos cumplidos.** Registrarse, entrar,
+**salir** y **recuperar el acceso** están hechos y validados en dispositivo; la
+sesión sobrevive al reinicio y se renueva sola; las rutas protegidas son
 inaccesibles sin sesión; y ninguna credencial de backend está en el bundle.
 
-Pero cumplir ese último criterio **tampoco cerrará la fase**. Lo que lo impide
-no es el roadmap sino **el requisito de producto que creció**: sin Google y
-Apple, el acceso está incompleto.
+Aun así la fase **no cierra**. Lo que lo impide no es el roadmap sino **el
+requisito de producto que creció**: sin Google y Apple, el acceso está
+incompleto.
 
 ---
 
@@ -309,7 +307,7 @@ ADR aceptado es inmutable.
 
 Captura de correo local: `[local_smtp]`, interfaz en el puerto **54324**.
 
-**Sigue fuera:** la recuperación de acceso es **F5.E**.
+**Sigue fuera:** nada de esto tocó la recuperación, que llegó en **F5.E**.
 
 ### Lo que F5.D cerró, y no se vuelve a abrir
 
@@ -334,6 +332,41 @@ Tres cosas que conviene no volver a deducir:
   elección de la persona con su coste dicho, nunca un automatismo.
 - **La escritura del nombre no es optimista.** El campo se cierra con la
   respuesta del servidor, no antes.
+
+### Lo que F5.E cerró, y no se vuelve a abrir
+
+**Su decisión es [ADR-018](../adr/ADR-018-ephemeral-recovery-session.md)**, y es
+una frontera: **una sesión nacida de un enlace de correo no es una sesión
+ordinaria de Nomey, no se persiste y nunca se promociona.** Lo que F5.F necesita
+saber, y nada más:
+
+- **La recuperación corre sobre un cliente Auth propio y efímero** —en memoria,
+  sin persistencia ni refresco— y **el `SessionProvider` principal no la ve
+  nunca**. Durante todo el flujo el estado principal es `signed-out`, y eso es
+  literalmente cierto. Si F5.F toca el provider, esta rama no le concierne.
+- **El deep link tiene un dueño único** en `useRecoveryLink`:
+  `getInitialURL()` más un listener `url`, instalados una sola vez y sin
+  depender de la sesión. **`Linking.useURL()` no se usa.** Y
+  `app/+native-intent.tsx` mantiene `/auth/recovery` fuera del router: es una
+  intención de autenticación, no una pantalla. **No añadas una ruta para ella.**
+- **Una sesión abierta bloquea el enlace sin canjearlo**; `restoring` retiene esa
+  llegada hasta que la sesión resuelve; `unavailable` **falla cerrado**. **Ningún
+  cambio de estado de sesión canjea nada por su cuenta** — ése fue un defecto
+  medido, y la prueba que lo impide vive en `recovery-arrival.ts`.
+- **La prueba se gasta cuando lo dice el servidor, no cuando falla el intento.**
+  `consumed` o `dead` la cierran; un fallo no resuelto —transporte, 429, 500—
+  la deja intacta, y **una entrega explícita nueva del mismo enlace es el único
+  reintento**. Medido contra `auth.one_time_tokens`.
+- **Un fallo al guardar la contraseña no termina la transacción**: se muestra en
+  el propio formulario y se reintenta ahí. Sólo se sale al terminar bien o
+  explícitamente.
+- **Un recovery interrumpido no se reanuda**, por diseño: no hay nada
+  persistido, así que la app reabre en Entrar.
+
+Y una regla de copy que conviene no deshacer: **sólo un veredicto del servidor
+sobre la prueba puede decir que el enlace no vale.** Lo demás dice que no se
+pudo comprobar, sin diagnosticar la causa y sin distinguir usado, sustituido,
+caducado ni inventado.
 
 ### La foto de perfil, deuda registrada
 

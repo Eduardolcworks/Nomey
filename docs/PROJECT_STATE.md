@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-28**, al cerrar F5.D.
+Actualizado el **2026-08-28**, al cerrar F5.E.
 
 ---
 
@@ -21,17 +21,18 @@ Actualizado el **2026-08-28**, al cerrar F5.D.
 
 |                         |                                                                                   |
 | ----------------------- | --------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 5 — Identidad y sesión.** A, B, C1 y D cerrados · **F5.C2 pendiente**      |
+| **Fase en curso**       | **Fase 5 — Identidad y sesión.** A, B, C1, D y E cerrados · **F5.C2 pendiente**   |
 | **Última fase cerrada** | **Fase 4 — Arquitectura UX e internacionalización** (4.A · 4.B · 4.C · 4.D)       |
-| **ADR aceptados**       | ADR-001 … ADR-017                                                                 |
+| **ADR aceptados**       | ADR-001 … ADR-018                                                                 |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR               |
 | **App visible**         | Shell navegable, y **Perfil con identidad real**. **Sin funcionalidad económica** |
-| **Sesión**              | Email y contraseña, entrar **y salir**. **Faltan Google y Apple**                 |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**      |
 
 **La Fase 5 NO está completa.** El ciclo de acceso ya se cierra: registro con
-confirmación obligatoria, login, sesión que sobrevive al reinicio y **cierre de
-sesión real**. Lo que falta no es un criterio del roadmap, sino **el requisito
-de producto que creció a mitad de fase**: Google y Apple.
+confirmación obligatoria, login, sesión que sobrevive al reinicio, **cierre de
+sesión real** y **recuperación de contraseña**. Lo que falta no es un criterio
+del roadmap, sino **el requisito de producto que creció a mitad de fase**:
+Google y Apple.
 
 | Bloque    | Qué es                    | Estado                          |
 | --------- | ------------------------- | ------------------------------- |
@@ -40,17 +41,17 @@ de producto que creció a mitad de fase**: Google y Apple.
 | **F5.C1** | Email y contraseña        | **Cerrado**, validado en iPhone |
 | **F5.C2** | Google y Apple            | **Pendiente**, bloqueo externo  |
 | **F5.D**  | Cierre de sesión y Perfil | **Cerrado**, validado en iPhone |
-| **F5.E**  | Recuperación de acceso    | **Siguiente bloque**            |
-| **F5.F**  | Cierre de fase            | El último                       |
+| **F5.E**  | Recuperación de acceso    | **Cerrado**, validado en iPhone |
+| **F5.F**  | Cierre de fase            | **Siguiente bloque**            |
 
 **F5.C2 está parcialmente bloqueado por capacidad externa**: no hay Apple
 Developer Program disponible, y no se hace una implementación provisional que
 luego haya que sustituir. **La Fase 5 no puede cerrarse mientras C2 siga
 pendiente.**
 
-**F5.E no depende de C2**, y es el siguiente bloque implementable: la
-recuperación de acceso opera sobre la misma sesión de Supabase venga del
-proveedor que venga. **No está empezada.**
+**El siguiente trabajo de la Fase 5 es F5.F**, el cierre de fase. F5.E quedó
+cerrado y validado en iPhone, y no dependía de C2: la recuperación opera sobre
+la misma sesión de Supabase venga del proveedor que venga.
 
 ---
 
@@ -119,8 +120,8 @@ dominio de `src/domain/errors.ts`, también 422.
 
 **Lo que existe:** el cliente y el almacenamiento seguro (F5.A), el estado de
 sesión con su restauración y las rutas protegidas (F5.B), el acceso con email y
-contraseña (F5.C1), y **el cierre de sesión con la Cuenta y el Perfil** (F5.D).
-**Lo que no: Google y Apple.**
+contraseña (F5.C1), **el cierre de sesión con la Cuenta y el Perfil** (F5.D) y
+**la recuperación de contraseña** (F5.E). **Lo que no: Google y Apple.**
 
 ```
 lib/env/              las dos EXPO_PUBLIC_, validadas al arrancar
@@ -136,7 +137,8 @@ features/session/
 └── session-provider     el ÚNICO dueño del estado, y el único suscriptor
 features/auth/
 ├── auth-service         signUp, signIn, signOut, forgetLocalSession y
-│                        updateDisplayName. Lo ÚNICO que llama a supabase.auth
+│                        updateDisplayName, y las tres de recuperación.
+│                        Lo ÚNICO que llama a supabase.auth
 ├── auth-errors          código de GoTrue -> clave i18n. PURO
 ├── credentials          normalización y «¿está vacío?». PURO
 ├── display-name         iniciales del avatar. PURO, sin React Native
@@ -144,7 +146,13 @@ features/auth/
 ├── sign-out-confirmation  el diálogo como dato, no como efecto. PURO
 ├── account-avatar       el hueco de la foto y su affordance
 ├── display-name-editor  el nombre y el lápiz que lo cambia
-└── auth-screen          el andamio de teclado que comparten las pantallas
+├── auth-screen          el andamio de teclado que comparten las pantallas
+├── recovery-link        lee el enlace y rechaza todo lo demás. PURO
+├── recovery-arrival     qué hacer cuando un enlace LLEGA. PURO, inyectable
+├── recovery-state       la transacción y sus estados. PURO
+├── recovery-controller  la transacción, sobre el cliente efímero
+└── use-recovery-link    el ÚNICO dueño del deep link: una suscripción
+lib/supabase/recovery-client   segunda instancia, en memoria y desechable
 ```
 
 **Cuatro estados, no un booleano.** `restoring` · `signed-out` · `signed-in` ·
@@ -260,6 +268,35 @@ Personal al entrar de nuevo.
 **El splash propio no es verificable en Expo Go**, que sustituye el nativo por el
 suyo; espera a una build iOS propia. El gate es React puro y sí está comprobado:
 aunque el splash fallara, lo que se ve es el fondo de la app, nunca una pantalla.
+
+### La recuperación de acceso, y por qué está fuera de la sesión
+
+La rige **[ADR-018](adr/ADR-018-ephemeral-recovery-session.md)**, y su decisión
+es una frontera, no un matiz: **una sesión nacida de un enlace de correo no es
+una sesión ordinaria de Nomey, no se persiste y nunca se promociona.**
+
+- **Se canjea con un cliente Auth propio y efímero** — `persistSession: false`,
+  `autoRefreshToken: false`, `detectSessionInUrl: false` — que vive en memoria
+  y muere con el proceso. **El `SessionProvider` principal no la ve nunca** y
+  durante todo el flujo dice `signed-out`, que es literalmente cierto.
+- **El deep link tiene un dueño único**: `getInitialURL()` para el arranque y un
+  listener `url` para cada entrega posterior. `Linking.useURL()` NO se usa —
+  retiene la última URL, y leer un valor retenido no es reaccionar a un evento.
+  `app/+native-intent.tsx` impide además que el router trate `/auth/recovery`
+  como pantalla: es una intención de autenticación, no un destino.
+- **Una sesión ordinaria abierta bloquea el enlace sin canjearlo**, y `restoring`
+  no decide nada: esa llegada queda retenida hasta que la sesión resuelve.
+  `unavailable` **falla cerrado**. Ningún cambio de sesión canjea por su cuenta.
+- **`attempted` impide dos canjes simultáneos del mismo hash**; **`spent` sólo se
+  escribe cuando el servidor establece `consumed` o `dead`.** Un fallo no
+  resuelto —transporte, 429, 500— no gasta la prueba: **una entrega explícita
+  nueva del mismo enlace vuelve a intentarlo**, y ése es el único reintento.
+- **Un fallo al guardar la contraseña se queda en el formulario**, en línea y con
+  lo escrito intacto, porque para entonces el enlace ya está canjeado y la
+  sesión efímera sigue siendo utilizable. Sólo se abandona la recuperación al
+  terminar bien o al salir explícitamente.
+- **Un recovery interrumpido no se reanuda.** No hay estado que restaurar: la
+  app reabre en Entrar y se pide otro enlace.
 
 ### El tamaño real de la sesión, medido
 

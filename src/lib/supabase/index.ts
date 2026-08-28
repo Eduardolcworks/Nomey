@@ -8,4 +8,5 @@ export {
   utf8Length,
   type SessionMetrics,
 } from './session-metrics';
+export { disposeRecoveryClient, RECOVERY_STORAGE_KEY, recoveryClient } from './recovery-client';
 export { secureStoreBackend, sessionStorage } from './session-storage';

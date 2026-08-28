@@ -1,7 +1,12 @@
-import { SESSION_STORAGE_KEY, sessionStorage, supabase } from '@/lib/supabase';
+import { recoveryClient, SESSION_STORAGE_KEY, sessionStorage, supabase } from '@/lib/supabase';
 
 import {
   type AuthErrorKey,
+  type RecoveryFailure,
+  recoveryErrorKey,
+  recoveryFailure,
+  type RecoverySaveFailure,
+  recoverySaveFailure,
   signInErrorKey,
   signOutErrorKey,
   signUpErrorKey,
@@ -11,6 +16,7 @@ import {
   type Credentials,
   normaliseCredentials,
   normaliseDisplayName,
+  normaliseEmail,
   normaliseRegistration,
   type Registration,
 } from './credentials';
@@ -189,4 +195,156 @@ export async function updateDisplayName(raw: string): Promise<AuthResult> {
 
   if (error !== null) return { ok: false, messageKey: updateUserErrorKey(error) };
   return { ok: true };
+}
+
+/**
+ * Ask for a recovery email.
+ *
+ * **The answer is the same whether or not the address has an account.**
+ * Measured against this GoTrue: `POST /recover` for an unknown address answers
+ * `200 {}`, exactly as it does for a known one. So the neutral message the UI
+ * shows is the literal truth rather than a fiction the client maintains - we
+ * are not hiding an answer, we genuinely were not given one.
+ *
+ * That is worth stating because the temptation later is to "improve" this by
+ * telling the user their address is not registered. It would turn the form
+ * into an account oracle, which is precisely what the sign-in and sign-up
+ * screens already refuse to be.
+ *
+ * No `redirectTo` is passed, and that is deliberate too. The recovery email
+ * template writes the app's deep link itself and only interpolates the token
+ * hash, so there is no redirect for the server to validate - and a rejected
+ * `redirect_to` is silently swapped for `site_url` rather than refused, which
+ * is a failure nobody would notice.
+ */
+export async function requestPasswordReset(rawEmail: string): Promise<AuthResult> {
+  const email = normaliseEmail(rawEmail);
+  if (email === '') return { ok: false, messageKey: 'authError.emailRequired' };
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+  if (error !== null) return { ok: false, messageKey: recoveryErrorKey(error) };
+  return { ok: true };
+}
+
+/**
+ * Redeem the proof that came in the recovery link.
+ *
+ * `verifyOtp` with `type: 'recovery'` is the whole mechanism, and its two
+ * properties are why this block is shaped the way it is. MEASURED in
+ * `@supabase/auth-js@2.112.4` and against the running stack:
+ *
+ * 1. It POSTs the hash to `/verify` and saves the returned session through the
+ *    configured storage - which is Nomey's chunked keychain store. **No
+ *    second storage path and no manual persistence**: ADR-017 keeps owning the
+ *    session, and this feature never learns a key name.
+ * 2. It emits **`PASSWORD_RECOVERY`** rather than `SIGNED_IN`. That event is
+ *    what the session lifecycle turns into the `recovering` state, so recovery
+ *    is distinguished by something the SERVER said, not by a flag we set
+ *    because we recognised a URL.
+ *
+ * The hash is single-use: replaying it, or inventing one, both answer `403
+ * otp_expired` and are deliberately indistinguishable from each other.
+ *
+ * **The result says what was ESTABLISHED, not only what to show.** A failure
+ * here is one of two very different things, and collapsing them cost a live
+ * link once: `403 otp_expired` is the server's word that the proof is gone,
+ * while a request that never arrived is no word at all. Only the first may
+ * close the door on the hash, so the classification travels with the message
+ * rather than being re-derived from it.
+ */
+export type RecoveryRedemption = { readonly ok: true } | ({ readonly ok: false } & RecoveryFailure);
+
+export async function redeemRecovery(tokenHash: string): Promise<RecoveryRedemption> {
+  const { error } = await recoveryClient().auth.verifyOtp({
+    token_hash: tokenHash,
+    type: 'recovery',
+  });
+
+  if (error !== null) return { ok: false, ...recoveryFailure(error) };
+  return { ok: true };
+}
+
+/**
+ * Set the new password, then end the session the email link created.
+ *
+ * The sign-out is the security half, and it is not decoration. MEASURED: after
+ * `PUT /user` the recovery session stays fully alive - both the access token
+ * and the refresh token still work. So without this, finishing a recovery
+ * leaves an ordinary, long-lived session on the device that was obtained by
+ * whoever had access to an inbox.
+ *
+ * It costs nothing to close, because the change is already committed: the old
+ * password answers `400` and the new one answers `200` before this returns.
+ * Signing out therefore proves the new password rather than trusting it - the
+ * only way back in is to type it.
+ *
+ * The sign-out also produces the event that ends `recovering`: the session
+ * goes away, the lifecycle clears the flag, and the tree returns to the public
+ * branch on its own. **No `router.replace` anywhere in this flow.**
+ *
+ * A failed sign-out is not reported as a failed password change, because the
+ * password change did succeed. The state that matters is on the server.
+ */
+export type RecoveryCompletion =
+  { readonly ok: true } | ({ readonly ok: false } & RecoverySaveFailure);
+
+export async function completeRecovery(rawPassword: string): Promise<RecoveryCompletion> {
+  const ephemeral = recoveryClient();
+
+  // ------------------------------------------ before the point of no return
+  // A failure here is a failure of the recovery: nothing changed on the
+  // server, so the caller may show an error and let the person try again.
+  try {
+    const { error } = await ephemeral.auth.updateUser({ password: rawPassword });
+    if (error !== null) return { ok: false, ...recoverySaveFailure(error) };
+  } catch {
+    // A throw establishes nothing about the session, so it stays retryable.
+    return { ok: false, outcome: 'retryable', messageKey: 'authError.passwordChangeFailed' };
+  }
+
+  /*
+   * ---------------------------------------------------- POINT OF NO RETURN
+   *
+   * The password HAS changed. The old one already answers 400 and the new one
+   * 200 - measured - so the recovery has succeeded no matter what happens
+   * next.
+   *
+   * Everything below is cleanup, and cleanup may not contradict a committed
+   * result. Reporting a failure here would tell someone their password did
+   * not change when it did, which sends them to try the old one and to burn
+   * another link. So the revocation is attempted, its failure is recorded,
+   * and the result stays `ok`.
+   *
+   * The lost revocation is not the same class of problem as F5.D's: that
+   * session was never persisted, so discarding the client removes it from the
+   * device entirely. What survives is a refresh token on the server that
+   * nothing on this phone can reach - the orphan ADR-018 already accepts.
+   */
+  try {
+    const { error } = await ephemeral.auth.signOut({ scope: 'local' });
+    if (error !== null) reportRevocationUnconfirmed(error);
+  } catch (thrown) {
+    reportRevocationUnconfirmed(thrown);
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Record that the ephemeral session could not be revoked remotely.
+ *
+ * `console.warn` because the project has no logging abstraction and this
+ * is not the moment to invent one - `session-provider` reports a failed
+ * refresh the same way.
+ *
+ * The error NAME and nothing else. AGENTS.md is explicit that whole objects
+ * never get logged, and here the object would be an auth error whose fields
+ * can carry a session. No token, no email, no URL, no hash.
+ */
+function reportRevocationUnconfirmed(error: unknown): void {
+  console.warn(
+    '[recovery] ephemeral session revocation unconfirmed',
+    error instanceof Error ? error.name : typeof error,
+  );
 }

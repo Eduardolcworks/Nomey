@@ -1,0 +1,29 @@
+<h2>Restablecer tu contraseña</h2>
+
+<p>
+  Hemos recibido una petición para restablecer la contraseña de tu cuenta de Nomey. Abre el enlace
+  desde el móvil que tiene Nomey instalado:
+</p>
+
+<!--
+  El destino va ESCRITO, no interpolado, y no es una preferencia de estilo.
+
+  Go sanea `html/template`: un valor interpolado dentro de un `href` cuyo
+  esquema no sea http, https o mailto se sustituye por `#ZgotmplZ`. Medido con
+  `{{ .RedirectTo }}` y el esquema propio de la app. Un literal no pasa por ese
+  filtro, así que el enlace se escribe entero y sólo se interpola el hash.
+
+  Consecuencia: esta plantilla apunta al scheme de la variante de desarrollo,
+  que es la única que puede probarse contra el stack local con una build real.
+  La plantilla de producción es la misma con `nomey://`.
+-->
+<p>
+  <a href="nomey-dev://auth/recovery?token_hash={{ .TokenHash }}&type=recovery">
+    Elegir una contraseña nueva
+  </a>
+</p>
+
+<p>
+  El enlace sirve una sola vez y caduca. Si no has pedido tú el cambio, puedes ignorar este correo:
+  tu contraseña actual seguirá funcionando.
+</p>

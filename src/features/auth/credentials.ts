@@ -61,3 +61,27 @@ export function missingFields(raw: Partial<Registration>): (keyof Registration)[
   if ((raw.password ?? '') === '') missing.push('password');
   return missing;
 }
+
+/**
+ * What is wrong with a new password and its confirmation, or nothing.
+ *
+ * Two rules and no more, for the same reason `missingFields` refuses to do
+ * more: **GoTrue owns the password policy** - length, character classes,
+ * whether it has been leaked - and a second copy here would be the one nobody
+ * updates when the server's changes. So this checks only what the server
+ * cannot: that something was typed, and that the two boxes agree. Everything
+ * else is a round trip whose answer arrives mapped.
+ *
+ * The confirmation is checked here rather than at the server because the
+ * server never sees it. It exists to catch a typo in a value the user cannot
+ * read back, which is the one thing a password field guarantees.
+ */
+export type PasswordProblem = 'empty' | 'mismatch';
+
+export function passwordProblem(password: string, confirmation: string): PasswordProblem | null {
+  // Not trimmed: whitespace is a legitimate part of a password, and trimming
+  // it would silently change what the user chose.
+  if (password === '') return 'empty';
+  if (password !== confirmation) return 'mismatch';
+  return null;
+}

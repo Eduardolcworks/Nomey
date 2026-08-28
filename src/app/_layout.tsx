@@ -3,6 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { type ReactNode, useEffect } from 'react';
 
+import { isRecoveryActive, RecoveryProvider, useRecovery, useRecoveryLink } from '@/features/auth';
 import {
   identityKey,
   isPublic,
@@ -40,15 +41,27 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
 export default function RootLayout() {
   return (
     <SessionProvider>
-      <ScopeBinding>
-        {/*
-         * Fixed light, not "auto". The app is dark-only, so the status bar
-         * content is always light-on-dark; "auto" would resolve from the
-         * scheme and add a branch that can only go one way.
-         */}
-        <StatusBar style="light" />
-        <RootNavigator />
-      </ScopeBinding>
+      {/*
+       * `RecoveryProvider` sits INSIDE the session provider and owns nothing it
+       * owns. It models one transaction - a password recovery - over a separate,
+       * memory-only auth client, and it is deliberately not a second session
+       * provider: it has no user, no token, no restore and no persistence.
+       *
+       * During a recovery the main client genuinely holds no session, so
+       * `SessionProvider` reports `signed-out` truthfully rather than being
+       * worked around.
+       */}
+      <RecoveryProvider>
+        <ScopeBinding>
+          {/*
+           * Fixed light, not "auto". The app is dark-only, so the status bar
+           * content is always light-on-dark; "auto" would resolve from the
+           * scheme and add a branch that can only go one way.
+           */}
+          <StatusBar style="light" />
+          <RootNavigator />
+        </ScopeBinding>
+      </RecoveryProvider>
     </SessionProvider>
   );
 }
@@ -78,7 +91,38 @@ function ScopeBinding({ children }: { children: ReactNode }) {
 
 function RootNavigator() {
   const { state } = useSession();
+  const { state: recovery } = useRecovery();
   const resolved = isResolved(state);
+
+  /*
+   * The recovery deep link has exactly one owner, and it is here.
+   *
+   * Above the branches on purpose: a link can arrive while the app is cold,
+   * while it sits on the sign-in screen, or while it is already open, and a
+   * listener living inside a branch would miss whichever arrivals its branch
+   * was not mounted for. This runs for all of them.
+   *
+   * It returns nothing and renders nothing. Redeeming the proof moves the
+   * recovery controller, and the guard below does the rest - so the deep link
+   * never touches navigation and the token hash never reaches a route param.
+   *
+   * Whether a session is already open has to be passed in: `features/` may not
+   * import `features/`, so the hook cannot ask the session provider itself.
+   * This file is the composition root, and it already sees both. A link
+   * arriving while somebody is signed in is refused rather than redeemed, so
+   * an ordinary session and a recovery transaction never coexist.
+   */
+  useRecoveryLink({ sessionStatus: state.status });
+
+  /*
+   * The recovery surface wins over both ordinary branches while it is active.
+   *
+   * That is a priority, not a session: the main state underneath is
+   * `signed-out` the whole time, and stays that way. Nothing is faked to get
+   * past a guard - there is simply a transaction in progress that owns the
+   * screen until it ends.
+   */
+  const recovering = isRecoveryActive(recovery);
 
   useEffect(() => {
     if (!resolved) return;
@@ -116,11 +160,28 @@ function RootNavigator() {
        * answer. Without a session PostgREST refuses with 42501 whatever the
        * client renders, and RLS remains the only authorisation boundary.
        */}
-      <Stack.Protected guard={isPublic(state)}>
+      <Stack.Protected guard={isPublic(state) && !recovering}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
 
-      <Stack.Protected guard={isSignedIn(state)}>
+      {/*
+       * The recovery branch, governed by the transaction rather than by the
+       * session.
+       *
+       * It is NOT part of `(auth)` and NOT part of the product. The session it
+       * runs on lives in the ephemeral client's memory and is never persisted,
+       * so it cannot be restored, cannot be refreshed, and cannot survive the
+       * process - which is exactly what stops a recovery link from becoming an
+       * ordinary login by killing the app halfway through.
+       *
+       * Nothing navigates into or out of it. Redeeming the link opens it and
+       * the controller closes it; the tree follows both by itself.
+       */}
+      <Stack.Protected guard={recovering}>
+        <Stack.Screen name="(recovery)" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={isSignedIn(state) && !recovering}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="add" options={{ presentation: 'modal' }} />
         <Stack.Screen name="notifications" />
@@ -136,7 +197,7 @@ function RootNavigator() {
        * by URL in a release build. Guarding them here closes that, and keeps
        * them from becoming a public door around the sign-in branch.
        */}
-      <Stack.Protected guard={isSignedIn(state) && __DEV__}>
+      <Stack.Protected guard={isSignedIn(state) && !recovering && __DEV__}>
         <Stack.Screen name="diagnostics" />
         <Stack.Screen name="states" />
         <Stack.Screen name="session-probe" />
