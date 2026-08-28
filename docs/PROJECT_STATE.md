@@ -35,10 +35,16 @@ obligaciones de cada bloque están en
 **F6.A cerró la fundación de datos del Modo Personal**, sin pantalla y a
 propósito: catálogo monetario sembrado con identidades fijas, un **tercer rol**
 `nomey_provisioner`, y las funciones que crean el ámbito con su membresía y
-eligen su moneda. **Una cuenta nueva ya tiene Modo Personal**, que era la
-condición sin la cual la fase no podía abrir. La decisión es
+eligen su moneda. La decisión es
 [ADR-019](adr/ADR-019-personal-provisioning.md) y la evidencia,
 [`supabase/e21/`](../supabase/e21/README.md).
+
+> **Backend sí, app todavía no.** `api.ensure_personal_scope` existe, es segura e
+> idempotente, y está verificada por HTTP con JWT real y bajo concurrencia. Pero
+> **la aplicación no la invoca en ningún punto de su ciclo autenticado**, así que
+> hoy una cuenta recién confirmada **sigue sin Modo Personal** hasta que alguien
+> llama a la función. Ese cableado es de **F6.E**, antes de que Inicio consuma el
+> ámbito.
 
 **La Fase 5 está cerrada**, con sus cuatro criterios del roadmap cumplidos y
 verificados: se puede registrar, entrar, salir y recuperar el acceso; la sesión
@@ -442,8 +448,9 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 > **Lo que sigue sin provisioning, y lo que ya no.** Nada crea todavía un Grupo
 > ni un participante, así que `record_group_expense` y las dos liquidaciones no
 > son alcanzables de extremo a extremo por un cliente real; los checks siembran
-> ese estado como `postgres`. **El Modo Personal ya no está en esa lista**: F6.A
-> lo resolvió, y el check HTTP crea el suyo por la ruta real.
+> ese estado como `postgres`. **El Modo Personal ya tiene ruta**: F6.A la
+> construyó, y el check HTTP crea el suyo por ella. Lo que falta es que **la app
+> la use**, que es F6.E.
 
 ---
 

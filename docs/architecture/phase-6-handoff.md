@@ -13,20 +13,23 @@ Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 
 ## 1 · Dónde está la fase
 
-| Bloque   | Qué es                                       | Estado                       |
-| -------- | -------------------------------------------- | ---------------------------- |
-| **F6.A** | Fundación: catálogo monetario y provisioning | **Cerrado en base de datos** |
-| **F6.B** | Anatomía del movimiento                      | No empezado                  |
-| **F6.C** | Saldo objetivo, observación y anulación      | No empezado                  |
-| **F6.D** | Superficie de lectura                        | No empezado                  |
-| **F6.E** | Inicio                                       | No empezado                  |
-| **F6.F** | Alta, edición y eliminación                  | No empezado                  |
-| **F6.G** | Cierre de fase                               | No empezado                  |
+| Bloque   | Qué es                                       | Estado                              |
+| -------- | -------------------------------------------- | ----------------------------------- |
+| **F6.A** | Fundación: catálogo monetario y provisioning | **Cerrado como fundamento backend** |
+| **F6.B** | Anatomía del movimiento                      | No empezado                         |
+| **F6.C** | Saldo objetivo, observación y anulación      | No empezado                         |
+| **F6.D** | Superficie de lectura                        | No empezado                         |
+| **F6.E** | Inicio · **y el cableado del provisioning**  | No empezado                         |
+| **F6.F** | Alta, edición y eliminación                  | No empezado                         |
+| **F6.G** | Cierre de fase                               | No empezado                         |
 
 **F6.A no tiene pantalla, y es deliberado.** Sus criterios se verifican por check
-SQL y por HTTP con JWT real, no por vista. El cableado en el cliente —cuándo se
-invoca el provisioning y qué se ve si falla— pertenece al primer bloque que
-construya UI.
+SQL y por HTTP con JWT real, no por vista.
+
+> **Y por eso su cierre es de backend, no de producto.** La función existe y es
+> segura; **la app todavía no la invoca**. El cableado —cuándo se llama, qué se
+> ve si falla y qué no se puede dar por hecho hasta que termine— es de **F6.E**,
+> y va **antes** de que Inicio consuma el ámbito. Ver §4.
 
 ---
 
@@ -62,9 +65,21 @@ api.personal_scope                       vista: el ámbito del actor y su moneda
 api.currency_definition                  vista: el catálogo, para el selector
 ```
 
-**Una cuenta nueva ya tiene Modo Personal.** Era la condición sin la cual F6 no
-podía abrir: sin `scope` con `owner_user_id` **y** su fila de `core.membership`
-—las dos, invariante 11— el dueño no ve ni sus propios efectos.
+**El backend ya sabe crear el Modo Personal de una cuenta autenticada, y la app
+todavía no se lo pide.** La distinción importa y conviene no borrarla:
+
+- `api.ensure_personal_scope` **existe, es segura e idempotente**, y crea el
+  ámbito con su membresía. Verificada por HTTP con JWT real y bajo concurrencia.
+- **La aplicación no la invoca en ningún punto de su ciclo autenticado.** Hoy una
+  cuenta recién confirmada **sigue sin** Modo Personal hasta que alguien llama a
+  la función.
+
+Esa integración es de **F6.E** (§4), y **F6.A no la incluye a propósito**: es
+fundamento de backend, sin pantalla.
+
+Era la condición sin la cual F6 no podía abrir: sin `scope` con `owner_user_id`
+**y** su fila de `core.membership` —las dos, invariante 11— el dueño no ve ni
+sus propios efectos.
 
 La decisión es [ADR-019](../adr/ADR-019-personal-provisioning.md). La evidencia
 medida, [`supabase/e21/`](../../supabase/e21/README.md).
@@ -80,6 +95,13 @@ medida, [`supabase/e21/`](../../supabase/e21/README.md).
 - **La barrera del provisioner va acotada al actor**, no solo a
   `kind = 'personal'`. E21 midió que `sec.request_actor_id()` funciona dentro de
   un definer de ese rol **y dentro de una policy** evaluada durante él.
+  `scope_provisioner_currency` lleva `owner_user_id = sec.request_actor_id()` en
+  `USING` **y** en `WITH CHECK`, así que **ni un definer que ignorase la
+  resolución por actor y apuntase a un `scope_id` arbitrario alcanzaría el Modo
+  Personal de otra persona**: se comprobó, y devuelve cero filas sin tocar nada.
+  El residuo real es más estrecho: un fallo del código podría cambiar la moneda
+  del ámbito **propio** del actor cuando no debería, y en cuanto exista un solo
+  efecto ni eso, porque la FK compuesta lo rechaza.
 - **Las policies de `SELECT` del provisioner son parte de la corrección.** E21
   midió tres veces el mismo modo de fallo: con `GRANT` y sin policy aplicable, la
   lectura devuelve **cero filas sin error**. Y una de ellas es contraintuitiva:
@@ -145,9 +167,9 @@ sin que nada lance.
 
 - El bloqueo de la dimensión saldo debe usar **el mismo orden global ascendente**
   que ya usa el protocolo de deuda de ADR-013 §11.
-  `api.set_personal_base_currency` **ya bloquea** con ese criterio, de modo que
-  ADR-022 **extiende** en vez de corregir. Ninguna función queda huérfana del
-  protocolo.
+  `api.set_personal_base_currency` **ya bloquea** con ese criterio, de modo que el
+  ADR de serialización **extiende** en vez de corregir. Ninguna función queda
+  huérfana del protocolo.
 - La observación de saldo y el bloqueo operan sobre la **unión de los ámbitos
   afectados por la versión nueva y por la que sustituye** — mismo principio que
   ADR-013 §11 ya fija para la deuda. Sin eso, **una anulación no dejaría
@@ -163,12 +185,23 @@ sin que nada lance.
 - Las anuladas se excluyen de la superficie normal, y debe existir una vía
   interna comprobable de que la trazabilidad permanece.
 
-### Para el primer bloque con UI
+### Para F6.E — obligatoria, y **antes** de que Inicio consuma el ámbito
 
-- **El cliente debe invocar `api.ensure_personal_scope` y tener camino de
-  reintento.** Si falla, la cuenta se queda sin Modo Personal y la app no sale
-  sola de ese estado. La idempotencia hace el reintento seguro; hace falta que
-  exista, con un estado visible y con salida, como `unavailable` en F5.B.
+**El cableado del provisioning en el cliente es de F6.E.** F6.A dejó la función
+lista y **la app no la llama**. Cuatro requisitos, y el cuarto es el que evita el
+fallo silencioso:
+
+1. **Invocar o asegurar el provisioning al entrar en la experiencia autenticada**
+   correspondiente, no en el arranque a ciegas.
+2. **Reintento seguro**, que la idempotencia por estado ya permite: repetir la
+   llamada no crea un segundo ámbito ni deshace la moneda elegida.
+3. **Estado de fallo visible y recuperable**, con salida. La forma ya existe en
+   el proyecto: `unavailable` de F5.B es exactamente ese patrón —error
+   recuperable, no callejón sin salida.
+4. **No dar por hecho que el Modo Personal existe** hasta que el provisioning
+   haya terminado. Una pantalla que asuma el ámbito antes de tiempo pintará
+   cifras de un ámbito que todavía no está, y no fallará: leerá cero filas.
+
 - La moneda recomendada sale de `expo-localization`: `getLocales()[0].currencyCode`
   es el de la **Region**, y `languageCurrencyCode` el del **idioma**. Es la misma
   distinción que F4.B ya fijó para el formato; usar el segundo sería el error.

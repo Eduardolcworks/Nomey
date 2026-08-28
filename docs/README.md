@@ -8,9 +8,10 @@ inglés.
 > - **Fases 0, 1, 2, 3, 4 y 5:** cerradas. **ADR-001 … ADR-019 aceptados.**
 > - **F6.A** trajo la fundación de datos del Modo Personal: catálogo monetario
 >   con identidades fijas, el tercer rol `nomey_provisioner` y el provisioning
->   del ámbito con su membresía. **Una cuenta nueva ya tiene Modo Personal.**
->   La decisión es [ADR-019](adr/ADR-019-personal-provisioning.md); el estado y
->   las obligaciones de cada bloque,
+>   del ámbito con su membresía. **Cerrado como fundamento backend**: la función
+>   existe y es segura, y **la app todavía no la invoca** —ese cableado es de
+>   F6.E—. La decisión es [ADR-019](adr/ADR-019-personal-provisioning.md); el
+>   estado y las obligaciones de cada bloque,
 >   [`architecture/phase-6-handoff.md`](architecture/phase-6-handoff.md).
 > - **La Fase 5 cerró con sus cuatro criterios cumplidos**: registrarse, entrar,
 >   salir y recuperar el acceso; sesión que sobrevive al reinicio y se renueva

@@ -514,9 +514,15 @@ exactly** (ADR-002 §7).
 provisioning for Groups — nothing creates a group, a participant, a
 participant-account link or a presence period. The writer assumes those rows
 exist because the phase that creates them is a later one, and the database checks
-seed them as `postgres`. **The Modo Personal is no longer on that list**: F6.A
-creates its scope and its membership through `api.ensure_personal_scope`, under a
-third role `nomey_provisioner` — [ADR-019](docs/adr/ADR-019-personal-provisioning.md).
+seed them as `postgres`.
+
+**The Modo Personal has a route, and the app does not use it yet.**
+`api.ensure_personal_scope` creates the scope and its membership under a third
+role, `nomey_provisioner` — [ADR-019](docs/adr/ADR-019-personal-provisioning.md).
+It is safe, idempotent and verified over HTTP with a real JWT, but **no client
+code calls it**, so a freshly confirmed account still has no personal scope until
+something does. Wiring it into the authenticated lifecycle is F6.E, and it comes
+before Inicio consumes the scope.
 
 **Migrations have started.** `supabase/migrations/` holds ten. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
