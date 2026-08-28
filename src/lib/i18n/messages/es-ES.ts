@@ -65,6 +65,9 @@ export const esES = {
   'auth.recoveryBlockedTitle': 'Cierra sesión para continuar',
   'auth.recoveryBlockedBody':
     'Para restablecer una contraseña, cierra primero la sesión actual y vuelve a abrir el enlace desde tu correo.',
+  'auth.recoveryUndeterminedTitle': 'No hemos podido comprobar tu sesión',
+  'auth.recoveryUndeterminedBody':
+    'Vuelve a abrir el enlace cuando haya conexión, para asegurarnos de que no queda ninguna sesión abierta.',
   'auth.recoveryChecking': 'Comprobando el enlace…',
   'auth.recoveryFailedTitle': 'Enlace no válido',
   'auth.newPasswordTitle': 'Nueva contraseña',

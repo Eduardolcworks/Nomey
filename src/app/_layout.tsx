@@ -112,7 +112,7 @@ function RootNavigator() {
    * arriving while somebody is signed in is refused rather than redeemed, so
    * an ordinary session and a recovery transaction never coexist.
    */
-  useRecoveryLink({ signedIn: isSignedIn(state) });
+  useRecoveryLink({ sessionStatus: state.status });
 
   /*
    * The recovery surface wins over both ordinary branches while it is active.

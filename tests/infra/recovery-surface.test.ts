@@ -151,7 +151,7 @@ describe('las guardas de ruta', () => {
     // Un enlace puede llegar en frío, en la pantalla de entrar o con la app
     // abierta. Un listener dentro de una rama se perdería los que su rama no
     // estuviera montada para recibir.
-    expect(LAYOUT).toContain('useRecoveryLink({ signedIn: isSignedIn(state) })');
+    expect(LAYOUT).toContain('useRecoveryLink({ sessionStatus: state.status })');
   });
 });
 
@@ -326,11 +326,29 @@ describe('el deep link se procesa por llegada, no por valor retenido', () => {
 
   it('con sesión abierta no se canjea ni se gasta el token', () => {
     const arrival = stripComments(ARRIVAL_RAW);
-    const blocked = arrival.slice(arrival.indexOf('if (ports.isSignedIn())'));
-    const guarded = blocked.slice(0, blocked.indexOf('spent.add'));
-    expect(guarded).toContain('ports.warn()');
-    expect(guarded).not.toContain('ports.redeem');
-    expect(guarded).not.toContain('spent.add');
+    const settle = arrival.slice(arrival.indexOf('function settle'));
+    const refusal = settle.slice(0, settle.indexOf('spent.add'));
+    expect(refusal).toContain('ports.refuse');
+    expect(refusal).not.toContain('ports.redeem');
+    expect(refusal).not.toContain('spent.add');
+  });
+
+  it('durante  no se decide nada: la llegada queda pendiente', () => {
+    const arrival = stripComments(ARRIVAL_RAW);
+    expect(arrival).toContain("if (status === 'restoring')");
+    expect(arrival).toContain('if (pending === null) pending = proof.tokenHash');
+  });
+
+  it('y el pendiente se borra ANTES de decidir, para que sea de un solo uso', () => {
+    const arrival = stripComments(ARRIVAL_RAW);
+    // Desde la IMPLEMENTACIÓN, no desde su declaración en el tipo.
+    const resolved = arrival.slice(arrival.indexOf('sessionResolved() {'));
+    expect(resolved.indexOf('pending = null')).toBeLessThan(resolved.indexOf('settle(tokenHash'));
+  });
+
+  it(' falla cerrado y nunca se promociona a signed-out', () => {
+    const arrival = stripComments(ARRIVAL_RAW);
+    expect(arrival).toContain("status === 'signed-in' || status === 'unavailable'");
   });
 
   it('el aviso no dice de qué cuenta es el enlace', () => {

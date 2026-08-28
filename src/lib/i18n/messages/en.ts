@@ -62,6 +62,9 @@ export const en: Record<MessageKey, string> = {
   'auth.recoveryBlockedTitle': 'Sign out to continue',
   'auth.recoveryBlockedBody':
     'To reset a password, sign out of the current session first and open the link from your email again.',
+  'auth.recoveryUndeterminedTitle': 'We could not check your session',
+  'auth.recoveryUndeterminedBody':
+    'Open the link again once there is a connection, so we can be sure no session is open.',
   'auth.recoveryChecking': 'Checking the link…',
   'auth.recoveryFailedTitle': 'Link not valid',
   'auth.newPasswordTitle': 'New password',

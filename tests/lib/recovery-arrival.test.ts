@@ -1,20 +1,27 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createRecoveryArrivalHandler } from '../../src/features/auth/recovery-arrival';
+import {
+  createRecoveryArrivalHandler,
+  type RefusalReason,
+  type SessionSnapshot,
+} from '../../src/features/auth/recovery-arrival';
 
 /**
  * La llegada de un enlace de recuperación, ejecutada de verdad.
  *
- * Es el módulo que existe por un defecto medido: la versión anterior derivaba
- * de `Linking.useURL()`, que **retiene** la última URL, dentro de un efecto que
- * dependía de `signedIn`. Cerrar sesión por cualquier motivo volvía a ejecutar
- * el efecto contra esa URL retenida y canjeaba el enlace **sin que nadie lo
- * hubiera reabierto**.
+ * Este módulo existe por dos defectos medidos, en este orden:
  *
- * Aquí no hay valor retenido ni lista de dependencias: hay una función que se
- * llama una vez por llegada. Que un cambio de sesión no procese nada deja de
- * ser una regla que alguien deba respetar y pasa a ser una propiedad de la
- * forma — y estas pruebas la ejercitan como comportamiento, no leyendo fuente.
+ * 1. Derivar de `Linking.useURL()` —que RETIENE la última URL— dentro de un
+ *    efecto que dependía de la sesión: cerrar sesión reprocesaba esa URL y
+ *    canjeaba un enlace que nadie había reabierto.
+ * 2. Preguntar `signedIn: boolean`: `isSignedIn(restoring)` es `false`, así que
+ *    un arranque en frío lanzado por el enlace canjeaba **durante la ventana de
+ *    restauración**, con una sesión persistida a medio leer del llavero.
+ *    Confirmado en iPhone: la app abría directamente en «Nueva contraseña»
+ *    para alguien que estaba dentro.
+ *
+ * De ahí la forma: se pregunta el ESTADO, no un booleano, y `restoring` tiene
+ * salida propia — retener esa llegada y decidirla cuando haya respuesta.
  */
 
 const HASH = 'af45ad58765ec951b302ce027a00180e83d2ee16404fc61eb0b12f28';
@@ -22,156 +29,229 @@ const OTHER = 'bb11cc22dd33ee44ff5566778899aabbccddeeff0011223344556677';
 const LINK = `nomey-dev://auth/recovery?token_hash=${HASH}&type=recovery`;
 const LINK_OTHER = `nomey-dev://auth/recovery?token_hash=${OTHER}&type=recovery`;
 
-/** Un mundo mutable: la sesión y el recovery cambian entre llegadas. */
-function world({ signedIn = false, recovering = false } = {}) {
-  const situation = { signedIn, recovering };
+function world(status: SessionSnapshot = 'signed-out') {
+  const situation = { status, recovering: false };
   const redeem = vi.fn<(hash: string) => void>();
-  const warn = vi.fn();
+  const refuse = vi.fn<(reason: RefusalReason) => void>();
 
-  const handle = createRecoveryArrivalHandler({
-    isSignedIn: () => situation.signedIn,
+  const handler = createRecoveryArrivalHandler({
+    sessionStatus: () => situation.status,
     isRecovering: () => situation.recovering,
     redeem,
-    warn,
+    refuse,
   });
 
-  return { situation, redeem, warn, handle };
+  return { situation, redeem, refuse, handler };
 }
 
-describe('sesión abierta cuando llega el enlace', () => {
-  it('avisa y NO canjea', () => {
-    const w = world({ signedIn: true });
-    w.handle(LINK);
+describe('arranque en frío con sesión persistida', () => {
+  it('durante `restoring` NO se canjea nada', () => {
+    const w = world('restoring');
+    w.handler.arrive(LINK);
 
-    expect(w.warn).toHaveBeenCalledTimes(1);
+    // El defecto exacto que se corrige: antes esto canjeaba.
+    expect(w.redeem).not.toHaveBeenCalled();
+    expect(w.refuse).not.toHaveBeenCalled();
+  });
+
+  it('y al resolver a `signed-in` se bloquea, sin gastar el token', () => {
+    const w = world('restoring');
+    w.handler.arrive(LINK);
+
+    w.situation.status = 'signed-in';
+    w.handler.sessionResolved();
+
+    expect(w.refuse).toHaveBeenCalledExactlyOnceWith('signed-in');
     expect(w.redeem).not.toHaveBeenCalled();
   });
 
-  it('y el token no queda gastado: sirve después', () => {
-    const w = world({ signedIn: true });
-    w.handle(LINK);
-
-    // Cierra sesión y REABRE el enlace: llega de nuevo, y ahora sí.
-    w.situation.signedIn = false;
-    w.handle(LINK);
-
-    expect(w.redeem).toHaveBeenCalledExactlyOnceWith(HASH);
-  });
-});
-
-describe('cerrar sesión NO procesa nada por sí solo', () => {
-  it('el defecto que motivó este módulo, ejercitado', () => {
+  it('un logout POSTERIOR no autocanjea esa llegada', () => {
     /*
-     * Antes: `signedIn` era dependencia del efecto, así que pasar a `false`
-     * relanzaba el proceso contra la URL retenida y canjeaba solo.
-     *
-     * Ahora cambiar la situación no llama al handler. Ésa es toda la
-     * corrección: sin llegada, no hay proceso.
+     * La llegada pendiente se borra ANTES de decidir, así que no queda nada
+     * que un cambio de estado pueda reprocesar. Es la misma garantía que se
+     * perdió la primera vez, ahora estructural.
      */
-    const w = world({ signedIn: true });
-    w.handle(LINK);
-    expect(w.redeem).not.toHaveBeenCalled();
+    const w = world('restoring');
+    w.handler.arrive(LINK);
+    w.situation.status = 'signed-in';
+    w.handler.sessionResolved();
 
-    w.situation.signedIn = false; // la persona cierra sesión desde Cuenta
+    w.situation.status = 'signed-out';
+    w.handler.sessionResolved();
+    w.handler.sessionResolved();
 
-    // Nadie reabre el enlace. Nada debe ocurrir.
     expect(w.redeem).not.toHaveBeenCalled();
-    expect(w.warn).toHaveBeenCalledTimes(1);
   });
 
-  it('y tampoco lo procesa un cambio del estado de recovery', () => {
-    const w = world({ signedIn: true });
-    w.handle(LINK);
-    w.situation.recovering = true;
-    w.situation.recovering = false;
-    w.situation.signedIn = false;
+  it('pero reabrir explícitamente el mismo enlace sí lo canjea', () => {
+    const w = world('restoring');
+    w.handler.arrive(LINK);
+    w.situation.status = 'signed-in';
+    w.handler.sessionResolved();
+
+    w.situation.status = 'signed-out';
+    w.handler.arrive(LINK); // segunda entrega real, no un cambio de estado
+
+    expect(w.redeem).toHaveBeenCalledExactlyOnceWith(HASH);
+  });
+});
+
+describe('arranque en frío sin sesión', () => {
+  it('espera a la restauración y luego canjea UNA vez', () => {
+    const w = world('restoring');
+    w.handler.arrive(LINK);
+    expect(w.redeem).not.toHaveBeenCalled();
+
+    w.situation.status = 'signed-out';
+    w.handler.sessionResolved();
+
+    expect(w.redeem).toHaveBeenCalledExactlyOnceWith(HASH);
+    expect(w.refuse).not.toHaveBeenCalled();
+  });
+
+  it('y resolver otra vez no vuelve a canjear', () => {
+    const w = world('restoring');
+    w.handler.arrive(LINK);
+    w.situation.status = 'signed-out';
+    w.handler.sessionResolved();
+    w.handler.sessionResolved();
+
+    expect(w.redeem).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('`unavailable` falla cerrado', () => {
+  it('no se canjea si no se puede determinar la sesión', () => {
+    // `unavailable` NO es un `signed-out` silencioso: canjear sobre una
+    // suposición gastaría un token de un solo uso de alguien que quizá está
+    // dentro.
+    const w = world('unavailable');
+    w.handler.arrive(LINK);
+
+    expect(w.redeem).not.toHaveBeenCalled();
+    expect(w.refuse).toHaveBeenCalledExactlyOnceWith('undetermined');
+  });
+
+  it('tampoco al resolver desde `restoring` a `unavailable`', () => {
+    const w = world('restoring');
+    w.handler.arrive(LINK);
+    w.situation.status = 'unavailable';
+    w.handler.sessionResolved();
+
+    expect(w.redeem).not.toHaveBeenCalled();
+    expect(w.refuse).toHaveBeenCalledExactlyOnceWith('undetermined');
+  });
+
+  it('y el token sigue sirviendo cuando la sesión se pueda determinar', () => {
+    const w = world('unavailable');
+    w.handler.arrive(LINK);
+
+    w.situation.status = 'signed-out';
+    w.handler.arrive(LINK); // reapertura explícita
+
+    expect(w.redeem).toHaveBeenCalledExactlyOnceWith(HASH);
+  });
+});
+
+describe('duplicados durante la restauración', () => {
+  it('`getInitialURL` y un evento idéntico producen UNA sola decisión', () => {
+    const w = world('restoring');
+    w.handler.arrive(LINK); // getInitialURL
+    w.handler.arrive(LINK); // evento url con la misma URL
+
+    w.situation.status = 'signed-out';
+    w.handler.sessionResolved();
+
+    expect(w.redeem).toHaveBeenCalledTimes(1);
+  });
+
+  it('y un solo aviso si acaba en `signed-in`', () => {
+    const w = world('restoring');
+    w.handler.arrive(LINK);
+    w.handler.arrive(LINK);
+
+    w.situation.status = 'signed-in';
+    w.handler.sessionResolved();
+
+    expect(w.refuse).toHaveBeenCalledTimes(1);
+  });
+
+  it('un segundo enlace DISTINTO no sustituye al pendiente ni se gasta', () => {
+    const w = world('restoring');
+    w.handler.arrive(LINK);
+    w.handler.arrive(LINK_OTHER);
+
+    w.situation.status = 'signed-out';
+    w.handler.sessionResolved();
+
+    // Sólo el primero, y el segundo sigue intacto para reabrirlo.
+    expect(w.redeem).toHaveBeenCalledExactlyOnceWith(HASH);
+  });
+
+  it('el pendiente se descarta al desmontar', () => {
+    const w = world('restoring');
+    w.handler.arrive(LINK);
+    w.handler.dispose();
+
+    w.situation.status = 'signed-out';
+    w.handler.sessionResolved();
 
     expect(w.redeem).not.toHaveBeenCalled();
   });
 });
 
-describe('la misma URL entregada otra vez', () => {
-  it('se procesa: son eventos, no igualdad de string', () => {
-    const w = world({ signedIn: true });
-    w.handle(LINK); // bloqueado
-    w.situation.signedIn = false;
-    w.handle(LINK); // MISMA url exacta, segunda entrega
+describe('con la sesión ya resuelta, como hasta ahora', () => {
+  it('`signed-in` bloquea sin gastar', () => {
+    const w = world('signed-in');
+    w.handler.arrive(LINK);
+
+    expect(w.refuse).toHaveBeenCalledExactlyOnceWith('signed-in');
+    expect(w.redeem).not.toHaveBeenCalled();
+  });
+
+  it('`signed-out` canjea', () => {
+    const w = world('signed-out');
+    w.handler.arrive(LINK);
 
     expect(w.redeem).toHaveBeenCalledExactlyOnceWith(HASH);
   });
 
-  it('pero no se canjea dos veces', () => {
-    const w = world();
-    w.handle(LINK);
-    w.handle(LINK);
-    w.handle(LINK);
+  it('un cambio de estado por sí solo nunca procesa una llegada ya atendida', () => {
+    const w = world('signed-in');
+    w.handler.arrive(LINK); // bloqueada
+    w.situation.status = 'signed-out';
+    w.handler.sessionResolved();
 
-    expect(w.redeem).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('arranque en frío', () => {
-  it('una URL inicial válida se procesa', () => {
-    const w = world();
-    w.handle(LINK);
-    expect(w.redeem).toHaveBeenCalledExactlyOnceWith(HASH);
-  });
-
-  it('doble entrega inicial: un solo canje', () => {
-    // `getInitialURL()` y el evento `url` podrían traer la misma URL de
-    // lanzamiento. El hash es de un solo uso: un segundo canje convertiría un
-    // recovery bueno en un enlace muerto.
-    const w = world();
-    w.handle(LINK);
-    w.handle(LINK);
-    expect(w.redeem).toHaveBeenCalledTimes(1);
-  });
-
-  it('doble entrega inicial con sesión abierta: un solo aviso', () => {
-    const w = world({ signedIn: true });
-    w.handle(LINK);
-    w.handle(LINK);
-    expect(w.warn).toHaveBeenCalledTimes(1);
     expect(w.redeem).not.toHaveBeenCalled();
   });
-});
 
-describe('un recovery ya en curso', () => {
-  it('ignora un segundo enlace sin gastarlo', () => {
-    const w = world();
-    w.handle(LINK);
+  it('no se canjea dos veces la misma', () => {
+    const w = world('signed-out');
+    w.handler.arrive(LINK);
+    w.handler.arrive(LINK);
+
     expect(w.redeem).toHaveBeenCalledTimes(1);
+  });
 
+  it('con un recovery en curso se ignora sin gastar', () => {
+    const w = world('signed-out');
     w.situation.recovering = true;
-    w.handle(LINK_OTHER);
-
-    // Ni segunda transacción, ni sustitución silenciosa, ni token quemado.
-    expect(w.redeem).toHaveBeenCalledTimes(1);
-    expect(w.warn).not.toHaveBeenCalled();
-  });
-
-  it('y el segundo enlace sigue sirviendo cuando el primero termina', () => {
-    const w = world();
-    w.situation.recovering = true;
-    w.handle(LINK_OTHER);
-    expect(w.redeem).not.toHaveBeenCalled();
-
-    w.situation.recovering = false;
-    w.handle(LINK_OTHER); // se reabre
-
-    expect(w.redeem).toHaveBeenCalledExactlyOnceWith(OTHER);
-  });
-});
-
-describe('lo que no es un enlace de recuperación', () => {
-  it('no hace nada, y no cuenta como llegada', () => {
-    const w = world();
-    w.handle(null);
-    w.handle('exp://192.168.8.110:8081');
-    w.handle('nomey-dev://auth/recovery');
-    w.handle(`nomey-dev://auth/recovery?token_hash=${HASH}&type=signup`);
+    w.handler.arrive(LINK_OTHER);
 
     expect(w.redeem).not.toHaveBeenCalled();
-    expect(w.warn).not.toHaveBeenCalled();
+    expect(w.refuse).not.toHaveBeenCalled();
+  });
+
+  it('y lo que no es un enlace de recuperación no es una llegada', () => {
+    const w = world('restoring');
+    w.handler.arrive(null);
+    w.handler.arrive('exp://192.168.8.110:8081');
+    w.handler.arrive(`nomey-dev://auth/recovery?token_hash=${HASH}&type=signup`);
+
+    w.situation.status = 'signed-out';
+    w.handler.sessionResolved();
+
+    expect(w.redeem).not.toHaveBeenCalled();
+    expect(w.refuse).not.toHaveBeenCalled();
   });
 });
