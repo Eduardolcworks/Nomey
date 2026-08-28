@@ -225,11 +225,11 @@ devuelven `CURRENCY_CONVERSION_UNSUPPORTED · 422` sin escribir nada.
 > sobre ella, y el check lo comprueba en cada ejecución. Volverá cuando exista la
 > regla, no antes.
 
-**Aplazado — siembra del catálogo de definiciones monetarias.**
-De dónde salen las filas de `core.currency_definition`. → No es de F3:
-`data-model.md` §10 dice que «el catálogo pertenece al esquema», pero ninguna
-decisión fija su contenido inicial, y sembrar monedas sería inventar producto
-desde una migración. → Queda con el provisioning.
+~~**Aplazado — siembra del catálogo de definiciones monetarias.**~~
+**RESUELTO en la Fase 6.A** por [ADR-019](../adr/ADR-019-personal-provisioning.md)
+§9: veinte definiciones sembradas por migración, con **identidades UUID fijas y
+reproducibles** entre local, CI y producción. La escala sale de los minor units de
+ISO 4217, que es la fuente que ADR-003 §3 designa, y **no** de una API externa.
 
 **Aplazado — conflicto por configuración monetaria anterior.**
 Una operación creada bajo otra configuración «entra en conflicto y requiere
@@ -242,24 +242,29 @@ compuesta impide cambiar la moneda base con efectos existentes.
 
 ## 10 · Provisioning — el hueco transversal
 
-**Aplazado — creación de ámbitos, participantes, membresías y periodos.**
-Nada en Nomey crea hoy un Grupo, un Modo Personal, un participante, una membresía
-ni un periodo de presencia: el writer los **asume** y solo tiene `SELECT` sobre
-ellos. → No es de F3: F3 cierra **la frontera de escritura contable**, y crear un
-ámbito no es un hecho contable. Además, la creación de un participante y su
-vínculo dependen del mecanismo de claim, que es F10. → Queda en las fases de
-producto que construyan esos flujos.
+**Aplazado — creación de Grupos, participantes y periodos.**
+No es de F3: F3 cierra **la frontera de escritura contable**, y crear un ámbito no
+es un hecho contable. Además, la creación de un participante y su vínculo dependen
+del mecanismo de claim, que es F10. → Queda en **F9** y **F10**.
 
-> **Consecuencia que conviene no olvidar:** las tres clases de 7b no son
-> alcanzables de extremo a extremo por un cliente real todavía. Los checks y el
-> check HTTP siembran ese estado como `postgres`, que es exactamente lo que hará
-> el provisioning.
+**El Modo Personal ya no está aquí: lo resolvió la Fase 6.A.**
+[ADR-019](../adr/ADR-019-personal-provisioning.md) trae `api.ensure_personal_scope`,
+que crea el ámbito **y su membresía en la misma transacción**, bajo un tercer rol
+`nomey_provisioner` con la barrera RLS acotada al actor. **No crea participante**,
+y eso es una decisión: los efectos personales llevan participante legítimamente
+nulo y la atribución es por propiedad (ADR-016). Añadirlo en F10 sería aditivo.
+
+> **Consecuencia que conviene no olvidar:** las tres clases de 7b siguen sin ser
+> alcanzables de extremo a extremo por un cliente real, porque necesitan un Grupo
+> y participantes. Los checks siembran ese estado como `postgres`. **El Modo
+> Personal ya no lo necesita**: el check HTTP crea el suyo por la ruta real.
 
 > **Y un detalle que costó un fallo descubrir:** la **membresía del propio Modo
 > Personal no es redundante con la propiedad**. `owner_user_id` es atribución
 > económica durable (ADR-016) y `core.membership` es autorización actual
 > (ADR-007); la RLS de lectura se resuelve por membresía, así que sin esa fila el
-> dueño no ve sus propios efectos. El provisioning tendrá que crear las dos.
+> dueño no ve sus propios efectos. **El provisioning crea las dos**, y un check lo
+> comprueba por separado.
 
 ---
 
@@ -313,8 +318,9 @@ Los aplazados, en una línea cada uno:
 | Modo Pareja completo (4.9, 4.10, 4.12–4.14)    | Su fase                |
 | Atributos de Grupo                             | Su fase                |
 | Resolución autoritativa del FX                 | Decisión de producto   |
-| Siembra del catálogo monetario                 | Provisioning           |
-| Provisioning de ámbitos y participantes        | Fases de producto      |
+| ~~Siembra del catálogo monetario~~             | **Resuelto en F6.A**   |
+| ~~Provisioning del Modo Personal~~             | **Resuelto en F6.A**   |
+| Provisioning de Grupos y participantes         | F9 y F10               |
 | Mecanismo de claim, revocación y fusión        | **F10**                |
 | Acceso residual                                | Abierto                |
 | Notificación                                   | Abierto                |

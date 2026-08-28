@@ -3,9 +3,16 @@
 Wiki técnica y de producto. **En español**; el código y los commits van en
 inglés.
 
-> **Estado: Fase 5 — identidad y sesión. CERRADA el 2026-08-28.**
+> **Estado: Fase 6 — Modo Personal. ABIERTA. Bloque F6.A cerrado.**
 >
-> - **Fases 0, 1, 2, 3, 4 y 5:** cerradas. **ADR-001 … ADR-018 aceptados.**
+> - **Fases 0, 1, 2, 3, 4 y 5:** cerradas. **ADR-001 … ADR-019 aceptados.**
+> - **F6.A** trajo la fundación de datos del Modo Personal: catálogo monetario
+>   con identidades fijas, el tercer rol `nomey_provisioner` y el provisioning
+>   del ámbito con su membresía. **Cerrado como fundamento backend**: la función
+>   existe y es segura, y **la app todavía no la invoca** —ese cableado es de
+>   F6.E—. La decisión es [ADR-019](adr/ADR-019-personal-provisioning.md); el
+>   estado y las obligaciones de cada bloque,
+>   [`architecture/phase-6-handoff.md`](architecture/phase-6-handoff.md).
 > - **La Fase 5 cerró con sus cuatro criterios cumplidos**: registrarse, entrar,
 >   salir y recuperar el acceso; sesión que sobrevive al reinicio y se renueva
 >   sola; rutas protegidas inaccesibles sin sesión; y ninguna credencial privada
@@ -13,8 +20,6 @@ inglés.
 >   hasta que existan sus prerrequisitos —development builds y cuentas de
 >   desarrollador—, que introduce la Fase 8. Lo que la Fase 6 hereda está en
 >   [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md).
-> - **La siguiente fase es la 6 — Modo Personal**, el primer hito enseñable. No
->   está empezada.
 > - **Para reconstruir el estado del proyecto, empieza por
 >   [`PROJECT_STATE.md`](PROJECT_STATE.md)**, que es la memoria comprimida: fase
 >   actual, arquitectura vigente, superficie `api`, invariantes que no se deben
@@ -59,7 +64,7 @@ se han escrito.
 | `architecture/code-structure.md` | **Previsto**      |
 | `database/rls-policies.md`       | **Previsto**      |
 | `security/threat-model.md`       | **Previsto**      |
-| Todos los ADR **aceptados**      | ADR-001 a ADR-016 |
+| Todos los ADR **aceptados**      | ADR-001 a ADR-019 |
 
 ## Documentos de trabajo — no normativos
 
@@ -73,6 +78,7 @@ lo es el ADR correspondiente, cuando se acepta.
 | [`architecture/phase-3c-design.md`](architecture/phase-3c-design.md)           | 3    | Análisis de 3.C por bloques: D1–D11, evidencia E12 y alternativas. **No normativo**, también para lo ya aprobado |
 | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                     | 4    | Bloques de F4, decisiones que la abren y dirección **provisional** de navegación. **No normativo**               |
 | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)           | 5    | Lo que la Fase 6 hereda de la 5: qué existe, qué no se reabre y qué invariantes no romper. **No normativo**      |
+| [`architecture/phase-6-handoff.md`](architecture/phase-6-handoff.md)           | 6    | Estado de la Fase 6 bloque a bloque, y las obligaciones que cada uno deja al siguiente. **No normativo**         |
 
 Al aceptarse el ADR que lo cierra, se decide si el documento se conserva como
 historial de análisis o se retira.

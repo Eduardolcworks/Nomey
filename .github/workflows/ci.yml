@@ -145,6 +145,16 @@ jobs:
           { ./scripts/vectors-prelude.sh ; cat supabase/checks/authoritative-writer-debt.sql ; } \
             | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
 
+      # Personal-mode provisioning and the seeded currency catalogue. Asserts
+      # the twenty definitions by their fixed identity -regenerating a UUID
+      # splits the environments in silence- and carries two deliberate
+      # regressions: dropping the provisioner's SELECT policy on core.effect
+      # must leave the composite FK as the thing that refuses the currency
+      # change, and dropping the one on core.scope must break legitimate
+      # provisioning. Evidence: supabase/e21/.
+      - name: Personal provisioning checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/personal-provisioning.sql
+
       # Real concurrency. A single psql session has none, so the debt
       # serialization protocol of ADR-013 §11 cannot be proven by a check: this
       # opens simultaneous sessions, the way E15-C did. It runs LAST because it
@@ -152,6 +162,14 @@ jobs:
       # it removes them again, asserting that nothing is left behind.
       - name: Debt serialization under real concurrency
         run: ./scripts/writer-debt-concurrency.sh
+
+      # Same reason, for provisioning: two simultaneous ensure_personal_scope
+      # calls must produce ONE scope WITH its membership. A scope without its
+      # membership leaves the owner unable to see their own effects -invariant
+      # 11- and throws nothing. Verified capable of failing by dropping the
+      # unique index, which reproduces the duplicate exactly.
+      - name: Personal provisioning under real concurrency
+        run: ./scripts/provisioning-concurrency.sh
 
       # The whole boundary, end to end, over HTTP:
       #   client -> Kong -> GoTrue (real JWT) -> PostgREST -> api.* -> writer -> RLS/core

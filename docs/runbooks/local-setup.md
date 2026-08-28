@@ -256,6 +256,11 @@ docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
       -X -q -v ON_ERROR_STOP=1
 ```
 
+```bash
+docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
+  -X -q -v ON_ERROR_STOP=1 < supabase/checks/personal-provisioning.sql
+```
+
 > **Los dos últimos se encadenan con el prólogo de vectores.** `psql` corre
 > dentro del contenedor y no ve el checkout, así que `tests/vectors/*.json`
 > viajan por la misma entrada estándar. ADR-002 §7 exige que la implementación
@@ -266,8 +271,36 @@ Fallan con código distinto de cero en la primera violación, y **no dejan datos
 lo que insertan ocurre dentro de una transacción que termina en `ROLLBACK`. La
 configuración versionada la comprueba `npm test`, en `tests/infra/`.
 
-**CI ejecuta estos mismos ocho ficheros** en el job `Migrations rebuilt from
+**CI ejecuta estos mismos nueve ficheros** en el job `Migrations rebuilt from
 zero`, sobre un stack levantado desde cero.
+
+> **El último lleva dos regresiones deliberadas dentro.** Quita una policy del
+> provisioner, comprueba que el fallo aparece **en la forma esperada**, y la
+> devuelve. Sin la de `core.effect`, el cambio de moneda debe seguir rechazándose
+> **por la FK compuesta** y no por el error de frontera; sin la de `core.scope`,
+> el provisioning legítimo debe romperse. Si alguna de las dos dejara de fallar,
+> la policy correspondiente habría dejado de importar y el check lo dice.
+
+### Provisioning concurrente
+
+Por la misma razón que la deuda: dos `ensure_personal_scope` simultáneos no se
+pueden comprobar desde una sola sesión de `psql`.
+
+```bash
+./scripts/provisioning-concurrency.sh
+```
+
+Comprueba que la carrera deja **un solo ámbito con su membresía** —un ámbito sin
+membresía deja al dueño sin ver sus propios efectos y no lanza nada— y que dos
+cambios de moneda simultáneos no producen un estado mezclado. Se verificó capaz
+de fallar quitando el índice único `scope_un_personal_por_usuario`, que reproduce
+el ámbito duplicado exactamente.
+
+> **Los tres scripts que escriben filas confirmadas borran solo lo suyo.** Desde
+> la Fase 6.A el catálogo monetario lo siembra una migración, así que un
+> `delete from core.currency_definition` sin filtro lo arrasaría y los checks
+> siguientes dejarían de encontrarlo. Dos de ellos comprueban al terminar que las
+> **veinte definiciones siguen ahí**.
 
 ### Concurrencia real de la deuda
 

@@ -127,10 +127,14 @@ delete from core.operation_version;
 delete from core.operation;
 delete from core.participant_period;
 delete from core.participant_user_link;
-delete from core.membership;
+delete from core.membership where scope_id in ('${PA}','${PB}','${GX}','${GY}','${GZ}');
 delete from core.participant;
-delete from core.scope;
-delete from core.currency_definition;
+delete from core.scope where id in ('${PA}','${PB}','${GX}','${GY}','${GZ}');
+-- SOLO su propia definicion. Desde la Fase 6.A el catalogo monetario esta
+-- SEMBRADO POR MIGRACION, y un borrado sin filtro lo arrasaria: los checks
+-- posteriores dejarian de encontrar las veinte definiciones y el provisioning
+-- se quedaria sin moneda que resolver.
+delete from core.currency_definition where id = '${EUR}';
 commit;
 SQL
 }
@@ -327,9 +331,11 @@ done
 echo ""
 echo "== retirada =="
 retirar
-resto=$("${DBQ[@]}" <<'SQL' 2>/dev/null
+resto=$("${DBQ[@]}" <<SQL 2>/dev/null
 select (select count(*) from core.operation) + (select count(*) from core.effect)
-     + (select count(*) from core.scope)     + (select count(*) from core.participant)
+     + (select count(*) from core.scope
+         where id in ('${PA}','${PB}','${GX}','${GY}','${GZ}'))
+     + (select count(*) from core.participant)
      + (select count(*) from core.client_command);
 SQL
 )

@@ -131,11 +131,14 @@ env_payload() { printf '{"payload":%s}' "$1"; }
 # usuario que sale de aqui es uno real de GoTrue, confirmado, con su JWT real.
 EMAIL_A=nomey-http-a@example.test
 EMAIL_B=nomey-http-b@example.test
+# El tercero existe solo para la seccion 8: es el unico cuyo Modo Personal NO se
+# siembra a mano, porque lo crea el provisioning real por HTTP.
+EMAIL_C=nomey-http-c@example.test
 PASS='Nomey-http-check-2026!'
 
 borrar_usuarios() {
   "${DB[@]}" >/dev/null 2>&1 <<SQL
-delete from auth.users where email in ('${EMAIL_A}','${EMAIL_B}');
+delete from auth.users where email in ('${EMAIL_A}','${EMAIL_B}','${EMAIL_C}');
 SQL
 }
 
@@ -174,7 +177,7 @@ YA=b0000000-0000-4000-8000-00000000aa02
 YB=b0000000-0000-4000-8000-00000000bb02
 
 retirar() {
-  "${DB[@]}" >/dev/null 2>&1 <<'SQL'
+  "${DB[@]}" >/dev/null 2>&1 <<SQL
 begin;
 set constraints all deferred;
 delete from core.client_command;
@@ -185,10 +188,18 @@ delete from core.operation_version;
 delete from core.operation;
 delete from core.participant_period;
 delete from core.participant_user_link;
-delete from core.membership;
+-- Los ambitos y membresias de este check son sus cuatro sembrados MAS los que
+-- el provisioning real cree en la seccion 8, que se identifican por su dueno.
+delete from core.membership where scope_id in ('${PA}','${PB}','${GX}','${GY}')
+   or scope_id in (select id from core.scope s
+                     where s.owner_user_id in
+                       (select id from auth.users where email like 'nomey-http-%'));
 delete from core.participant;
-delete from core.scope;
-delete from core.currency_definition;
+delete from core.scope where id in ('${PA}','${PB}','${GX}','${GY}')
+   or owner_user_id in (select id from auth.users where email like 'nomey-http-%');
+-- SOLO las dos definiciones de este check. Desde la Fase 6.A el catalogo
+-- monetario esta SEMBRADO POR MIGRACION y un borrado sin filtro lo arrasaria.
+delete from core.currency_definition where id in ('${EUR}','${USD}');
 commit;
 SQL
 }
@@ -560,6 +571,151 @@ tipos=$(curl -s "${API}/rest/v1/personal_effect?select=balance_amount&limit=5" \
 
 # ============================================================================
 echo ""
+echo "== 8 · provisioning del Modo Personal, por HTTP y de extremo a extremo =="
+#
+# Es la UNICA seccion en la que el estado previo NO se siembra como `postgres`:
+# el ambito de C lo crea el provisioning real, por HTTP y con su JWT. Todo lo
+# demas del check sigue sembrando a mano, porque lo que mide es otra cosa.
+
+RC=$(alta "${EMAIL_C}")
+UID_C=$(printf '%s' "${RC}" | jget id)
+confirmar "${EMAIL_C}"
+TOK_C=$(sesion "${EMAIL_C}" | jget access_token)
+
+if [ -z "${TOK_C}" ]; then
+  fallo "no se pudo obtener JWT del tercer usuario"
+else
+  # 8.1 · antes de nada, C no tiene Modo Personal. Es el estado con el que
+  #       termina la Fase 5, y lo que hace necesaria esta fase.
+  n=$(curl -s "${API}/rest/v1/personal_scope?select=id" \
+        -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_C}" \
+      | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).length)}catch{console.log("err")}})')
+  [ "${n}" = "0" ] \
+    && ok "una cuenta recien confirmada NO tiene Modo Personal" \
+    || fallo "la cuenta nueva ya tenia ${n} ambitos"
+
+  # 8.2 · el provisioning, con la moneda recomendada por la Region.
+  r=$(rpc ensure_personal_scope "${TOK_C}" "$(env_payload '{"currency_code":"MXN"}')")
+  e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+  SC=$(printf '%s' "${c}" | jget scope_id)
+  if [ "${e}" = "200" ] && [ -n "${SC}" ] \
+     && [ "$(printf '%s' "${c}" | jget currency_code)" = "MXN" ] \
+     && [ "$(printf '%s' "${c}" | jget created)" = "true" ]; then
+    ok "ensure_personal_scope creo el ambito con la moneda recomendada (MXN)"
+  else
+    fallo "ensure_personal_scope devolvio ${e} ${c}"
+  fi
+
+  # 8.3 · las DOS filas. Sin la membresia, el dueno no ve ni sus propios
+  #       efectos (invariante 11), y la vista del cliente lo demuestra por HTTP.
+  n=$(curl -s "${API}/rest/v1/personal_scope?select=id,currency_code,currency_scale" \
+        -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_C}" \
+      | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);console.log(a.length===1&&a[0].currency_code==="MXN"&&a[0].currency_scale===2?"ok":JSON.stringify(a))}catch{console.log("err")}})')
+  [ "${n}" = "ok" ] \
+    && ok "api.personal_scope devuelve SU ambito, con su moneda y su escala" \
+    || fallo "api.personal_scope devolvio ${n}"
+
+  # 8.4 · idempotencia por HTTP, y con OTRA moneda: no crea y no la cambia.
+  r=$(rpc ensure_personal_scope "${TOK_C}" "$(env_payload '{"currency_code":"JPY"}')")
+  c=$(cuerpo_de "${r}")
+  if [ "$(printf '%s' "${c}" | jget created)" = "false" ] \
+     && [ "$(printf '%s' "${c}" | jget scope_id)" = "${SC}" ] \
+     && [ "$(printf '%s' "${c}" | jget currency_code)" = "MXN" ]; then
+    ok "una segunda llamada no crea nada y NO deshace la moneda elegida"
+  else
+    fallo "la segunda llamada devolvio ${c}"
+  fi
+
+  # 8.5 · el catalogo, que es lo que alimenta el selector de divisa.
+  #
+  # NO se cuenta el total: este mismo check siembra dos definiciones propias
+  # —con codigos EUR y USD y otra identidad—, que es justo el caso que ADR-004
+  # describe. Se comprueba que las VEINTE SEMBRADAS POR MIGRACION estan, por su
+  # identidad y con su escala, que es lo que de verdad importa.
+  n=$(curl -s "${API}/rest/v1/currency_definition?select=id,code,scale" \
+        -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_C}" \
+      | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+  const esperado={"830e6f7e-2e33-564e-9ea3-f6c2023af1fe":["EUR",2],"34cb8424-2243-52d8-be99-e2b7d22884b8":["USD",2],
+    "fe22eeff-f72b-50ce-9b37-6033833df95e":["GBP",2],"c8483062-e215-5da5-850e-cd7bfda52eff":["CHF",2],
+    "f981b2f9-a022-5de8-aa6d-3af277d9dcd3":["JPY",0],"6cfbf3ad-967d-50ba-9822-f1afbb10f7f5":["CAD",2],
+    "c9203a94-12aa-5d7f-8703-2ee17e524dca":["AUD",2],"c3d5768c-33be-5ab8-896e-38203ac5cc48":["NZD",2],
+    "f725bdd8-5690-53a8-85c0-eabed7405c10":["SEK",2],"f2fe8324-641c-548d-b3af-411db0d39448":["NOK",2],
+    "31f1a13d-3829-5af9-9b65-e5da1181b9ac":["DKK",2],"a280144a-a4a0-55cd-98db-7b8acf25a638":["PLN",2],
+    "d281d5cf-cdd5-5207-93a5-df1f80e6de84":["CZK",2],"8b951c59-bbd1-539b-9336-4174fbf47bdb":["HUF",2],
+    "8b33cd38-5e20-5145-bee9-c0b81c9a81ba":["RON",2],"b500e177-a2ff-5a55-b0b6-868dc91a10f6":["MXN",2],
+    "50850a6c-39ff-5f35-85aa-afd6ea3732e6":["BRL",2],"6cbdabc6-2d2f-5090-a063-3a366f9fd23d":["ARS",2],
+    "3304aa15-10b1-5eca-a6c8-3c149a9f91f1":["COP",2],"a85ae854-0a0d-51de-bb34-4b7a20229bb9":["CLP",0]};
+  try{
+    const m=new Map(JSON.parse(s).map(x=>[x.id,[x.code,x.scale]]));
+    const faltan=Object.entries(esperado).filter(([id,[c,e]])=>{
+      const v=m.get(id); return !v||v[0]!==c||v[1]!==e;});
+    console.log(faltan.length===0?"ok":"faltan "+faltan.map(f=>f[1][0]).join(","));
+  }catch{console.log("err")}});')
+  [ "${n}" = "ok" ] \
+    && ok "api.currency_definition entrega las 20 definiciones sembradas, con su identidad y su escala" \
+    || fallo "api.currency_definition: ${n}"
+
+  # 8.6 · cambio de moneda con el ambito VACIO. JPY es escala 0 a proposito.
+  JPY_ID=f981b2f9-a022-5de8-aa6d-3af277d9dcd3
+  r=$(rpc set_personal_base_currency "${TOK_C}" \
+        "$(env_payload "{\"currency_definition_id\":\"${JPY_ID}\"}")")
+  e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+  if [ "${e}" = "200" ] && [ "$(printf '%s' "${c}" | jget changed)" = "true" ] \
+     && [ "$(printf '%s' "${c}" | jget currency_scale)" = "0" ]; then
+    ok "la moneda base cambia mientras el ambito esta vacio, con su escala 0"
+  else
+    fallo "set_personal_base_currency devolvio ${e} ${c}"
+  fi
+
+  # 8.7 · el primer movimiento REAL, por el writer, en la moneda recien elegida.
+  #       Prueba de paso que el catalogo sembrado es utilizable por el writer.
+  r=$(rpc record_personal_expense "${TOK_C}" \
+        "$(env_payload "{\"client_operation_id\":\"c0000000-0000-4000-8000-00000000c001\",\"command_contract_version\":1,\"effective_date\":\"2026-08-28\",\"scope_id\":\"${SC}\",\"currency_definition_id\":\"${JPY_ID}\",\"amount\":\"1200\"}")")
+  e=$(estado_de "${r}")
+  [ "${e}" = "200" ] \
+    && ok "el writer escribe en el ambito recien creado por el provisioning" \
+    || fallo "record_personal_expense sobre el ambito provisionado devolvio ${e} $(cuerpo_de "${r}")"
+
+  # 8.8 · y desde ese primer movimiento, la moneda queda bloqueada.
+  EUR_ID=830e6f7e-2e33-564e-9ea3-f6c2023af1fe
+  r=$(rpc set_personal_base_currency "${TOK_C}" \
+        "$(env_payload "{\"currency_definition_id\":\"${EUR_ID}\"}")")
+  e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+  if [ "${e}" = "409" ] && printf '%s' "${c}" | grep -q 'BASE_CURRENCY_LOCKED'; then
+    ok "con un movimiento existente, el cambio de moneda es 409 BASE_CURRENCY_LOCKED"
+  else
+    fallo "el cambio bloqueado devolvio ${e} ${c}"
+  fi
+
+  # 8.9 · y tras el rechazo la moneda sigue siendo la de antes. Ningun cambio
+  #       parcial: o se cambia entera, o no se cambia.
+  n=$(curl -s "${API}/rest/v1/personal_scope?select=currency_code,currency_scale" \
+        -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_C}" \
+      | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);console.log(a[0].currency_code==="JPY"&&a[0].currency_scale===0?"ok":JSON.stringify(a))}catch{console.log("err")}})')
+  [ "${n}" = "ok" ] \
+    && ok "tras el 409 la moneda sigue siendo JPY con su escala 0" \
+    || fallo "la vista devolvio ${n}"
+
+  # 8.10 · aislamiento: A no ve el ambito de C.
+  n=$(curl -s "${API}/rest/v1/personal_scope?select=id" \
+        -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
+      | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);console.log(a.filter(x=>x.id==="'"${SC}"'").length)}catch{console.log("err")}})')
+  [ "${n}" = "0" ] \
+    && ok "A no alcanza el Modo Personal de C" \
+    || fallo "A alcanzo el ambito de C"
+
+  # 8.11 · sin JWT no hay provisioning.
+  r=$(rpc ensure_personal_scope "" "$(env_payload '{}')")
+  e=$(estado_de "${r}")
+  case "${e}" in
+    200|201) fallo "se creo un Modo Personal SIN JWT (${e})" ;;
+    *)       ok "sin JWT, el provisioning no responde 200 (${e})" ;;
+  esac
+fi
+
+# ============================================================================
+echo ""
 echo "== retirada =="
 retirar
 borrar_usuarios
@@ -572,6 +728,17 @@ SQL
 )
 resto=$(tr -d '[:space:]' <<<"${resto}")
 [ "${resto}" = "0" ] && ok "sin residuos, ni de datos ni de usuarios" || fallo "quedaron ${resto} filas"
+
+# El catalogo monetario NO es residuo: lo siembra una migracion. Que siga entero
+# despues de este check es parte de lo que hay que comprobar, porque la retirada
+# borra definiciones y un filtro mal puesto se llevaria las veinte.
+cat=$("${DBQ[@]}" <<'SQL' 2>/dev/null
+select count(*) from core.currency_definition;
+SQL
+)
+cat=$(tr -d '[:space:]' <<<"${cat}")
+[ "${cat}" = "20" ] && ok "el catalogo monetario sigue con sus 20 definiciones" \
+                    || fallo "el catalogo quedo con ${cat} definiciones"
 
 echo ""
 if [ "${fallos}" -eq 0 ]; then

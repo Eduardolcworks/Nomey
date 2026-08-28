@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-28**, al cerrar la **Fase 5**.
+Actualizado el **2026-08-28**, al cerrar el bloque **F6.A**.
 
 ---
 
@@ -21,12 +21,30 @@ Actualizado el **2026-08-28**, al cerrar la **Fase 5**.
 
 |                         |                                                                                   |
 | ----------------------- | --------------------------------------------------------------------------------- |
-| **Próxima fase**        | **Fase 6 — Modo Personal.** Primer hito enseñable. No empezada                    |
+| **Fase en curso**       | **Fase 6 — Modo Personal.** Primer hito enseñable. **F6.A cerrado**               |
 | **Última fase cerrada** | **Fase 5 — Identidad y sesión** (A · B · C1 · D · E · F), el 2026-08-28           |
-| **ADR aceptados**       | ADR-001 … ADR-018                                                                 |
+| **ADR aceptados**       | ADR-001 … ADR-019                                                                 |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR               |
 | **App visible**         | Shell navegable, y **Perfil con identidad real**. **Sin funcionalidad económica** |
 | **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**      |
+
+**La Fase 6 está abierta.** Su estado, sus decisiones de producto cerradas y las
+obligaciones de cada bloque están en
+[`phase-6-handoff.md`](architecture/phase-6-handoff.md).
+
+**F6.A cerró la fundación de datos del Modo Personal**, sin pantalla y a
+propósito: catálogo monetario sembrado con identidades fijas, un **tercer rol**
+`nomey_provisioner`, y las funciones que crean el ámbito con su membresía y
+eligen su moneda. La decisión es
+[ADR-019](adr/ADR-019-personal-provisioning.md) y la evidencia,
+[`supabase/e21/`](../supabase/e21/README.md).
+
+> **Backend sí, app todavía no.** `api.ensure_personal_scope` existe, es segura e
+> idempotente, y está verificada por HTTP con JWT real y bajo concurrencia. Pero
+> **la aplicación no la invoca en ningún punto de su ciclo autenticado**, así que
+> hoy una cuenta recién confirmada **sigue sin Modo Personal** hasta que alguien
+> llama a la función. Ese cableado es de **F6.E**, antes de que Inicio consuma el
+> ámbito.
 
 **La Fase 5 está cerrada**, con sus cuatro criterios del roadmap cumplidos y
 verificados: se puede registrar, entrar, salir y recuperar el acceso; la sesión
@@ -80,11 +98,13 @@ cliente -> Kong -> GoTrue (JWT) -> PostgREST
 `sec` guarda los helpers internos. `public`, `core` y `sec` **no** están en
 `api.schemas`; responden `406 PGRST106`.
 
-**Dos owners opuestos, a propósito.** El writer es `nomey_writer` —`NOLOGIN`,
-`NOBYPASSRLS`, no propietario de tablas— de modo que la RLS **sigue aplicándose
-a la escritura**: es la segunda barrera, no un adorno. `api.claimed_dimension()`
-es `postgres` porque debe **atravesar** la RLS para recuperar lo reclamado.
-**Nunca unificar los dos.**
+**Tres owners, y ninguno intercambiable.** El writer contable es `nomey_writer`
+—`NOLOGIN`, `NOBYPASSRLS`, no propietario de tablas— de modo que la RLS **sigue
+aplicándose a la escritura**: es la segunda barrera, no un adorno.
+`api.claimed_dimension()` es `postgres` porque debe **atravesar** la RLS para
+recuperar lo reclamado. Y desde F6.A, `nomey_provisioner` —de la misma forma que
+el writer— crea ámbitos y membresías, que es lo único que el escritor contable
+**no** puede hacer. **Nunca unificar ninguno de los tres.**
 
 ---
 
@@ -103,17 +123,30 @@ record_internal_transfer
 Alta y corrección **comparten función**: las distingue `operation_id` +
 `expected_version_id` en el payload.
 
+**Provisioning — dos funciones más, de F6.A.** No son clases de operación: no
+crean operación, ni versión, ni efecto, y **no usan `core.client_command`**.
+Owner `nomey_provisioner`, idempotentes **por estado**:
+
+```
+ensure_personal_scope        crea ámbito + membresía, o devuelve el existente
+set_personal_base_currency   cambia la moneda si el ámbito nunca tuvo un efecto
+```
+
 **Lectura:**
 
 | Objeto                    | Qué da                                                   |
 | ------------------------- | -------------------------------------------------------- |
 | `api.personal_effect`     | Saldo y económica **sin participante** del Modo Personal |
 | `api.claimed_dimension()` | Económica **con participante** y deuda, por vínculo      |
+| `api.personal_scope`      | El ámbito del actor, con su moneda base y su escala      |
+| `api.currency_definition` | Las 20 definiciones sembradas, para el selector          |
 
 **Errores.** Código propio en el cuerpo y estado HTTP, medidos por la ruta real:
 `PAYLOAD_INVALID` 400 · `NOT_AUTHORIZED` 403 · `IDEMPOTENCY_KEY_REUSED` 409 ·
-`VERSION_CONFLICT` 409 · `CURRENCY_CONVERSION_UNSUPPORTED` 422 · y los códigos de
-dominio de `src/domain/errors.ts`, también 422.
+`VERSION_CONFLICT` 409 · `BASE_CURRENCY_LOCKED` 409 ·
+`CURRENCY_CONVERSION_UNSUPPORTED` 422 · `CURRENCY_NOT_SUPPORTED` 422 ·
+`CURRENCY_CODE_AMBIGUOUS` 422 · y los códigos de dominio de
+`src/domain/errors.ts`, también 422.
 
 `src/types/database.ts` se **genera** sobre `api` y nunca se escribe a mano.
 
@@ -376,21 +409,22 @@ Ninguna bloqueó el cierre de la Fase 5. El detalle completo, con motivo y
 destino de cada una,
 está en [`model-coverage.md`](architecture/model-coverage.md).
 
-| Aplazado                                        | Dónde queda                                |
-| ----------------------------------------------- | ------------------------------------------ |
-| **Google y Apple**, requisito de producto       | Diferido: prerrequisitos en la **Fase 8**  |
-| **Subida real de la foto de perfil**            | Bloque posterior, con decisión propia      |
-| **Timeout de las operaciones de autenticación** | Deuda abierta, sin ADR                     |
-| Persistencia de la preferencia de idioma        | Con la UI de Ajustes                       |
-| **Resolución autoritativa del FX**              | Decisión de producto                       |
-| **Provisioning**: crear ámbitos y participantes | Fases de producto — **fuera de la Fase 5** |
-| **Modo Pareja** completo, con su `Cierre`       | Su fase                                    |
-| Mecanismo de claim, revocación y fusión         | **F10**                                    |
-| Notificación                                    | Abierto                                    |
-| Acceso residual                                 | Abierto                                    |
-| Anulación, distinta de la corrección            | Abierto                                    |
-| Idempotencia de recurrencias e importaciones    | Abierto                                    |
-| Preflight de `btree_gist` en producción         | Antes del primer deploy                    |
+| Aplazado                                        | Dónde queda                               |
+| ----------------------------------------------- | ----------------------------------------- |
+| **Google y Apple**, requisito de producto       | Diferido: prerrequisitos en la **Fase 8** |
+| **Subida real de la foto de perfil**            | Bloque posterior, con decisión propia     |
+| **Timeout de las operaciones de autenticación** | Deuda abierta, sin ADR                    |
+| Persistencia de la preferencia de idioma        | Con la UI de Ajustes                      |
+| **Resolución autoritativa del FX**              | Decisión de producto — **F11**            |
+| **Cambio de divisa base con historia**          | **F11**. Elegirla ya se puede (F6.A)      |
+| **Provisioning** de Grupos y participantes      | **F9** y **F10**                          |
+| **Modo Pareja** completo, con su `Cierre`       | Su fase                                   |
+| Mecanismo de claim, revocación y fusión         | **F10**                                   |
+| Notificación                                    | Abierto                                   |
+| Acceso residual                                 | Abierto                                   |
+| Anulación, distinta de la corrección            | **F6.C**, con ADR propio                  |
+| Idempotencia de recurrencias e importaciones    | Abierto                                   |
+| Preflight de `btree_gist` en producción         | Antes del primer deploy                   |
 
 > **La foto de perfil, y qué está hecho exactamente:** la **affordance** está
 > terminada y aprobada en dispositivo —hueco circular con iniciales o silueta,
@@ -411,18 +445,12 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 > fallo, reintentaría, y la primera llamada terminaría después — dos altas y una
 > respuesta que nadie sabe interpretar.
 
-> **Consecuencia práctica del provisioning aplazado:** hoy nada crea un Grupo ni
-> un participante, así que `record_group_expense` y las dos liquidaciones no son
-> alcanzables de extremo a extremo por un cliente real. Los checks siembran ese
-> estado como `postgres`, que es exactamente lo que hará el provisioning.
->
-> **Y una que aparece al terminar la Fase 5:** una cuenta recién creada no
-> tendrá ámbito Personal, porque **provisioning está fuera de la Fase 5**. Sin
-> `scope` con `owner_user_id` **y** su fila de `membership` —hacen falta las
-> dos, invariante 11— el dueño no ve ni sus propios efectos. **F6 no puede
-> abrir sin resolverlo.** Dirección fijada, sin implementar: una función `api.*`
-> autenticada e idempotente que derive el actor del JWT; ni trigger sobre
-> `auth.users` ni Edge Function salvo razón material.
+> **Lo que sigue sin provisioning, y lo que ya no.** Nada crea todavía un Grupo
+> ni un participante, así que `record_group_expense` y las dos liquidaciones no
+> son alcanzables de extremo a extremo por un cliente real; los checks siembran
+> ese estado como `postgres`. **El Modo Personal ya tiene ruta**: F6.A la
+> construyó, y el check HTTP crea el suyo por ella. Lo que falta es que **la app
+> la use**, que es F6.E.
 
 ---
 
