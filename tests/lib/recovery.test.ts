@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { readRecoveryLink } from '../../src/features/auth/recovery-link';
 import { passwordProblem } from '../../src/features/auth/credentials';
-import { recoveryErrorKey } from '../../src/features/auth/auth-errors';
+import { recoveryErrorKey, recoveryFailure } from '../../src/features/auth/auth-errors';
+import { esES } from '../../src/lib/i18n/messages/es-ES';
 import {
   isPublic,
   isSignedIn,
@@ -129,6 +130,47 @@ describe('qué se le cuenta al usuario cuando falla', () => {
 
   it('sin red se dice que no hay red', () => {
     expect(recoveryErrorKey({ name: 'AuthRetryableFetchError' })).toBe('authError.network');
+  });
+
+  it('sin red, el TÍTULO tampoco puede decir que el enlace no vale', () => {
+    /*
+     * El defecto medido en iPhone: el canje falló por transporte, la app tituló
+     * «Enlace no válido» y el one-time token seguía vivo en GoTrue, sin tocar.
+     * Un fallo de transporte no demuestra nada sobre la prueba.
+     */
+    const failure = recoveryFailure({ name: 'AuthRetryableFetchError' });
+
+    expect(failure.outcome).toBe('unresolved');
+    expect(failure.titleKey).toBe('auth.recoveryUnresolvedTitle');
+    expect(failure.messageKey).toBe('authError.network');
+    expect(esES[failure.titleKey]).not.toMatch(/no válido/i);
+  });
+
+  it('y un veredicto del servidor sí: `otp_expired` mantiene su copy', () => {
+    const failure = recoveryFailure({ code: 'otp_expired', status: 403 });
+
+    expect(failure.outcome).toBe('dead');
+    expect(failure.titleKey).toBe('auth.recoveryFailedTitle');
+    expect(failure.messageKey).toBe('authError.recoveryLinkDead');
+  });
+
+  it('lo que no es un veredicto sobre la prueba, no la da por muerta', () => {
+    // Un límite de peticiones o un 500 son respuestas del servidor, pero no
+    // sobre el token. Cerrar la puerta por ellos volvería a quemar un enlace
+    // bueno.
+    for (const failure of [
+      recoveryFailure({ code: 'over_request_rate_limit', status: 429 }),
+      recoveryFailure({ status: 500 }),
+    ]) {
+      expect(failure.outcome).toBe('unresolved');
+      expect(failure.messageKey).not.toBe('authError.recoveryLinkDead');
+    }
+  });
+
+  it('y usado, sustituido, caducado e inventado siguen sin distinguirse', () => {
+    expect(recoveryFailure({ code: 'otp_expired', status: 403 })).toEqual(
+      recoveryFailure({ code: 'otp_disabled', status: 403 }),
+    );
   });
 
   it('y no existe ninguna frase para «ese email no está registrado»', () => {

@@ -63,9 +63,12 @@ export function useRecoveryLink({ sessionStatus }: { sessionStatus: SessionSnaps
     const arrival = createRecoveryArrivalHandler({
       sessionStatus: () => live.current.sessionStatus,
       isRecovering: () => isRecoveryActive(live.current.state),
-      redeem: (tokenHash) => {
-        void live.current.redeem(tokenHash);
-      },
+      /*
+       * The promise is RETURNED, not fired and forgotten. What comes back is
+       * the arrival handler's only way to know whether the proof was actually
+       * spent, and discarding it is what let a failed request burn a live link.
+       */
+      redeem: (tokenHash) => live.current.redeem(tokenHash),
       refuse: (reason: RefusalReason) => {
         /*
          * Neutral, and never naming the account the link belongs to: that would

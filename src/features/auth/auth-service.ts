@@ -2,7 +2,9 @@ import { recoveryClient, SESSION_STORAGE_KEY, sessionStorage, supabase } from '@
 
 import {
   type AuthErrorKey,
+  type RecoveryFailure,
   recoveryErrorKey,
+  recoveryFailure,
   signInErrorKey,
   signOutErrorKey,
   signUpErrorKey,
@@ -241,14 +243,23 @@ export async function requestPasswordReset(rawEmail: string): Promise<AuthResult
  *
  * The hash is single-use: replaying it, or inventing one, both answer `403
  * otp_expired` and are deliberately indistinguishable from each other.
+ *
+ * **The result says what was ESTABLISHED, not only what to show.** A failure
+ * here is one of two very different things, and collapsing them cost a live
+ * link once: `403 otp_expired` is the server's word that the proof is gone,
+ * while a request that never arrived is no word at all. Only the first may
+ * close the door on the hash, so the classification travels with the message
+ * rather than being re-derived from it.
  */
-export async function redeemRecovery(tokenHash: string): Promise<AuthResult> {
+export type RecoveryRedemption = { readonly ok: true } | ({ readonly ok: false } & RecoveryFailure);
+
+export async function redeemRecovery(tokenHash: string): Promise<RecoveryRedemption> {
   const { error } = await recoveryClient().auth.verifyOtp({
     token_hash: tokenHash,
     type: 'recovery',
   });
 
-  if (error !== null) return { ok: false, messageKey: recoveryErrorKey(error) };
+  if (error !== null) return { ok: false, ...recoveryFailure(error) };
   return { ok: true };
 }
 

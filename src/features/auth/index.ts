@@ -3,12 +3,15 @@ export { AuthField, type AuthFieldProps } from './auth-field';
 export { AuthScreen } from './auth-screen';
 export {
   recoveryErrorKey,
+  recoveryFailure,
   signInErrorKey,
   signOutErrorKey,
   signUpErrorKey,
   updateUserErrorKey,
   type AuthErrorKey,
   type AuthFailure,
+  type RecoveryErrorTitleKey,
+  type RecoveryFailure,
 } from './auth-errors';
 export {
   completeRecovery,
@@ -20,6 +23,7 @@ export {
   signUp,
   updateDisplayName,
   type AuthResult,
+  type RecoveryRedemption,
 } from './auth-service';
 export { initialsFrom } from './display-name';
 export { DisplayNameEditor } from './display-name-editor';
@@ -44,7 +48,12 @@ export {
 export { createExclusiveRunner, SKIPPED, type ExclusiveRunner } from './submit-guard';
 export { useAuthSubmit, type SubmitState } from './use-auth-submit';
 export { RecoveryProvider, useRecovery } from './recovery-controller';
-export { isRecoveryActive, RECOVERY_IDLE, type RecoveryState } from './recovery-state';
+export {
+  isRecoveryActive,
+  RECOVERY_IDLE,
+  type RecoveryState,
+  type RedeemOutcome,
+} from './recovery-state';
 export { createRecoveryArrivalHandler, type RecoveryArrivalPorts } from './recovery-arrival';
 export { readRecoveryLink, type RecoveryProof } from './recovery-link';
 export { useRecoveryLink } from './use-recovery-link';

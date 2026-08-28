@@ -107,12 +107,18 @@ export default function RecoveryScreen() {
    * is a new one, so the only action is back to sign-in. It never offers a
    * retry, because used, expired and invented are the same answer and none of
    * them gets better by asking again.
+   *
+   * **The title comes from the state, and that is the point.** Only a server
+   * that said the proof is gone gets "Enlace no válido"; a redemption that
+   * never reached it gets a title that claims nothing about the link, because
+   * the link may still be good - measured, it was. There is still no retry
+   * button: re-opening the link is the retry, and it works again now.
    */
   if (state.status === 'error') {
     return (
       <AuthScreen>
         <View style={styles.heading}>
-          <ThemedText variant="display">{t('auth.recoveryFailedTitle')}</ThemedText>
+          <ThemedText variant="display">{t(state.titleKey)}</ThemedText>
           <ThemedText
             variant="body"
             themeColor="textSecondary"

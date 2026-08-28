@@ -67,6 +67,7 @@ export const en: Record<MessageKey, string> = {
     'Open the link again once there is a connection, so we can be sure no session is open.',
   'auth.recoveryChecking': 'Checking the link…',
   'auth.recoveryFailedTitle': 'Link not valid',
+  'auth.recoveryUnresolvedTitle': 'We could not check that link',
   'auth.newPasswordTitle': 'New password',
   'auth.newPasswordSubtitle': 'Choose a new password for your account.',
   'auth.newPassword': 'New password',

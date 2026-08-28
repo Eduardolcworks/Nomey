@@ -3,7 +3,7 @@ import { createContext, type ReactNode, useCallback, useContext, useMemo, useSta
 import { disposeRecoveryClient } from '@/lib/supabase';
 
 import { completeRecovery, redeemRecovery } from './auth-service';
-import { RECOVERY_IDLE, type RecoveryState } from './recovery-state';
+import { RECOVERY_IDLE, type RecoveryState, type RedeemOutcome } from './recovery-state';
 
 /**
  * One password recovery, from the moment a link is redeemed until it ends.
@@ -23,8 +23,14 @@ import { RECOVERY_IDLE, type RecoveryState } from './recovery-state';
  */
 type RecoveryContextValue = {
   readonly state: RecoveryState;
-  /** Redeem a proof read out of a deep link. Called by the link owner. */
-  readonly redeem: (tokenHash: string) => Promise<void>;
+  /**
+   * Redeem a proof read out of a deep link. Called by the link owner.
+   *
+   * It answers with what the attempt ESTABLISHED, because the caller has to
+   * decide whether that proof is gone - and only the server can tell it. It
+   * never rejects: every path returns an outcome.
+   */
+  readonly redeem: (tokenHash: string) => Promise<RedeemOutcome>;
   /** Set the new password, then end the ephemeral session. */
   readonly setPassword: (password: string) => Promise<boolean>;
   /** Leave the flow: after an error, or after finishing. */
@@ -36,10 +42,25 @@ const RecoveryContext = createContext<RecoveryContextValue | null>(null);
 export function RecoveryProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<RecoveryState>(RECOVERY_IDLE);
 
-  const redeem = useCallback(async (tokenHash: string) => {
+  const redeem = useCallback(async (tokenHash: string): Promise<RedeemOutcome> => {
     setState({ status: 'redeeming' });
 
-    const result = await redeemRecovery(tokenHash);
+    /*
+     * An outcome is owed to the caller on every path, and a throw would owe it
+     * nothing - which would leave the surface stuck on "Comprobando el enlace…"
+     * and the proof in limbo. Same belt as `setPassword` below.
+     */
+    let result: Awaited<ReturnType<typeof redeemRecovery>>;
+    try {
+      result = await redeemRecovery(tokenHash);
+    } catch {
+      result = {
+        ok: false,
+        outcome: 'unresolved',
+        titleKey: 'auth.recoveryUnresolvedTitle',
+        messageKey: 'authError.generic',
+      };
+    }
 
     if (!result.ok) {
       /*
@@ -47,13 +68,19 @@ export function RecoveryProvider({ children }: { children: ReactNode }) {
        * answer the same way - measured - so there is one message and no branch
        * that could tell someone holding a stolen link which kind of failure
        * they found.
+       *
+       * What DOES branch is whether we may call the link invalid at all. A
+       * redemption that never reached the server proved nothing about it, so
+       * it gets its own title and the proof stays redeemable: the person opens
+       * the same link again and this runs again.
        */
       disposeRecoveryClient();
-      setState({ status: 'error', messageKey: result.messageKey });
-      return;
+      setState({ status: 'error', titleKey: result.titleKey, messageKey: result.messageKey });
+      return result.outcome;
     }
 
     setState({ status: 'recovering' });
+    return 'consumed';
   }, []);
 
   const setPassword = useCallback(async (password: string) => {
@@ -75,7 +102,17 @@ export function RecoveryProvider({ children }: { children: ReactNode }) {
        * failed save is retryable on the spot - dropping the person out here
        * would cost them the link for a network blip.
        */
-      setState({ status: 'error', messageKey: result.messageKey });
+      /*
+       * The title is left exactly as this path already rendered it. It is not
+       * right - a rejected password is not a verdict on the link - but it is a
+       * pre-existing mismatch on a different path, and fixing it here would be
+       * changing product nobody asked about while correcting the redemption.
+       */
+      setState({
+        status: 'error',
+        titleKey: 'auth.recoveryFailedTitle',
+        messageKey: result.messageKey,
+      });
       return false;
     }
 

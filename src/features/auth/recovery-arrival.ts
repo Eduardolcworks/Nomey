@@ -1,3 +1,5 @@
+import type { RedeemOutcome } from './recovery-state';
+
 import { readRecoveryLink } from './recovery-link';
 
 /**
@@ -27,6 +29,15 @@ import { readRecoveryLink } from './recovery-link';
  * resolves it exactly once. It is cleared before the decision is taken, so
  * nothing later - a sign-out, another render, a second transition - can reach
  * it again.
+ *
+ * **And a third rule, learned the same way as the second.** A proof is spent
+ * when the SERVER says so, never when a request fails. The previous version
+ * marked the hash spent before calling `redeem`, so a `verifyOtp` that never
+ * reached GoTrue burned the link locally: the app announced "Enlace no válido"
+ * and then ignored every re-open of it in silence, while that exact one-time
+ * token sat alive in the database. Measured on device, and confirmed against
+ * `auth.one_time_tokens`. So redemption now reports what it established, and
+ * only `consumed` and `dead` close the door.
  */
 
 /** The session states this needs to tell apart. Mirrors `SessionState['status']`. */
@@ -44,8 +55,15 @@ export type RecoveryArrivalPorts = {
   sessionStatus(): SessionSnapshot;
   /** Whether a recovery transaction is already running. */
   isRecovering(): boolean;
-  /** Redeem the proof. Called at most once per hash. */
-  redeem(tokenHash: string): void;
+  /**
+   * Redeem the proof, and report what that established about it.
+   *
+   * At most one redemption per hash is ever in flight, and a hash is offered
+   * again only while nothing has established that it is gone. Implementations
+   * must resolve rather than reject: an outcome is required, and `unresolved`
+   * is the honest one when nothing was proven.
+   */
+  redeem(tokenHash: string): Promise<RedeemOutcome>;
   /** Refuse, without spending anything. Never names the account. */
   refuse(reason: RefusalReason): void;
 };
@@ -66,13 +84,28 @@ export type RecoveryArrivalHandler = {
 
 export function createRecoveryArrivalHandler(ports: RecoveryArrivalPorts): RecoveryArrivalHandler {
   /**
-   * Hashes already handed to the server.
+   * Hashes the SERVER has finished with: consumed, or declared no longer a
+   * proof.
    *
-   * A hash is single-use: redeeming twice turns a working recovery into a
-   * dead-link error. Covers a cold start where the launch URL could reach both
-   * `getInitialURL` and the `url` event.
+   * A hash is single-use, so redeeming twice turns a working recovery into a
+   * dead-link error - which is why this exists. What it deliberately does NOT
+   * contain is a hash whose redemption merely failed to arrive: that proves
+   * nothing about the token, and closing the door on it left people holding a
+   * live link the app refused to look at.
    */
   const spent = new Set<string>();
+
+  /**
+   * Hashes with a redemption in flight right now.
+   *
+   * Separate from `spent` because it answers a different question: not "is
+   * this proof gone" but "is one attempt already running". It is what keeps a
+   * cold start honest when the launch URL reaches both `getInitialURL` and the
+   * `url` event within the same tick, before any answer exists - the job
+   * `spent` used to do by being written too early. Entries leave it the moment
+   * the attempt resolves, however it resolves.
+   */
+  const attempted = new Set<string>();
 
   /**
    * Links already refused.
@@ -115,8 +148,29 @@ export function createRecoveryArrivalHandler(ports: RecoveryArrivalPorts): Recov
       return;
     }
 
-    spent.add(tokenHash);
-    ports.redeem(tokenHash);
+    /*
+     * The ORDER here is the correction. Nothing is spent up front: the attempt
+     * is registered, the server is asked, and only its answer may close the
+     * door. A failure that never reached it leaves the proof exactly as it
+     * found it, so an explicit re-open of the same link tries again.
+     *
+     * Registering the attempt first is not the same thing: it lasts until the
+     * answer arrives and no longer, and its only job is that two deliveries in
+     * one tick do not become two `verifyOtp` calls.
+     */
+    attempted.add(tokenHash);
+
+    void ports.redeem(tokenHash).then(
+      (outcome) => {
+        attempted.delete(tokenHash);
+        if (outcome !== 'unresolved') spent.add(tokenHash);
+      },
+      () => {
+        // A rejection establishes nothing either, so it must not spend the
+        // proof. The port is documented not to reject; this is the belt.
+        attempted.delete(tokenHash);
+      },
+    );
   }
 
   return {
@@ -128,7 +182,7 @@ export function createRecoveryArrivalHandler(ports: RecoveryArrivalPorts): Recov
       // not burn the second link finding that out.
       if (ports.isRecovering()) return;
 
-      if (spent.has(proof.tokenHash)) return;
+      if (spent.has(proof.tokenHash) || attempted.has(proof.tokenHash)) return;
 
       const status = ports.sessionStatus();
 
@@ -156,7 +210,7 @@ export function createRecoveryArrivalHandler(ports: RecoveryArrivalPorts): Recov
       const tokenHash = pending;
       pending = null;
 
-      if (spent.has(tokenHash)) return;
+      if (spent.has(tokenHash) || attempted.has(tokenHash)) return;
       settle(tokenHash, status);
     },
 

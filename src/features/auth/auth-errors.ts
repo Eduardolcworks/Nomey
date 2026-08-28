@@ -158,3 +158,40 @@ export function recoveryErrorKey(failure: AuthFailure): AuthErrorKey {
   if (code === 'otp_expired' || code === 'otp_disabled') return 'authError.recoveryLinkDead';
   return SHARED[code] ?? GENERIC;
 }
+
+/**
+ * What a failed redemption PROVED, which is not the same as what it said.
+ *
+ * The distinction this makes is the one the previous version did not: a `403
+ * otp_expired` is the server's word that the proof is no longer a proof, and a
+ * transport failure is the absence of any word at all. Measured on device: the
+ * link was redeemed against an unreachable server, the app announced "Enlace no
+ * válido", and the one-time token was still sitting alive in GoTrue - untouched,
+ * because the request never arrived.
+ *
+ * So `outcome` is about the TOKEN and `titleKey` is about what we are entitled
+ * to claim. Only `dead` may say the link is invalid; everything else - no
+ * response, a rate limit, a 500 - proved nothing about the link and says so.
+ *
+ * The non-enumeration stays exactly as it was: `dead` still collapses used,
+ * superseded, expired and invented into one sentence, because telling them
+ * apart would tell whoever holds a stolen link which kind of failure they hit.
+ */
+export type RecoveryErrorTitleKey = 'auth.recoveryFailedTitle' | 'auth.recoveryUnresolvedTitle';
+
+export type RecoveryFailure = {
+  /** `dead` only when the server said so. Anything else proved nothing. */
+  readonly outcome: 'dead' | 'unresolved';
+  readonly titleKey: RecoveryErrorTitleKey;
+  readonly messageKey: AuthErrorKey;
+};
+
+export function recoveryFailure(failure: AuthFailure): RecoveryFailure {
+  const messageKey = recoveryErrorKey(failure);
+
+  if (messageKey === 'authError.recoveryLinkDead') {
+    return { outcome: 'dead', titleKey: 'auth.recoveryFailedTitle', messageKey };
+  }
+
+  return { outcome: 'unresolved', titleKey: 'auth.recoveryUnresolvedTitle', messageKey };
+}

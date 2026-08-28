@@ -70,6 +70,7 @@ export const esES = {
     'Vuelve a abrir el enlace cuando haya conexión, para asegurarnos de que no queda ninguna sesión abierta.',
   'auth.recoveryChecking': 'Comprobando el enlace…',
   'auth.recoveryFailedTitle': 'Enlace no válido',
+  'auth.recoveryUnresolvedTitle': 'No se pudo comprobar el enlace',
   'auth.newPasswordTitle': 'Nueva contraseña',
   'auth.newPasswordSubtitle': 'Elige una contraseña nueva para tu cuenta.',
   'auth.newPassword': 'Contraseña nueva',

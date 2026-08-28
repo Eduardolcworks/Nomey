@@ -327,10 +327,36 @@ describe('el deep link se procesa por llegada, no por valor retenido', () => {
   it('con sesión abierta no se canjea ni se gasta el token', () => {
     const arrival = stripComments(ARRIVAL_RAW);
     const settle = arrival.slice(arrival.indexOf('function settle'));
-    const refusal = settle.slice(0, settle.indexOf('spent.add'));
+    // La rama de rechazo es todo lo que hay hasta su propio `return;`.
+    const refusal = settle.slice(0, settle.indexOf('return;'));
     expect(refusal).toContain('ports.refuse');
     expect(refusal).not.toContain('ports.redeem');
     expect(refusal).not.toContain('spent.add');
+  });
+
+  it('y la prueba se gasta DESPUÉS de saber el resultado, nunca antes', () => {
+    /*
+     * El defecto medido: `spent.add` iba delante de `ports.redeem`, así que un
+     * `verifyOtp` que nunca llegó al servidor quemaba el enlace en local.
+     * Comprobado contra `auth.one_time_tokens`: el token seguía vivo mientras
+     * la app lo daba por muerto.
+     */
+    const arrival = stripComments(ARRIVAL_RAW);
+    const settle = arrival.slice(arrival.indexOf('function settle'));
+    expect(settle.indexOf('ports.redeem')).toBeLessThan(settle.indexOf('spent.add'));
+    expect(settle).toContain("if (outcome !== 'unresolved') spent.add(tokenHash)");
+  });
+
+  it('para lo cual el canje devuelve su resultado a quien decide', () => {
+    // Descartar la promesa es exactamente lo que impedía distinguir «gastado»
+    // de «no se pudo preguntar».
+    expect(HOOK).toContain('redeem: (tokenHash) => live.current.redeem(tokenHash)');
+    expect(HOOK).not.toContain('void live.current.redeem');
+  });
+
+  it('y sólo un veredicto del servidor puede llamar inválido a un enlace', () => {
+    expect(NEW_PASSWORD).toContain('t(state.titleKey)');
+    expect(NEW_PASSWORD).not.toContain("t('auth.recoveryFailedTitle')");
   });
 
   it('durante  no se decide nada: la llegada queda pendiente', () => {
