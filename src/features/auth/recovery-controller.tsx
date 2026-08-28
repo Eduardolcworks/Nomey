@@ -93,24 +93,23 @@ export function RecoveryProvider({ children }: { children: ReactNode }) {
     try {
       result = await completeRecovery(password);
     } catch {
-      result = { ok: false, messageKey: 'authError.generic' };
+      result = { ok: false, messageKey: 'authError.passwordChangeFailed' };
     }
 
     if (!result.ok) {
       /*
-       * The recovery stays open. The ephemeral session is still valid, so a
-       * failed save is retryable on the spot - dropping the person out here
-       * would cost them the link for a network blip.
-       */
-      /*
-       * The title is left exactly as this path already rendered it. It is not
-       * right - a rejected password is not a verdict on the link - but it is a
-       * pre-existing mismatch on a different path, and fixing it here would be
-       * changing product nobody asked about while correcting the redemption.
+       * A FAILED SAVE IS NOT A VERDICT ON THE LINK. By the time this runs the
+       * proof was already redeemed - `verifyOtp` succeeded and the ephemeral
+       * session exists - so titling this "Enlace no válido", as it used to,
+       * blamed the one thing that had demonstrably worked and sent the person
+       * to ask for a replacement link they did not need.
+       *
+       * That is the whole separation: the same `error` status, three titles,
+       * and each producer says which claim it is entitled to make.
        */
       setState({
         status: 'error',
-        titleKey: 'auth.recoveryFailedTitle',
+        titleKey: 'auth.recoveryPasswordFailedTitle',
         messageKey: result.messageKey,
       });
       return false;

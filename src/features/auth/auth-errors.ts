@@ -173,25 +173,64 @@ export function recoveryErrorKey(failure: AuthFailure): AuthErrorKey {
  * to claim. Only `dead` may say the link is invalid; everything else - no
  * response, a rate limit, a 500 - proved nothing about the link and says so.
  *
+ * **And `unresolved` says exactly that, once.** It used to carry whatever
+ * sentence the failure mapped to, which meant a 429 or a 500 announced "Sin
+ * conexión" - a claim about the network that nobody had established either. The
+ * class is "we could not check it", so it has one sentence for the whole class:
+ * no diagnosis, no distinction between transport, a rate limit and a 500, and
+ * nothing technical for anyone to read off the screen.
+ *
  * The non-enumeration stays exactly as it was: `dead` still collapses used,
  * superseded, expired and invented into one sentence, because telling them
  * apart would tell whoever holds a stolen link which kind of failure they hit.
  */
-export type RecoveryErrorTitleKey = 'auth.recoveryFailedTitle' | 'auth.recoveryUnresolvedTitle';
+export type RecoveryErrorTitleKey =
+  /** The server's verdict: this is no longer a proof. */
+  | 'auth.recoveryFailedTitle'
+  /** No verdict. The link may be perfectly good. */
+  | 'auth.recoveryUnresolvedTitle'
+  /** The link WAS good and the password change is what failed. */
+  | 'auth.recoveryPasswordFailedTitle';
 
 export type RecoveryFailure = {
   /** `dead` only when the server said so. Anything else proved nothing. */
   readonly outcome: 'dead' | 'unresolved';
-  readonly titleKey: RecoveryErrorTitleKey;
+  readonly titleKey: Exclude<RecoveryErrorTitleKey, 'auth.recoveryPasswordFailedTitle'>;
   readonly messageKey: AuthErrorKey;
 };
 
 export function recoveryFailure(failure: AuthFailure): RecoveryFailure {
-  const messageKey = recoveryErrorKey(failure);
-
-  if (messageKey === 'authError.recoveryLinkDead') {
-    return { outcome: 'dead', titleKey: 'auth.recoveryFailedTitle', messageKey };
+  if (recoveryErrorKey(failure) === 'authError.recoveryLinkDead') {
+    return {
+      outcome: 'dead',
+      titleKey: 'auth.recoveryFailedTitle',
+      messageKey: 'authError.recoveryLinkDead',
+    };
   }
 
-  return { outcome: 'unresolved', titleKey: 'auth.recoveryUnresolvedTitle', messageKey };
+  return {
+    outcome: 'unresolved',
+    titleKey: 'auth.recoveryUnresolvedTitle',
+    messageKey: 'authError.recoveryLinkUnchecked',
+  };
+}
+
+/**
+ * What the SAVE is allowed to say, which is not what the link is allowed to say.
+ *
+ * By the time this runs the link has already been redeemed: `verifyOtp`
+ * succeeded and the ephemeral session exists. So nothing here may borrow the
+ * link's vocabulary - "Enlace no válido" over a rejected password is simply
+ * false, and it sends the person to ask for a link that was never the problem.
+ *
+ * One code earns a sentence of its own: `weak_password`, because it is the one
+ * failure the person can actually act on and Nomey already has a normalised,
+ * safe way to say it. Everything else - a rate limit, a 500, an unexpected
+ * throw - answers with the neutral sentence. GoTrue's own text never reaches
+ * the screen, here least of all: this is the one form where the value being
+ * refused is a password.
+ */
+export function recoveryPasswordErrorKey(failure: AuthFailure): AuthErrorKey {
+  if (failure.code === 'weak_password') return 'authError.weakPassword';
+  return 'authError.passwordChangeFailed';
 }

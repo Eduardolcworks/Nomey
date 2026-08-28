@@ -4,6 +4,7 @@ export { AuthScreen } from './auth-screen';
 export {
   recoveryErrorKey,
   recoveryFailure,
+  recoveryPasswordErrorKey,
   signInErrorKey,
   signOutErrorKey,
   signUpErrorKey,

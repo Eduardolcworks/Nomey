@@ -468,3 +468,60 @@ describe('recovery es una superficie exclusiva', () => {
     }
   });
 });
+
+describe('cada error dice de qué está hablando', () => {
+  it('el canje del enlace usa los títulos del enlace', () => {
+    const redeem = CONTROLLER.slice(
+      CONTROLLER.indexOf('const redeem'),
+      CONTROLLER.indexOf('const setPassword'),
+    );
+    expect(redeem).toContain('titleKey: result.titleKey');
+    expect(redeem).not.toContain("titleKey: 'auth.recoveryPasswordFailedTitle'");
+  });
+
+  it('y guardar la contraseña NO toma prestado el título del enlace', () => {
+    /*
+     * Cuando esto falla, `verifyOtp` ya tuvo éxito. Titularlo «Enlace no
+     * válido» culpaba a lo único que había funcionado y mandaba a pedir un
+     * enlace de repuesto que no hacía falta.
+     */
+    const setPassword = CONTROLLER.slice(CONTROLLER.indexOf('const setPassword'));
+    expect(setPassword).toContain("titleKey: 'auth.recoveryPasswordFailedTitle'");
+    expect(setPassword).not.toContain("titleKey: 'auth.recoveryFailedTitle'");
+    expect(setPassword).not.toContain('authError.recoveryLinkDead');
+  });
+
+  it('la pantalla no inventa texto: título y cuerpo salen del estado', () => {
+    expect(NEW_PASSWORD).toContain('t(state.titleKey)');
+    expect(NEW_PASSWORD).toContain('t(state.messageKey)');
+  });
+
+  it('y las tres frases existen en los dos idiomas', () => {
+    for (const catalogue of [esES, en]) {
+      for (const key of [
+        'auth.recoveryFailedTitle',
+        'auth.recoveryUnresolvedTitle',
+        'auth.recoveryPasswordFailedTitle',
+        'authError.recoveryLinkDead',
+        'authError.recoveryLinkUnchecked',
+        'authError.passwordChangeFailed',
+      ] as const) {
+        expect(catalogue[key]).toBeTruthy();
+      }
+    }
+  });
+
+  it('ninguna de ellas expone vocabulario de GoTrue', () => {
+    for (const catalogue of [esES, en]) {
+      for (const key of [
+        'authError.recoveryLinkUnchecked',
+        'authError.passwordChangeFailed',
+      ] as const) {
+        const copy = catalogue[key].toLowerCase();
+        for (const leak of ['otp', 'token', '403', '429', '500', 'gotrue', 'supabase']) {
+          expect(copy).not.toContain(leak);
+        }
+      }
+    }
+  });
+});

@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { readRecoveryLink } from '../../src/features/auth/recovery-link';
 import { passwordProblem } from '../../src/features/auth/credentials';
-import { recoveryErrorKey, recoveryFailure } from '../../src/features/auth/auth-errors';
+import {
+  recoveryErrorKey,
+  recoveryFailure,
+  recoveryPasswordErrorKey,
+} from '../../src/features/auth/auth-errors';
+import { en } from '../../src/lib/i18n/messages/en';
 import { esES } from '../../src/lib/i18n/messages/es-ES';
 import {
   isPublic,
@@ -142,8 +147,34 @@ describe('qué se le cuenta al usuario cuando falla', () => {
 
     expect(failure.outcome).toBe('unresolved');
     expect(failure.titleKey).toBe('auth.recoveryUnresolvedTitle');
-    expect(failure.messageKey).toBe('authError.network');
+    expect(failure.messageKey).toBe('authError.recoveryLinkUnchecked');
     expect(esES[failure.titleKey]).not.toMatch(/no válido/i);
+  });
+
+  it('ni el CUERPO puede afirmar que no hay conexión', () => {
+    /*
+     * `unresolved` no es un diagnóstico: cubre transporte, 429, 500 y cualquier
+     * respuesta que no sea un veredicto sobre la prueba. Decir «Sin conexión»
+     * era afirmar algo que tampoco estaba establecido.
+     */
+    const body = esES[recoveryFailure({ name: 'AuthRetryableFetchError' }).messageKey];
+
+    expect(body).not.toMatch(/sin conexión/i);
+    expect(body).not.toMatch(/no válido|ya no sirve/i);
+  });
+
+  it('429 y 500 dicen EXACTAMENTE lo mismo que un fallo de transporte', () => {
+    // Un límite de peticiones o un 500 son respuestas del servidor, pero no
+    // sobre el token: ni cierran la puerta ni se distinguen entre sí.
+    const transporte = recoveryFailure({ name: 'AuthRetryableFetchError' });
+
+    for (const failure of [
+      recoveryFailure({ code: 'over_request_rate_limit', status: 429 }),
+      recoveryFailure({ status: 500 }),
+    ]) {
+      expect(failure.outcome).toBe('unresolved');
+      expect(failure).toEqual(transporte);
+    }
   });
 
   it('y un veredicto del servidor sí: `otp_expired` mantiene su copy', () => {
@@ -152,25 +183,80 @@ describe('qué se le cuenta al usuario cuando falla', () => {
     expect(failure.outcome).toBe('dead');
     expect(failure.titleKey).toBe('auth.recoveryFailedTitle');
     expect(failure.messageKey).toBe('authError.recoveryLinkDead');
-  });
-
-  it('lo que no es un veredicto sobre la prueba, no la da por muerta', () => {
-    // Un límite de peticiones o un 500 son respuestas del servidor, pero no
-    // sobre el token. Cerrar la puerta por ellos volvería a quemar un enlace
-    // bueno.
-    for (const failure of [
-      recoveryFailure({ code: 'over_request_rate_limit', status: 429 }),
-      recoveryFailure({ status: 500 }),
-    ]) {
-      expect(failure.outcome).toBe('unresolved');
-      expect(failure.messageKey).not.toBe('authError.recoveryLinkDead');
-    }
+    expect(esES[failure.titleKey]).toBe('Enlace no válido');
+    expect(esES[failure.messageKey]).toBe('Este enlace ya no sirve. Pide uno nuevo.');
   });
 
   it('y usado, sustituido, caducado e inventado siguen sin distinguirse', () => {
     expect(recoveryFailure({ code: 'otp_expired', status: 403 })).toEqual(
       recoveryFailure({ code: 'otp_disabled', status: 403 }),
     );
+  });
+});
+
+describe('guardar la contraseña nueva no es un veredicto sobre el enlace', () => {
+  /**
+   * Cuando esto falla, `verifyOtp` YA tuvo éxito: la prueba se canjeó y la
+   * sesión efímera existe. Culpar al enlace era culpar a lo único que había
+   * funcionado, y mandaba a pedir un enlace de repuesto que no hacía falta.
+   */
+  const linkError: RecoveryState = {
+    status: 'error',
+    titleKey: 'auth.recoveryFailedTitle',
+    messageKey: 'authError.recoveryLinkDead',
+  };
+  const saveError: RecoveryState = {
+    status: 'error',
+    titleKey: 'auth.recoveryPasswordFailedTitle',
+    messageKey: recoveryPasswordErrorKey({ status: 500 }),
+  };
+
+  it('el fallo al guardar NUNCA usa el título del enlace', () => {
+    expect(saveError.titleKey).not.toBe(linkError.titleKey);
+    expect(saveError.titleKey).toBe('auth.recoveryPasswordFailedTitle');
+    expect(esES[saveError.titleKey]).toBe('No se pudo cambiar la contraseña');
+  });
+
+  it('ni su cuerpo', () => {
+    for (const catalogue of [esES, en]) {
+      expect(catalogue[saveError.messageKey]).not.toBe(catalogue['authError.recoveryLinkDead']);
+      expect(catalogue[saveError.messageKey]).not.toBe(
+        catalogue['authError.recoveryLinkUnchecked'],
+      );
+    }
+    expect(esES[saveError.messageKey]).toBe('No hemos podido cambiarla. Inténtalo de nuevo.');
+  });
+
+  it('una razón de contraseña que ya sabemos decir, se dice', () => {
+    // La única que la persona puede accionar, y Nomey ya la tenía normalizada.
+    expect(recoveryPasswordErrorKey({ code: 'weak_password', status: 422 })).toBe(
+      'authError.weakPassword',
+    );
+  });
+
+  it('y lo inesperado no expone nada de GoTrue', () => {
+    for (const failure of [
+      { status: 500 },
+      { code: 'over_request_rate_limit', status: 429 },
+      { name: 'AuthRetryableFetchError' },
+      { code: 'algo_que_no_conocemos', status: 400 },
+    ]) {
+      expect(recoveryPasswordErrorKey(failure)).toBe('authError.passwordChangeFailed');
+    }
+  });
+
+  it('el fallo al guardar tampoco puede dar el enlace por muerto', () => {
+    for (const failure of [{ status: 500 }, { code: 'weak_password', status: 422 }]) {
+      expect(recoveryPasswordErrorKey(failure)).not.toBe('authError.recoveryLinkDead');
+    }
+  });
+
+  it('y guardar bien sigue terminando en `completed`, no en un error', () => {
+    // El camino feliz no cambia: la pantalla de confirmación es un estado
+    // propio, y sigue siendo parte de la superficie de recovery.
+    const done: RecoveryState = { status: 'completed' };
+    expect(isRecoveryActive(done)).toBe(true);
+    expect(done.status).not.toBe('error');
   });
 
   it('y no existe ninguna frase para «ese email no está registrado»', () => {

@@ -5,6 +5,7 @@ import {
   type RecoveryFailure,
   recoveryErrorKey,
   recoveryFailure,
+  recoveryPasswordErrorKey,
   signInErrorKey,
   signOutErrorKey,
   signUpErrorKey,
@@ -292,9 +293,9 @@ export async function completeRecovery(rawPassword: string): Promise<AuthResult>
   // server, so the caller may show an error and let the person try again.
   try {
     const { error } = await ephemeral.auth.updateUser({ password: rawPassword });
-    if (error !== null) return { ok: false, messageKey: updateUserErrorKey(error) };
+    if (error !== null) return { ok: false, messageKey: recoveryPasswordErrorKey(error) };
   } catch {
-    return { ok: false, messageKey: 'authError.generic' };
+    return { ok: false, messageKey: 'authError.passwordChangeFailed' };
   }
 
   /*

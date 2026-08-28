@@ -68,6 +68,7 @@ export const en: Record<MessageKey, string> = {
   'auth.recoveryChecking': 'Checking the link…',
   'auth.recoveryFailedTitle': 'Link not valid',
   'auth.recoveryUnresolvedTitle': 'We could not check that link',
+  'auth.recoveryPasswordFailedTitle': 'We could not change your password',
   'auth.newPasswordTitle': 'New password',
   'auth.newPasswordSubtitle': 'Choose a new password for your account.',
   'auth.newPassword': 'New password',
@@ -91,6 +92,8 @@ export const en: Record<MessageKey, string> = {
   'authError.passwordRequired': 'Enter a password.',
   'authError.passwordMismatch': 'The two passwords do not match.',
   'authError.recoveryLinkDead': 'This link no longer works. Ask for a new one.',
+  'authError.recoveryLinkUnchecked': 'We could not check it. Open the link again in a moment.',
+  'authError.passwordChangeFailed': 'We could not change it. Try again.',
   'authError.network': 'No connection. Try again.',
   'authError.generic': 'Something went wrong. Try again.',
 
