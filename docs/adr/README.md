@@ -105,6 +105,7 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [022](ADR-022-balance-target-and-serialization.md)    | Ajuste por saldo objetivo y serialización del saldo   | Aceptado  |
 | [023](ADR-023-balance-observation.md)                 | Observación histórica de saldo                        | Aceptado  |
 | [024](ADR-024-annulment.md)                           | Anulación de una operación                            | Aceptado  |
+| [025](ADR-025-personal-read-surface.md)               | Superficie de lectura del Modo Personal               | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
