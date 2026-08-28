@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { StyleSheet, type TextInput, View } from 'react-native';
 
 import {
+  type AuthErrorKey,
   AuthField,
   AuthScreen,
   createExclusiveRunner,
@@ -44,6 +45,16 @@ export default function RecoveryScreen() {
   const [password, setPasswordText] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [local, setLocal] = useState<string | null>(null);
+  /**
+   * What the last save answered, shown in the SAME slot as the local checks.
+   *
+   * A failed save is not the end of the recovery: the link was already
+   * redeemed and the ephemeral session is still usable, so the form stays,
+   * what was typed stays, and saving again is the retry. Sending someone to a
+   * terminal screen for a rejected password cost them a link they had not
+   * spent wrongly.
+   */
+  const [saveError, setSaveError] = useState<AuthErrorKey | null>(null);
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const confirmField = useRef<TextInput>(null);
@@ -59,6 +70,8 @@ export default function RecoveryScreen() {
   async function onSubmit() {
     const problem = passwordProblem(password, confirmation);
     setLocal(problem);
+    // Whatever the last attempt said is about the last attempt, not this one.
+    setSaveError(null);
     if (problem !== null) return;
 
     /*
@@ -74,7 +87,14 @@ export default function RecoveryScreen() {
     let skipped = false;
     setBusy(true);
     try {
-      skipped = (await run(async () => setPassword(password))) === SKIPPED;
+      const answer = await run(async () => setPassword(password));
+      if (answer === SKIPPED) {
+        skipped = true;
+      } else {
+        // On success this is `null` and the controller has already moved to
+        // `completed`, so the slot is cleared for a screen that is going away.
+        setSaveError(answer);
+      }
     } finally {
       if (!skipped) setBusy(false);
     }
@@ -137,7 +157,9 @@ export default function RecoveryScreen() {
       ? t('authError.passwordRequired')
       : local === 'mismatch'
         ? t('authError.passwordMismatch')
-        : undefined;
+        : saveError !== null
+          ? t(saveError)
+          : undefined;
 
   return (
     <AuthScreen>
@@ -210,6 +232,21 @@ export default function RecoveryScreen() {
         tone="primary"
         disabled={busy}
         busy={busy}
+      />
+
+      {/*
+       * The explicit way out, and the ONLY one now that a failed save keeps
+       * the form. Without it, a save that cannot succeed - an ephemeral
+       * session that stopped being usable, say - would leave the recovery
+       * branch owning the screen with nothing to press. `dismiss` discards the
+       * ephemeral client, so leaving costs the link: it is deliberately the
+       * quiet option next to Guardar, not a second offer.
+       */}
+      <ActionButton
+        label={t('auth.checkEmailBack')}
+        onPress={dismiss}
+        tone="secondary"
+        disabled={busy}
       />
     </AuthScreen>
   );

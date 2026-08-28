@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { readRecoveryLink } from '../../src/features/auth/recovery-link';
 import { passwordProblem } from '../../src/features/auth/credentials';
+import { createExclusiveRunner, SKIPPED } from '../../src/features/auth/submit-guard';
+import type { AuthErrorKey } from '../../src/features/auth/auth-errors';
 import {
   recoveryErrorKey,
   recoveryFailure,
@@ -200,31 +202,41 @@ describe('guardar la contraseña nueva no es un veredicto sobre el enlace', () =
    * sesión efímera existe. Culpar al enlace era culpar a lo único que había
    * funcionado, y mandaba a pedir un enlace de repuesto que no hacía falta.
    */
-  const linkError: RecoveryState = {
-    status: 'error',
-    titleKey: 'auth.recoveryFailedTitle',
-    messageKey: 'authError.recoveryLinkDead',
-  };
-  const saveError: RecoveryState = {
-    status: 'error',
-    titleKey: 'auth.recoveryPasswordFailedTitle',
-    messageKey: recoveryPasswordErrorKey({ status: 500 }),
-  };
+  it('el fallo al guardar no produce NINGÚN estado terminal', () => {
+    /*
+     * El único estado `error` que existe es el del enlace, y sus dos títulos
+     * hablan del enlace. Guardar no tiene forma de fabricar uno: su fallo
+     * vuelve como una clave de mensaje, y el estado se queda en `recovering`.
+     */
+    const linkError: RecoveryState = {
+      status: 'error',
+      titleKey: 'auth.recoveryFailedTitle',
+      messageKey: 'authError.recoveryLinkDead',
+    };
 
-  it('el fallo al guardar NUNCA usa el título del enlace', () => {
-    expect(saveError.titleKey).not.toBe(linkError.titleKey);
-    expect(saveError.titleKey).toBe('auth.recoveryPasswordFailedTitle');
-    expect(esES[saveError.titleKey]).toBe('No se pudo cambiar la contraseña');
+    expect(linkError.titleKey).toBe('auth.recoveryFailedTitle');
+    expect(recoveryPasswordErrorKey({ status: 500 })).toBe('authError.passwordChangeFailed');
   });
 
-  it('ni su cuerpo', () => {
+  it('y su frase no es ninguna de las del enlace', () => {
+    const messageKey = recoveryPasswordErrorKey({ status: 500 });
+
     for (const catalogue of [esES, en]) {
-      expect(catalogue[saveError.messageKey]).not.toBe(catalogue['authError.recoveryLinkDead']);
-      expect(catalogue[saveError.messageKey]).not.toBe(
-        catalogue['authError.recoveryLinkUnchecked'],
-      );
+      expect(catalogue[messageKey]).not.toBe(catalogue['authError.recoveryLinkDead']);
+      expect(catalogue[messageKey]).not.toBe(catalogue['authError.recoveryLinkUnchecked']);
     }
-    expect(esES[saveError.messageKey]).toBe('No hemos podido cambiarla. Inténtalo de nuevo.');
+    expect(esES[messageKey]).toBe('No hemos podido cambiarla. Inténtalo de nuevo.');
+  });
+
+  it('una sesión efímera que dejó de servir tampoco culpa al enlace', () => {
+    // GoTrue lo afirma con autoridad, pero afirma algo sobre la SESIÓN, no
+    // sobre la prueba. Va al mensaje neutral, como todo lo demás.
+    for (const failure of [
+      { code: 'session_not_found', status: 401 },
+      { code: 'bad_jwt', status: 401 },
+    ]) {
+      expect(recoveryPasswordErrorKey(failure)).toBe('authError.passwordChangeFailed');
+    }
   });
 
   it('una razón de contraseña que ya sabemos decir, se dice', () => {
@@ -355,5 +367,129 @@ describe('matar la app a media recuperación', () => {
     expect(isPublic(afterRestart)).toBe(true);
     expect(isSignedIn(afterRestart)).toBe(false);
     expect(isRecoveryActive(RECOVERY_IDLE)).toBe(false);
+  });
+});
+
+describe('guardar la contraseña se reintenta en el mismo formulario', () => {
+  /**
+   * El bucle real de «Guardar», ejecutado.
+   *
+   * `createExclusiveRunner` es una clausura suelta justamente para esto: la
+   * exclusión y el reintento se pueden ejercitar sin renderer. Lo que se fija
+   * aquí es el contrato que la pantalla consume — `null` es éxito, una clave
+   * es la frase a mostrar en línea — y que un fallo deja el formulario listo
+   * para otro envío en vez de terminar la transacción.
+   */
+  function form(answers: Array<AuthErrorKey | null>) {
+    const run = createExclusiveRunner();
+    const calls: string[] = [];
+    let shown: AuthErrorKey | null = null;
+
+    const setPassword = async (password: string): Promise<AuthErrorKey | null> => {
+      calls.push(password);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return answers[calls.length - 1] ?? null;
+    };
+
+    async function submit(password: string) {
+      shown = null; // lo del intento anterior no describe a éste
+      const answer = await run(async () => setPassword(password));
+      if (answer !== SKIPPED) shown = answer;
+      return answer;
+    }
+
+    return { submit, calls, shown: () => shown };
+  }
+
+  it('contraseña débil: se queda, lo dice en línea, y admite otro envío', async () => {
+    const f = form(['authError.weakPassword', null]);
+
+    await f.submit('corta');
+    expect(f.shown()).toBe('authError.weakPassword');
+    expect(esES['authError.weakPassword']).toBe('Esa contraseña no cumple los requisitos.');
+
+    // Corregir y volver a guardar es un envío más, no un enlace más.
+    await f.submit('CorrectHorseBatteryStaple1!');
+    expect(f.calls).toEqual(['corta', 'CorrectHorseBatteryStaple1!']);
+    expect(f.shown()).toBeNull();
+  });
+
+  it('fallo de transporte: frase neutral y el segundo envío vuelve a llamar', async () => {
+    const f = form(['authError.passwordChangeFailed', null]);
+
+    await f.submit('CorrectHorseBatteryStaple1!');
+    expect(f.shown()).toBe('authError.passwordChangeFailed');
+    expect(esES['authError.passwordChangeFailed']).not.toMatch(/enlace/i);
+
+    // La MISMA contraseña otra vez: no hay estado de «quizá se cambió», sólo
+    // otro intento explícito.
+    await f.submit('CorrectHorseBatteryStaple1!');
+    expect(f.calls).toHaveLength(2);
+    expect(f.shown()).toBeNull();
+  });
+
+  it('429 y 500 se quedan igual, y ninguno habla del enlace', async () => {
+    for (const failure of [{ code: 'over_request_rate_limit', status: 429 }, { status: 500 }]) {
+      const f = form([recoveryPasswordErrorKey(failure), null]);
+      await f.submit('CorrectHorseBatteryStaple1!');
+
+      expect(f.shown()).toBe('authError.passwordChangeFailed');
+      for (const catalogue of [esES, en]) {
+        expect(catalogue[f.shown()!]).not.toBe(catalogue['authError.recoveryLinkDead']);
+      }
+
+      await f.submit('CorrectHorseBatteryStaple1!');
+      expect(f.calls).toHaveLength(2);
+    }
+  });
+
+  it('mientras uno está en vuelo, un segundo toque NO llama otra vez', async () => {
+    // Dos `updateUser` sobre una sesión pensada para gastarse una vez.
+    const f = form([null]);
+
+    const [first, second] = await Promise.all([
+      f.submit('CorrectHorseBatteryStaple1!'),
+      f.submit('CorrectHorseBatteryStaple1!'),
+    ]);
+
+    expect(f.calls).toHaveLength(1);
+    expect([first, second]).toContain(SKIPPED);
+  });
+
+  it('y un envío saltado no deja el formulario mostrando nada ajeno', async () => {
+    const f = form(['authError.weakPassword', null]);
+    await f.submit('corta');
+
+    const skipped = await Promise.all([
+      f.submit('CorrectHorseBatteryStaple1!'),
+      f.submit('CorrectHorseBatteryStaple1!'),
+    ]);
+
+    expect(skipped).toContain(SKIPPED);
+    expect(f.shown()).toBeNull();
+  });
+
+  it('primer envío falla, segundo tiene éxito: termina en `completed`', async () => {
+    /*
+     * `null` es la señal con la que el controlador cierra: descarta el cliente
+     * efímero y pasa a `completed`. Ese cierre no cambia y lo fija
+     * `recovery-surface.test.ts` sobre el fuente del controlador.
+     */
+    const f = form(['authError.passwordChangeFailed', null]);
+
+    await f.submit('CorrectHorseBatteryStaple1!');
+    const done = await f.submit('CorrectHorseBatteryStaple1!');
+
+    expect(done).toBeNull();
+    expect(isRecoveryActive({ status: 'completed' })).toBe(true);
+  });
+
+  it('éxito a la primera: exactamente una llamada y nada que mostrar', async () => {
+    const f = form([null]);
+    const done = await f.submit('CorrectHorseBatteryStaple1!');
+
+    expect(done).toBeNull();
+    expect(f.calls).toHaveLength(1);
+    expect(f.shown()).toBeNull();
   });
 });

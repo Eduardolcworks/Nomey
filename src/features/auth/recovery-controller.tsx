@@ -2,6 +2,7 @@ import { createContext, type ReactNode, useCallback, useContext, useMemo, useSta
 
 import { disposeRecoveryClient } from '@/lib/supabase';
 
+import type { AuthErrorKey } from './auth-errors';
 import { completeRecovery, redeemRecovery } from './auth-service';
 import { RECOVERY_IDLE, type RecoveryState, type RedeemOutcome } from './recovery-state';
 
@@ -31,8 +32,15 @@ type RecoveryContextValue = {
    * never rejects: every path returns an outcome.
    */
   readonly redeem: (tokenHash: string) => Promise<RedeemOutcome>;
-  /** Set the new password, then end the ephemeral session. */
-  readonly setPassword: (password: string) => Promise<boolean>;
+  /**
+   * Set the new password, then end the ephemeral session.
+   *
+   * Answers `null` on success and the sentence to show otherwise. A failure
+   * does NOT move the transaction: the proof was already redeemed and the
+   * ephemeral session is still there, so the form stays up and the person
+   * corrects and saves again. Nothing here sends anyone back for a new link.
+   */
+  readonly setPassword: (password: string) => Promise<AuthErrorKey | null>;
   /** Leave the flow: after an error, or after finishing. */
   readonly dismiss: () => void;
 };
@@ -83,7 +91,7 @@ export function RecoveryProvider({ children }: { children: ReactNode }) {
     return 'consumed';
   }, []);
 
-  const setPassword = useCallback(async (password: string) => {
+  const setPassword = useCallback(async (password: string): Promise<AuthErrorKey | null> => {
     /*
      * `completeRecovery` already swallows what it can, and this is the
      * belt behind that: an unexpected throw must not escape into the screen,
@@ -98,27 +106,26 @@ export function RecoveryProvider({ children }: { children: ReactNode }) {
 
     if (!result.ok) {
       /*
-       * A FAILED SAVE IS NOT A VERDICT ON THE LINK. By the time this runs the
-       * proof was already redeemed - `verifyOtp` succeeded and the ephemeral
-       * session exists - so titling this "Enlace no válido", as it used to,
-       * blamed the one thing that had demonstrably worked and sent the person
-       * to ask for a replacement link they did not need.
+       * A FAILED SAVE IS NOT A VERDICT ON THE LINK, AND IT ENDS NOTHING.
        *
-       * That is the whole separation: the same `error` status, three titles,
-       * and each producer says which claim it is entitled to make.
+       * By the time this runs the proof has already been redeemed: `verifyOtp`
+       * succeeded and the ephemeral session exists. Moving to `error` here sent
+       * the person to a terminal screen whose only exit discarded that session,
+       * so a rejected password - or a lost packet - cost them the recovery and
+       * a fresh link they never needed.
+       *
+       * So the state does not move at all. The transaction stays `recovering`,
+       * the form stays up with what they typed, and the sentence goes back to
+       * the caller to show in place. The retry is another explicit tap on
+       * Guardar; nothing here retries on its own.
        */
-      setState({
-        status: 'error',
-        titleKey: 'auth.recoveryPasswordFailedTitle',
-        messageKey: result.messageKey,
-      });
-      return false;
+      return result.messageKey;
     }
 
     // `completeRecovery` has already signed the ephemeral session out.
     disposeRecoveryClient();
     setState({ status: 'completed' });
-    return true;
+    return null;
   }, []);
 
   const dismiss = useCallback(() => {

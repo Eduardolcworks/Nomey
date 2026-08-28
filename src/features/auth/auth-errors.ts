@@ -188,14 +188,12 @@ export type RecoveryErrorTitleKey =
   /** The server's verdict: this is no longer a proof. */
   | 'auth.recoveryFailedTitle'
   /** No verdict. The link may be perfectly good. */
-  | 'auth.recoveryUnresolvedTitle'
-  /** The link WAS good and the password change is what failed. */
-  | 'auth.recoveryPasswordFailedTitle';
+  | 'auth.recoveryUnresolvedTitle';
 
 export type RecoveryFailure = {
   /** `dead` only when the server said so. Anything else proved nothing. */
   readonly outcome: 'dead' | 'unresolved';
-  readonly titleKey: Exclude<RecoveryErrorTitleKey, 'auth.recoveryPasswordFailedTitle'>;
+  readonly titleKey: RecoveryErrorTitleKey;
   readonly messageKey: AuthErrorKey;
 };
 
@@ -222,6 +220,14 @@ export function recoveryFailure(failure: AuthFailure): RecoveryFailure {
  * succeeded and the ephemeral session exists. So nothing here may borrow the
  * link's vocabulary - "Enlace no válido" over a rejected password is simply
  * false, and it sends the person to ask for a link that was never the problem.
+ * It never returns a link key at all, which is what keeps that structural: the
+ * sentence is shown INSIDE the form, next to the field that produced it, and
+ * the transaction does not move.
+ *
+ * That includes an ephemeral session that has stopped being usable. GoTrue
+ * answers that authoritatively, but it is a statement about the session, not
+ * about the proof, so it lands in the neutral sentence like everything else -
+ * never in the dead-link one.
  *
  * One code earns a sentence of its own: `weak_password`, because it is the one
  * failure the person can actually act on and Nomey already has a normalised,

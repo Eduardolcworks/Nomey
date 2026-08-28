@@ -476,19 +476,48 @@ describe('cada error dice de qué está hablando', () => {
       CONTROLLER.indexOf('const setPassword'),
     );
     expect(redeem).toContain('titleKey: result.titleKey');
-    expect(redeem).not.toContain("titleKey: 'auth.recoveryPasswordFailedTitle'");
   });
 
-  it('y guardar la contraseña NO toma prestado el título del enlace', () => {
+  it('y guardar la contraseña no produce NINGÚN estado, ni siquiera de error', () => {
     /*
-     * Cuando esto falla, `verifyOtp` ya tuvo éxito. Titularlo «Enlace no
-     * válido» culpaba a lo único que había funcionado y mandaba a pedir un
-     * enlace de repuesto que no hacía falta.
+     * Cuando esto falla, `verifyOtp` ya tuvo éxito y la sesión efímera sigue
+     * ahí. Pasar a `error` mandaba a una pantalla terminal cuya única salida
+     * descartaba esa sesión: una contraseña rechazada costaba el recovery
+     * entero y un enlace nuevo que nadie necesitaba.
      */
     const setPassword = CONTROLLER.slice(CONTROLLER.indexOf('const setPassword'));
-    expect(setPassword).toContain("titleKey: 'auth.recoveryPasswordFailedTitle'");
-    expect(setPassword).not.toContain("titleKey: 'auth.recoveryFailedTitle'");
-    expect(setPassword).not.toContain('authError.recoveryLinkDead');
+    const failure = setPassword.slice(0, setPassword.indexOf('disposeRecoveryClient'));
+
+    expect(failure).not.toContain("status: 'error'");
+    expect(failure).not.toContain('titleKey');
+    expect(failure).not.toContain('authError.recoveryLinkDead');
+    expect(failure).toContain('return result.messageKey');
+  });
+
+  it('y el éxito conserva su cierre: descartar y `completed`', () => {
+    const setPassword = CONTROLLER.slice(CONTROLLER.indexOf('const setPassword'));
+    const success = setPassword.slice(setPassword.indexOf('disposeRecoveryClient'));
+
+    expect(success).toContain('disposeRecoveryClient()');
+    expect(success).toContain("setState({ status: 'completed' })");
+  });
+
+  it('el formulario enseña ese fallo en su propia ranura, sin marcharse', () => {
+    // La misma ranura que las comprobaciones locales, y sin `return` propio:
+    // el formulario sigue montado, con lo que la persona escribió.
+    expect(NEW_PASSWORD).toContain('t(saveError)');
+    expect(NEW_PASSWORD).not.toMatch(/saveError[^\n]*\?[^\n]*return/);
+  });
+
+  it('y tiene una salida explícita, porque ahora es la única', () => {
+    const form = NEW_PASSWORD.slice(NEW_PASSWORD.indexOf('auth.newPasswordAction'));
+    expect(form).toContain("t('auth.checkEmailBack')");
+    expect(form).toContain('onPress={dismiss}');
+  });
+
+  it('el guardado sigue siendo exclusivo: un envío a la vez', () => {
+    expect(NEW_PASSWORD).toContain('createExclusiveRunner()');
+    expect(NEW_PASSWORD).toContain('SKIPPED');
   });
 
   it('la pantalla no inventa texto: título y cuerpo salen del estado', () => {
@@ -496,12 +525,11 @@ describe('cada error dice de qué está hablando', () => {
     expect(NEW_PASSWORD).toContain('t(state.messageKey)');
   });
 
-  it('y las tres frases existen en los dos idiomas', () => {
+  it('y todas las frases existen en los dos idiomas', () => {
     for (const catalogue of [esES, en]) {
       for (const key of [
         'auth.recoveryFailedTitle',
         'auth.recoveryUnresolvedTitle',
-        'auth.recoveryPasswordFailedTitle',
         'authError.recoveryLinkDead',
         'authError.recoveryLinkUnchecked',
         'authError.passwordChangeFailed',

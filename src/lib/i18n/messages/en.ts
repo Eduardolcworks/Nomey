@@ -68,7 +68,6 @@ export const en: Record<MessageKey, string> = {
   'auth.recoveryChecking': 'Checking the link…',
   'auth.recoveryFailedTitle': 'Link not valid',
   'auth.recoveryUnresolvedTitle': 'We could not check that link',
-  'auth.recoveryPasswordFailedTitle': 'We could not change your password',
   'auth.newPasswordTitle': 'New password',
   'auth.newPasswordSubtitle': 'Choose a new password for your account.',
   'auth.newPassword': 'New password',
