@@ -6,6 +6,24 @@ export type Database = {
       [_ in never]: never;
     };
     Views: {
+      currency_definition: {
+        Row: {
+          code: string | null;
+          id: string | null;
+          scale: number | null;
+        };
+        Insert: {
+          code?: string | null;
+          id?: string | null;
+          scale?: number | null;
+        };
+        Update: {
+          code?: string | null;
+          id?: string | null;
+          scale?: number | null;
+        };
+        Relationships: [];
+      };
       personal_effect: {
         Row: {
           accounting_class: string | null;
@@ -16,7 +34,39 @@ export type Database = {
           id: string | null;
           scope_id: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'effect_moneda_del_ambito';
+            columns: ['scope_id', 'currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_scope';
+            referencedColumns: ['id', 'base_currency_definition_id'];
+          },
+          {
+            foreignKeyName: 'effect_scope_id_fkey';
+            columns: ['scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_scope';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      personal_scope: {
+        Row: {
+          base_currency_definition_id: string | null;
+          currency_code: string | null;
+          currency_scale: number | null;
+          id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'scope_base_currency_definition_id_fkey';
+            columns: ['base_currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'currency_definition';
+            referencedColumns: ['id'];
+          },
+        ];
       };
     };
     Functions: {
@@ -30,6 +80,7 @@ export type Database = {
           effective_date: string;
         }[];
       };
+      ensure_personal_scope: { Args: { payload: Json }; Returns: Json };
       record_adjustment: { Args: { payload: Json }; Returns: Json };
       record_debt_settlement: { Args: { payload: Json }; Returns: Json };
       record_external_transfer: { Args: { payload: Json }; Returns: Json };
@@ -37,6 +88,7 @@ export type Database = {
       record_internal_transfer: { Args: { payload: Json }; Returns: Json };
       record_personal_expense: { Args: { payload: Json }; Returns: Json };
       record_settlement_by_transfer: { Args: { payload: Json }; Returns: Json };
+      set_personal_base_currency: { Args: { payload: Json }; Returns: Json };
     };
     Enums: {
       [_ in never]: never;
