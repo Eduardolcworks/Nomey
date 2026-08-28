@@ -6,6 +6,39 @@ export type Database = {
       [_ in never]: never;
     };
     Views: {
+      category: {
+        Row: {
+          applies_to: string | null;
+          icon: string | null;
+          id: string | null;
+          is_active: boolean | null;
+          is_custom: boolean | null;
+          label: string | null;
+          message_key: string | null;
+          ordinal: number | null;
+        };
+        Insert: {
+          applies_to?: string | null;
+          icon?: string | null;
+          id?: string | null;
+          is_active?: boolean | null;
+          is_custom?: never;
+          label?: string | null;
+          message_key?: string | null;
+          ordinal?: number | null;
+        };
+        Update: {
+          applies_to?: string | null;
+          icon?: string | null;
+          id?: string | null;
+          is_active?: boolean | null;
+          is_custom?: never;
+          label?: string | null;
+          message_key?: string | null;
+          ordinal?: number | null;
+        };
+        Relationships: [];
+      };
       currency_definition: {
         Row: {
           code: string | null;
@@ -80,6 +113,7 @@ export type Database = {
           effective_date: string;
         }[];
       };
+      create_custom_category: { Args: { payload: Json }; Returns: Json };
       ensure_personal_scope: { Args: { payload: Json }; Returns: Json };
       record_adjustment: { Args: { payload: Json }; Returns: Json };
       record_debt_settlement: { Args: { payload: Json }; Returns: Json };
@@ -87,7 +121,10 @@ export type Database = {
       record_group_expense: { Args: { payload: Json }; Returns: Json };
       record_internal_transfer: { Args: { payload: Json }; Returns: Json };
       record_personal_expense: { Args: { payload: Json }; Returns: Json };
+      record_personal_income: { Args: { payload: Json }; Returns: Json };
       record_settlement_by_transfer: { Args: { payload: Json }; Returns: Json };
+      rename_custom_category: { Args: { payload: Json }; Returns: Json };
+      set_custom_category_active: { Args: { payload: Json }; Returns: Json };
       set_personal_base_currency: { Args: { payload: Json }; Returns: Json };
     };
     Enums: {
