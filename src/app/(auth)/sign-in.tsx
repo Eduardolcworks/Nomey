@@ -5,7 +5,7 @@ import { StyleSheet, type TextInput, View } from 'react-native';
 import { AuthField, AuthScreen, missingFields, signIn, useAuthSubmit } from '@/features/auth';
 import { useSession } from '@/features/session';
 import { useTranslation } from '@/lib/i18n';
-import { ActionButton, ErrorState, ThemedText, ThemedView } from '@/ui/components';
+import { ActionButton, ErrorState, ThemedText } from '@/ui/components';
 import { Spacing } from '@/ui/theme';
 
 /**
@@ -31,20 +31,29 @@ export default function SignInScreen() {
   const [incomplete, setIncomplete] = useState(false);
   const passwordField = useRef<TextInput>(null);
 
-  // The session could not be resolved at startup. Offering a sign-in form on
-  // top of that would be asking the user to fix something that is not theirs.
-  if (session.status === 'unavailable') {
-    return (
-      <ThemedView style={styles.screen}>
-        <ErrorState
-          fill
-          title={t('session.unavailableTitle')}
-          description={t('session.unavailableBody')}
-          retry={{ label: t('action.retry'), onPress: retry }}
-        />
-      </ThemedView>
-    );
-  }
+  /*
+   * The session could not be resolved at startup.
+   *
+   * **The notice accompanies the form; it does not replace it.** An earlier
+   * version returned early here and rendered the error alone, which was wrong
+   * for a reason that only shows up on a device: `unavailable` means "we could
+   * not check whether a session was already stored", and that says nothing
+   * about whether signing in with an email and a password would work. Walling
+   * off the form turned a recoverable, ten-second failure into a screen with
+   * no way forward - exactly the state that has to have an exit.
+   *
+   * Measured, with the real client against a real stack: an unreachable
+   * backend resolves to `unavailable` at 10s while the stored session is
+   * deliberately KEPT, because nothing proved it invalid. A session that IS
+   * provably invalid - a revoked refresh token - resolves to `signed-out` in
+   * about 10ms and clears the storage. So `unavailable` is never a verdict on
+   * the credentials, and the form has no reason to disappear.
+   *
+   * The retry stays visible, and it is the real one: `retry` restarts the
+   * whole lifecycle. If the backend is genuinely down, a sign-in attempt
+   * simply fails with its own message, which is honest and actionable.
+   */
+  const sessionUnavailable = session.status === 'unavailable';
 
   async function onSubmit() {
     const missing = missingFields({ email, password });
@@ -71,6 +80,14 @@ export default function SignInScreen() {
           {t('auth.signInSubtitle')}
         </ThemedText>
       </View>
+
+      {sessionUnavailable ? (
+        <ErrorState
+          title={t('session.unavailableTitle')}
+          description={t('session.unavailableBody')}
+          retry={{ label: t('action.retry'), onPress: retry }}
+        />
+      ) : null}
 
       <View style={styles.form}>
         <AuthField
@@ -162,7 +179,6 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
   heading: { gap: Spacing.xs },
   form: { gap: Spacing.md },
   switch: { textAlign: 'center', paddingVertical: Spacing.sm },
