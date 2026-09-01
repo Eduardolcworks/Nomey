@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useFormat } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n';
 import { EmptyState, Icon, ThemedText } from '@/ui/components';
-import { Radius, Spacing, useTheme } from '@/ui/theme';
+import { categoryColour, categorySymbol, Radius, Spacing, useTheme } from '@/ui/theme';
 
 import { type CategoryRow, categoryIcon, categoryName } from './category';
 import { type CategorySlice, sliceAngles, splitTop } from './statistics';
@@ -14,15 +14,19 @@ import { type CategorySlice, sliceAngles, splitTop } from './statistics';
  *
  * **Versión gratuita: se muestra el PORCENTAJE, nunca el importe por
  * categoría.** El servidor sí devuelve el importe exacto —la agregación tiene
- * que ser exacta o no sirve— y esta superficie decide no pintarlo. Es una
- * decisión de producto y por eso está aquí, en la presentación, y no escondida
- * en la consulta: cuando Premium lo abra, el dato ya está y no hay que tocar la
- * frontera.
+ * que ser exacta o no sirve, y es lo que hace posible el reparto— y esta
+ * superficie decide no pintarlo. La decisión vive en la presentación, así que
+ * cuando Premium lo abra no hay que tocar la frontera.
  *
- * **El color no identifica nada por sí solo.** Cada porción tiene su fila en la
- * leyenda, con icono y nombre, y la rampa va ordenada por luminancia para que
- * el diagrama siga siendo legible en escala de grises. Es la regla obligatoria
- * de `design-direction.md` §8, no una preferencia.
+ * **El color no identifica nada por sí solo.** Cada porción tiene su fila con
+ * nombre y porcentaje, que es la representación autoritativa y la accesible.
+ * `design-direction.md` §8 lo exige, y aquí importa el doble: la paleta es
+ * cerrada, así que con muchas categorías dos pueden compartir tono.
+ *
+ * **El intervalo no se guarda aquí.** Las porciones llegan ya calculadas desde
+ * `api.personal_statistics`, que las agrega en el servidor para el intervalo que
+ * gobierna toda la pantalla. Un estado temporal propio sería una segunda
+ * respuesta a la misma pregunta.
  */
 export type CategoryCardProps = {
   readonly slices: readonly CategorySlice[];
@@ -30,36 +34,47 @@ export type CategoryCardProps = {
 };
 
 /**
- * La rampa del diagrama, construida SÓLO con tokens ya validados.
+ * Diámetro del gráfico y hueco central.
  *
- * Ordenada por luminancia descendente a propósito: así la porción mayor es
- * también la más luminosa, el orden visual coincide con el orden de la leyenda,
- * y en escala de grises se siguen distinguiendo. No se inventan hues nuevos —
- * el amarillo de Nomey es identidad y acento, y multiplicar colores en una app
- * financiera es exactamente lo que `design-direction.md` §2 evita.
+ * **Un anillo, no un sector macizo.** El hueco es el 61% del diámetro, así que
+ * el aro mide 24 puntos de grosor. Empezó siendo el 27% —un aro de 45— y sobre
+ * la pantalla el gráfico se leía pesado: demasiada tinta para lo que dice, al
+ * lado de una lista que es la que lleva los nombres y los porcentajes.
+ *
+ * El valor se buscó mirándolo, y de ahí el vaivén: 45 pesaba, se bajó a 22, se
+ * probó 19 y el aro quedó demasiado hilo con demasiado hueco. 24 es el punto
+ * en el que se paró — ligero, pero todavía un aro con cuerpo.
+ *
+ * **El diámetro exterior no se mueve.** Es lo que fija la altura del bloque y
+ * su alineación con la lista de la derecha; cambiarlo movería la tarjeta
+ * entera, y lo que se buscaba era aligerar el aro, no encoger el gráfico.
+ *
+ * Lo que se pierde con un aro fino es el juicio a ojo de proporciones
+ * parecidas: todos los sectores tienen el mismo grosor, así que sólo el ángulo
+ * las distingue. Es asumible aquí y no en un gráfico suelto, porque **la
+ * representación autoritativa es la lista** —nombre y porcentaje por fila, como
+ * exige `design-direction.md` §8— y el aro acompaña.
+ *
+ * Ni el hueco ni el diámetro entran en el reparto: los sectores se dibujan por
+ * ángulo, y el hueco es un círculo pintado encima al final.
  */
-function useRamp(): string[] {
-  const theme = useTheme();
-  return [
-    theme.accent,
-    theme.text,
-    theme.textSecondary,
-    theme.textTertiary,
-    theme.borderInteractive,
-  ];
-}
-
-const DIAMETER = 116;
-const RING = 22;
+const DIAMETER = 124;
+const HOLE = 76;
 
 export function CategoryCard({ slices, categories }: CategoryCardProps) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const ramp = useRamp();
   const [expanded, setExpanded] = useState(false);
 
   const { top, rest } = splitTop(slices);
 
+  /**
+   * Sin gasto no hay reparto, y no se inventa uno.
+   *
+   * Es el caso `expense_total = 0`, que la frontera define devolviendo la lista
+   * vacía. No se pintan cuatro categorías al 0%, que serían cuatro afirmaciones
+   * falsas sobre categorías que no han recibido nada.
+   */
   if (slices.length === 0) {
     return (
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -73,6 +88,12 @@ export function CategoryCard({ slices, categories }: CategoryCardProps) {
   }
 
   const visible = expanded ? slices : top;
+  /*
+   * Con cuatro o menos no hay nada que desplegar, así que NO se pinta un
+   * chevron que no llevaría a ninguna parte. Una flecha inerte es peor que su
+   * ausencia: promete contenido que no existe.
+   */
+  const expandable = rest.length > 0;
 
   return (
     <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -80,31 +101,30 @@ export function CategoryCard({ slices, categories }: CategoryCardProps) {
         <ThemedText variant="caption" themeColor="textTertiary">
           {t('home.categories')}
         </ThemedText>
-        {rest.length === 0 ? null : (
+        {expandable ? (
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ expanded }}
             accessibilityLabel={t(expanded ? 'home.categoriesLess' : 'home.categoriesMore')}
             onPress={() => setExpanded((value) => !value)}
-            hitSlop={Spacing.sm}>
+            hitSlop={Spacing.md}>
             <Icon
               name={expanded ? 'chevron.up' : 'chevron.down'}
               size={13}
               colour={theme.textSecondary}
             />
           </Pressable>
-        )}
+        ) : null}
       </View>
 
       <View style={styles.body}>
-        <Donut slices={slices} ramp={ramp} hole={theme.surface} />
+        <Pie slices={slices} hole={theme.surface} />
 
         <View style={styles.legend}>
-          {visible.map((slice, index) => (
+          {visible.map((slice) => (
             <LegendRow
               key={slice.categoryId}
               slice={slice}
-              colour={ramp[index % ramp.length]}
               category={categories.get(slice.categoryId)}
             />
           ))}
@@ -116,11 +136,9 @@ export function CategoryCard({ slices, categories }: CategoryCardProps) {
 
 function LegendRow({
   slice,
-  colour,
   category,
 }: {
   slice: CategorySlice;
-  colour: string;
   category: CategoryRow | undefined;
 }) {
   const { t } = useTranslation();
@@ -135,10 +153,15 @@ function LegendRow({
   const share = format.percent(slice.share, 1);
 
   return (
-    <View accessibilityLabel={`${label} ${share}`} style={styles.legendRow}>
-      <View style={[styles.swatch, { backgroundColor: colour }]} />
+    <View accessible accessibilityLabel={`${label} ${share}`} style={styles.legendRow}>
+      {/*
+       * El mismo `categoryColour` que pinta el sector, no una copia de la
+       * paleta: el indicador y su porción no pueden discrepar porque salen de
+       * la misma función con el mismo argumento.
+       */}
+      <View style={[styles.swatch, { backgroundColor: categoryColour(slice.categoryId) }]} />
       {symbol === null ? null : (
-        <Icon name={symbol as never} size={14} colour={theme.textTertiary} />
+        <Icon name={categorySymbol(symbol)} size={14} colour={theme.textTertiary} />
       )}
       <ThemedText variant="bodySmall" numberOfLines={1} style={styles.legendName}>
         {label}
@@ -165,32 +188,40 @@ function LegendRow({
  *   · un sector mayor de media vuelta se pinta en dos mitades;
  *   · el grupo entero se gira hasta su ángulo de inicio.
  *
+ * ==================== POR QUÉ CADA SECTOR BARRE HASTA EL FINAL ==============
+ *
+ * Cada porción **no** se pinta con su propio ángulo, sino desde su inicio hasta
+ * los 360°, y se pintan en orden para que la siguiente tape a la anterior. El
+ * resultado visible es idéntico —cada una acaba enseñando exactamente su
+ * ángulo— pero **desaparecen las costuras**: dos sectores contiguos pintados
+ * cada uno con su ángulo comparten un borde, y el antialiasing de ese borde
+ * deja una línea del fondo asomando entre ellos.
+ *
+ * Lo importante es lo que esto NO hace: no cambia ni un grado del reparto. La
+ * frontera de cada porción sigue estando donde su porcentaje dice, porque la
+ * marca el inicio de la siguiente. La alternativa habitual —solapar unas
+ * décimas de grado— sí habría falseado la proporción, y en un gráfico cuya
+ * única función es comparar tamaños eso no es aceptable.
+ *
  * El agujero central es un círculo del color de la tarjeta pintado encima. Todo
  * el conjunto queda oculto a accesibilidad: **lo que se lee es la leyenda**, y
- * un lector de pantalla no gana nada anunciando doce cajas.
+ * un lector de pantalla no gana nada anunciando una docena de cajas.
  */
-function Donut({
-  slices,
-  ramp,
-  hole,
-}: {
-  slices: readonly CategorySlice[];
-  ramp: readonly string[];
-  hole: string;
-}) {
+function Pie({ slices, hole }: { slices: readonly CategorySlice[]; hole: string }) {
   const angles = sliceAngles(slices);
 
   return (
     <View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={styles.donut}>
+      style={styles.pie}>
       {angles.map((angle, index) => (
         <Sector
           key={slices[index].categoryId}
           start={angle.start}
-          sweep={angle.sweep}
-          colour={ramp[index % ramp.length]}
+          // Hasta el final, no su propio ángulo. Ver la nota de arriba.
+          sweep={360 - angle.start}
+          colour={categoryColour(slices[index].categoryId)}
         />
       ))}
       <View style={[styles.hole, { backgroundColor: hole }]} />
@@ -246,9 +277,9 @@ const styles = StyleSheet.create({
   body: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.lg,
   },
-  donut: {
+  pie: {
     width: DIAMETER,
     height: DIAMETER,
     borderRadius: DIAMETER / 2,
@@ -264,11 +295,11 @@ const styles = StyleSheet.create({
   },
   hole: {
     position: 'absolute',
-    left: RING,
-    top: RING,
-    width: DIAMETER - RING * 2,
-    height: DIAMETER - RING * 2,
-    borderRadius: (DIAMETER - RING * 2) / 2,
+    left: (DIAMETER - HOLE) / 2,
+    top: (DIAMETER - HOLE) / 2,
+    width: HOLE,
+    height: HOLE,
+    borderRadius: HOLE / 2,
   },
   legend: {
     flex: 1,

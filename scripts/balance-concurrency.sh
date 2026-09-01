@@ -63,6 +63,8 @@ delete from core.client_command where created_by = '${U1}';
 delete from core.balance_observation where scope_id = '${S1}';
 delete from core.adjustment_detail d using core.operation_version ov
   where ov.id = d.operation_version_id and ov.created_by = '${U1}';
+delete from core.expense_category x using core.operation_version ov
+  where ov.id = x.operation_version_id and ov.created_by = '${U1}';
 delete from core.movement_detail d using core.operation_version ov
   where ov.id = d.operation_version_id and ov.created_by = '${U1}';
 delete from core.effect where scope_id = '${S1}';

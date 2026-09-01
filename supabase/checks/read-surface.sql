@@ -259,7 +259,7 @@ begin
          'client_operation_id','e1000000-0000-4000-8000-000000000002',
          'command_contract_version',2,'effective_date','2026-11-02','effective_time','08:00',
          'scope_id',S1,'amount','10000','currency_definition_id',EUR,
-         'concept','Nomina','category_id',IOTR));
+         'concept','Nomina'));
   v_ingreso := (r ->> 'operation_id')::uuid;
   reset role;
 

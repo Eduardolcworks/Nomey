@@ -907,7 +907,7 @@ begin
           'amount', v_op ->> 'amount',
           'currency_definition_id', v_moneda,
           'effective_time','09:30',
-          'concept','Nomina','category_id','ea9f1167-f497-5edf-af01-c7e1c3a64d9d'));
+          'concept','Nomina'));
 
       elsif v_op ->> 'kind' = 'internalTransfer' then
         -- 7a solo cubre el caso sin conversion, en el que los dos importes del

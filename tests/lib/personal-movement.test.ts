@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   adjustmentForm,
+  adjustmentPreviousBalance,
+  amountTone,
   type BalanceObservation,
   compareOperations,
   displayMinor,
@@ -54,6 +56,80 @@ describe('movementKind', () => {
   it('una clase futura no se disfraza de otra cosa', () => {
     expect(movementKind('internal_transfer')).toBeNull();
     expect(movementKind('group_expense')).toBeNull();
+  });
+});
+
+/**
+ * EL COLOR DEL IMPORTE, y de dónde sale.
+ *
+ * Sale de la CLASE, no del signo. Es lo que separa «este número es negativo»
+ * de «esto es un gasto», que son dos cosas distintas y sólo la segunda decide
+ * el tratamiento.
+ */
+describe('amountTone', () => {
+  /**
+   * **Un gasto ordinario ya no va en rojo.** Repetido en cada fila competía
+   * con lo que en Nomey sí es rojo —deuda, error, alerta— y acababa
+   * significando menos justo donde debería significar más.
+   */
+  it('un gasto va en el color de texto principal', () => {
+    expect(amountTone(operation({ operation_class: 'personal_expense' }))).toBe('text');
+  });
+
+  /** El ingreso conserva su verde: aparece poco, y ahí el color informa. */
+  it('un ingreso conserva el verde', () => {
+    expect(
+      amountTone(operation({ operation_class: 'personal_income', balance_amount: '215000' })),
+    ).toBe('positive');
+  });
+
+  /**
+   * **La clase manda sobre el signo, y esto es la prueba.** Un gasto se guarda
+   * con `balance_amount` negativo; si el color saliera del signo, saldría rojo.
+   */
+  it('un gasto con importe negativo NO se pinta de rojo', () => {
+    const gasto = operation({ operation_class: 'personal_expense', balance_amount: '-4280' });
+    expect(toMinor(gasto.balance_amount) < 0n).toBe(true);
+    expect(amountTone(gasto)).toBe('text');
+  });
+
+  /**
+   * **Un ajuste a la baja tampoco va en rojo**, por lo mismo que un gasto: el
+   * signo ya dice la dirección, y el rojo está reservado a lo que de verdad va
+   * mal. Subir el saldo sí conserva el verde — pasa poco, y ahí informa.
+   */
+  it('un ajuste que sube el saldo va en verde y uno que lo baja en blanco', () => {
+    expect(amountTone(operation({ operation_class: 'adjustment', balance_amount: '5000' }))).toBe(
+      'positive',
+    );
+    expect(amountTone(operation({ operation_class: 'adjustment', balance_amount: '-10000' }))).toBe(
+      'text',
+    );
+  });
+
+  /**
+   * El cero no es ninguna de las dos cosas. La interfaz no crea ajustes que no
+   * cambien nada, pero si el histórico trae uno, decir «positivo» sería
+   * afirmar algo que no ocurrió.
+   */
+  it('un ajuste de cero no se pinta como positivo ni como negativo', () => {
+    expect(amountTone(operation({ operation_class: 'adjustment', balance_amount: '0' }))).toBe(
+      'textSecondary',
+    );
+  });
+
+  /**
+   * **Las clases que no se han mirado conservan el tratamiento por signo**, a
+   * propósito: esta decisión es sobre el gasto, el ingreso y el ajuste, y no
+   * inventa semántica para lo que llegue después.
+   */
+  it('las clases desconocidas siguen el signo', () => {
+    expect(
+      amountTone(operation({ operation_class: 'internal_transfer', balance_amount: '-100' })),
+    ).toBe('negative');
+    expect(
+      amountTone(operation({ operation_class: 'internal_transfer', balance_amount: '100' })),
+    ).toBe('positive');
   });
 });
 
@@ -269,5 +345,60 @@ describe('indexVersions', () => {
     };
 
     expect(indexVersions([version]).get('v1')?.concept).toBe('Antes');
+  });
+});
+
+/**
+ * EL SALDO ANTERIOR DE UN AJUSTE, y de dónde sale.
+ *
+ * De la propia operación: el objetivo declarado menos el efecto que el
+ * servidor asentó para llegar a él. Las dos cifras son de la MISMA versión
+ * canónica y el delta se derivó **bajo lock y después del CAS** (ADR-022), así
+ * que la resta describe el instante de ESE ajuste — no el de ahora, ni el que
+ * enseñe Inicio, ni una observación tomada después.
+ */
+describe('adjustmentPreviousBalance', () => {
+  const ajuste = (target: string | null, delta: string) =>
+    operation({
+      operation_class: 'adjustment',
+      target_balance: target,
+      balance_amount: delta,
+      concept: null,
+      category_id: null,
+    });
+
+  /** 150 → 200: el efecto fue +50, así que antes había 150. */
+  it('reconstruye el saldo previo de un ajuste al alza', () => {
+    expect(adjustmentPreviousBalance(ajuste('20000', '5000'))).toBe(15000n);
+  });
+
+  /** 300 → 200: el efecto fue −100, así que antes había 300. */
+  it('y el de uno a la baja', () => {
+    expect(adjustmentPreviousBalance(ajuste('20000', '-10000'))).toBe(30000n);
+  });
+
+  /**
+   * **Todo en `bigint`.** Un importe por encima de 2^53 se resta exacto, que es
+   * lo que un `number` por medio habría perdido en silencio.
+   */
+  it('no degrada importes por encima del rango exacto de un double', () => {
+    expect(adjustmentPreviousBalance(ajuste('9007199254740993', '1'))).toBe(9007199254740992n);
+  });
+
+  /**
+   * **Un ajuste por DELTA no tiene saldo objetivo del que restar**, y lo
+   * honesto es no enseñar ninguno en vez de inventarlo. Hoy la interfaz sólo
+   * crea ajustes por objetivo, pero el modelo admite los otros.
+   */
+  it('no inventa un anterior cuando el ajuste se declaró por delta', () => {
+    expect(adjustmentPreviousBalance(ajuste(null, '-10000'))).toBeNull();
+  });
+
+  /** Y no aplica a nada que no sea un ajuste. */
+  it('no aplica a gastos ni ingresos', () => {
+    expect(
+      adjustmentPreviousBalance(operation({ operation_class: 'personal_expense' })),
+    ).toBeNull();
+    expect(adjustmentPreviousBalance(operation({ operation_class: 'personal_income' }))).toBeNull();
   });
 });

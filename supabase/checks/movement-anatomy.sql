@@ -84,41 +84,63 @@ begin
   -- separada hace posible.
   select count(*) into v_n from information_schema.columns
    where table_schema='core' and table_name='movement_detail'
-     and column_name in ('concept','category_id','applies_to') and is_nullable='NO';
-  if v_n <> 3 then
-    fallos := array_append(fallos, format('A3: el detalle tiene %s columnas NOT NULL de las 3 esperadas', v_n));
+     and column_name = 'concept' and is_nullable='NO';
+  if v_n <> 1 then
+    fallos := array_append(fallos, 'A3: el concepto dejo de ser NOT NULL');
   end if;
 
-  -- A4 · el catalogo sembrado, entero y con sus dos familias.
+  -- A3b · Y LA CATEGORIA VIVE APARTE, tambien NOT NULL (ADR-027). Ese NOT NULL
+  -- es lo que hace IMPOSIBLE un gasto sin categorizar: no hay nulo que poner.
+  select count(*) into v_n from information_schema.columns
+   where table_schema='core' and table_name='expense_category'
+     and column_name = 'category_id' and is_nullable='NO';
+  if v_n <> 1 then
+    fallos := array_append(fallos, 'A3b: core.expense_category no exige categoria');
+  end if;
+
+  -- A3c · y `movement_detail` YA NO la lleva: si volviera, volveria el nulo.
+  if exists (select 1 from information_schema.columns
+              where table_schema='core' and table_name='movement_detail'
+                and column_name in ('category_id','applies_to')) then
+    fallos := array_append(fallos, 'A3c: movement_detail recupero la categoria o la familia');
+  end if;
+
+  -- A4 · el catalogo OFICIAL: diez activas, y quince filas en total porque las
+  -- cinco retiradas siguen ahi. ADR-021 prohibe el DELETE incluso sin
+  -- historico, asi que retirar es dar de baja.
   select count(*) into v_n from core.category where owner_user_id is null;
   if v_n <> 15 then
-    fallos := array_append(fallos, format('A4: hay %s categorias de sistema y deberian ser 15', v_n));
+    fallos := array_append(fallos, format('A4: hay %s filas de sistema y deberian seguir siendo 15', v_n));
   end if;
-  select count(*) into v_n from core.category where owner_user_id is null and applies_to='expense';
-  if v_n <> 12 then
-    fallos := array_append(fallos, format('A4b: hay %s categorias de gasto y deberian ser 12', v_n));
-  end if;
-  select count(*) into v_n from core.category where owner_user_id is null and applies_to='income';
-  if v_n <> 3 then
-    fallos := array_append(fallos, format('A4c: hay %s categorias de ingreso y deberian ser 3', v_n));
+  select count(*) into v_n from core.category where owner_user_id is null and is_active;
+  if v_n <> 10 then
+    fallos := array_append(fallos, format('A4b: hay %s categorias activas y deberian ser 10', v_n));
   end if;
 
-  -- A5 · `Otros` es una categoria REAL en LAS DOS familias. Es lo que permite
-  -- que `category_id` sea NOT NULL y que no exista el caso nulo.
-  for v_t in select unnest(array['expense','income']) loop
-    if not exists (select 1 from core.category
-                    where applies_to = v_t and owner_user_id is null
-                      and message_key = 'category.' || v_t || '.other') then
-      fallos := array_append(fallos, format('A5: falta la categoria Otros de la familia %s', v_t));
+  -- A4c · las cinco retiradas, una por una, INACTIVAS Y PRESENTES.
+  for v_t in select unnest(array['category.expense.utilities','category.expense.education',
+                                 'category.income.salary','category.income.extra',
+                                 'category.income.other'])
+  loop
+    if not exists (select 1 from core.category where message_key = v_t and not is_active) then
+      fallos := array_append(fallos, format('A4c: %s no esta retirada o desaparecio', v_t));
     end if;
   end loop;
 
-  -- A6 · los catalogos son DISTINTOS: ninguna identidad se comparte entre
-  -- familias. Dos `Otros` con la misma fila serian un solo catalogo.
-  select count(*) into v_n from (
-    select id from core.category group by id having count(distinct applies_to) > 1) d;
-  if v_n <> 0 then
-    fallos := array_append(fallos, 'A6: alguna categoria pertenece a las dos familias');
+  -- A5 · `Otros` de gasto es una categoria REAL y sigue ACTIVA. Es lo que
+  -- permite que la categoria sea NOT NULL sin que exista el caso nulo.
+  if not exists (select 1 from core.category
+                  where owner_user_id is null and is_active
+                    and message_key = 'category.expense.other') then
+    fallos := array_append(fallos, 'A5: falta la categoria Otros de gasto, o esta retirada');
+  end if;
+
+  -- A6 · LA FAMILIA DESAPARECIO. Todas las categorias son de gasto, asi que una
+  -- columna constante no aportaba nada (ADR-027).
+  if exists (select 1 from information_schema.columns
+              where table_schema='core' and table_name='category'
+                and column_name='applies_to') then
+    fallos := array_append(fallos, 'A6: core.category conserva la familia');
   end if;
 
   -- A7 · la vista existe, es security_invoker y no proyecta identidad.
@@ -313,39 +335,64 @@ declare
   S1 constant text := (select v from ma_fix where k='S1');
   EUR constant text := (select v from ma_fix where k='EUR');
   GOTR constant text := (select v from ma_fix where k='GOTR');
-  IOTR constant text := (select v from ma_fix where k='IOTR');
   r jsonb; base jsonb; v_ajena uuid; v_propia uuid; v_op uuid; v_v1 uuid;
 begin
   base := jsonb_build_object(
     'command_contract_version',2,'effective_date','2026-05-02','effective_time','12:00',
     'scope_id',S1,'amount','1000','currency_definition_id',EUR,'concept','Prueba');
 
-  -- D1 · un GASTO no acepta una categoria de INGRESO.
+  -- D1 · UN GASTO EXIGE CATEGORIA. Omitirla no es un gasto «sin clasificar»:
+  -- es un comando incompleto, y `Otros` es la categoria REAL para lo que no
+  -- encaja en otra (ADR-027).
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub',U1)::text, true);
   begin
     r := api.record_personal_expense(base || jsonb_build_object(
-           'client_operation_id','a2000000-0000-4000-8000-000000000001','category_id',IOTR));
-    fallos := array_append(fallos, 'D1: un gasto acepto una categoria de ingreso');
+           'client_operation_id','a2000000-0000-4000-8000-000000000001'));
+    fallos := array_append(fallos, 'D1: se acepto un gasto SIN categoria');
   exception when sqlstate 'PGRST' then
-    if sqlerrm not like '%CATEGORY_NOT_USABLE%' then
+    if sqlerrm not like '%PAYLOAD_INVALID%' then
       fallos := array_append(fallos, format('D1b: codigo inesperado: %s', sqlerrm));
     end if;
   end;
 
-  -- D2 · y un INGRESO no acepta una de GASTO.
+  -- D2 · UN INGRESO NO ADMITE CATEGORIA, y el rechazo dice lo correcto: no es
+  -- que la categoria sea invalida, es que ese campo NO EXISTE para esta clase.
+  -- Por eso cae en `PAYLOAD_INVALID` y no en `CATEGORY_NOT_USABLE`.
   begin
     r := api.record_personal_income(jsonb_build_object(
            'client_operation_id','a2000000-0000-4000-8000-000000000002',
            'command_contract_version',1,'effective_date','2026-05-02','effective_time','12:00',
            'scope_id',S1,'amount','1000','currency_definition_id',EUR,
            'concept','Prueba','category_id',GOTR));
-    fallos := array_append(fallos, 'D2: un ingreso acepto una categoria de gasto');
+    fallos := array_append(fallos, 'D2: un ingreso acepto una categoria');
   exception when sqlstate 'PGRST' then
-    if sqlerrm not like '%CATEGORY_NOT_USABLE%' then
+    if sqlerrm not like '%PAYLOAD_INVALID%' then
       fallos := array_append(fallos, format('D2b: codigo inesperado: %s', sqlerrm));
     end if;
   end;
+
+  -- D2c · y un ingreso SIN categoria se registra con normalidad, dejando su
+  -- concepto y NINGUNA fila en `core.expense_category`.
+  r := api.record_personal_income(jsonb_build_object(
+         'client_operation_id','a2000000-0000-4000-8000-00000000000d',
+         'command_contract_version',1,'effective_date','2026-05-02','effective_time','12:00',
+         'scope_id',S1,'amount','1000','currency_definition_id',EUR,
+         'concept','Nomina limpia'));
+  v_op := (r ->> 'operation_id')::uuid;
+  reset role;
+  if not exists (select 1 from core.movement_detail d
+                   join core.operation o on o.current_version_id = d.operation_version_id
+                  where o.id = v_op and d.concept = 'Nomina limpia') then
+    fallos := array_append(fallos, 'D2c: el ingreso no guardo su concepto');
+  end if;
+  if exists (select 1 from core.expense_category x
+               join core.operation o on o.current_version_id = x.operation_version_id
+              where o.id = v_op) then
+    fallos := array_append(fallos, 'D2d: un ingreso dejo fila de categoria');
+  end if;
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub',U1)::text, true);
 
   -- D3 · una categoria que no existe.
   begin
@@ -360,7 +407,7 @@ begin
   -- D4 · una categoria PERSONALIZADA AJENA no se puede usar. La crea U2.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub',U2)::text, true);
-  r := api.create_custom_category('{"applies_to":"expense","label":"Gimnasio","icon":"figure.run"}'::jsonb);
+  r := api.create_custom_category('{"label":"Gimnasio","icon":"leisure"}'::jsonb);
   v_ajena := (r ->> 'category_id')::uuid;
   reset role;
 
@@ -382,7 +429,7 @@ begin
   end if;
 
   -- D5 · una categoria propia si se usa, y queda registrada.
-  r := api.create_custom_category('{"applies_to":"expense","label":"Peluqueria","icon":"scissors"}'::jsonb);
+  r := api.create_custom_category('{"label":"Peluqueria","icon":"shopping"}'::jsonb);
   v_propia := (r ->> 'category_id')::uuid;
   r := api.record_personal_expense(base || jsonb_build_object(
          'client_operation_id','a2000000-0000-4000-8000-000000000005','category_id',v_propia));
@@ -420,7 +467,7 @@ begin
 
   -- D8 · y el historico la sigue RESOLVIENDO, con su nombre y su icono.
   if not exists (
-    select 1 from core.movement_detail d
+    select 1 from core.expense_category d
       join core.category c on c.id = d.category_id
       join core.operation o on o.current_version_id = d.operation_version_id
      where o.id = v_op and c.label = 'Peluqueria' and not c.is_active) then
@@ -540,7 +587,7 @@ begin
   base := jsonb_build_object(
     'command_contract_version',1,'effective_date','2026-06-01','effective_time','08:00',
     'scope_id',S1,'amount','150000','currency_definition_id',EUR,
-    'concept','Nomina agosto','category_id',INOM);
+    'concept','Nomina agosto');
 
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub',U1)::text, true);
@@ -649,7 +696,7 @@ begin
          'client_operation_id','a5000000-0000-4000-8000-000000000002',
          'command_contract_version',1,'effective_date','2026-07-01','effective_time','10:00',
          'scope_id',S1,'amount','9000','currency_definition_id',EUR,
-         'concept','Ingreso','category_id',INOM));
+         'concept','Ingreso'));
   v_ing := (r ->> 'operation_id')::uuid;
   reset role;
 
@@ -668,7 +715,7 @@ begin
            'client_operation_id','a5000000-0000-4000-8000-000000000003',
            'command_contract_version',1,'effective_date','2026-07-02','effective_time','10:00',
            'scope_id',S1,'amount','3000','currency_definition_id',EUR,
-           'concept','Colado','category_id',INOM,
+           'concept','Colado',
            'operation_id',v_gasto,'expected_version_id',v_vg));
     fallos := array_append(fallos,
       'G1: el writer de ingreso CORRIGIO una operacion de gasto; operation_class y accounting_class habrian divergido');
@@ -843,12 +890,75 @@ begin
       fallos := array_append(fallos, format('H6b: codigo inesperado: %s', sqlerrm));
     end if;
   end;
+  -- H7 · LA IDEMPOTENCIA DEL INGRESO, sobre su intencion canonica NUEVA. La
+  -- categoria salio de ella al hacerse exclusiva del gasto (ADR-027), asi que
+  -- las respuestas hay que volver a medirlas: una intencion mas corta compara
+  -- menos campos, y lo que ya no se compara es exactamente lo que podria
+  -- colarse como replay.
+  base := jsonb_build_object(
+    'client_operation_id','a6000000-0000-4000-8000-000000000002',
+    'command_contract_version',2,'effective_date','2026-08-02','effective_time','09:00',
+    'scope_id',S1,'amount','150000','currency_definition_id',EUR,'concept','Nomina');
+
+  r := api.record_personal_income(base);
+  v_op := (r ->> 'operation_id')::uuid;
+
+  r := api.record_personal_income(base);
+  if (r ->> 'already_processed') <> 'true' or (r ->> 'operation_id')::uuid <> v_op then
+    fallos := array_append(fallos, format('H7: el ingreso identico no fue replay: %s', r::text));
+  end if;
+
+  -- H8 · los cuatro campos que SI forman la intencion del ingreso: cambiar
+  -- cualquiera con la misma clave es conflicto, no replay.
+  declare
+    campos constant text[][] := array[
+      array['amount','160000'], array['concept','Nomina extra'],
+      array['effective_time','19:00'], array['effective_date','2026-08-03']];
+    par text[];
+  begin
+    foreach par slice 1 in array campos loop
+      begin
+        r := api.record_personal_income(base || jsonb_build_object(par[1], par[2]));
+        fallos := array_append(fallos,
+          format('H8: cambiar %s con la misma clave hizo REPLAY', par[1]));
+      exception when sqlstate 'PGRST' then
+        if sqlerrm not like '%IDEMPOTENCY_KEY_REUSED%' then
+          fallos := array_append(fallos, format('H8b: %s dio un codigo inesperado: %s', par[1], sqlerrm));
+        end if;
+      end;
+    end loop;
+  end;
+
+  -- H9 · Y LA CATEGORIA NO ES UNO DE ELLOS, porque no hay forma de construir un
+  -- ingreso que la lleve: el rechazo es de FORMA del payload y llega antes de
+  -- mirar a que apunta. Por eso el uuid es uno REAL Y VIGENTE —si el rechazo
+  -- dependiera de la categoria, este pasaria y la prueba no probaria nada.
+  begin
+    r := api.record_personal_income(base || jsonb_build_object('category_id',GOTR));
+    fallos := array_append(fallos, 'H9: un ingreso acepto category_id');
+  exception when sqlstate 'PGRST' then
+    if sqlerrm not like '%PAYLOAD_INVALID%' then
+      fallos := array_append(fallos,
+        format('H9b: el ingreso con categoria no se rechazo por forma: %s', sqlerrm));
+    end if;
+  end;
+
   reset role;
+
+  -- H10 · y el ingreso que SI se escribio no dejo rastro de categoria. Es la
+  -- otra mitad de H9: rechazar el campo no serviria de nada si la intencion
+  -- canonica lo guardara por otra via. Se mira ya sin el rol del cliente,
+  -- porque `core` no es suya —que es justamente lo que sostiene el invariante.
+  if exists (select 1 from core.expense_category x
+               join core.operation o on o.current_version_id = x.operation_version_id
+              where o.id = v_op) then
+    fallos := array_append(fallos, 'H10: el ingreso dejo fila en expense_category');
+  end if;
 
   if array_length(fallos,1) is not null then
     raise exception E'H · idempotencia:\n  - %', array_to_string(fallos, E'\n  - ');
   end if;
-  raise notice 'OK · H · concepto, categoria y hora entran en la intencion canonica';
+  raise notice 'OK · H · la intencion canonica del gasto lleva categoria y la del ingreso no';
 end
 $h$;
 
@@ -866,32 +976,59 @@ begin
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub',U1)::text, true);
 
-  -- I1 · crear una propia, en las dos familias.
-  r := api.create_custom_category('{"applies_to":"income","label":"Alquiler piso","icon":"key"}'::jsonb);
-  if (r ->> 'applies_to') <> 'income' then
-    fallos := array_append(fallos, 'I1: la personalizada no quedo en la familia pedida');
-  end if;
-  r := api.create_custom_category('{"applies_to":"expense","label":"Mascota","icon":"pawprint"}'::jsonb);
+  -- I1 · crear una propia. SIN familia: todas las categorias son de gasto
+  -- (ADR-027), asi que el campo ya no existe y mandarlo es un payload invalido.
+  begin
+    r := api.create_custom_category('{"applies_to":"income","label":"Alquiler piso"}'::jsonb);
+    fallos := array_append(fallos, 'I1: se acepto una familia que ya no existe');
+  exception when sqlstate 'PGRST' then
+    if sqlerrm not like '%PAYLOAD_INVALID%' then
+      fallos := array_append(fallos, format('I1b: codigo inesperado: %s', sqlerrm));
+    end if;
+  end;
+
+  -- I1c · EL ICONO ES UNA CLAVE SEMANTICA, no un nombre de plataforma. Un
+  -- nombre de SF Symbol se rechaza: colarlo devolveria el contrato al mundo de
+  -- iOS y dejaria Android sin icono otra vez.
+  begin
+    r := api.create_custom_category('{"label":"Coladero","icon":"pawprint.fill"}'::jsonb);
+    fallos := array_append(fallos, 'I1c: se acepto un nombre de SF Symbol como icono');
+  exception when sqlstate 'PGRST' then
+    if sqlerrm not like '%PAYLOAD_INVALID%' then
+      fallos := array_append(fallos, format('I1d: codigo inesperado: %s', sqlerrm));
+    end if;
+  end;
+
+  r := api.create_custom_category('{"label":"Mascota","icon":"other"}'::jsonb);
   v_cat := (r ->> 'category_id')::uuid;
+  if (r ->> 'icon') <> 'other' then
+    fallos := array_append(fallos, 'I1e: la personalizada no conservo su clave de icono');
+  end if;
+
+  -- I1f · y sin icono cae en el generico, no en un hueco.
+  r := api.create_custom_category('{"label":"Sin icono"}'::jsonb);
+  if (r ->> 'icon') <> 'other' then
+    fallos := array_append(fallos, 'I1f: una personalizada sin icono no cayo en el generico');
+  end if;
 
   -- I2 · el propietario NO se acepta del cliente.
   begin
     r := api.create_custom_category(
-           jsonb_build_object('applies_to','expense','label','X','owner_user_id',U2));
+           jsonb_build_object('label','X','owner_user_id',U2));
     fallos := array_append(fallos, 'I2: se acepto owner_user_id en el payload');
   exception when sqlstate 'PGRST' then null;
   end;
 
-  -- I3 · familia invalida.
+  -- I3 · una clave de icono fuera del vocabulario.
   begin
-    r := api.create_custom_category('{"applies_to":"transfer","label":"X"}'::jsonb);
-    fallos := array_append(fallos, 'I3: se acepto una familia que no existe');
+    r := api.create_custom_category('{"label":"X","icon":"inventada"}'::jsonb);
+    fallos := array_append(fallos, 'I3: se acepto una clave de icono desconocida');
   exception when sqlstate 'PGRST' then null;
   end;
 
-  -- I4 · nombre duplicado en la misma familia.
+  -- I4 · nombre duplicado.
   begin
-    r := api.create_custom_category('{"applies_to":"expense","label":"  mascota "}'::jsonb);
+    r := api.create_custom_category('{"label":"  mascota "}'::jsonb);
     fallos := array_append(fallos, 'I4: se creo una segunda categoria con el mismo nombre');
   exception when sqlstate 'PGRST' then
     if sqlerrm not like '%CATEGORY_NAME_TAKEN%' then
@@ -912,7 +1049,7 @@ begin
   reset role;
 
   select c.label into v_label
-    from core.movement_detail d
+    from core.expense_category d
     join core.category c on c.id = d.category_id
     join core.operation o on o.current_version_id = d.operation_version_id
    where o.id = v_op;
@@ -948,7 +1085,7 @@ begin
   -- I7 · y la de OTRO usuario tampoco.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub',U2)::text, true);
-  r := api.create_custom_category('{"applies_to":"expense","label":"Suya","icon":"tag"}'::jsonb);
+  r := api.create_custom_category('{"label":"Suya","icon":"tag"}'::jsonb);
   v_ajena := (r ->> 'category_id')::uuid;
   reset role;
   set local role authenticated;
@@ -994,5 +1131,134 @@ end
 $i$;
 
 \echo 'movement-anatomy: OK'
+
+-- ============ J · «todo gasto tiene categoria»: que lo garantiza =============
+--
+-- La afirmacion se comprueba, y **se comprueba por partes**, porque `NOT NULL`
+-- no dice lo que parece decir: garantiza que una fila EXISTENTE tenga categoria,
+-- no que la fila exista.
+do $j$
+declare
+  fallos text[] := '{}';
+  U1   constant text := (select v from ma_fix where k='U1');
+  S1   constant text := (select v from ma_fix where k='S1');
+  EUR  constant text := (select v from ma_fix where k='EUR');
+  GOTR constant text := (select v from ma_fix where k='GOTR');
+  GALI constant text := (select v from ma_fix where k='GALI');
+  r jsonb; v_op uuid; v_ver uuid; v_n int;
+begin
+  -- J1 · COMO MUCHO UNA: estructural, por clave primaria.
+  if not exists (select 1 from pg_constraint
+                  where conrelid='core.expense_category'::regclass and contype='p') then
+    fallos := array_append(fallos, 'J1: expense_category no tiene clave primaria');
+  end if;
+
+  -- J2 · LA QUE HAY ES REAL: NOT NULL y FK al catalogo.
+  if not exists (select 1 from information_schema.columns
+                  where table_schema='core' and table_name='expense_category'
+                    and column_name='category_id' and is_nullable='NO') then
+    fallos := array_append(fallos, 'J2: la categoria del gasto dejo de ser NOT NULL');
+  end if;
+  if not exists (select 1 from pg_constraint
+                  where conrelid='core.expense_category'::regclass and contype='f'
+                    and confrelid='core.category'::regclass) then
+    fallos := array_append(fallos, 'J2b: la categoria del gasto no referencia al catalogo');
+  end if;
+
+  -- J3 · AL MENOS UNA NO ES ESTRUCTURAL, y se afirma para que nadie lo describa
+  -- como si lo fuera: no hay CHECK ni trigger que lo exija, y PostgreSQL no
+  -- puede expresarlo porque la condicion depende de `operation_class`, que vive
+  -- en otra tabla. La presencia la garantizan la frontera y el cierre de
+  -- escrituras, que es lo que comprueban J4 y J5.
+  select count(*) into v_n from pg_trigger
+   where tgrelid in ('core.operation_version'::regclass,'core.expense_category'::regclass)
+     and not tgisinternal;
+  if v_n <> 0 then
+    fallos := array_append(fallos,
+      format('J3: han aparecido %s triggers; la garantia dejo de ser la documentada', v_n));
+  end if;
+
+  -- J4 · LA FRONTERA: un gasto sin categoria se rechaza. Ya lo cubre D1, y se
+  -- repite aqui porque es una de las dos patas del invariante.
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub',U1)::text, true);
+  begin
+    r := api.record_personal_expense(jsonb_build_object(
+           'client_operation_id','a7000000-0000-4000-8000-000000000001',
+           'command_contract_version',2,'effective_date','2026-06-01','effective_time','10:00',
+           'scope_id',S1,'amount','1000','currency_definition_id',EUR,'concept','Sin categoria'));
+    fallos := array_append(fallos, 'J4: la frontera acepto un gasto sin categoria');
+  exception when sqlstate 'PGRST' then
+    -- y por el motivo correcto: si algun dia rechazara por otra cosa este bloque
+    -- seguiria pasando sin haber comprobado nada.
+    if sqlerrm not like '%PAYLOAD_INVALID%' or sqlerrm not like '%category_id%' then
+      fallos := array_append(fallos, format('J4b: rechazo por otro motivo: %s', sqlerrm));
+    end if;
+  end;
+
+  -- J5 · EL CIERRE: no hay otra ruta. Sin `USAGE` sobre `core`, el cliente no
+  -- puede crear una version a mano ni quitarle la categoria a un gasto.
+  begin
+    delete from core.expense_category;
+    fallos := array_append(fallos, 'J5: authenticated pudo borrar filas de expense_category');
+  exception when others then null;
+  end;
+  begin
+    insert into core.movement_detail (operation_version_id, concept)
+    values (gen_random_uuid(), 'colado');
+    fallos := array_append(fallos, 'J5b: authenticated pudo escribir en core directamente');
+  exception when others then null;
+  end;
+
+  -- J6 · DOS categorias para la misma version: imposible.
+  r := api.record_personal_expense(jsonb_build_object(
+         'client_operation_id','a7000000-0000-4000-8000-000000000002',
+         'command_contract_version',2,'effective_date','2026-06-01','effective_time','10:00',
+         'scope_id',S1,'amount','1000','currency_definition_id',EUR,'concept','Con categoria',
+         'category_id',GOTR));
+  v_op := (r ->> 'operation_id')::uuid;
+
+  -- J7 · UN INGRESO NO ADQUIERE CATEGORIA por ninguna via del cliente.
+  r := api.record_personal_income(jsonb_build_object(
+         'client_operation_id','a7000000-0000-4000-8000-000000000003',
+         'command_contract_version',2,'effective_date','2026-06-01','effective_time','10:00',
+         'scope_id',S1,'amount','5000','currency_definition_id',EUR,'concept','Nomina'));
+  reset role;
+
+  select current_version_id into v_ver from core.operation where id = v_op;
+  begin
+    insert into core.expense_category (operation_version_id, category_id) values (v_ver, GALI::uuid);
+    fallos := array_append(fallos, 'J6: se pudieron poner dos categorias a la misma version');
+  exception when unique_violation then null;
+  end;
+
+  select count(*) into v_n
+    from core.operation o
+    join core.operation_version ov on ov.id = o.current_version_id
+    join core.expense_category x on x.operation_version_id = ov.id
+   where o.operation_class = 'personal_income';
+  if v_n <> 0 then
+    fallos := array_append(fallos, format('J7: %s ingresos tienen categoria', v_n));
+  end if;
+
+  -- J8 · Y EL INVARIANTE SE CUMPLE sobre TODO lo que este check ha escrito, no
+  -- solo sobre los casos que preparo. Es la misma forma que G7.
+  select count(*) into v_n
+    from core.operation o
+    join core.operation_version ov on ov.id = o.current_version_id
+   where o.operation_class = 'personal_expense'
+     and ov.version_kind = 'record'
+     and not exists (select 1 from core.expense_category x
+                      where x.operation_version_id = ov.id);
+  if v_n <> 0 then
+    fallos := array_append(fallos, format('J8: %s gastos vigentes SIN categoria', v_n));
+  end if;
+
+  if array_length(fallos,1) is not null then
+    raise exception E'J · invariante gasto-categoria:\n  - %', array_to_string(fallos, E'\n  - ');
+  end if;
+  raise notice 'OK · J · como mucho una por estructura; al menos una por frontera y cierre';
+end
+$j$;
 
 rollback;

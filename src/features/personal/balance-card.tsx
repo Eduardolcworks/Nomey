@@ -4,21 +4,73 @@ import { currencyDefinition, money } from '@/domain';
 import { useFormat } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n';
 import { GlassSurface, IconButton, ThemedText } from '@/ui/components';
-import { Spacing } from '@/ui/theme';
+import { Radius, Spacing, type TextColor, useTheme } from '@/ui/theme';
 
 import { toMinor } from './statistics';
+
+/**
+ * Lo que se pinta en el bloque de Deudas mientras la deuda real no existe.
+ *
+ * **Es un marcador de posición de INTERFAZ, decidido para F6.E, y nada más.**
+ * No sale de ninguna consulta, no se deriva de nada y no entra en ningún
+ * cálculo. La deuda real llega con F9, y hasta entonces el Modo Personal no
+ * tiene dimensión de deuda: el vínculo que la traería —
+ * `core.participant_user_link`— está vacío y sigue vacío hasta F10.
+ *
+ * Cuando F9 traiga el dato, lo único que cambia es **quién pasa `debt`**: la
+ * estructura, el formato y la regla de color ya están aquí.
+ */
+export const DEBT_PLACEHOLDER = '0';
 
 export type BalanceCardProps = {
   /** Exacto, en unidad mínima. `null` mientras no se pueda afirmar. */
   readonly amount: string | null;
   readonly currencyCode: string;
   readonly currencyScale: number;
+  /**
+   * La deuda neta, en unidad mínima y con signo. **Todavía nadie la pasa.**
+   *
+   * Negativo = debes · positivo = te deben · cero = en paz. Es el mismo criterio
+   * de signo que usan los efectos de deuda en `core`, así que F9 podrá
+   * enchufarlo sin traducir nada.
+   */
+  readonly debt?: string;
   /** Ajustar el saldo. La escritura llega en F6.F. */
   readonly onAdjust: () => void;
 };
 
 /**
- * El `Disponible` del Modo Personal.
+ * El color de una cifra de deuda.
+ *
+ * La semántica visual prevista, escrita ya para que F9 no tenga que decidirla
+ * otra vez: **rojo si debes, verde si te deben, blanco si estás en paz**.
+ *
+ * No es lógica ficticia: se aplica al valor que la tarjeta tiene en la mano. Hoy
+ * ese valor es el marcador de posición, que es cero, y por eso sale en blanco —
+ * no porque el blanco esté escrito a mano en ningún sitio.
+ *
+ * Y el color **nunca va solo**: la cifra lleva su etiqueta «Deudas» encima y su
+ * signo, que es lo que exige `design-direction.md` §8.
+ */
+export function debtTone(minor: bigint): TextColor {
+  if (minor < 0n) return 'negative';
+  if (minor > 0n) return 'positive';
+  return 'text';
+}
+
+/**
+ * Cuánto baja la columna izquierda para que las dos etiquetas se lean a la
+ * misma altura.
+ *
+ * El oblongo tiene su propio relleno vertical, así que su etiqueta empieza más
+ * abajo que la de fuera. Igualarlo con este desplazamiento —y no moviendo el
+ * oblongo hacia arriba— evita que el sub-bloque se salga del relleno de la
+ * tarjeta, que es donde se notaría al agrandar el tipo de letra del sistema.
+ */
+const LABEL_ALIGN = Spacing.sm;
+
+/**
+ * El `Disponible` del Modo Personal, y la deuda a su lado.
  *
  * **La cifra viene de `api.personal_balance` y no se calcula aquí.** El
  * servidor la deriva de la proyección canónica; el cliente no descarga
@@ -26,17 +78,32 @@ export type BalanceCardProps = {
  *
  * **`null` no es cero.** Mientras el saldo no se pueda afirmar se pinta un
  * marcador de posición sin cifra, en vez de un `0` que se leería como un dato.
- * La vista devuelve **siempre una fila** —con `0` cuando el ámbito no tiene
- * efectos—, así que la ausencia sólo significa que todavía no ha llegado o que
- * no hay ámbito, y ninguna de las dos cosas es «tienes cero euros».
  *
- * **Sin deudas todavía.** El Modo Personal no tiene dimensión de deuda: ésa es
- * la de Grupos, y llega con F9. No se pinta un `0 €` de deuda que sería una
- * afirmación sobre algo que no existe.
+ * **DOS COLUMNAS, no una esquina compartida.** Antes la deuda y el lápiz caían
+ * los dos abajo a la derecha y competían por el mismo sitio; ahora la tarjeta se
+ * lee como lo que es —dos magnitudes emparejadas— con la deuda en su propio
+ * sub-bloque arriba a la derecha y el lápiz solo, abajo.
+ *
+ * **El oblongo usa `GlassSurface`, y la elección de recurso importa.**
+ * `design-direction.md` §4 reserva el glass a las **superficies que
+ * contienen**, que es exactamente lo que este sub-bloque es; §5 reserva el
+ * neumorfismo a los **controles que responden**, y éste no responde a nada. Por
+ * eso va con `depth="flat"`: conserva el brillo del borde que lo separa del
+ * fondo y **no** toma el sombreado táctil, para que no se lea como un botón.
+ *
+ * **El amarillo es identidad**, no decoración: es la única cifra de la pantalla
+ * que responde «cuánto tengo». Medido en `colors.ts`: 13,2:1.
  */
-export function BalanceCard({ amount, currencyCode, currencyScale, onAdjust }: BalanceCardProps) {
+export function BalanceCard({
+  amount,
+  currencyCode,
+  currencyScale,
+  debt = DEBT_PLACEHOLDER,
+  onAdjust,
+}: BalanceCardProps) {
   const { t } = useTranslation();
   const format = useFormat();
+  const theme = useTheme();
 
   const definition = currencyDefinition({
     id: 'personal-base',
@@ -44,36 +111,107 @@ export function BalanceCard({ amount, currencyCode, currencyScale, onAdjust }: B
     scale: currencyScale,
   });
 
+  const debtMinor = toMinor(debt);
+
   return (
-    <GlassSurface level="regular" style={styles.card}>
-      <View style={styles.head}>
-        <ThemedText variant="caption" themeColor="textTertiary">
-          {t('home.available')}
-        </ThemedText>
-        <IconButton name="pencil" label={t('home.adjustBalance')} onPress={onAdjust} size={18} />
+    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View style={styles.columns}>
+        <View style={styles.available}>
+          <ThemedText variant="caption" themeColor="textTertiary">
+            {t('home.available')}
+          </ThemedText>
+
+          {amount === null ? (
+            <ThemedText variant="amountHero" themeColor="textDisabled">
+              {t('home.amountPending')}
+            </ThemedText>
+          ) : (
+            <ThemedText
+              variant="amountHero"
+              themeColor="accent"
+              numberOfLines={1}
+              adjustsFontSizeToFit>
+              {format.money(money(toMinor(amount), definition))}
+            </ThemedText>
+          )}
+        </View>
+
+        {/*
+         * El sub-bloque de Deudas. NO es interactivo y no debe parecerlo: sin
+         * `Pressable`, sin rol de botón y sin sombreado táctil.
+         */}
+        <GlassSurface level="regular" depth="flat" radius={Radius.md} style={styles.debt}>
+          <ThemedText variant="caption" themeColor="textTertiary">
+            {t('home.debts')}
+          </ThemedText>
+          {/*
+           * `amountRow` y no `amountHero`: presencia suficiente para leerse como
+           * una magnitud de la tarjeta, sin disputarle la jerarquía al
+           * Disponible, que es la cifra que la tarjeta existe para responder.
+           */}
+          <ThemedText variant="amountRow" themeColor={debtTone(debtMinor)} numberOfLines={1}>
+            {format.money(money(debtMinor, definition))}
+          </ThemedText>
+        </GlassSurface>
       </View>
 
-      {amount === null ? (
-        <ThemedText variant="amountHero" themeColor="textDisabled">
-          {t('home.amountPending')}
-        </ThemedText>
-      ) : (
-        <ThemedText variant="amountHero" numberOfLines={1} adjustsFontSizeToFit>
-          {format.money(money(toMinor(amount), definition))}
-        </ThemedText>
-      )}
-    </GlassSurface>
+      {/*
+       * Solo, abajo a la derecha, y bajo el oblongo. Sigue siendo únicamente
+       * affordance en F6.E — ajustar el saldo escribe, y escribir es de F6.F.
+       */}
+      <IconButton
+        name="pencil"
+        label={t('home.adjustBalance')}
+        onPress={onAdjust}
+        size={18}
+        filled
+        style={styles.adjust}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    padding: Spacing.lg,
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  /*
+   * Las dos magnitudes, en paralelo. `flex-start` para que el oblongo se ajuste
+   * a su contenido en vez de estirarse hasta el alto de la cifra principal.
+   */
+  columns: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+  },
+  /*
+   * `flex: 1` con `minWidth: 0` para que una cifra larga encoja con
+   * `adjustsFontSizeToFit` en vez de empujar al oblongo fuera de la tarjeta.
+   */
+  available: {
+    flex: 1,
+    minWidth: 0,
+    paddingTop: LABEL_ALIGN,
     gap: Spacing.xs,
   },
-  head: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  debt: {
+    alignItems: 'flex-start',
+    paddingVertical: LABEL_ALIGN,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.xxs,
+  },
+  /*
+   * En el flujo y alineado a la derecha, así que cae bajo el oblongo sin
+   * solaparlo. Nada de posición absoluta: se rompería en cuanto alguien
+   * agrandara el tipo de letra del sistema.
+   */
+  adjust: {
+    alignSelf: 'flex-end',
   },
 });

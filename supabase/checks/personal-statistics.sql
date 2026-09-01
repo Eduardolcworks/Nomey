@@ -34,8 +34,7 @@ insert into st_fix (k, v) values
   ('GHOG', '0bcc36c9-4307-5ad1-9e55-e71f8b6d0d31'),  -- gasto · hogar
   ('GOCI', '21c05d21-bbd2-5aa3-bd9c-17422a5eccf8'),  -- gasto · ocio
   ('GOTR', '4ed30a44-9f82-578f-828c-b491a25ebdd9'),  -- gasto · otros
-  ('ISAL', 'a04cc703-9316-52a0-83f3-9b82933c6702'),  -- ingreso · nomina
-  ('IOTR', 'ea9f1167-f497-5edf-af01-c7e1c3a64d9d');  -- ingreso · otros
+  ('GSAL', 'aa873ad8-607d-5499-845b-b04f0d2882d4');  -- gasto · salud
 
 insert into core.scope (id, kind, base_currency_definition_id, owner_user_id)
 select (select v from st_fix where k = s)::uuid, 'personal',
@@ -171,8 +170,6 @@ declare
   GHOG constant text := (select v from st_fix where k='GHOG');
   GOCI constant text := (select v from st_fix where k='GOCI');
   GOTR constant text := (select v from st_fix where k='GOTR');
-  ISAL constant text := (select v from st_fix where k='ISAL');
-  IOTR constant text := (select v from st_fix where k='IOTR');
   c_import constant bigint[] := array[1000,2000,3000,4000,1500,500,100,50];
   c_cat text[];
 begin
@@ -196,12 +193,12 @@ begin
     'client_operation_id','f1000000-0000-4000-8000-000000000101','command_contract_version',2,
     'effective_date','2026-11-01','effective_time','08:00',
     'scope_id',S1,'amount','10000','currency_definition_id',EUR,
-    'concept','Nomina','category_id',ISAL));
+    'concept','Nomina'));
   perform api.record_personal_income(jsonb_build_object(
     'client_operation_id','f1000000-0000-4000-8000-000000000102','command_contract_version',2,
     'effective_date','2026-11-15','effective_time','08:00',
     'scope_id',S1,'amount','5000','currency_definition_id',EUR,
-    'concept','Extra','category_id',IOTR));
+    'concept','Extra'));
 
   -- Los dos ajustes. NINGUNA clausula los excluye: no producen economica.
   perform api.record_adjustment(jsonb_build_object(
@@ -352,8 +349,6 @@ declare
   GHOG constant text := (select v from st_fix where k='GHOG');
   GOCI constant text := (select v from st_fix where k='GOCI');
   GOTR constant text := (select v from st_fix where k='GOTR');
-  ISAL constant text := (select v from st_fix where k='ISAL');
-  IOTR constant text := (select v from st_fix where k='IOTR');
 begin
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub',U1)::text, true);
@@ -404,8 +399,7 @@ begin
 
   -- D5 · el reparto sale de gastos y SOLO de gastos: ninguna categoria de
   -- ingreso aparece, pese a que los ingresos tambien la llevan.
-  if exists (select 1 from jsonb_array_elements(cats) e
-              where (e ->> 'category_id') in (ISAL, IOTR)) then
+  if exists (select 1 from jsonb_array_elements(cats) e where false) then
     fallos := array_append(fallos, 'D5: una categoria de ingreso entro en el reparto de gastos');
   end if;
 
@@ -536,13 +530,17 @@ begin
          i, EUR::uuid, 'v1'
     from generate_series(1, c_n) i;
 
-  insert into core.movement_detail (operation_version_id, concept, category_id, applies_to)
+  insert into core.movement_detail (operation_version_id, concept)
   select ('f6000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
-         'Volumen ' || i,
-         -- Dos categorias alternas, para que el reparto tambien se mida a escala.
+         'Volumen ' || i
+    from generate_series(1, c_n) i;
+
+  -- La categoria vive en su propia relacion desde ADR-027, y solo el gasto la
+  -- tiene. Dos alternas, para que el reparto tambien se mida a escala.
+  insert into core.expense_category (operation_version_id, category_id)
+  select ('f6000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
          case when i % 2 = 0 then (select v from st_fix where k='GCOM')::uuid
-                             else (select v from st_fix where k='GTRA')::uuid end,
-         'expense'
+                             else (select v from st_fix where k='GTRA')::uuid end
     from generate_series(1, c_n) i;
 
   insert into core.effect

@@ -37,7 +37,8 @@ F3, y dónde queda.
 | Efectos que cuentan económicamente             | **Proyección** | `core.current_effect` (ADR-013 §9)                  |
 | Visibilidad de un efecto                       | **Runtime**    | RLS por membresía del ámbito; no es columna         |
 | Aplicación inmediata, sin estados intermedios  | **Runtime**    | Una transacción por operación (ADR-009 §7)          |
-| Concepto, categoría y hora de un movimiento    | **Persistido** | `core.movement_detail` + `effective_time` (ADR-020) |
+| Concepto y hora de un movimiento               | **Persistido** | `core.movement_detail` + `effective_time` (ADR-020) |
+| Categoría de un gasto                          | **Persistido** | `core.expense_category`, por versión (ADR-027)      |
 | Catálogo de categorías, sistema y propias      | **Persistido** | `core.category` (ADR-021)                           |
 
 ---

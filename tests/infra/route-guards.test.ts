@@ -97,6 +97,8 @@ describe('guardas de ruta del layout raíz', () => {
       expect(productBlock?.screens).toEqual([
         '(tabs)',
         'add',
+        'edit-movement',
+        'edit-balance',
         'notifications',
         'profile',
         'account',

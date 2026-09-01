@@ -32,6 +32,12 @@ export type CategoryRow = {
  *
  * No es una segunda fuente de verdad: la identidad de la categoría es su UUID
  * en la base. Esto sólo dice qué claves sabe traducir esta versión de la app.
+ *
+ * **Las cinco retiradas siguen aquí a propósito.** Las tres de ingreso y las de
+ * Suministros y Educación ya no se pueden elegir —ADR-027 las dio de baja
+ * lógicamente, que no es lo mismo que borrarlas—, pero el gasto que las usó
+ * sigue existiendo y hay que saber nombrarlo. Quitarlas de esta lista pintaría
+ * ese histórico sin nombre.
  */
 const SYSTEM_CATEGORY_KEYS = {
   'category.expense.groceries': 'category.expense.groceries',
@@ -91,4 +97,53 @@ export function categoryIcon(category: CategoryRow | undefined): string | null {
 
 export function indexCategories(rows: readonly CategoryRow[]): Map<string, CategoryRow> {
   return new Map(rows.map((row) => [row.id, row]));
+}
+
+/** Una categoría lista para ser una opción de menú, ya resuelta y ya ordenada. */
+export type CategoryOption = {
+  readonly id: string;
+  readonly title: string;
+  /** La clave semántica de ADR-027, sin resolver: quien pinte elige plataforma. */
+  readonly icon: string;
+  readonly selected: boolean;
+};
+
+/**
+ * El catálogo convertido en opciones, y nada más que eso.
+ *
+ * **Lista PLANA y de una sola fuente.** Sale enteramente de las filas que le
+ * dan; no hay segunda lista, ni orden propio, ni secciones. Si el catálogo
+ * cambia, el menú cambia sin que nadie toque esto — que es justo lo que se
+ * pierde en cuanto alguien escribe las categorías a mano en la pantalla.
+ *
+ * **Las dadas de baja no llegan aquí**, y tampoco se filtran aquí: quien lo
+ * hace es `useEntryCategories`, y hacerlo dos veces repartiría la regla en dos
+ * sitios. Esta función no añade ni quita filas — así la excepción que conserva
+ * la categoría retirada de un gasto que ya la usaba sigue dependiendo de quién
+ * arma el catálogo, y no de quién lo pinta.
+ *
+ * **Una fila sin nombre resoluble NO se ofrece.** ADR-021 es explícito en que
+ * nunca se enseña un identificador ni una clave cruda, y en un menú del sistema
+ * no hay dónde poner un aviso: la opción sencillamente no está.
+ */
+export function categoryOptions(
+  categories: readonly CategoryRow[],
+  selected: string | null,
+  translate: (key: MessageKey) => string,
+): readonly CategoryOption[] {
+  const options: CategoryOption[] = [];
+
+  for (const row of categories) {
+    const title = categoryName(row, translate);
+    if (title === null) continue;
+
+    options.push({
+      id: row.id,
+      title,
+      icon: categoryIcon(row) ?? 'tag',
+      selected: row.id === selected,
+    });
+  }
+
+  return options;
 }

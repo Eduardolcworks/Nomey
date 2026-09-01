@@ -1753,8 +1753,7 @@ begin
             'effective_time', '09:30',
             'scope_id', v_scope_map ->> (v_op ->> 'scope'),
             'amount', v_op ->> 'amount', 'currency_definition_id', EUR::text,
-            'concept', 'Nomina',
-            'category_id', 'ea9f1167-f497-5edf-af01-c7e1c3a64d9d'));
+            'concept', 'Nomina'));
 
         elsif v_kind = 'externalTransfer' then
           perform api.record_external_transfer(jsonb_build_object(

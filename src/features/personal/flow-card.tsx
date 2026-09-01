@@ -70,7 +70,21 @@ export function FlowCard({
   });
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <View
+      style={[
+        styles.card,
+        /*
+         * `flex: 1` SÓLO cerrada, y es la clave de las dos formas.
+         *
+         * Cerrada comparte fila con su pareja y reparte el ancho a medias.
+         * Abierta la renderiza la pantalla sola, en una columna, y ahí un
+         * `flex: 1` la estiraría hasta el alto disponible en vez de dejarla
+         * crecer con su contenido — la tarjeta se separaría de sus propios
+         * movimientos.
+         */
+        expanded ? null : styles.half,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
@@ -111,10 +125,13 @@ export function FlowCard({
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
     borderRadius: Radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+  },
+  /** Media fila, cuando comparte sitio con su pareja. */
+  half: {
+    flex: 1,
   },
   header: {
     padding: Spacing.md,
@@ -133,6 +150,18 @@ const styles = StyleSheet.create({
   body: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.sm,
-    paddingBottom: Spacing.sm,
+    /*
+     * SIN ACOLCHADO VERTICAL PROPIO, ni arriba ni abajo, porque las filas ya
+     * traen el suyo: `MovementRow` acolcha `Spacing.sm` por ARRIBA Y POR ABAJO.
+     *
+     * Aquí había un `paddingBottom` y no su pareja de arriba, que es la forma
+     * de la equivocación: daba por hecho que la fila sólo acolchaba por arriba.
+     * El resultado era asimétrico —`sm` sobre la primera fila y `sm` + `sm` bajo
+     * la última—, y esa franja de más es la que se veía al desplegar la tarjeta
+     * y bajar hasta el final.
+     *
+     * Una fila desplegada acolcha `Spacing.md` bajo su detalle, así que sus
+     * acciones tampoco quedan pegadas al canto.
+     */
   },
 });

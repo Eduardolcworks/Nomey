@@ -71,6 +71,28 @@ export function movementKind(operationClass: string): MovementKind | null {
 }
 
 /**
+ * Si esta iteración de Inicio ofrece eliminar esta fila.
+ *
+ * **Se decide por la CLASE de la operación**, que llega en la superficie de
+ * lectura, y nunca por el signo, el color o el texto: eso son presentación, y
+ * un ajuste negativo se parece a un gasto en las tres cosas.
+ *
+ * Sólo gasto e ingreso. El ajuste de saldo se deja fuera a propósito: anularlo
+ * es una operación válida en el servidor, pero lo que significa para quien lo
+ * hizo —«el saldo vuelve a lo que decía antes»— necesita una explicación que
+ * esta pantalla todavía no da. Las clases que lleguen en el futuro quedan
+ * fuera por omisión, que es la respuesta segura.
+ *
+ * **No es autorización.** El servidor sigue siendo la autoridad: RLS decide qué
+ * operaciones se ven y `api.annul_operation` decide cuáles se pueden anular.
+ * Esto sólo evita ofrecer un gesto que no va a ninguna parte.
+ */
+export function canAnnul(operation: PersonalOperation): boolean {
+  const kind = movementKind(operation.operation_class);
+  return kind === 'income' || kind === 'expense';
+}
+
+/**
  * El signo que la presentación pone a un importe **declarado**.
  *
  * Existe porque el historial no puede publicar un importe firmado: los efectos
@@ -90,6 +112,103 @@ export function displayMinor(kind: MovementKind, originalAmount: string): bigint
   // ajuste ya vienen con el signo que se muestra —el delta de un ajuste puede
   // ser negativo, y `core.operation_version` no lo restringe.
   return kind === 'expense' ? -minor : minor;
+}
+
+/**
+ * Si esta iteración de Inicio ofrece editar esta fila.
+ *
+ * **Las mismas dos clases que se pueden eliminar, y por el mismo motivo**: son
+ * las que esta pantalla sabe describir por completo en su formulario. Un ajuste
+ * de saldo se corrige declarando otro saldo objetivo, que es una conversación
+ * distinta; el resto de clases ni siquiera aparece aquí todavía.
+ *
+ * Se decide por `operation_class` y nunca por el signo. **Y una operación
+ * anulada tampoco llega**: su versión vigente no tiene efectos, así que no sale
+ * de la superficie de lectura — la frontera lo remataría igualmente con
+ * `OPERATION_ANNULLED · 409`.
+ *
+ * **No es autorización.** El servidor sigue siendo la autoridad; esto sólo
+ * evita ofrecer un control que no lleva a ninguna parte.
+ */
+export function canEdit(operation: PersonalOperation): boolean {
+  const kind = movementKind(operation.operation_class);
+  return kind === 'income' || kind === 'expense';
+}
+
+/**
+ * El saldo que había justo ANTES de este ajuste, en unidades mínimas.
+ *
+ * **Sale de la propia operación y de nada más:** `target_balance` es el saldo
+ * que se declaró y `balance_amount` es el efecto que el servidor asentó para
+ * llegar hasta él, así que su diferencia es lo que había. Las dos cifras
+ * pertenecen a la MISMA versión canónica, y el delta lo derivó el servidor
+ * **bajo lock y después del CAS** (ADR-022) — no de una lectura que pudiera
+ * quedarse vieja.
+ *
+ * Por eso corresponde al instante de ESE ajuste y no al de ahora. El
+ * Disponible de Inicio serviría para el último ajuste y mentiría para
+ * cualquier otro; una observación tomada después describiría otro momento; y
+ * una segunda consulta por fila sería 1+N para un dato que ya está aquí.
+ *
+ * `null` cuando no procede: si el ajuste se declaró por DELTA no hay saldo
+ * objetivo del que restar, y lo honesto es no enseñar ninguno. Hoy la interfaz
+ * sólo crea ajustes por objetivo, pero el modelo admite los otros y esta
+ * función no puede inventarles un anterior.
+ */
+export function adjustmentPreviousBalance(operation: PersonalOperation): bigint | null {
+  if (adjustmentForm(operation) !== 'target' || operation.target_balance === null) return null;
+  return toMinor(operation.target_balance) - toMinor(operation.balance_amount);
+}
+
+/**
+ * El color del importe de una fila, por CLASE de operación.
+ *
+ * **Un gasto ordinario ya no va en rojo.** El signo menos y su sitio en la
+ * lista ya dicen que es una salida; el rojo, repetido en cada fila, competía
+ * con lo que en Nomey sí es rojo —una deuda, un error, una alerta— y acababa
+ * significando menos justo donde debería significar más. Se queda en el color
+ * de texto principal, el mismo que ya llevan el concepto y la categoría.
+ *
+ * El ingreso conserva su verde: aparece pocas veces, y ahí el color informa en
+ * vez de saturar.
+ *
+ * **Lo decide `operation_class` y NO el signo del importe.** Misma regla que
+ * `canAnnul`: la clase es el dato canónico y el signo es presentación. Un
+ * ajuste puede ser negativo sin ser un gasto, y con la regla del signo se
+ * habría pintado como uno.
+ *
+ * **El ajuste y cualquier clase futura conservan el tratamiento por signo.** Es
+ * deliberado: esta decisión es sobre el gasto y el ingreso, y no inventa
+ * semántica para lo que no se ha mirado.
+ *
+ * El color no es nunca la única señal —el signo va siempre—, que es lo que
+ * `design-direction.md` §8 exige.
+ */
+export function amountTone(
+  operation: PersonalOperation,
+): 'text' | 'textSecondary' | 'positive' | 'negative' {
+  const kind = movementKind(operation.operation_class);
+  if (kind === 'expense') return 'text';
+  if (kind === 'income') return 'positive';
+
+  if (kind === 'adjustment') {
+    /*
+     * **Un ajuste a la baja tampoco va en rojo**, por lo mismo que un gasto: el
+     * signo ya dice la dirección, y el rojo de Nomey está reservado a lo que
+     * de verdad va mal — una deuda, un error, una acción destructiva. Subir el
+     * saldo sí conserva el verde: pasa poco, y ahí el color informa.
+     *
+     * El cero no es ninguna de las dos cosas. La interfaz no crea ajustes que
+     * no cambien nada, pero si el histórico trae uno, decir «positivo» sería
+     * afirmar algo que no ocurrió.
+     */
+    const delta = toMinor(operation.balance_amount);
+    if (delta > 0n) return 'positive';
+    if (delta < 0n) return 'text';
+    return 'textSecondary';
+  }
+
+  return toMinor(operation.balance_amount) < 0n ? 'negative' : 'positive';
 }
 
 /** `true` si la operación tiene una versión anterior que enseñar. */

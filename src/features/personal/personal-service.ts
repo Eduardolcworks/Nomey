@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 
 import type { DateRange } from './interval';
+import type { EntryPayload } from './movement-entry';
 import type { BalanceObservation, PersonalOperation, PersonalOperationVersion } from './movement';
 import { OPERATION_ORDER } from './movement';
 import type { EnsureScopeResult } from './personal-scope';
@@ -167,20 +168,149 @@ export async function fetchObservations(
 }
 
 /** El catálogo visible del actor, para resolver el nombre de una categoría. */
-export async function fetchCategories(): Promise<
-  { id: string; message_key: string | null; label: string | null; icon: string }[]
-> {
+export type CatalogueRow = {
+  id: string;
+  message_key: string | null;
+  label: string | null;
+  icon: string;
+  /**
+   * Vigente o dada de baja. **Se publica y no se filtra aquí**: el histórico
+   * necesita las retiradas para resolver su nombre, y sólo quien pinta un
+   * selector debe quitarlas (ADR-021 §7).
+   */
+  is_active: boolean;
+};
+
+export async function fetchCategories(): Promise<CatalogueRow[]> {
   const { data, error } = await supabase
     .from('category')
-    .select('id,message_key,label,icon,applies_to,is_active');
+    .select('id,message_key,label,icon,is_active');
   if (error !== null) throw error;
 
-  return (data ?? []) as unknown as {
-    id: string;
-    message_key: string | null;
-    label: string | null;
-    icon: string;
-  }[];
+  return (data ?? []) as unknown as CatalogueRow[];
+}
+
+/**
+ * El sobre que devuelve cualquiera de las ocho funciones de clase.
+ *
+ * `already_processed` es la parte que **no** se puede tratar como detalle: un
+ * reintento devuelve `200` con el mismo `operation_id` y sin haber escrito una
+ * segunda vez. Quien lo ignore acabará contando dos veces un movimiento que
+ * sólo ocurrió una.
+ */
+export type WriteResult = {
+  readonly operation_id: string;
+  readonly already_processed: boolean;
+};
+
+/**
+ * Registra un gasto personal.
+ *
+ * La categoría es obligatoria en el payload, y **la ausencia de fila no la
+ * impide ninguna restricción del esquema**: quien la exige es esta frontera
+ * más el cierre de las escrituras directas a `core` (ADR-027 §2). Omitirla
+ * devuelve `PAYLOAD_INVALID · 400`.
+ */
+export async function recordPersonalExpense(payload: EntryPayload): Promise<WriteResult> {
+  const { data, error } = await supabase.rpc('record_personal_expense', { payload });
+  if (error !== null) throw error;
+  return data as unknown as WriteResult;
+}
+
+/**
+ * Registra un ingreso personal.
+ *
+ * **Sin categoría, y no por omisión de esta función**: `category_id` no es un
+ * campo admisible de esta clase, así que mandarlo se rechaza por FORMA del
+ * payload antes de mirar a qué apunta. Es lo que `buildPayload` garantiza al
+ * construirlo, y lo que ADR-027 §3 decidió.
+ */
+export async function recordPersonalIncome(payload: EntryPayload): Promise<WriteResult> {
+  const { data, error } = await supabase.rpc('record_personal_income', { payload });
+  if (error !== null) throw error;
+  return data as unknown as WriteResult;
+}
+
+/**
+ * Un ajuste que declara el SALDO, no la diferencia.
+ *
+ * `api.record_adjustment` admite `delta` o `target_balance`, **exactamente uno**:
+ * ni ninguno —no habría intención— ni los dos, que serían dos intenciones en el
+ * mismo comando. Esta pantalla usa siempre el objetivo, y por eso el tipo no
+ * ofrece `delta`: lo que la persona sabe es cuánto tiene, no cuánto falta.
+ *
+ * **El delta lo deriva el servidor bajo lock y después del CAS** (ADR-022). Es
+ * lo que impide que la diferencia salga de una lectura que pudo quedarse vieja
+ * entre que se abrió la ventana y se pulsó guardar.
+ */
+export type AdjustmentPayload = {
+  readonly client_operation_id: string;
+  readonly command_contract_version: 2;
+  readonly scope_id: string;
+  readonly currency_definition_id: string;
+  /** El saldo que debe quedar, en unidades mínimas y como texto. */
+  readonly target_balance: string;
+  readonly effective_date: string;
+  readonly effective_time: string;
+};
+
+/**
+ * Fija el Disponible de un ámbito personal.
+ *
+ * **No modifica ningún movimiento ni escribe el saldo en ninguna parte.** El
+ * saldo no es una fila que se pueda actualizar: se deriva de los efectos
+ * vigentes (ADR-013). Lo que esto escribe es una operación de ajuste más, con
+ * su versión y su efecto de saldo, y el Disponible cambia porque cambia lo que
+ * se deriva de ellos.
+ *
+ * **Y no cuenta como ingreso ni como gasto.** Un ajuste no produce dimensión
+ * económica, así que `api.personal_statistics` lo deja fuera sin ninguna
+ * cláusula que lo excluya (ADR-026): no engorda los totales del intervalo ni
+ * aparece en el reparto por categoría.
+ */
+export async function recordAdjustment(payload: AdjustmentPayload): Promise<WriteResult> {
+  const { data, error } = await supabase.rpc('record_adjustment', { payload });
+  if (error !== null) throw error;
+  return data as unknown as WriteResult;
+}
+
+/**
+ * Lo que anular exige, y nada más.
+ *
+ * `api.annul_operation` valida la FORMA del payload antes de mirar nada: un
+ * campo de más —importe, concepto, categoría— se rechaza con
+ * `PAYLOAD_INVALID · 400`. Anular no redescribe el movimiento; sólo dice cuál y
+ * desde qué versión.
+ */
+export type AnnulPayload = {
+  readonly client_operation_id: string;
+  readonly command_contract_version: 2;
+  readonly operation_id: string;
+  readonly expected_version_id: string;
+};
+
+/**
+ * Anula una operación. **Es la única forma de eliminar, y no borra nada.**
+ *
+ * ADR-024: escribe una versión de clase `annulment` SIN efectos y mueve
+ * `current_version_id` hasta ella. La operación y todas sus versiones
+ * anteriores siguen donde estaban; lo que desaparece son sus efectos VIGENTES,
+ * y por eso deja de contar en el saldo, en los totales del intervalo y en el
+ * reparto por categoría **sin que nadie recalcule nada en el cliente**.
+ *
+ * **Una sola función para cualquier clase**, y no contradice «una función
+ * pública por clase de operación» (ADR-009 §1): esa regla existe porque cada
+ * clase deriva efectos distintos, y anular no deriva ninguno.
+ *
+ * **La anulación es TERMINAL en F6**: una operación anulada no admite versiones
+ * nuevas, ni siquiera otra anulación — la segunda responde
+ * `OPERATION_ANNULLED · 409`. Eso es también la última red contra el doble
+ * envío, por debajo de la idempotencia.
+ */
+export async function annulOperation(payload: AnnulPayload): Promise<WriteResult> {
+  const { data, error } = await supabase.rpc('annul_operation', { payload });
+  if (error !== null) throw error;
+  return data as unknown as WriteResult;
 }
 
 export { OPERATION_ORDER };

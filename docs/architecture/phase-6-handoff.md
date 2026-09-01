@@ -20,7 +20,7 @@ Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 | **F6.C** | Saldo objetivo, observación y anulación      | **Cerrado como fundamento backend** |
 | **F6.D** | Superficie de lectura                        | **Cerrado como fundamento backend** |
 | **F6.E** | Inicio · **y el cableado del provisioning**  | **Cerrado**                         |
-| **F6.F** | Alta, edición y eliminación                  | No empezado                         |
+| **F6.F** | Alta, edición y eliminación                  | **Cerrado y validado en aparato**   |
 | **F6.G** | Cierre de fase                               | No empezado                         |
 
 **F6.A no tiene pantalla, y es deliberado.** Sus criterios se verifican por check
@@ -151,7 +151,8 @@ comprueban al final que **las veinte definiciones siguen ahí**.
 ```
 core.operation_version.effective_time   hora local, ANULABLE
 core.category                           15 de sistema + personalizadas
-core.movement_detail                    concepto y categoria, POR VERSION
+core.movement_detail                    concepto, POR VERSION
+core.expense_category                   categoria del gasto, POR VERSION
 
 api.record_personal_income(payload)     LA OCTAVA. Clase `income` real
 api.record_personal_expense(payload)    + concepto, categoria y hora
@@ -168,19 +169,23 @@ Seis cosas que conviene no volver a deducir:
   registrada», **nunca medianoche**. Concepto y categoría viven en
   `core.movement_detail`, presente solo donde el hecho existe — mismo patrón que
   `core.split`, y por el mismo motivo. **Ninguna clase se inventa nada.**
-- **`Otros` es una fila real** en las dos familias, y es lo que permite que
-  `category_id` sea `NOT NULL` sin que exista el caso nulo en ninguna parte.
-- **Los catálogos de gasto y de ingreso son distintos**, y la FK compuesta
-  `(category_id, applies_to) → category (id, applies_to)` lo hace **estructural**.
-  Medido: sin la comprobación de frontera, la FK rechaza igual. La frontera
-  existe para **fallar bien**, no para hacer cumplir la regla.
+- **`Otros` es una fila real**, no la ausencia de categoría: el caso nulo no
+  existe en ninguna parte, ni en el modelo, ni en la frontera, ni en la UX.
+- **~~Los catálogos de gasto y de ingreso son distintos~~** — **sustituido por
+  [ADR-027](../adr/ADR-027-expense-only-categories.md)**. Las familias
+  desaparecieron: la categoría es exclusiva del gasto, vive en
+  `core.expense_category` y el ingreso no la lleva. La FK compuesta que hacía
+  estructural la familia se fue con ella, y **lo que la sustituye no es una FK
+  más débil**: la pregunta dejó de existir. Lo que sí conviene no volver a
+  deducir mal está en «La corrección del modelo de categorías», más abajo.
 - **Renombrar alcanza al histórico y no crea versión.** Una categoría es una
   entidad, no una etiqueta copiada. **Dar de baja no borra**: retira del selector
   y el histórico la sigue resolviendo. Y una categoría inactiva **se conserva** al
   corregir aunque no pueda **asignarse** de nuevo — sin esa excepción, dar de baja
   dejaría incorregible todo lo que la usara.
-- **Concepto, categoría y hora entran en la intención canónica.** Un reintento con
-  cualquiera de los tres materialmente distinto es conflicto, no replay. Y
+- **Concepto, categoría y hora entran en la intención canónica** —la categoría
+  sólo en la del gasto, desde ADR-027—. Un reintento con cualquiera de ellos
+  materialmente distinto es conflicto, no replay. Y
   `Mercadona` ≠ `MERCADONA`: la canonicalización recorta y normaliza a NFC, y
   **no pliega mayúsculas**.
 - **`nomey_provisioner` no gana un rol hermano.** Su alcance real es **la
@@ -277,6 +282,46 @@ Seis cosas que conviene no volver a deducir:
 
 ---
 
+## 3 septies · Qué entregó F6.F
+
+**El Modo Personal se escribe desde la pantalla.** Alta, corrección, anulación y
+fijado del Disponible ocurren detrás de los controles que F6.E dejó puestos, sin
+rehacerlos, y cada uno por su función canónica.
+
+### Lo que hay que saber para construir encima
+
+- **Corregir es una versión nueva.** El CAS viaja en `expected_version_id`, que
+  la lista ya publicaba; no hace falta ninguna consulta extra. Anular es
+  terminal y la interfaz no ofrece «restaurar».
+- **Después de escribir se refresca contra el servidor.** Nunca se suma el
+  importe en el cliente: el saldo y los totales los deriva la frontera. El
+  optimismo con cola es de F7.
+- **El importe se edita sobre `AmountEntry`, no sobre una cadena.** Una cantidad
+  que llega PRECARGADA se marca como tal y la primera cifra la sustituye: sin
+  esa marca, un importe con los céntimos completos queda saturado y ninguna
+  tecla entra. La regla del tercer decimal no cambió.
+- **La escala de la moneda viaja con el importe** a la ventana de corregir. Unas
+  unidades mínimas sin su escala no son una cifra, y esperar al ámbito dejaba el
+  panel reducido a su encabezado.
+- **La categoría se elige en el menú nativo de la plataforma.** `Menu` de SwiftUI
+  en iOS y `DropdownMenu` de Compose en Android, con el catálogo vivo, los
+  nombres localizados y la marca de selección del sistema.
+
+### Lo que queda deliberadamente fuera
+
+- **La ventana de corregir muestra sólo el importe.** Concepto, categoría y
+  fecha viajan intactos en la corrección —el comando describe la versión
+  entera— pero no tienen interfaz todavía. Añadirlos es de F6.G, uno a uno.
+- **Android no se ha validado en aparato.** Toda la comprobación física de F6.F
+  es de iPhone; la implementación de Android existe y compila, pero nadie la ha
+  visto correr.
+- **El menú de categorías de iOS está partido en dos capas** —etiqueta con el
+  círculo, sombra exterior fuera del `Host`— para rodear expo/expo#44126, que
+  aguas arriba está cerrada sin arreglo publicado. Si esa incidencia se
+  resolviera, la composición puede volver a ser una sola capa.
+
+---
+
 ## 4 · Obligaciones que F6.A y F6.B dejan a los bloques siguientes
 
 ### ~~Para F6.B — obligatoria~~ · **RESUELTA en F6.B**
@@ -337,6 +382,50 @@ Las siete, y tres con un matiz que conviene leer entero:
 
 La decisión completa es [ADR-025](../adr/ADR-025-personal-read-surface.md).
 
+## 3 sexies · La corrección del modelo de categorías
+
+No es un bloque del roadmap: salió de la revisión visual de F6.E, con datos
+reales en pantalla, y corrige el modelo que F6.B había dejado. Se documenta
+aparte porque quien lea el bloque de F6.B necesita saber qué de aquello sigue en
+pie.
+
+```
+core.expense_category                   PK sobre la version, categoria NOT NULL
+core.movement_detail                    ya SOLO el concepto
+core.category                           sin applies_to; 10 vigentes, 5 de baja
+```
+
+Cuatro cosas que conviene no volver a deducir:
+
+- **«Todo gasto tiene categoría» no es una garantía estructural, y describirla
+  como tal sería falso.** La clave primaria da «como mucho una». El `NOT NULL`
+  más la FK dan «la que hay es real». **«Al menos una» no lo da nada del
+  esquema**: la condición depende de `operation.operation_class`, que está en
+  otra tabla, así que ningún `CHECK` puede expresarla. La sostienen **la frontera
+  autoritativa y el cierre de las escrituras directas a `core`**. Medido: cero
+  `CHECK` y cero triggers, y `authenticated` sin `USAGE` sobre `core`.
+  **No añadas un trigger para fingir que sí lo es.**
+- **El ingreso rechaza `category_id` por FORMA**, `PAYLOAD_INVALID · 400`, antes
+  de mirar a qué apunta. Eso cambia su **intención canónica** y por tanto su
+  idempotencia: lo que se compara es más corto, y lo que ya no se compara es
+  exactamente lo que podría colarse como replay. La sección **H** lo mide campo a
+  campo, y está falsificada.
+- **Las cinco categorías retiradas siguen legibles**, y sus quince claves de i18n
+  también. Baja lógica no es borrado: el gasto que usó Suministros existe y hay
+  que saber nombrarlo. Quitarlas de `SYSTEM_CATEGORY_KEYS` pintaría ese
+  histórico sin nombre.
+- **El icono es una clave semántica de vocabulario cerrado**, no un nombre de
+  plataforma. La base dice qué significa; el cliente resuelve el par
+  `{ ios, android }`. Un nombre de SF Symbol se rechaza. **El color de las diez
+  de sistema es explícito y vive en el cliente** —es diseño, no identidad—; el
+  hash estable sigue siendo el respaldo de las personalizadas.
+
+**Y una retirada que costó descubrir dos veces:** `core.expense_category` es una
+relación más que borrar en la limpieza de los checks. `http-boundary-check.sh` y
+`balance-concurrency.sh` enmudecían la suya, así que la violación de clave ajena
+no se veía: aparecía dos pantallas más abajo como «quedaron N filas», y en el
+script **siguiente**. Ninguna de las dos enmudece ya.
+
 ### Para F6.E y F6.F — de F6.D
 
 - **Una página son TRES consultas, y hay que hacerlas así.** La lista; después
@@ -389,7 +478,7 @@ síncrono —`react-hooks/set-state-in-effect` lo rechaza y encadena renders—,
 que el estado inicial `idle` hace de «resolviéndose» y sólo `retry`, que es un
 manejador, anuncia el vuelo.
 
-### Para F6.F — de F6.E
+### ~~Para F6.F~~ · **RESUELTAS en F6.F**
 
 - **La pantalla ya tiene los botones y no tiene las acciones.** Editar, eliminar
   y ajustar existen como affordance y hoy responden que aún no están. F6.F

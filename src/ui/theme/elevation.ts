@@ -222,3 +222,30 @@ export const Tactile = {
 } as const satisfies Record<string, readonly BoxShadowValue[]>;
 
 export type TactileState = keyof typeof Tactile;
+
+/**
+ * LAS DOS MITADES DE UNA PROFUNDIDAD, separadas por lo que ya son.
+ *
+ * Un estado táctil es un sombreado que va DENTRO de la superficie más, en
+ * algunos casos, una sombra que cae FUERA, sobre el suelo. Son entradas
+ * distintas del mismo token, así que separarlas es filtrarlas — no reescribir
+ * valores ni aproximarlos, que es lo que las volvería dos verdades.
+ *
+ * Existe porque hay un sitio donde las dos mitades no pueden vivir en la misma
+ * vista: la etiqueta de un `Menu` de SwiftUI, que se recompone al cerrarse y
+ * arrastra con ella cualquier sombra exterior. Ahí la superficie se queda con
+ * su relieve interior y la sombra la pinta un hermano estable.
+ *
+ * `pressed` no tiene mitad exterior — un control hundido no proyecta— y por eso
+ * `castShadow` devuelve una lista vacía para él en vez de inventarle una.
+ */
+export function castShadow(state: TactileState): readonly BoxShadowValue[] {
+  const layers: readonly BoxShadowValue[] = Tactile[state];
+  return layers.filter((layer) => layer.inset !== true);
+}
+
+/** El sombreado que la superficie se aplica a sí misma. */
+export function innerShading(state: TactileState): readonly BoxShadowValue[] {
+  const layers: readonly BoxShadowValue[] = Tactile[state];
+  return layers.filter((layer) => layer.inset === true);
+}

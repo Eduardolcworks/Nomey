@@ -10,6 +10,23 @@ export type IconButtonProps = {
   onPress: () => void;
   size?: number;
   colour?: string;
+  /**
+   * Paints the circular container instead of leaving it invisible until press.
+   *
+   * Off by default, so every call site that predates this keeps its bare glyph.
+   * It exists for the one case where the button sits ON a card rather than in a
+   * header: without a container the icon floats in the middle of a surface with
+   * nothing saying it is a control, and `design-direction.md` §8 does not let an
+   * affordance rest on a glyph alone.
+   */
+  filled?: boolean;
+  /**
+   * Apagado: no responde y lo anuncia.
+   *
+   * `accessibilityState` va con la opacidad y no en su lugar: un control que
+   * sólo se ve más tenue sigue pareciendo pulsable a quien no lo ve.
+   */
+  disabled?: boolean;
   style?: ViewStyle;
 };
 
@@ -24,22 +41,46 @@ export type IconButtonProps = {
  * that announces itself as "button" and nothing else, and the visible glyph
  * cannot fill that gap.
  */
-export function IconButton({ name, label, onPress, size = 22, colour, style }: IconButtonProps) {
+export function IconButton({
+  name,
+  label,
+  onPress,
+  size = 22,
+  colour,
+  filled = false,
+  disabled = false,
+  style,
+}: IconButtonProps) {
   const theme = useTheme();
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       hitSlop={Spacing.sm}
       onPress={onPress}
-      style={({ pressed }) => [styles.button, pressed && { backgroundColor: theme.border }, style]}>
+      style={({ pressed }) => [
+        styles.button,
+        filled && {
+          backgroundColor: theme.surfaceRaised,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: theme.border,
+        },
+        pressed && { backgroundColor: theme.border },
+        disabled && styles.disabled,
+        style,
+      ]}>
       <Icon name={name} size={size} colour={colour ?? theme.text} shape="circle" />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  disabled: {
+    opacity: 0.4,
+  },
   button: {
     width: 44,
     height: 44,

@@ -480,7 +480,7 @@ the `adr` skill to draft one.
 
 **Phases 0 through 5 are CLOSED.** Phase 3 (persistence and data boundary) closed
 on 2026-08-27 and Phase 5 (identity and session) on 2026-08-28. **ADR-001 through
-ADR-026 are accepted**; ADR-003 met its E11 gate against a real local Supabase
+ADR-027 are accepted**; ADR-003 met its E11 gate against a real local Supabase
 stack.
 
 **Phase 6 is OPEN** — Modo Personal, the first showable milestone. It touches the
@@ -576,20 +576,48 @@ stays the only authority on what counts, and annulment is terminal in F6.
 [ADR-023](docs/adr/ADR-023-balance-observation.md) and
 [ADR-024](docs/adr/ADR-024-annulment.md); races measured in `supabase/e22/`.
 
+**The category belongs to the expense, and its icon is a semantic key.** A pass over F6.B, driven by the visual
+review of F6.E, retired the three income categories along with Suministros and Educación — with
+real data on screen they classified nothing, they paraphrased the concept the
+person had already typed — leaving **ten expense categories**, and moved the
+category out of `core.movement_detail` into `core.expense_category`, its own
+relation keyed on the version. `applies_to` is gone from both. Three things to
+keep straight before touching any of it.
+
+- **«Every expense has a category» is NOT a structural guarantee, and must not be
+  described as one.** The primary key gives «at most one»; `NOT NULL` plus the FK
+  give «the one that's there is real»; **«at least one» is neither** — the
+  condition depends on `operation.operation_class`, which lives in another table,
+  so no `CHECK` can express it. What holds it up is the authoritative writer plus
+  the closure of direct writes to `core`. **Measured:** zero `CHECK`s and zero
+  triggers, and `authenticated` has no `USAGE` on `core` at all.
+- **An income carrying `category_id` is refused on payload SHAPE** —
+  `PAYLOAD_INVALID · 400`, before anything looks at what the id points to. That
+  **changes the canonical intent of `personal_income`**, and therefore its
+  idempotency. Deliberate, and only free because there is no production yet.
+- **The icon stopped being an SF Symbol name.** The database stores a closed
+  vocabulary of semantic keys and the client resolves the `{ ios, android }` pair,
+  because `expo-symbols` renders Android only from an explicit pair — an iOS name
+  in the database left Android with no icon, with nowhere to fix it.
+
+[ADR-027](docs/adr/ADR-027-expense-only-categories.md), which supersedes ADR-021
+§1–§5 and nothing else: logical deactivation, renaming reaching history, the
+`nomey_provisioner` write boundary and `api.category` all stand.
+
 **A movement now means something, and `ingreso` finally has a route.** F6.B added
-a mandatory free-text concept, a category that is always present with separate
-expense and income catalogues, an effective time of day, and
+a mandatory free-text concept, a category, an effective time of day, and
 `api.record_personal_income` — the eighth function, for a class the model has
 carried since Phase 1 with nowhere to write it. Two things worth knowing before
 touching any of it: **what every version has and what a class needs are kept
-apart** — the time is a nullable column on the version, concept and category live
-in `core.movement_detail`, present only where the fact exists, so **no class
-invents a synthetic value** — and **a writer of one class can no longer correct an
-operation of another**, guarded in `sec.persist_version`, which all eight pass
-through. [ADR-020](docs/adr/ADR-020-version-content-and-time.md) and
+apart** — the time is a nullable column on the version, the concept lives in
+`core.movement_detail` and the category in `core.expense_category`, each present
+only where the fact exists, so **no class invents a synthetic value** — and **a
+writer of one class can no longer correct an operation of another**, guarded in
+`sec.persist_version`, which all eight pass through.
+[ADR-020](docs/adr/ADR-020-version-content-and-time.md) and
 [ADR-021](docs/adr/ADR-021-category-catalogue.md).
 
-**Migrations have started.** `supabase/migrations/` holds seventeen. The first is the
+**Migrations have started.** `supabase/migrations/` holds eighteen. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is ADR-014: `api` is served and `public`, `core` and `sec`

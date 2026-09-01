@@ -75,6 +75,9 @@ export function IntervalSelector({ value, onChange, onCalendar }: IntervalSelect
         accessibilityLabel={t('home.calendarLabel')}
         accessibilityHint={t('home.calendarPremium')}
         onPress={onCalendar}
+        // El dibujo baja a 40; el objetivo táctil sube a 48. Compactar lo
+        // visible no puede compactar lo que se toca.
+        hitSlop={Spacing.xs}
         style={({ pressed }) => [
           styles.calendar,
           { backgroundColor: theme.surface, borderColor: theme.border },
@@ -86,26 +89,48 @@ export function IntervalSelector({ value, onChange, onCalendar }: IntervalSelect
   );
 }
 
-const CALENDAR = 44;
+/**
+ * El círculo del calendario mide 40, y su zona táctil 48.
+ *
+ * El `hitSlop` de abajo es lo que separa las dos cosas: el control se ve
+ * compacto y se toca con holgura. Reducir el dibujo no puede reducir el
+ * objetivo.
+ */
+const CALENDAR = 40;
 
 const styles = StyleSheet.create({
+  /*
+   * `flex-start` y no `space-between`: la fila NO reparte el ancho.
+   *
+   * Antes el grupo llevaba `flex: 1` y cada opción otro, así que el selector se
+   * estiraba hasta el borde y empujaba el calendario al extremo derecho,
+   * dominando la pantalla por tamaño en vez de por importancia. Ahora los dos
+   * miden lo que su contenido pide y el espacio sobrante se queda a la derecha,
+   * visible y vacío, que es lo que dice que este control es secundario.
+   */
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-start',
     gap: Spacing.sm,
   },
   group: {
-    flex: 1,
     flexDirection: 'row',
+    alignSelf: 'flex-start',
     padding: Spacing.xxs,
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
   },
+  /*
+   * Ancho intrínseco, sin `flex`. `minHeight` de 40 mantiene la zona táctil de
+   * cada opción por encima del mínimo cómodo aunque el texto sea corto — el
+   * grupo entero mide 44 con su propio padding.
+   */
   option: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.sm,
+    minHeight: 40,
+    paddingHorizontal: Spacing.sm,
     borderRadius: Radius.sm,
   },
   calendar: {
