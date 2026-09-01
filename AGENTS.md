@@ -480,7 +480,7 @@ the `adr` skill to draft one.
 
 **Phases 0 through 5 are CLOSED.** Phase 3 (persistence and data boundary) closed
 on 2026-08-27 and Phase 5 (identity and session) on 2026-08-28. **ADR-001 through
-ADR-025 are accepted**; ADR-003 met its E11 gate against a real local Supabase
+ADR-027 are accepted**; ADR-003 met its E11 gate against a real local Supabase
 stack.
 
 **Phase 6 is OPEN** — Modo Personal, the first showable milestone. It touches the
@@ -524,6 +524,23 @@ code calls it**, so a freshly confirmed account still has no personal scope unti
 something does. Wiring it into the authenticated lifecycle is F6.E, and it comes
 before Inicio consumes the scope.
 
+**Inicio shows real money, and the app finally provisions the scope.** F6.E
+wired `api.ensure_personal_scope` — F6.A left it ready and nothing called it —
+and built the screen on the read surfaces. It also added a FIFTH surface,
+`api.personal_statistics(p_from, p_to)`, because none of ADR-025’s four
+aggregates over an interval and doing it on the client was measured to be
+unsafe: PostgREST 16.1 refuses aggregate functions (`PGRST123`) and `max_rows`
+caps a request at 1000, so `Año` past a thousand movements would have shown an
+incomplete accounting figure that throws nothing. Two things to keep straight.
+**Totals come from `api.personal_effect` and the breakdown from
+`api.personal_operation`**, and that is one set of facts rather than two: the
+economic dimension of a personal scope is produced by exactly
+`record_personal_expense` and `record_personal_income` — a group expense moves
+the payer’s cash with no economic effect — and a check asserts the categories
+sum to `expense_total` to the minor unit. And **adjustments stay out of
+statistics with no clause excluding them**: they produce no economic dimension.
+[ADR-026](docs/adr/ADR-026-personal-statistics.md).
+
 **The Modo Personal can finally be read, and the unit is the operation.** F6.D
 added `api.personal_operation` (one row per operation, current version),
 `api.personal_operation_version` (the correction history), `api.personal_balance`
@@ -559,20 +576,48 @@ stays the only authority on what counts, and annulment is terminal in F6.
 [ADR-023](docs/adr/ADR-023-balance-observation.md) and
 [ADR-024](docs/adr/ADR-024-annulment.md); races measured in `supabase/e22/`.
 
+**The category belongs to the expense, and its icon is a semantic key.** A pass over F6.B, driven by the visual
+review of F6.E, retired the three income categories along with Suministros and Educación — with
+real data on screen they classified nothing, they paraphrased the concept the
+person had already typed — leaving **ten expense categories**, and moved the
+category out of `core.movement_detail` into `core.expense_category`, its own
+relation keyed on the version. `applies_to` is gone from both. Three things to
+keep straight before touching any of it.
+
+- **«Every expense has a category» is NOT a structural guarantee, and must not be
+  described as one.** The primary key gives «at most one»; `NOT NULL` plus the FK
+  give «the one that's there is real»; **«at least one» is neither** — the
+  condition depends on `operation.operation_class`, which lives in another table,
+  so no `CHECK` can express it. What holds it up is the authoritative writer plus
+  the closure of direct writes to `core`. **Measured:** zero `CHECK`s and zero
+  triggers, and `authenticated` has no `USAGE` on `core` at all.
+- **An income carrying `category_id` is refused on payload SHAPE** —
+  `PAYLOAD_INVALID · 400`, before anything looks at what the id points to. That
+  **changes the canonical intent of `personal_income`**, and therefore its
+  idempotency. Deliberate, and only free because there is no production yet.
+- **The icon stopped being an SF Symbol name.** The database stores a closed
+  vocabulary of semantic keys and the client resolves the `{ ios, android }` pair,
+  because `expo-symbols` renders Android only from an explicit pair — an iOS name
+  in the database left Android with no icon, with nowhere to fix it.
+
+[ADR-027](docs/adr/ADR-027-expense-only-categories.md), which supersedes ADR-021
+§1–§5 and nothing else: logical deactivation, renaming reaching history, the
+`nomey_provisioner` write boundary and `api.category` all stand.
+
 **A movement now means something, and `ingreso` finally has a route.** F6.B added
-a mandatory free-text concept, a category that is always present with separate
-expense and income catalogues, an effective time of day, and
+a mandatory free-text concept, a category, an effective time of day, and
 `api.record_personal_income` — the eighth function, for a class the model has
 carried since Phase 1 with nowhere to write it. Two things worth knowing before
 touching any of it: **what every version has and what a class needs are kept
-apart** — the time is a nullable column on the version, concept and category live
-in `core.movement_detail`, present only where the fact exists, so **no class
-invents a synthetic value** — and **a writer of one class can no longer correct an
-operation of another**, guarded in `sec.persist_version`, which all eight pass
-through. [ADR-020](docs/adr/ADR-020-version-content-and-time.md) and
+apart** — the time is a nullable column on the version, the concept lives in
+`core.movement_detail` and the category in `core.expense_category`, each present
+only where the fact exists, so **no class invents a synthetic value** — and **a
+writer of one class can no longer correct an operation of another**, guarded in
+`sec.persist_version`, which all eight pass through.
+[ADR-020](docs/adr/ADR-020-version-content-and-time.md) and
 [ADR-021](docs/adr/ADR-021-category-catalogue.md).
 
-**Migrations have started.** `supabase/migrations/` holds sixteen. The first is the
+**Migrations have started.** `supabase/migrations/` holds eighteen. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is ADR-014: `api` is served and `public`, `core` and `sec`

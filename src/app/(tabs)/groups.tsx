@@ -1,7 +1,7 @@
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppHeader, DOCK_HEIGHT } from '@/features/shell';
+import { AppTopBar, DOCK_HEIGHT } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
 import { EmptyState, ThemedView } from '@/ui/components';
 import { Spacing } from '@/ui/theme';
@@ -21,7 +21,7 @@ export default function GroupsScreen() {
   return (
     <ThemedView style={styles.screen}>
       <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-        <AppHeader title="groups.title" />
+        <AppTopBar title="groups.title" />
 
         <ScrollView
           contentContainerStyle={[

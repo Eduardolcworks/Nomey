@@ -183,6 +183,14 @@ jobs:
       - name: Personal read surface checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/read-surface.sql
 
+      # Aggregated statistics. Section F is the one that justifies the surface
+      # existing at all: 1200 operations aggregated with max_rows at 1000.
+      # Falsified by truncating at 1000, which returns 500500 where the answer
+      # is 720600 - the silently incomplete figure a client-side sum would have
+      # produced, since PostgREST 16.1 refuses aggregate functions with PGRST123.
+      - name: Personal statistics checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/personal-statistics.sql
+
       # Real concurrency. A single psql session has none, so the debt
       # serialization protocol of ADR-013 §11 cannot be proven by a check: this
       # opens simultaneous sessions, the way E15-C did. It runs LAST because it

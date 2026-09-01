@@ -21,6 +21,7 @@
     "@expo/ui": "~57.0.11",
     "@supabase/supabase-js": "^2.112.4",
     "expo": "~57.0.14",
+    "expo-blur": "~57.0.2",
     "expo-constants": "~57.0.12",
     "expo-device": "~57.0.1",
     "expo-font": "~57.0.1",

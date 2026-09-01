@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import HOME from '../../src/app/(tabs)/index.tsx?raw';
-import HEADER from '../../src/features/shell/app-header.tsx?raw';
+import HEADER from '../../src/features/shell/home-greeting.tsx?raw';
 import { esES } from '../../src/lib/i18n/messages/es-ES';
 import { en } from '../../src/lib/i18n/messages/en';
 
@@ -46,7 +46,7 @@ describe('el saludo de Inicio', () => {
 
   describe('la cabecera', () => {
     it('recibe el nombre, no lo busca', () => {
-      expect(HEADER).toContain('greetingName');
+      expect(HEADER).toContain('name?: string | null');
     });
 
     it('no importa la sesión: `features/shell` no puede ver `features/session`', () => {
@@ -56,7 +56,7 @@ describe('el saludo de Inicio', () => {
 
     it('cae al saludo sin nombre cuando llega vacío o ausente', () => {
       expect(HEADER).toContain("t('home.greetingPlain')");
-      expect(HEADER).toMatch(/greetingName === null[\s\S]{0,80}=== ''/);
+      expect(HEADER).toMatch(/name === null[\s\S]{0,80}=== ''/);
     });
   });
 
@@ -67,7 +67,7 @@ describe('el saludo de Inicio', () => {
     });
 
     it('se lo pasa a la cabecera', () => {
-      expect(HOME).toMatch(/<AppHeader[^>]*greetingName=\{greetingName\}/);
+      expect(HOME).toMatch(/<HomeGreeting name=\{greetingName\}/);
     });
 
     it('lo deriva en cada render, sin copiarlo a un estado aparte', () => {

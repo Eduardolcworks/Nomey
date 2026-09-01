@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest';
 import TAB_BAR_RAW from '../../src/features/shell/nomey-tab-bar.tsx?raw';
 import SCOPE_SWITCH_RAW from '../../src/features/shell/scope-switch.tsx?raw';
 import SHELL_MOTION_RAW from '../../src/features/shell/shell-motion.ts?raw';
+import MOTION_RUNTIME_RAW from '../../src/ui/theme/motion-runtime.ts?raw';
+import GLASS_SURFACE_RAW from '../../src/ui/components/glass-surface.tsx?raw';
+import DOCK_TOKENS_RAW from '../../src/features/shell/dock.ts?raw';
 import TABS_LAYOUT_RAW from '../../src/app/(tabs)/_layout.tsx?raw';
 import { Motion } from '../../src/ui/theme/motion';
-import { MinGlassTintAlpha } from '../../src/ui/theme/elevation';
+import { Glass, MinGlassTintAlpha } from '../../src/ui/theme/elevation';
 
 /**
  * El movimiento del shell: un solo lenguaje, y nada que se haya roto al
@@ -27,28 +30,56 @@ function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 }
 
+/**
+ * Todo el fuente, para las guardas que deben valer en CUALQUIER capa.
+ *
+ * Sin comentarios: las dos guardas de abajo buscan configs escritas a mano, y
+ * un comentario que explique por qué no se escriben las haria fallar.
+ */
+const ALL_SOURCES = Object.entries(
+  import.meta.glob('../../src/**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }),
+).map(([file, text]) => ({
+  path: file.replace('../../src/', ''),
+  text: stripComments(text as string),
+}));
+
+const MOTION_RUNTIME = stripComments(MOTION_RUNTIME_RAW);
+const GLASS_SURFACE = stripComments(GLASS_SURFACE_RAW);
+const DOCK_TOKENS = stripComments(DOCK_TOKENS_RAW);
+
 const TAB_BAR = stripComments(TAB_BAR_RAW);
 const SCOPE_SWITCH = stripComments(SCOPE_SWITCH_RAW);
 const SHELL_MOTION = stripComments(SHELL_MOTION_RAW);
 const TABS_LAYOUT = stripComments(TABS_LAYOUT_RAW);
 
 describe('los controles siguen haciendo lo que hacían', () => {
-  it('la barra sigue navegando por el navegador, no por el router', () => {
-    // El fallo que evita: alguien envuelve el pill en algo animado y de paso
-    // cambia la navegación por un `router.push`, que se saltaría el evento
-    // `tabPress` y la lógica de "ya estoy en esta tab".
-    expect(TAB_BAR).toContain('navigation.emit({');
-    expect(TAB_BAR).toContain("type: 'tabPress'");
-    expect(TAB_BAR).toContain('navigation.navigate(state.routes[index].name)');
-    expect(TAB_BAR).toContain('event.defaultPrevented');
+  /**
+   * **El dock navega por el router, y ésa es la única fuente de verdad.**
+   *
+   * Antes lo hacía por el navegador —`navigation.emit` y `navigate`—, porque lo
+   * pintaba él. Dejó de pintarlo por una razón física: dentro del árbol nativo
+   * de la barra, el cristal de las píldoras no muestrea la escena. Al salir de
+   * ahí, el dock deja de tener acceso al navegador y la ruta pasa a ser lo que
+   * consulta y lo que cambia.
+   *
+   * Lo que NO cambia es que siga habiendo una sola verdad: ni la ruta activa ni
+   * el destino se guardan en ningún estado paralelo.
+   */
+  it('el dock navega por el router y no guarda la pestaña activa', () => {
+    expect(TAB_BAR).not.toContain('navigation.emit');
+    expect(TAB_BAR).not.toContain('BottomTabBarProps');
+    // La recibe de quien lo aloja; no la deduce ni la almacena.
+    expect(TAB_BAR).toContain('activeRoute: string');
+    expect(TAB_BAR).not.toContain('useState');
+
+    expect(TABS_LAYOUT).toContain('usePathname()');
+    expect(TABS_LAYOUT).toContain('router.navigate(');
   });
 
   it('y no se ha colado navegación imperativa nueva', () => {
-    // El único `router.push` legítimo de este fichero es el del botón `+`,
-    // que abre el modal de añadir. No debe haber otro.
-    const pushes = [...TAB_BAR.matchAll(/router\.push\(/g)];
-    expect(pushes).toHaveLength(1);
-    expect(TAB_BAR).toContain("pathname: '/add'");
+    // El `+` navega a su ruta y las pestañas las cambia el navegador. Nada más
+    // debe empujar el historial desde el dock.
+    expect(TAB_BAR.match(/router\.\w+\(/g) ?? []).toHaveLength(1);
     expect(TAB_BAR).not.toContain('router.replace');
   });
 
@@ -60,14 +91,9 @@ describe('los controles siguen haciendo lo que hacían', () => {
     expect(SCOPE_SWITCH).not.toContain('navigation.');
   });
 
-  it('el estado activo sigue siendo el del navegador, no una copia animada', () => {
-    /*
-     * La regresión concreta: guardar el índice activo en un shared value para
-     * animar y acabar pintando desde él. Serían dos respuestas a «dónde
-     * estoy» que pueden discrepar durante la transición.
-     */
-    expect(TAB_BAR).toContain('focused={state.index === index}');
-    expect(TAB_BAR).toContain('accessibilityState={{ selected: focused }}');
+  /** Y el resalte sale de esa misma ruta, no de una copia animada. */
+  it('el resaltado sale de la ruta, no de una copia', () => {
+    expect(TAB_BAR).toContain('focused={destination.route === activeRoute}');
   });
 
   it('el ámbito lo sigue leyendo del provider, no de un estado propio', () => {
@@ -91,7 +117,19 @@ describe('un solo lenguaje de movimiento', () => {
   it('y la misma respuesta al toque', () => {
     expect(TAB_BAR).toContain('usePressScale()');
     expect(SCOPE_SWITCH).toContain('usePressScale()');
-    expect(SHELL_MOTION).toContain('Motion.press');
+    expect(MOTION_RUNTIME).toContain('Motion.press');
+  });
+
+  /*
+   * El helper se mudó a `ui/theme` cuando dejó de ser sólo del shell: el
+   * sistema de diseño lo necesita y `ui/` no puede importar de `features/`.
+   * Que `shell-motion.ts` siga existiendo NO es ceremonia — quien lee el dock
+   * busca su movimiento ahí—, pero tiene que reexportar y no redeclarar.
+   */
+  it('y el shell lo reexporta en vez de tener una segunda copia', () => {
+    expect(SHELL_MOTION).toContain("from '@/ui/theme/motion-runtime'");
+    expect(SHELL_MOTION).not.toContain('useSharedValue');
+    expect(SHELL_MOTION).not.toContain('ReduceMotion');
   });
 
   it('el helper compartido no sabe qué está animando', () => {
@@ -140,17 +178,30 @@ describe('Reduce Motion tiene un camino explícito', () => {
      * Olvidarlo obliga a no usar `SPRING`/`timing` y a escribir una config a
      * mano, que se ve en un diff. Es lo contrario de un olvido silencioso.
      */
-    expect(SHELL_MOTION).toContain('ReduceMotion.System');
-    expect(SHELL_MOTION).toContain('export const SPRING');
-    expect(SHELL_MOTION).toContain('export function timing');
+    expect(MOTION_RUNTIME).toContain('ReduceMotion.System');
+    expect(MOTION_RUNTIME).toContain('export const SPRING');
+    expect(MOTION_RUNTIME).toContain('export function timing');
+
+    // Una sola vez, y se comprueba que lo es: dos declaraciones es como un
+    // ajuste de accesibilidad acaba respetado en media aplicación.
+    const declara = ALL_SOURCES.filter((file) => file.text.includes('ReduceMotion.System'));
+    expect(declara.map((file) => file.path)).toEqual(['ui/theme/motion-runtime.ts']);
   });
 
+  /**
+   * Sobre TODO `src/`, y no sobre los dos ficheros del dock.
+   *
+   * Cuando esta guarda se escribió, el dock era lo único que animaba. Con el
+   * `+` hay movimiento en `ui/` y en `features/personal`, y una guarda que
+   * mirase sólo donde ya se sabe que está bien no vigila nada.
+   */
   it('y ningún componente escribe su propia config sin él', () => {
-    for (const source of [TAB_BAR, SCOPE_SWITCH]) {
+    for (const { path, text: source } of ALL_SOURCES) {
+      if (path === 'ui/theme/motion-runtime.ts') continue;
       // Nada de `withSpring(x, { ... })` ni `withTiming(x, { duration: n })`
       // con un objeto literal: eso se saltaría la declaración compartida.
-      expect(source).not.toMatch(/withSpring\([^,)]+,\s*\{/);
-      expect(source).not.toMatch(/withTiming\([^,)]+,\s*\{\s*duration/);
+      expect(source, path).not.toMatch(/withSpring\([^,)]+,\s*\{/);
+      expect(source, path).not.toMatch(/withTiming\([^,)]+,\s*\{\s*duration/);
     }
   });
 
@@ -205,16 +256,20 @@ describe('la pantalla se mueve por el navegador, no alrededor de él', () => {
     expect(TABS_LAYOUT).toContain('transitionSpec');
   });
 
+  /**
+   * Era la condición para animar la pantalla: si hubiera hecho falta un
+   * `PagerView`, un gesture handler o un índice propio, no habría merecido la
+   * pena. La dirección la deduce el navegador del índice de pestaña.
+   *
+   * El layout llama a `router.navigate` —el dock ya no tiene al navegador a
+   * mano—, pero eso NO es una segunda fuente de verdad: es la primera. Lo que
+   * se sigue prohibiendo es una copia del estado de navegación.
+   */
   it('sin pager, sin gestos y sin una segunda fuente de verdad', () => {
-    /*
-     * Era la condición para animar la pantalla: si hubiera hecho falta un
-     * PagerView, un gesture handler o un índice propio, no habría merecido la
-     * pena. La dirección la deduce el navegador del índice de tab.
-     */
     expect(TABS_LAYOUT).not.toContain('PagerView');
     expect(TABS_LAYOUT).not.toContain('GestureDetector');
     expect(TABS_LAYOUT).not.toContain('useState');
-    expect(TABS_LAYOUT).not.toContain('router.');
+    expect(TABS_LAYOUT).not.toMatch(/const \[\w*([Tt]ab|[Ii]ndex|[Aa]ctive)/);
   });
 
   it('el interpolador se tipa contra el preset que sustituye', () => {
@@ -242,5 +297,174 @@ describe('el amarillo sigue siendo minoritario', () => {
       expect(source).not.toContain('FDC506');
       expect(source).not.toMatch(/(emphasis|sheen)[^;]*accent/);
     }
+  });
+});
+
+/**
+ * DÓNDE VIVE EL DOCK.
+ *
+ * Fuera del navegador, montado por `app/(tabs)/_layout.tsx`. Se llegó ahí
+ * persiguiendo un desenfoque bajo las píldoras que se ha descartado, pero la
+ * estructura **es la que da la geometría actual**: el navegador no pinta barra
+ * ni reserva alto, así que la escena mide la pantalla entera. Devolverla al
+ * `tabBar` movería el dock, que es justo lo que no debe pasar.
+ */
+describe('el host del dock', () => {
+  it('el navegador no pinta barra, así que no reserva alto', () => {
+    expect(TABS_LAYOUT).toContain('tabBar={() => null}');
+  });
+
+  it('y el dock se monta fuera de <Tabs>, como superposición', () => {
+    expect(TABS_LAYOUT.indexOf('</Tabs>')).toBeLessThan(TABS_LAYOUT.indexOf('<NomeyDock'));
+  });
+
+  /** Una sola implementación de las píldoras y el `+`. No hay dos docks. */
+  it('hay un solo dock en toda la aplicación', () => {
+    const docks = ALL_SOURCES.filter((f) => f.text.includes('function NomeyDock'));
+    expect(docks.map((f) => f.path)).toEqual(['features/shell/nomey-tab-bar.tsx']);
+    expect(TABS_LAYOUT.match(/<NomeyDock/g) ?? []).toHaveLength(1);
+  });
+
+  /**
+   * **El fondo de «Añadir» va DESPUÉS del dock**, así que al abrirse lo cubre y
+   * lo desenfoca con el resto de la pantalla en vez de dejarlo nítido encima.
+   */
+  it('el fondo de «Añadir» queda por encima del dock', () => {
+    expect(TABS_LAYOUT.indexOf('<NomeyDock')).toBeLessThan(TABS_LAYOUT.indexOf('<AddBackdrop'));
+  });
+});
+
+/**
+ * El dock flota, y el contenido pasa por detras NÍTIDO.
+ *
+ * El navegador de pestanas coloca en columna: el contenedor de escenas con
+ * `flex: 1` y, debajo, la barra. Sin sacarla del flujo la pantalla TERMINA
+ * donde empieza el dock, y la ultima fila de una lista queda tapada para
+ * siempre. Absoluta, la barra sale de la columna y el contenido pasa por
+ * detras. Es lo que hace la barra que trae React Navigation cuando se la
+ * declara absoluta.
+ */
+describe('el dock flota sobre el contenido', () => {
+  it('la barra no ocupa sitio en la columna del navegador', () => {
+    const dock = /dock: {([^}]*)}/.exec(TAB_BAR)?.[1];
+    expect(dock).toContain("position: 'absolute'");
+    expect(dock).toContain('bottom: 0');
+  });
+
+  /**
+   * **Y el hueco de scroll sigue siendo de cada pantalla.** Son dos cosas
+   * distintas: el dock deja de reservar espacio, y el `paddingBottom` sigue
+   * dejando que la ultima tarjeta suba por encima de el y se vea entera. Sin
+   * esa reserva, el ultimo elemento quedaria tapado para siempre.
+   */
+  it('pero cada pantalla sigue reservando su hueco para la ultima fila', () => {
+    for (const pantalla of ['app/(tabs)/index.tsx', 'app/(tabs)/groups.tsx']) {
+      const fuente = ALL_SOURCES.find((f) => f.path === pantalla);
+      expect(fuente?.text, pantalla).toContain('paddingBottom: DOCK_HEIGHT + insets.bottom');
+    }
+  });
+});
+
+/**
+ * **El dock inferior no lleva desenfoque, y es una decisión cerrada.**
+ *
+ * Se intentó dos veces: primero con el efecto dentro de `GlassSurface`, y
+ * después en una capa aparte, recortada a dos ventanas medidas contra las
+ * píldoras. Ninguna llegó a desenfocar sobre el aparato — la segunda ni
+ * siquiera llegó a dibujarse—, y en vez de dejar el andamio apagado se retiró
+ * entero: el fichero de las ventanas, el contexto de marcos, la medición, los
+ * dos interruptores de diagnóstico y la capacidad opcional de `GlassSurface`,
+ * que no tenía ningún otro consumidor.
+ *
+ * Estas guardas no protegen una técnica. Protegen la decisión: **Inicio,
+ * Grupos y lo que pasa por detrás se ven nítidos**, y lo que se retiró no
+ * vuelve por descuido. El desenfoque de «Añadir movimiento» es otra cosa, está
+ * aprobado, y tiene sus propias guardas.
+ */
+describe('el dock inferior se ve nítido', () => {
+  it('ninguna pieza del dock pide desenfoque ni degradado', () => {
+    for (const fuente of [TAB_BAR, DOCK_TOKENS]) {
+      expect(fuente).not.toContain('BlurView');
+      expect(fuente).not.toContain('backdropBlur');
+      expect(fuente).not.toContain('LinearGradient');
+      expect(fuente).not.toContain('MaskedView');
+    }
+    // Y el host tampoco cuela una capa entre la escena y el dock.
+    expect(TABS_LAYOUT).not.toContain('BlurView');
+    expect(TABS_LAYOUT.indexOf('</Tabs>')).toBeLessThan(TABS_LAYOUT.indexOf('<NomeyDock'));
+  });
+
+  /**
+   * Lo que se borró está borrado, no apagado. Un interruptor a `false` deja el
+   * código vivo y la pregunta abierta; esto la cierra.
+   */
+  it('no queda nada del experimento, ni apagado', () => {
+    const restos = [
+      'DockBlurWindows',
+      'DOCK_BLUR',
+      'diagnosticNoTint',
+      'diagnosticShowBlurBounds',
+      'useDockFrames',
+      'measureLayout',
+      'FadeEdge',
+    ];
+    for (const resto of restos) {
+      const donde = ALL_SOURCES.filter((f) => f.text.includes(resto)).map((f) => f.path);
+      expect(donde, resto).toEqual([]);
+    }
+  });
+
+  /** Ni los marcadores de la prueba, que eran colores que nadie elegiría. */
+  it('no queda ningún marcador de diagnóstico', () => {
+    for (const fuente of ALL_SOURCES) {
+      expect(fuente.text, fuente.path).not.toContain('#00FFFF');
+      expect(fuente.text, fuente.path).not.toContain('#FF00FF');
+      expect(fuente.text, fuente.path).not.toContain('[dock]');
+    }
+  });
+
+  /**
+   * `GlassSurface` vuelve a tener una sola manera de pintarse. La capacidad
+   * opcional existía para el dock y sólo para él: sin consumidor, era API
+   * muerta que el siguiente lector tomaría por una alternativa disponible.
+   */
+  it('GlassSurface no conserva API muerta', () => {
+    expect(GLASS_SURFACE).not.toContain('backdropBlur');
+    expect(GLASS_SURFACE).not.toContain('BlurView');
+    // Y el tinte del nivel vuelve a pintarse sin condición.
+    expect(GLASS_SURFACE).toContain('backgroundColor: token.tint');
+  });
+
+  /**
+   * **El desenfoque de «Añadir movimiento» NO se toca.** Es la única pieza que
+   * sí funciona sobre el aparato, está aprobada, y la decisión de retirar el
+   * del dock no la alcanza.
+   */
+  it('el fondo de «Añadir» sigue entero', () => {
+    const fondo = ALL_SOURCES.find((f) => f.path === 'features/shell/add-backdrop.tsx');
+    expect(fondo?.text).toContain('BACKDROP_ENABLED = true');
+    // El desenfoque lo pone el `Scrim`, que es donde vive desde el principio.
+    expect(fondo?.text).toContain('<Scrim />');
+    const scrim = ALL_SOURCES.find((f) => f.path === 'ui/components/scrim.tsx');
+    expect(scrim?.text).toContain('<BlurView');
+    expect(scrim?.text).toContain('intensity={70}');
+    expect(TABS_LAYOUT).toContain('<AddBackdrop />');
+    expect(TABS_LAYOUT.indexOf('<NomeyDock')).toBeLessThan(TABS_LAYOUT.indexOf('<AddBackdrop'));
+  });
+
+  /**
+   * Y el token del nivel `bar` se queda como estaba: lo comparte el selector de
+   * clase de «Añadir movimiento», que está aprobado.
+   */
+  it('el token del nivel bar se queda como estaba', () => {
+    expect(Glass.bar.tint).toBe('rgba(24, 24, 27, 0.90)');
+  });
+
+  /** Y las píldoras lo usan tal cual, sin tinte propio ni transparencias. */
+  it('las píldoras usan la superficie normal del nivel bar', () => {
+    expect(TAB_BAR).toContain('level="bar"');
+    expect(TAB_BAR).toContain('style={styles.pill}');
+    expect(TAB_BAR).not.toContain("backgroundColor: 'transparent'");
+    expect(TAB_BAR).not.toContain('Glass.bar.tint.replace');
   });
 });

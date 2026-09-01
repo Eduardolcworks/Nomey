@@ -183,7 +183,7 @@ describe('dónde se escribe el nombre', () => {
     // Es lo que hace que cambiar el nombre en Perfil se vea en Inicio sin que
     // nadie los conecte.
     expect(HOME).toContain('state.identity.displayName');
-    expect(HOME).toContain('greetingName={greetingName}');
+    expect(HOME).toContain('<HomeGreeting name={greetingName} />');
   });
 });
 

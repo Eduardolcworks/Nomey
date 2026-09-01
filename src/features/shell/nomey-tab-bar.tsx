@@ -1,5 +1,4 @@
 import { useRouter } from 'expo-router';
-import type { BottomTabBarProps } from 'expo-router/tabs';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -10,6 +9,7 @@ import { GlassSurface, Icon, ThemedText } from '@/ui/components';
 import { Glass, Motion, Radius, Spacing, Tactile, useTheme } from '@/ui/theme';
 
 import { DESTINATIONS, type Destination, destinationFor } from './destinations';
+import { useAddBackdrop } from './add-backdrop';
 import { DOCK } from './dock';
 import { SCOPE_LABEL, useScope } from './scope-context';
 import { SPRING, usePressScale } from './shell-motion';
@@ -39,9 +39,30 @@ import { SPRING, usePressScale } from './shell-motion';
  * their spring from `Motion` and their touch response from `usePressScale`,
  * which is what makes the dock and the control above it read as one system.
  */
-export function NomeyTabBar({ state, navigation }: BottomTabBarProps) {
+/**
+ * El dock, ya sin el navegador de por medio.
+ *
+ * **Recibe la ruta activa y avisa de la elegida; no guarda ninguna.** La única
+ * fuente de verdad de la navegación sigue siendo el router — quien lo aloja lee
+ * la ruta y llama a `navigate`—, y este componente no tiene estado propio que
+ * pueda contradecirla.
+ *
+ * Antes recibía `BottomTabBarProps` y lo pintaba el propio navegador. Ahora lo
+ * monta `app/(tabs)/_layout.tsx` como superposición, y esa estructura es la que
+ * da la geometría actual: el navegador no pinta barra ni reserva alto, la
+ * escena ocupa la pantalla entera y el contenido pasa por detrás del dock. Se
+ * llegó a ella persiguiendo un desenfoque que se ha descartado, pero **se queda
+ * por lo que hace ahora**, que es colocar la pieza donde está.
+ */
+export function NomeyDock({
+  activeRoute,
+  onSelect,
+}: {
+  /** El nombre de la ruta activa, tal cual lo da el router. */
+  activeRoute: string;
+  onSelect: (route: Destination['route']) => void;
+}) {
   const insets = useSafeAreaInsets();
-  const activeRoute = state.routes[state.index]?.name ?? '';
 
   return (
     <View
@@ -50,20 +71,13 @@ export function NomeyTabBar({ state, navigation }: BottomTabBarProps) {
       <AddButton activeRoute={activeRoute} />
 
       <View style={styles.destinations} pointerEvents="box-none">
-        {DESTINATIONS.map((destination, index) => (
+        {DESTINATIONS.map((destination) => (
           <DestinationButton
             key={destination.route}
             destination={destination}
-            focused={state.index === index}
+            focused={destination.route === activeRoute}
             onPress={() => {
-              const event = navigation.emit({
-                type: 'tabPress',
-                target: state.routes[index].key,
-                canPreventDefault: true,
-              });
-              if (state.index !== index && !event.defaultPrevented) {
-                navigation.navigate(state.routes[index].name);
-              }
+              onSelect(destination.route);
             }}
           />
         ))}
@@ -163,6 +177,23 @@ function DestinationButton({
             level="bar"
             depth={pressed ? 'pressed' : 'well'}
             radius={Radius.full}
+            /*
+             * **La píldora no lleva desenfoque, y es una decisión cerrada.** El
+             * cristal de `level="bar"` es lo que la separa del fondo: tinte,
+             * borde, brillo superior y profundidad, todo pintado con estilos
+             * corrientes y sin depender de nada nativo.
+             *
+             * Se intentó que emborronara el contenido que pasa por debajo, con
+             * el efecto dentro de la superficie y después en una capa aparte
+             * medida contra las píldoras. Ninguna de las dos llegó a
+             * desenfocar sobre el aparato, y el desenfoque se ha retirado
+             * entero en vez de dejar el andamio puesto. El de «Añadir
+             * movimiento» es otra cosa y sigue como está.
+             */
+            /* Acción del dock, no su contenedor: mismo relieve que los demás
+             * controles. El fondo del dock es una vista corriente y no pasa
+             * por aquí. */
+            nativeEffect={false}
             style={styles.pill}>
             <Animated.View
               pointerEvents="none"
@@ -208,6 +239,7 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
   const theme = useTheme();
   const router = useRouter();
   const { scope } = useScope();
+  const backdrop = useAddBackdrop();
 
   const destination = destinationFor(activeRoute);
   const label =
@@ -231,7 +263,13 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      /*
+       * El fondo se enciende ANTES de navegar, no después: así el desenfoque ya
+       * está puesto cuando la ventana empieza a subir, y no se ve un fotograma
+       * de Inicio nítido detrás de ella.
+       */
       onPress={() => {
+        backdrop.show();
         router.push({ pathname: '/add', params: { from: destination } });
       }}
       {...press.handlers}
@@ -242,6 +280,8 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
             level="action"
             depth={pressed ? 'pressed' : 'flat'}
             radius={Radius.full}
+            /* La acción principal. Un control, y el más pulsado de la app. */
+            nativeEffect={false}
             style={styles.addSurface}>
             {/*
              * The glyph carries the brand colour now that the body does not.
@@ -257,7 +297,27 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
 }
 
 const styles = StyleSheet.create({
+  /**
+   * EL DOCK FLOTA. No ocupa sitio en la columna del navegador.
+   *
+   * El navegador de pestañas coloca en columna: el contenedor de las escenas
+   * con `flex: 1` y, debajo, la barra. Sin sacarla del flujo, la pantalla
+   * TERMINA donde empieza el dock. Posicionada en absoluto, sale de la columna,
+   * el contenedor de escenas se queda con el alto entero y el contenido pasa
+   * POR DETRÁS — nítido, que es la decisión tomada.
+   *
+   * **Esto separa dos cosas que estaban mezcladas.** El hueco por debajo del
+   * contenido —para que la última tarjeta pueda subir por encima del dock y
+   * verse entera— lo sigue poniendo cada pantalla con su `paddingBottom` de
+   * `DOCK_HEIGHT + insets.bottom`. Eso es CLEARANCE de scroll. Lo que el dock
+   * deja de hacer es reservar además el mismo espacio por su cuenta, que era
+   * una segunda reserva encima de la primera.
+   */
   dock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     gap: DOCK.gap,
   },
@@ -286,8 +346,8 @@ const styles = StyleSheet.create({
    * The selected look, stacked over the resting one.
    *
    * Its own radius because `GlassSurface` does not clip its children, and a
-   * white veil at 0.055 rather than a tint: it lifts the surface without
-   * covering the native glass that may be blurring behind it.
+   * white veil at 0.055 rather than a tint: it lifts the surface instead of
+   * covering the material underneath it.
    */
   emphasis: {
     position: 'absolute',

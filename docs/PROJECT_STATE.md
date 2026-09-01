@@ -13,20 +13,20 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-08-30**, al cerrar el bloque **F6.D**.
+Actualizado el **2026-09-01**, al cerrar el bloque **F6.F**.
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                                   |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 6 — Modo Personal.** Primer hito enseñable. **F6.A … F6.D cerrados**       |
-| **Última fase cerrada** | **Fase 5 — Identidad y sesión** (A · B · C1 · D · E · F), el 2026-08-28           |
-| **ADR aceptados**       | ADR-001 … ADR-025                                                                 |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR               |
-| **App visible**         | Shell navegable, y **Perfil con identidad real**. **Sin funcionalidad económica** |
-| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**      |
+|                         |                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| **Fase en curso**       | **Fase 6 — Modo Personal.** Primer hito enseñable. **F6.A … F6.F cerrados**    |
+| **Última fase cerrada** | **Fase 5 — Identidad y sesión** (A · B · C1 · D · E · F), el 2026-08-28        |
+| **ADR aceptados**       | ADR-001 … ADR-027                                                              |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR            |
+| **App visible**         | **Inicio escribe dinero real**: alta, corrección, anulación y ajuste del saldo |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**   |
 
 **La Fase 6 está abierta.** Su estado, sus decisiones de producto cerradas y las
 obligaciones de cada bloque están en
@@ -45,6 +45,37 @@ eligen su moneda. La decisión es
 > hoy una cuenta recién confirmada **sigue sin Modo Personal** hasta que alguien
 > llama a la función. Ese cableado es de **F6.E**, antes de que Inicio consuma el
 > ámbito.
+
+**F6.F cerró la escritura, y con ella el Modo Personal se usa de verdad.**
+Añadir un movimiento, corregirlo, anularlo y fijar el Disponible ocurren desde
+la pantalla, cada uno por su función canónica —`record_personal_expense`,
+`record_personal_income`, `record_adjustment` y `annul_operation`— y detrás de
+los controles que F6.E ya había dejado puestos. Tres cosas que conviene saber
+antes de tocarlo:
+
+- **Corregir es una versión nueva, no un `UPDATE`.** El CAS viaja en
+  `expected_version_id`, que la lista ya publicaba, y anular es terminal.
+- **Después de escribir se refresca contra el servidor**, nunca se suma el
+  importe en el cliente: el saldo y los totales los deriva la frontera, y una
+  suma optimista sería una segunda aritmética. El optimismo con cola es de F7.
+- **La categoría se elige en el menú nativo de la plataforma** —`Menu` de
+  SwiftUI en iOS, `DropdownMenu` de Compose en Android—, con el catálogo vivo
+  y la marca de selección del sistema. Su implementación de iOS está partida en
+  dos capas a propósito, y el porqué está escrito en el propio componente.
+
+**F6.E encendió la pantalla.** Inicio deja de ser un marcador de posición:
+saldo real, selector de intervalo, ingresos y gastos desplegables, reparto por
+categoría e historial con su «Editado». Y **la app por fin llama a**
+`api.ensure_personal_scope`, que F6.A dejó lista y nadie invocaba — hasta
+ahora una cuenta recién confirmada no tenía Modo Personal. Trajo además una
+quinta superficie de lectura, `api.personal_statistics`, porque ninguna de las
+cuatro de ADR-025 agrega por intervalo y agregarlo en cliente habría dado una
+cifra incompleta que no falla: medido, PostgREST 16.1 rechaza los agregados
+con `PGRST123` y `max_rows` corta en 1000.
+[ADR-026](adr/ADR-026-personal-statistics.md).
+
+> Los controles que dejó como affordance —editar, eliminar y ajustar— son los
+> mismos que F6.F conectó, sin rehacerlos.
 
 **F6.D cerró la superficie de lectura**, y con ella el backend de la fase.
 La **operación** es la unidad que se lee, no el efecto; una corrección deja
@@ -67,13 +98,30 @@ movimiento es una **versión sin efectos** que no borra nada. Las decisiones son
 [`supabase/e22/`](../supabase/e22/README.md).
 
 **F6.B dio anatomía al movimiento**, también sin pantalla: **concepto**
-obligatorio, **categoría** siempre presente con catálogos separados de gasto e
-ingreso, **hora efectiva**, y el **ingreso como clase real** —la octava función,
-que el modelo contemplaba desde la Fase 1 sin ruta de escritura—. Y cerró la
-obligación que dejó F6.A: **una clase ya no puede corregir una operación de
-otra**. Las decisiones son
+obligatorio, **categoría**, **hora efectiva**, y el **ingreso como clase real**
+—la octava función, que el modelo contemplaba desde la Fase 1 sin ruta de
+escritura—. Y cerró la obligación que dejó F6.A: **una clase ya no puede
+corregir una operación de otra**. Las decisiones son
 [ADR-020](adr/ADR-020-version-content-and-time.md) y
 [ADR-021](adr/ADR-021-category-catalogue.md).
+
+**La categoría es del gasto, y su icono es una clave semántica.** Con datos
+reales en pantalla se vio que las tres categorías de ingreso no clasificaban
+nada —parafraseaban el concepto que la persona ya había escrito—, así que
+**ADR-027** las retira junto a Suministros y Educación, deja diez de gasto y
+saca la categoría de `core.movement_detail` a `core.expense_category`, una
+relación propia con clave primaria sobre la versión. Tres cosas que conviene no
+confundir después. **«Todo gasto tiene categoría» NO es una garantía
+estructural**: la clave primaria da «como mucho una» y el `NOT NULL` más la FK
+dan «la que hay es real», pero «al menos una» depende de `operation_class`, que
+vive en otra tabla, y la sostienen la frontera autoritativa y el cierre de las
+escrituras a `core` —medido: cero `CHECK` y cero triggers—. **Un ingreso con
+`category_id` se rechaza por FORMA**, `PAYLOAD_INVALID · 400` antes de mirar a
+qué apunta, lo que cambia su intención canónica y por tanto su idempotencia; se
+acepta porque no hay producción. Y **el icono dejó de ser un nombre de SF
+Symbol**: la base guarda una clave semántica de vocabulario cerrado y el cliente
+resuelve el par `{ ios, android }`, porque un nombre de iOS dejaba Android sin
+icono. [ADR-027](adr/ADR-027-expense-only-categories.md).
 
 **La Fase 5 está cerrada**, con sus cuatro criterios del roadmap cumplidos y
 verificados: se puede registrar, entrar, salir y recuperar el acceso; la sesión
@@ -187,6 +235,7 @@ set_personal_base_currency   cambia la moneda si el ámbito nunca tuvo un efecto
 | `api.personal_operation_version` | El **historial** de correcciones, una fila por versión        |
 | `api.personal_balance`           | El **Disponible**, derivado. Una fila, y `0` si no hay nada   |
 | `api.observed_balance(uuid[])`   | La observación de ADR-023, **por lote**. Ilustrativa          |
+| `api.personal_statistics(…)`     | Totales e reparto por categoría de un **intervalo**           |
 | `api.personal_effect`            | Saldo y económica **sin participante**. De aquí, estadísticas |
 | `api.claimed_dimension()`        | Económica **con participante** y deuda, por vínculo           |
 | `api.personal_scope`             | El ámbito del actor, con su moneda base y su escala           |
@@ -526,8 +575,7 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 > ni un participante, así que `record_group_expense` y las dos liquidaciones no
 > son alcanzables de extremo a extremo por un cliente real; los checks siembran
 > ese estado como `postgres`. **El Modo Personal ya tiene ruta**: F6.A la
-> construyó, y el check HTTP crea el suyo por ella. Lo que falta es que **la app
-> la use**, que es F6.E.
+> construyó, el check HTTP crea el suyo por ella y desde F6.E la app la usa.
 
 ---
 

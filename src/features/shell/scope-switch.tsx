@@ -143,6 +143,8 @@ export function ScopeSwitch() {
             level="regular"
             depth={pressed ? 'pressed' : 'raised'}
             radius={Radius.full}
+            /* Selector Personal/Pareja: se pulsa, y tiene estado pulsado. */
+            nativeEffect={false}
             style={styles.surface}>
             <Animated.View
               pointerEvents="none"

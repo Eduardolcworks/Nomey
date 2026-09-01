@@ -19,6 +19,7 @@
  *   onAccent / accent (primary button) . 12.4 : 1   AAA
  *   positive / surfaceRaised ............ 9.2 : 1   AAA
  *   negative / surfaceRaised ............ 6.6 : 1   AA
+ *   neutralFlow / surfaceRaised ......... 7.3 : 1   AAA
  *   borderInteractive / background ...... 4.2 : 1   >= 3:1 for non-text
  *
  * `textDisabled` measures 2.8 : 1 and is deliberately below AA. WCAG 1.4.3
@@ -62,6 +63,8 @@ export const Colors = {
 
     positive: '#1A7F4B',
     negative: '#C62828',
+    /** Traslado: ni entra ni sale, cambia de sitio. 6.2:1 sobre blanco. */
+    neutralFlow: '#0A5FBF',
   },
 
   dark: {
@@ -107,6 +110,23 @@ export const Colors = {
      */
     positive: '#34D17E',
     negative: '#FF6B6B',
+    /**
+     * El tercer sentido del dinero: **traslado**. Ni ingreso ni gasto — la
+     * misma cantidad en otro sitio.
+     *
+     * Existe porque el selector del `+` tiene tres opciones y las dos de
+     * siempre sólo cubren dos. Reutilizar `accent` habría puesto el amarillo de
+     * marca a significar una clase de operación, y el amarillo ya significa
+     * «la acción principal de esta pantalla».
+     *
+     * Medido: **7.3:1 sobre `surfaceRaised`** y 8.4:1 sobre el fondo —por
+     * encima de `negative`, que está en 6.6—, tono 210°, separado 61° de
+     * `positive` y 163° de `accent`.
+     *
+     * Y vale lo mismo que para los otros dos: **el color nunca es la única
+     * señal**. Siempre acompañado de glifo o etiqueta.
+     */
+    neutralFlow: '#4FA8FF',
   },
 } as const;
 

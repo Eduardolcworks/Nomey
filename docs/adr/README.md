@@ -106,6 +106,8 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [023](ADR-023-balance-observation.md)                 | Observación histórica de saldo                        | Aceptado  |
 | [024](ADR-024-annulment.md)                           | Anulación de una operación                            | Aceptado  |
 | [025](ADR-025-personal-read-surface.md)               | Superficie de lectura del Modo Personal               | Aceptado  |
+| [026](ADR-026-personal-statistics.md)                 | Estadísticas agregadas del Modo Personal              | Aceptado  |
+| [027](ADR-027-expense-only-categories.md)             | La categoría es del gasto; icono como clave semántica | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos

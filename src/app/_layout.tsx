@@ -2,6 +2,8 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { type ReactNode, useEffect } from 'react';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { isRecoveryActive, RecoveryProvider, useRecovery, useRecoveryLink } from '@/features/auth';
 import {
@@ -12,7 +14,7 @@ import {
   SessionProvider,
   useSession,
 } from '@/features/session';
-import { ScopeProvider } from '@/features/shell';
+import { AddBackdropProvider, ScopeProvider } from '@/features/shell';
 import { Colors } from '@/ui/theme';
 import { ThemedView } from '@/ui/components';
 
@@ -40,31 +42,53 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   return (
-    <SessionProvider>
-      {/*
-       * `RecoveryProvider` sits INSIDE the session provider and owns nothing it
-       * owns. It models one transaction - a password recovery - over a separate,
-       * memory-only auth client, and it is deliberately not a second session
-       * provider: it has no user, no token, no restore and no persistence.
-       *
-       * During a recovery the main client genuinely holds no session, so
-       * `SessionProvider` reports `signed-out` truthfully rather than being
-       * worked around.
-       */}
-      <RecoveryProvider>
-        <ScopeBinding>
-          {/*
-           * Fixed light, not "auto". The app is dark-only, so the status bar
-           * content is always light-on-dark; "auto" would resolve from the
-           * scheme and add a branch that can only go one way.
-           */}
-          <StatusBar style="light" />
-          <RootNavigator />
-        </ScopeBinding>
-      </RecoveryProvider>
-    </SessionProvider>
+    /*
+     * LA RAÍZ DE LOS GESTOS, y hace falta de verdad.
+     *
+     * `react-native-gesture-handler` necesita esta vista por encima de todo
+     * para instalar su reconocedor; sin ella, un gesto declarado con la
+     * biblioteca **no se dispara nunca en Android y es frágil en iOS**, sin que
+     * nada falle ni avise. Lo pide su propia documentación de instalación.
+     *
+     * Estaba ausente porque hasta ahora ningún gesto de la biblioteca se usaba
+     * directamente. Lo introduce el deslizamiento para eliminar de
+     * «Movimientos recientes».
+     *
+     * **No cambia la composición**: es una vista con `flex: 1` en la raíz, del
+     * tamaño de la pantalla, sin fondo propio ni margen. Nada de lo que hay
+     * debajo mide distinto con ella.
+     */
+    <GestureHandlerRootView style={styles.root}>
+      <SessionProvider>
+        {/*
+         * `RecoveryProvider` sits INSIDE the session provider and owns nothing it
+         * owns. It models one transaction - a password recovery - over a separate,
+         * memory-only auth client, and it is deliberately not a second session
+         * provider: it has no user, no token, no restore and no persistence.
+         *
+         * During a recovery the main client genuinely holds no session, so
+         * `SessionProvider` reports `signed-out` truthfully rather than being
+         * worked around.
+         */}
+        <RecoveryProvider>
+          <ScopeBinding>
+            {/*
+             * Fixed light, not "auto". The app is dark-only, so the status bar
+             * content is always light-on-dark; "auto" would resolve from the
+             * scheme and add a branch that can only go one way.
+             */}
+            <StatusBar style="light" />
+            <RootNavigator />
+          </ScopeBinding>
+        </RecoveryProvider>
+      </SessionProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});
 
 /**
  * Ties the scope's lifetime to whoever is signed in.
@@ -148,60 +172,119 @@ function RootNavigator() {
     return <ThemedView style={{ flex: 1 }} />;
   }
 
+  /*
+   * El fondo de «Añadir» se anuncia desde aquí porque sus dos extremos viven en
+   * ramas distintas del Stack: el `+` está en las pestañas y la ventana es su
+   * propia ruta. Es lo único que este proveedor comparte, y no sabe nada de
+   * navegación.
+   */
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: Colors.dark.background },
-      }}>
-      {/*
-       * `Stack.Protected` is NAVIGATION, not security. It decides what can be
-       * reached from inside the app; it does not decide what the server will
-       * answer. Without a session PostgREST refuses with 42501 whatever the
-       * client renders, and RLS remains the only authorisation boundary.
-       */}
-      <Stack.Protected guard={isPublic(state) && !recovering}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
+    <AddBackdropProvider>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: Colors.dark.background },
+        }}>
+        {/*
+         * `Stack.Protected` is NAVIGATION, not security. It decides what can be
+         * reached from inside the app; it does not decide what the server will
+         * answer. Without a session PostgREST refuses with 42501 whatever the
+         * client renders, and RLS remains the only authorisation boundary.
+         */}
+        <Stack.Protected guard={isPublic(state) && !recovering}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
 
-      {/*
-       * The recovery branch, governed by the transaction rather than by the
-       * session.
-       *
-       * It is NOT part of `(auth)` and NOT part of the product. The session it
-       * runs on lives in the ephemeral client's memory and is never persisted,
-       * so it cannot be restored, cannot be refreshed, and cannot survive the
-       * process - which is exactly what stops a recovery link from becoming an
-       * ordinary login by killing the app halfway through.
-       *
-       * Nothing navigates into or out of it. Redeeming the link opens it and
-       * the controller closes it; the tree follows both by itself.
-       */}
-      <Stack.Protected guard={recovering}>
-        <Stack.Screen name="(recovery)" />
-      </Stack.Protected>
+        {/*
+         * The recovery branch, governed by the transaction rather than by the
+         * session.
+         *
+         * It is NOT part of `(auth)` and NOT part of the product. The session it
+         * runs on lives in the ephemeral client's memory and is never persisted,
+         * so it cannot be restored, cannot be refreshed, and cannot survive the
+         * process - which is exactly what stops a recovery link from becoming an
+         * ordinary login by killing the app halfway through.
+         *
+         * Nothing navigates into or out of it. Redeeming the link opens it and
+         * the controller closes it; the tree follows both by itself.
+         */}
+        <Stack.Protected guard={recovering}>
+          <Stack.Screen name="(recovery)" />
+        </Stack.Protected>
 
-      <Stack.Protected guard={isSignedIn(state) && !recovering}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="add" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="notifications" />
-        <Stack.Screen name="profile" />
-        <Stack.Screen name="account" />
-      </Stack.Protected>
+        <Stack.Protected guard={isSignedIn(state) && !recovering}>
+          <Stack.Screen name="(tabs)" />
+          {/*
+           * **`transparentModal` NO basta, y aquí está la prueba.**
+           *
+           * Las `screenOptions` de arriba dan a TODA pantalla un `contentStyle`
+           * con el negro del tema. Es correcto para las demás —una pantalla
+           * opaca sobre un fondo opaco—, pero una ventana modal que debe dejar
+           * ver lo de detrás se estaba pintando encima un rectángulo negro
+           * completo: la presentación era transparente y el CONTENIDO no.
+           *
+           * Es la causa de que el fondo se viera negro, y explica también por
+           * qué ninguna intensidad de desenfoque cambiaba nada: no había nada
+           * que desenfocar, había un panel negro por delante.
+           *
+           * La excepción es sólo de esta pantalla; las demás conservan su fondo.
+           */}
+          <Stack.Screen
+            name="add"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'fade',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          {/*
+           * **La misma presentación que «Añadir movimiento», y por lo mismo.**
+           * Sin `contentStyle` transparente, las `screenOptions` de arriba le
+           * darían el negro del tema: la presentación sería transparente y el
+           * CONTENIDO no, y detrás de la ventana se vería un rectángulo negro
+           * en vez de Inicio desenfocado.
+           */}
+          {/*
+           * **Las tres ventanas se presentan igual**, y no por casualidad: sin
+           * `contentStyle` transparente, las `screenOptions` de arriba les darían
+           * el negro del tema, y detrás de la ventana se vería un rectángulo
+           * negro en vez de Inicio desenfocado.
+           */}
+          <Stack.Screen
+            name="edit-movement"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'fade',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen
+            name="edit-balance"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'fade',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen name="notifications" />
+          <Stack.Screen name="profile" />
+          <Stack.Screen name="account" />
+        </Stack.Protected>
 
-      {/*
-       * The development surfaces, behind BOTH the session and `__DEV__`.
-       *
-       * They were previously registered unconditionally, with only the links
-       * to them in Profile behind `__DEV__` - which left the routes reachable
-       * by URL in a release build. Guarding them here closes that, and keeps
-       * them from becoming a public door around the sign-in branch.
-       */}
-      <Stack.Protected guard={isSignedIn(state) && !recovering && __DEV__}>
-        <Stack.Screen name="diagnostics" />
-        <Stack.Screen name="states" />
-        <Stack.Screen name="session-probe" />
-      </Stack.Protected>
-    </Stack>
+        {/*
+         * The development surfaces, behind BOTH the session and `__DEV__`.
+         *
+         * They were previously registered unconditionally, with only the links
+         * to them in Profile behind `__DEV__` - which left the routes reachable
+         * by URL in a release build. Guarding them here closes that, and keeps
+         * them from becoming a public door around the sign-in branch.
+         */}
+        <Stack.Protected guard={isSignedIn(state) && !recovering && __DEV__}>
+          <Stack.Screen name="diagnostics" />
+          <Stack.Screen name="states" />
+          <Stack.Screen name="session-probe" />
+        </Stack.Protected>
+      </Stack>
+    </AddBackdropProvider>
   );
 }

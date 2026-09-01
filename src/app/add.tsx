@@ -1,96 +1,67 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 
-import { SCOPE_AVAILABLE, SCOPE_LABEL, useScope } from '@/features/shell';
+import {
+  MovementForm,
+  type MovementFormScope,
+  useEntryCategories,
+  usePersonalScope,
+} from '@/features/personal';
+import { useAddBackdrop } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
-import { GlassSurface, IconButton, ThemedText, ThemedView } from '@/ui/components';
-import { Spacing, useTheme } from '@/ui/theme';
+import { SheetWindow } from '@/ui/components';
 
 /**
- * The surface the action button opens. A placeholder, and honest about it.
+ * La ventana que abre el `+`. **Sólo el alta.**
  *
- * **It states its own scope in its header.** The action inherits context from
- * where it was pressed, and a sheet that trusted the user to remember the
- * selector behind it is how a couple's dinner ends up in someone's personal
- * books - a plausible figure in both places, and nothing throws. So the scope
- * is repeated here, where the movement would actually be recorded.
+ * **Y sólo el alta**: corregir un movimiento existente no tiene pantalla ahora
+ * mismo — se retiró para rehacerla— y desde luego no vuelve como un modo de
+ * ésta. Meter las dos en la misma ruta obligaba a llevar un formulario con dos
+ * comportamientos dentro, que es lo que llevó a separarlas. Lo que la nueva
+ * reutilizará son las piezas: el armazón `SheetWindow`, la composición
+ * `AmountSheet`, los campos, el borrador y el writer.
  *
- * **Nothing is preselected when it comes from Grupos.** With several groups,
- * defaulting to the last one used would silently attribute an expense to the
- * wrong set of debts, discovered only when settling. Choosing the group will
- * be required rather than defaulted, and that is the semantics this
- * placeholder encodes for F7 to implement.
+ * **El ámbito se asegura aquí también.** `usePersonalScope` es idempotente por
+ * estado, así que llamarla desde la ventana no duplica nada y evita inventar un
+ * estado global para pasar cuatro campos. Mientras resuelve, la ventana ya está
+ * dibujada y `Guardar` espera.
  */
 export default function AddScreen() {
   const { t } = useTranslation();
-  const theme = useTheme();
   const router = useRouter();
-  const { scope } = useScope();
-  const { from } = useLocalSearchParams<{ from?: string }>();
+  const { state } = usePersonalScope();
+  const backdrop = useAddBackdrop();
 
-  const fromGroups = from === 'groups';
-  const available = fromGroups || SCOPE_AVAILABLE[scope];
+  /*
+   * EL FONDO SE APAGA AL DESMONTARSE, no al pulsar cerrar.
+   *
+   * Es lo que evita el fotograma de Inicio nítido: la ruta todavía se está
+   * yendo —el panel baja y luego la pantalla se funde— y durante todo ese rato
+   * el desenfoque tiene que seguir puesto. Al desmontarse ya no queda nada
+   * encima que proteger.
+   *
+   * Y por ser una limpieza, cubre cualquier otra salida: el gesto del sistema,
+   * un `back` de hardware o que alguien deshaga la ruta desde otro sitio. Con un
+   * `hide()` en el manejador de cerrar, esas vías dejarían el fondo encendido
+   * sobre una pantalla sin ventana.
+   */
+  const hideBackdrop = backdrop.hide;
+  useEffect(() => hideBackdrop, [hideBackdrop]);
+  const categories = useEntryCategories();
 
-  const title = fromGroups
-    ? t('action.addToGroups')
-    : t('action.addTo', { scope: t(SCOPE_LABEL[scope]) });
+  const scope: MovementFormScope | null =
+    state.status === 'ready'
+      ? {
+          scopeId: state.scopeId,
+          currencyDefinitionId: state.currencyDefinitionId,
+          currencyCode: state.currencyCode,
+          currencyScale: state.currencyScale,
+        }
+      : null;
 
   return (
-    <ThemedView style={styles.screen}>
-      <SafeAreaView style={styles.screen} edges={['top', 'left', 'right', 'bottom']}>
-        <View style={styles.header}>
-          <ThemedText variant="title" style={styles.title}>
-            {title}
-          </ThemedText>
-          <IconButton
-            name="xmark"
-            label={t('action.close')}
-            size={20}
-            colour={theme.textSecondary}
-            onPress={() => {
-              router.back();
-            }}
-          />
-        </View>
-
-        <View style={styles.body}>
-          <GlassSurface level="heavy" style={styles.placeholder}>
-            <ThemedText variant="body" themeColor={available ? 'textSecondary' : 'textTertiary'}>
-              {fromGroups ? t('groups.emptyHint') : t('home.activityHint')}
-            </ThemedText>
-            <ThemedText variant="label" themeColor="accent">
-              {t('action.soon')}
-            </ThemedText>
-          </GlassSurface>
-        </View>
-      </SafeAreaView>
-    </ThemedView>
+    <SheetWindow title={t('entry.title')} closeLabel={t('action.close')} onClosed={router.back}>
+      {(close) => <MovementForm scope={scope} categories={categories} onSaved={close} />}
+    </SheetWindow>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
-  },
-  title: {
-    flexShrink: 1,
-  },
-  body: {
-    flex: 1,
-    paddingHorizontal: Spacing.lg,
-  },
-  placeholder: {
-    padding: Spacing.lg,
-    gap: Spacing.sm,
-  },
-});

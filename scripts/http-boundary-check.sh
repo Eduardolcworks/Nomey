@@ -168,7 +168,6 @@ sesion() {
 # Categorias SEMBRADAS POR MIGRACION, no del fixture: `Otros` de cada familia.
 # Se referencian por su identidad fija, que es lo que la migracion garantiza.
 CAT_GASTO=4ed30a44-9f82-578f-828c-b491a25ebdd9
-CAT_INGRESO=ea9f1167-f497-5edf-af01-c7e1c3a64d9d
 
 EUR=cccccccc-cccc-4ccc-8ccc-cccccccccccc
 USD=dddddddd-dddd-4ddd-8ddd-dddddddddddd
@@ -182,7 +181,9 @@ YA=b0000000-0000-4000-8000-00000000aa02
 YB=b0000000-0000-4000-8000-00000000bb02
 
 retirar() {
-  "${DB[@]}" >/dev/null 2>&1 <<SQL
+  # SIN enmudecer el error: una retirada que falla en silencio deja residuo
+  # que luego se atribuye al check siguiente. Si esto se rompe, se ve aqui.
+  "${DB[@]}" -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 set constraints all deferred;
 delete from core.client_command;
@@ -190,6 +191,7 @@ delete from core.split_participant;
 delete from core.split;
 delete from core.balance_observation;
 delete from core.adjustment_detail;
+delete from core.expense_category;
 delete from core.movement_detail;
 delete from core.effect;
 delete from core.operation_version;
@@ -732,27 +734,44 @@ echo "== 9 · anatomia del movimiento, por HTTP =="
 # viaje por PostgREST con sus tipos, que la vista del catalogo responde con la
 # RLS del actor, y que la guarda de clase produce el estado HTTP correcto.
 
-# 9.1 · el catalogo de categorias, por la Data API.
-n=$(curl -s "${API}/rest/v1/category?select=id,applies_to,is_custom&order=ordinal" \
+# 9.1 · EL CATALOGO, por la Data API. Ya no hay familias: `applies_to` no
+# existe, y lo que llega son las de gasto y nada mas. Las cinco dadas de baja
+# SIGUEN siendo legibles —el historico las necesita para mostrarse— pero no
+# usables, que es lo que comprueba 9.10.
+n=$(curl -s "${API}/rest/v1/category?select=id,message_key,icon,is_active,is_custom&order=ordinal" \
       -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
     | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);
-const g=a.filter(x=>x.applies_to==="expense").length,i=a.filter(x=>x.applies_to==="income").length;
-console.log(a.length===15&&g===12&&i===3&&a.every(x=>x.is_custom===false)?"ok":`${a.length}/${g}/${i}`)}catch{console.log("err")}})')
+const act=a.filter(x=>x.is_active), ing=a.filter(x=>x.message_key.startsWith("category.income."));
+const iconos=a.every(x=>/^[a-z]+$/.test(x.icon));
+console.log(a.length===15&&act.length===10&&ing.length===3&&ing.every(x=>!x.is_active)&&iconos
+  &&a.every(x=>x.is_custom===false)&&!("applies_to" in a[0])?"ok":JSON.stringify({n:a.length,act:act.length,iconos}))}catch{console.log("err")}})')
 [ "${n}" = "ok" ] \
-  && ok "api.category entrega las 15 de sistema: 12 de gasto y 3 de ingreso" \
+  && ok "api.category: 10 de gasto vigentes, sin applies_to y con iconos semanticos" \
   || fallo "api.category devolvio ${n}"
 
-# 9.2 · un INGRESO por la ruta real, con concepto, categoria y hora.
+# 9.2 · UN INGRESO SIN CATEGORIA, por la ruta real. Es el caso nominal ahora:
+# la categoria clasifica el gasto, y el ingreso no la tiene.
 r=$(rpc record_personal_income "${TOK_A}" \
-      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000001\",\"command_contract_version\":1,\"effective_date\":\"2026-02-10\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"amount\":\"150000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Nomina agosto\",\"category_id\":\"${CAT_INGRESO}\"}")")
+      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000001\",\"command_contract_version\":2,\"effective_date\":\"2026-02-10\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"amount\":\"150000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Nomina agosto\"}")")
 e=$(estado_de "${r}"); OP_ING=$(printf '%s' "$(cuerpo_de "${r}")" | jget operation_id)
 [ "${e}" = "200" ] && [ -n "${OP_ING}" ] \
-  && ok "record_personal_income: 200 por HTTP" \
+  && ok "record_personal_income sin categoria: 200 por HTTP" \
   || fallo "record_personal_income devolvio ${e} $(cuerpo_de "${r}")"
+
+# y no adquiere ninguna fila de categoria por el camino.
+n=$("${DBQ[@]}" <<SQL 2>/dev/null
+select count(*) from core.expense_category x
+  join core.operation o on o.current_version_id = x.operation_version_id
+ where o.id = '${OP_ING}';
+SQL
+)
+[ "$(tr -d '[:space:]' <<<"${n}")" = "0" ] \
+  && ok "el ingreso no deja fila en core.expense_category" \
+  || fallo "el ingreso dejo ${n} filas de categoria"
 
 # 9.3 · concepto vacio: rechazado con su estado.
 r=$(rpc record_personal_income "${TOK_A}" \
-      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000002\",\"command_contract_version\":1,\"effective_date\":\"2026-02-10\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"amount\":\"1000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"   \",\"category_id\":\"${CAT_INGRESO}\"}")")
+      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000002\",\"command_contract_version\":2,\"effective_date\":\"2026-02-10\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"amount\":\"1000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"   \"}")")
 e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
 if [ "${e}" = "400" ] && printf '%s' "${c}" | grep -q 'PAYLOAD_INVALID'; then
   ok "concepto en blanco: PAYLOAD_INVALID · 400"
@@ -760,14 +779,17 @@ else
   fallo "el concepto en blanco devolvio ${e} ${c}"
 fi
 
-# 9.4 · categoria de la familia equivocada.
+# 9.4 · UN INGRESO CON CATEGORIA SE RECHAZA EN LA FORMA DEL PAYLOAD, no en una
+# validacion posterior. `category_id` ya no es un campo admisible de esta clase,
+# asi que el 400 llega antes de mirar a que apunta —y por eso el uuid de abajo
+# es uno REAL Y VIGENTE: si el rechazo dependiera de la categoria, este pasaria.
 r=$(rpc record_personal_income "${TOK_A}" \
-      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000003\",\"command_contract_version\":1,\"effective_date\":\"2026-02-10\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"amount\":\"1000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"X\",\"category_id\":\"${CAT_GASTO}\"}")")
+      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000003\",\"command_contract_version\":2,\"effective_date\":\"2026-02-10\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"amount\":\"1000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"X\",\"category_id\":\"${CAT_GASTO}\"}")")
 e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
-if [ "${e}" = "422" ] && printf '%s' "${c}" | grep -q 'CATEGORY_NOT_USABLE'; then
-  ok "categoria de gasto en un ingreso: CATEGORY_NOT_USABLE · 422"
+if [ "${e}" = "400" ] && printf '%s' "${c}" | grep -q 'PAYLOAD_INVALID'; then
+  ok "categoria en un ingreso: PAYLOAD_INVALID · 400"
 else
-  fallo "la categoria cruzada devolvio ${e} ${c}"
+  fallo "el ingreso con categoria devolvio ${e} ${c}"
 fi
 
 # 9.5 · LA GUARDA DE CLASE, por HTTP y con el expected_version_id correcto.
@@ -785,14 +807,23 @@ else
   fallo "la correccion cruzada de clase devolvio ${e} ${c}"
 fi
 
-# 9.6 · misma clave con concepto distinto: conflicto, no replay silencioso.
-BASE_ING="{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000005\",\"command_contract_version\":1,\"effective_date\":\"2026-02-12\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"amount\":\"2000\",\"currency_definition_id\":\"${EUR}\",\"category_id\":\"${CAT_INGRESO}\""
-r=$(rpc record_personal_income "${TOK_A}" "$(env_payload "${BASE_ING},\"concept\":\"Uno\"}")")
-[ "$(estado_de "${r}")" = "200" ] || fallo "el ingreso base de 9.6 devolvio $(estado_de "${r}")"
-r=$(rpc record_personal_income "${TOK_A}" "$(env_payload "${BASE_ING},\"concept\":\"Uno\"}")")
+# 9.6 · IDEMPOTENCIA DEL INGRESO SOBRE LA INTENCION CANONICA NUEVA. La categoria
+# salio de la intencion del ingreso, asi que hay que volver a medir las tres
+# respuestas: reintento identico, importe distinto y concepto distinto.
+BASE_ING="{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000005\",\"command_contract_version\":2,\"effective_date\":\"2026-02-12\",\"effective_time\":\"08:15\",\"scope_id\":\"${PA}\",\"currency_definition_id\":\"${EUR}\""
+r=$(rpc record_personal_income "${TOK_A}" "$(env_payload "${BASE_ING},\"amount\":\"2000\",\"concept\":\"Uno\"}")")
+[ "$(estado_de "${r}")" = "200" ] || fallo "el ingreso base de 9.6 devolvio $(estado_de "${r}") $(cuerpo_de "${r}")"
+r=$(rpc record_personal_income "${TOK_A}" "$(env_payload "${BASE_ING},\"amount\":\"2000\",\"concept\":\"Uno\"}")")
 [ "$(printf '%s' "$(cuerpo_de "${r}")" | jget already_processed)" = "true" ] \
   && ok "reintento identico: replay" || fallo "el reintento identico no fue replay"
-r=$(rpc record_personal_income "${TOK_A}" "$(env_payload "${BASE_ING},\"concept\":\"Otro\"}")")
+r=$(rpc record_personal_income "${TOK_A}" "$(env_payload "${BASE_ING},\"amount\":\"2500\",\"concept\":\"Uno\"}")")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+if [ "${e}" = "409" ] && printf '%s' "${c}" | grep -q 'IDEMPOTENCY_KEY_REUSED'; then
+  ok "misma clave con otro importe: IDEMPOTENCY_KEY_REUSED · 409"
+else
+  fallo "el conflicto por importe devolvio ${e} ${c}"
+fi
+r=$(rpc record_personal_income "${TOK_A}" "$(env_payload "${BASE_ING},\"amount\":\"2000\",\"concept\":\"Otro\"}")")
 e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
 if [ "${e}" = "409" ] && printf '%s' "${c}" | grep -q 'IDEMPOTENCY_KEY_REUSED'; then
   ok "misma clave con otro concepto: IDEMPOTENCY_KEY_REUSED · 409"
@@ -800,17 +831,40 @@ else
   fallo "el conflicto por concepto devolvio ${e} ${c}"
 fi
 
-# 9.7 · crear una categoria propia y verla en el catalogo, sin que B la vea.
+# 9.7 · UNA CATEGORIA PROPIA SE CREA SIN FAMILIA, y con una clave de icono del
+# vocabulario. No hay forma de pedir una «de ingreso»: el campo que lo permitia
+# ya no se admite, asi que mandarlo es un payload invalido.
 r=$(rpc create_custom_category "${TOK_A}" \
-      "$(env_payload '{"applies_to":"expense","label":"Gimnasio","icon":"figure.run"}')")
+      "$(env_payload '{"applies_to":"income","label":"Alquiler","icon":"home"}')")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+if [ "${e}" = "400" ] && printf '%s' "${c}" | grep -q 'PAYLOAD_INVALID'; then
+  ok "no hay forma de crear una categoria de ingreso: PAYLOAD_INVALID · 400"
+else
+  fallo "create_custom_category acepto applies_to: ${e} ${c}"
+fi
+
+# una clave de icono fuera del vocabulario tampoco. En particular un nombre de
+# SF Symbol, que es justo lo que este contrato acaba de dejar de ser.
+r=$(rpc create_custom_category "${TOK_A}" \
+      "$(env_payload '{"label":"Coladero","icon":"figure.run"}')")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+if [ "${e}" = "400" ] && printf '%s' "${c}" | grep -q 'PAYLOAD_INVALID'; then
+  ok "un nombre de SF Symbol como icono: PAYLOAD_INVALID · 400"
+else
+  fallo "el icono de plataforma devolvio ${e} ${c}"
+fi
+
+r=$(rpc create_custom_category "${TOK_A}" \
+      "$(env_payload '{"label":"Gimnasio","icon":"leisure"}')")
 e=$(estado_de "${r}"); CAT_MIA=$(printf '%s' "$(cuerpo_de "${r}")" | jget category_id)
 [ "${e}" = "200" ] && [ -n "${CAT_MIA}" ] \
-  && ok "create_custom_category: 200 por HTTP" \
+  && [ "$(printf '%s' "$(cuerpo_de "${r}")" | jget icon)" = "leisure" ] \
+  && ok "create_custom_category con clave semantica: 200 por HTTP" \
   || fallo "create_custom_category devolvio ${e} $(cuerpo_de "${r}")"
 
-n=$(curl -s "${API}/rest/v1/category?select=id,label,is_custom&id=eq.${CAT_MIA}" \
+n=$(curl -s "${API}/rest/v1/category?select=id,label,icon,is_custom&id=eq.${CAT_MIA}" \
       -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
-    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);console.log(a.length===1&&a[0].is_custom===true&&a[0].label==="Gimnasio"?"ok":JSON.stringify(a))}catch{console.log("err")}})')
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);console.log(a.length===1&&a[0].is_custom===true&&a[0].label==="Gimnasio"&&a[0].icon==="leisure"?"ok":JSON.stringify(a))}catch{console.log("err")}})')
 [ "${n}" = "ok" ] && ok "A ve su categoria propia como is_custom" || fallo "la propia devolvio ${n}"
 
 n=$(curl -s "${API}/rest/v1/category?select=id&id=eq.${CAT_MIA}" \
@@ -823,24 +877,72 @@ n=$(curl -s "${API}/rest/v1/category?select=id&id=eq.${CAT_MIA}" \
 # 9.8 · renombrar alcanza al historico, y el cliente no puede escribir la vista.
 r=$(rpc record_personal_expense "${TOK_A}" \
       "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000006\",\"command_contract_version\":2,\"effective_date\":\"2026-02-13\",\"effective_time\":\"20:00\",\"scope_id\":\"${PA}\",\"amount\":\"5000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Cuota\",\"category_id\":\"${CAT_MIA}\"}")")
-[ "$(estado_de "${r}")" = "200" ] || fallo "el gasto con categoria propia devolvio $(estado_de "${r}")"
+[ "$(estado_de "${r}")" = "200" ] || fallo "el gasto con categoria propia devolvio $(estado_de "${r}") $(cuerpo_de "${r}")"
 r=$(rpc rename_custom_category "${TOK_A}" \
       "$(env_payload "{\"category_id\":\"${CAT_MIA}\",\"label\":\"Deporte\"}")")
-[ "$(estado_de "${r}")" = "200" ] || fallo "rename_custom_category devolvio $(estado_de "${r}")"
+[ "$(estado_de "${r}")" = "200" ] || fallo "rename_custom_category devolvio $(estado_de "${r}") $(cuerpo_de "${r}")"
 n=$("${DBQ[@]}" <<SQL 2>/dev/null
-select c.label from core.movement_detail d
-  join core.category c on c.id = d.category_id
- where d.category_id = '${CAT_MIA}' limit 1;
+select c.label from core.expense_category x
+  join core.category c on c.id = x.category_id
+ where x.category_id = '${CAT_MIA}' limit 1;
 SQL
 )
 [ "$(tr -d '[:space:]' <<<"${n}")" = "Deporte" ] \
   && ok "el renombrado alcanza al movimiento historico" \
   || fallo "el historico muestra '${n}' tras renombrar"
 
+# 9.9 · UN GASTO SIN CATEGORIA SE RECHAZA. Es la pata de frontera del invariante
+# «todo gasto tiene categoria»: el resto lo sostiene el cierre de escrituras a
+# `core`, no una restriccion —ninguna FK puede exigir que la fila exista.
+r=$(rpc record_personal_expense "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000007\",\"command_contract_version\":2,\"effective_date\":\"2026-02-14\",\"effective_time\":\"20:00\",\"scope_id\":\"${PA}\",\"amount\":\"1000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Sin categoria\"}")")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+if [ "${e}" = "400" ] && printf '%s' "${c}" | grep -q 'PAYLOAD_INVALID'; then
+  ok "un gasto sin categoria: PAYLOAD_INVALID · 400"
+else
+  fallo "el gasto sin categoria devolvio ${e} ${c}"
+fi
+
+# 9.10 · LAS TRES CATEGORIAS QUE NO SIRVEN, y las tres con el mismo codigo:
+# inexistente, ajena y dada de baja. Que inexistente y ajena compartan mensaje
+# es deliberado —distinguirlas revelaria que la de otra persona existe.
+CAT_BAJA=$("${DBQ[@]}" <<SQL 2>/dev/null
+select id from core.category
+ where owner_user_id is null and not is_active and message_key = 'category.expense.utilities';
+SQL
+)
+CAT_BAJA=$(tr -d '[:space:]' <<<"${CAT_BAJA}")
+# Cada caso lleva su propio identificador escrito entero: un contador de dos
+# digitos rompia el ultimo grupo del uuid, y el 400 resultante se parecia lo
+# bastante a un rechazo legitimo como para pasar por uno.
+for caso in "inexistente|00000000-0000-4000-8000-0000000000ff|a9000000-0000-4000-8000-000000000011" \
+            "ajena|${CAT_MIA}|a9000000-0000-4000-8000-000000000012" \
+            "de-baja|${CAT_BAJA}|a9000000-0000-4000-8000-000000000013"; do
+  etiqueta="${caso%%|*}"; resto="${caso#*|}"; cid="${resto%%|*}"; coid="${resto##*|}"
+  tok="${TOK_A}"; amb="${PA}"
+  if [ "${etiqueta}" = "ajena" ]; then tok="${TOK_B}"; amb="${PB}"; fi
+  r=$(rpc record_personal_expense "${tok}" \
+        "$(env_payload "{\"client_operation_id\":\"${coid}\",\"command_contract_version\":2,\"effective_date\":\"2026-02-15\",\"effective_time\":\"20:00\",\"scope_id\":\"${amb}\",\"amount\":\"1000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Prueba\",\"category_id\":\"${cid}\"}")")
+  e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+  if [ "${e}" = "422" ] && printf '%s' "${c}" | grep -q 'CATEGORY_NOT_USABLE'; then
+    ok "categoria ${etiqueta}: CATEGORY_NOT_USABLE · 422"
+  else
+    fallo "la categoria ${etiqueta} devolvio ${e} ${c}"
+  fi
+done
+
+# ...y la vigente generica si sirve, que es lo que hace falsables a las tres de
+# arriba: sin este caso, un writer que rechazara todo tambien pasaria.
+r=$(rpc record_personal_expense "${TOK_A}" \
+      "$(env_payload "{\"client_operation_id\":\"a9000000-0000-4000-8000-000000000020\",\"command_contract_version\":2,\"effective_date\":\"2026-02-15\",\"effective_time\":\"20:00\",\"scope_id\":\"${PA}\",\"amount\":\"1000\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Con Otros\",\"category_id\":\"${CAT_GASTO}\"}")")
+[ "$(estado_de "${r}")" = "200" ] \
+  && ok "la categoria «Otros» vigente si sirve" \
+  || fallo "el gasto con Otros devolvio $(estado_de "${r}") $(cuerpo_de "${r}")"
+
 e=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${API}/rest/v1/category" \
       -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
       -H 'Content-Type: application/json' \
-      --data-binary '{"applies_to":"expense","label":"Directa","icon":"tag"}')
+      --data-binary '{"label":"Directa","icon":"tag"}')
 case "${e}" in
   200|201) fallo "el cliente ESCRIBIO directamente en api.category (${e})" ;;
   *)       ok "el cliente no puede escribir api.category por la Data API (${e})" ;;
@@ -1024,9 +1126,16 @@ SQL
 )
 V_ED=$(tr -d '[:space:]' <<<"${V_ED}")
 r=$(rpc record_personal_expense "${TOK_A}" \
-      "$(env_payload "{\"client_operation_id\":\"ab000000-0000-4000-8000-000000000002\",\"command_contract_version\":2,\"effective_date\":\"2026-03-03\",\"effective_time\":\"20:00\",\"scope_id\":\"${PA}\",\"amount\":\"4500\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Despues\",\"category_id\":\"${CAT_INGRESO}\",\"operation_id\":\"${OP_ED}\",\"expected_version_id\":\"${V_ED}\"}")")
-# La categoria de INGRESO en un gasto tiene que ser rechazada: la FK compuesta de
-# F6.B lo hace estructural. Se corrige de verdad con una categoria de gasto.
+      "$(env_payload "{\"client_operation_id\":\"ab000000-0000-4000-8000-000000000002\",\"command_contract_version\":2,\"effective_date\":\"2026-03-03\",\"effective_time\":\"20:00\",\"scope_id\":\"${PA}\",\"amount\":\"4500\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Despues\",\"operation_id\":\"${OP_ED}\",\"expected_version_id\":\"${V_ED}\"}")")
+# La correccion de arriba iba SIN categoria, y por eso se rechaza: corregir un
+# gasto es declarar la version entera, no un delta, asi que la categoria vuelve
+# a ser obligatoria en cada correccion. La de verdad la lleva.
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+if [ "${e}" = "400" ] && printf '%s' "${c}" | grep -q 'PAYLOAD_INVALID'; then
+  ok "corregir un gasto sin categoria: PAYLOAD_INVALID · 400"
+else
+  fallo "la correccion sin categoria devolvio ${e} ${c}"
+fi
 r=$(rpc record_personal_expense "${TOK_A}" \
       "$(env_payload "{\"client_operation_id\":\"ab000000-0000-4000-8000-000000000003\",\"command_contract_version\":2,\"effective_date\":\"2026-03-03\",\"effective_time\":\"20:00\",\"scope_id\":\"${PA}\",\"amount\":\"4500\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Despues\",\"category_id\":\"${CAT_GASTO}\",\"operation_id\":\"${OP_ED}\",\"expected_version_id\":\"${V_ED}\"}")")
 [ "$(estado_de "${r}")" = "200" ] || fallo "la correccion por HTTP devolvio $(estado_de "${r}")"
@@ -1120,13 +1229,89 @@ rm -f "${sin_cuerpo}"
 
 # ============================================================================
 echo ""
+echo "== 12 · las estadisticas agregadas, por HTTP =="
+#
+# Lo que solo esta ruta demuestra: que los importes viajan como STRING TAMBIEN
+# DENTRO DEL `jsonb` —el check de catalogo cuenta columnas `bigint` y no ve
+# dentro de un jsonb—, y que el intervalo llega como fecha de calendario y no
+# como instante.
+
+# 12.1 · el intervalo cerrado responde con la forma acordada.
+r=$(rpc personal_statistics "${TOK_A}" '{"p_from":"2026-03-01","p_to":"2026-03-31"}')
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+forma=$(printf '%s' "${c}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const o=JSON.parse(s);console.log(["scope_id","currency_definition_id","income_total","expense_total","categories"].every(k=>k in o)?"ok":"faltan")}catch{console.log("err")}})')
+if [ "${e}" = "200" ] && [ "${forma}" = "ok" ]; then
+  ok "api.personal_statistics responde 200 con ambito, moneda, totales y categorias"
+else
+  fallo "la estadistica devolvio ${e} forma=${forma}: ${c}"
+fi
+
+# 12.2 · LOS IMPORTES SON CADENAS, tambien los de dentro del array.
+tipos=$(printf '%s' "${c}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const o=JSON.parse(s);const t=typeof o.income_total==="string"&&typeof o.expense_total==="string"&&(o.categories||[]).every(x=>typeof x.expense_total==="string"&&typeof x.operation_count==="number");console.log(t?"ok":"number")}catch{console.log("err")}})')
+[ "${tipos}" = "ok" ] \
+  && ok "los totales y los importes por categoria cruzan como string JSON" \
+  || fallo "algun importe de la estadistica salio como number JSON (${tipos})"
+
+# 12.3 · el reparto CUADRA con el total. Es la afirmacion central de ADR-026
+# —dos superficies, un solo conjunto de hechos— comprobada sobre la ruta real.
+cuadra=$(printf '%s' "${c}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const o=JSON.parse(s);const sum=(o.categories||[]).reduce((a,x)=>a+BigInt(x.expense_total),0n);console.log(sum===BigInt(o.expense_total)?"ok":sum+" vs "+o.expense_total)}catch{console.log("err")}})')
+[ "${cuadra}" = "ok" ] \
+  && ok "la suma de las categorias es identica al total de gastos" \
+  || fallo "el reparto no cuadra con el total (${cuadra})"
+
+# 12.4 · `Todo`: sin limites, y sigue respondiendo.
+r=$(rpc personal_statistics "${TOK_A}" '{}')
+[ "$(estado_de "${r}")" = "200" ] \
+  && ok "sin limites -el caso Todo- responde 200" \
+  || fallo "el caso Todo devolvio $(estado_de "${r}")"
+
+# 12.5 · AISLAMIENTO: B no recibe ni un euro de A.
+r=$(rpc personal_statistics "${TOK_B}" '{}')
+ajeno=$(printf '%s' "$(cuerpo_de "${r}")" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const o=JSON.parse(s);console.log(o===null?"sin-ambito":o.scope_id)}catch{console.log("err")}})')
+if [ "${ajeno}" != "${PA}" ]; then
+  ok "B no recibe las estadisticas del ambito de A"
+else
+  fallo "B recibio el ambito de A"
+fi
+
+# 12.6 · sin JWT, la puerta cerrada antes de que la RLS decida nada.
+sin=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${API}/rest/v1/rpc/personal_statistics" \
+        -H "apikey: ${KEY}" -H 'Content-Type: application/json' --data-binary '{}')
+case "${sin}" in
+  200|201) fallo "sin JWT se obtuvieron estadisticas (${sin})" ;;
+  *)       ok "sin JWT la estadistica no responde (${sin})" ;;
+esac
+
+# ============================================================================
+echo ""
 echo "== retirada =="
 retirar
 borrar_usuarios
-resto=$("${DBQ[@]}" <<'SQL' 2>/dev/null
-select (select count(*) from core.operation) + (select count(*) from core.effect)
-     + (select count(*) from core.scope) + (select count(*) from core.participant)
-     + (select count(*) from core.client_command)
+# SOLO lo que este check crea, no el contenido de la base.
+#
+# Contaba `core.scope`, `core.operation` y compania GLOBALES, lo que daba por
+# residuo cualquier cuenta legitima que hubiera en la base local — la del
+# telefono de quien esta probando, por ejemplo. Un fallo falso, y de los caros:
+# manda a buscar una fuga de datos donde solo habia una sesion real.
+#
+# Ceñirlo NO lo debilita. Lo que el check escribe sale de sus cuatro ambitos
+# sembrados o de las cuentas `nomey-http-%` que crea el provisioning, asi que
+# cualquier fila suya sigue contando.
+resto=$("${DBQ[@]}" <<SQL 2>/dev/null
+with mios as (
+  select id from core.scope
+   where id in ('${PA}','${PB}','${GX}','${GY}')
+      or owner_user_id in (select id from auth.users where email like 'nomey-http-%')
+)
+select (select count(*) from core.operation o
+         join core.operation_version ov on ov.operation_id = o.id
+         join core.effect e on e.operation_version_id = ov.id
+        where e.scope_id in (select id from mios))
+     + (select count(*) from core.effect where scope_id in (select id from mios))
+     + (select count(*) from mios)
+     + (select count(*) from core.participant where scope_id in (select id from mios))
+     + (select count(*) from core.client_command
+         where created_by in (select id from auth.users where email like 'nomey-http-%'))
      + (select count(*) from auth.users where email like 'nomey-http-%');
 SQL
 )

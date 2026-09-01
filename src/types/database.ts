@@ -8,7 +8,6 @@ export type Database = {
     Views: {
       category: {
         Row: {
-          applies_to: string | null;
           icon: string | null;
           id: string | null;
           is_active: boolean | null;
@@ -18,7 +17,6 @@ export type Database = {
           ordinal: number | null;
         };
         Insert: {
-          applies_to?: string | null;
           icon?: string | null;
           id?: string | null;
           is_active?: boolean | null;
@@ -28,7 +26,6 @@ export type Database = {
           ordinal?: number | null;
         };
         Update: {
-          applies_to?: string | null;
           icon?: string | null;
           id?: string | null;
           is_active?: boolean | null;
@@ -161,6 +158,13 @@ export type Database = {
             referencedRelation: 'personal_scope';
             referencedColumns: ['id'];
           },
+          {
+            foreignKeyName: 'expense_category_category_id_fkey';
+            columns: ['category_id'];
+            isOneToOne: false;
+            referencedRelation: 'category';
+            referencedColumns: ['id'];
+          },
         ];
       };
       personal_operation_version: {
@@ -181,6 +185,13 @@ export type Database = {
           version_no: number | null;
         };
         Relationships: [
+          {
+            foreignKeyName: 'expense_category_category_id_fkey';
+            columns: ['category_id'];
+            isOneToOne: false;
+            referencedRelation: 'category';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'operation_version_original_currency_definition_id_fkey';
             columns: ['currency_definition_id'];
@@ -232,6 +243,10 @@ export type Database = {
           operation_version_id: string;
           scope_id: string;
         }[];
+      };
+      personal_statistics: {
+        Args: { p_from?: string; p_to?: string };
+        Returns: Json;
       };
       record_adjustment: { Args: { payload: Json }; Returns: Json };
       record_debt_settlement: { Args: { payload: Json }; Returns: Json };

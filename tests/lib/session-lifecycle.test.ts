@@ -5,7 +5,12 @@ import {
   type AuthPort,
   startSessionLifecycle,
 } from '../../src/features/session/session-lifecycle';
-import type { AuthenticatedUser, SessionState } from '../../src/features/session/session-state';
+import {
+  type AuthenticatedUser,
+  isPublic,
+  isSignedIn,
+  type SessionState,
+} from '../../src/features/session/session-state';
 
 /**
  * El ciclo de vida de la sesión.
@@ -354,5 +359,91 @@ describe('ciclo de vida de la sesión', () => {
       expect(onRefreshError).toHaveBeenCalledWith(boom);
       stop();
     });
+  });
+});
+
+/**
+ * Los cinco casos de arranque, nombrados.
+ *
+ * Existen tras un fallo real en iPhone en el que la app no llegaba al
+ * formulario de entrar. La causa no estaba aquí —el ciclo de vida resolvía
+ * bien los cinco— sino en la pantalla, que en `unavailable` sustituía el
+ * formulario por un muro de error. Estos casos fijan la parte que SÍ era
+ * correcta, para que siga siéndolo.
+ *
+ * Los tiempos son los medidos con el cliente real de `@supabase/auth-js`
+ * 2.112.4 contra un stack local, y se anotan porque explican por qué el
+ * watchdog de diez segundos no estorba a ninguno de los cuatro primeros.
+ */
+describe('los cinco casos de arranque', () => {
+  /** 1 · sesión válida persistida. Medido: `signed-in` a los 2 ms. */
+  it('sesión válida resuelve a `signed-in` y monta la rama protegida', () => {
+    const h = harness();
+    h.emit(ALICE);
+
+    expect(h.emitted).toEqual([{ status: 'signed-in', identity: expect.any(Object) }]);
+    expect(isSignedIn(h.emitted[0])).toBe(true);
+    expect(isPublic(h.emitted[0])).toBe(false);
+    h.stop();
+  });
+
+  /** 2 · sin sesión. Medido: `signed-out` a los 0 ms. */
+  it('sin sesión resuelve a `signed-out` y termina en la rama pública', () => {
+    const h = harness();
+    h.emit(null);
+
+    expect(h.emitted).toEqual([{ status: 'signed-out' }]);
+    expect(isPublic(h.emitted[0])).toBe(true);
+    h.stop();
+  });
+
+  /**
+   * 3 · sesión persistida INVÁLIDA — refresh token revocado.
+   *
+   * Medido: llega como `INITIAL_SESSION` con sesión nula a los 10 ms, y
+   * `auth-js` deja el almacenamiento VACÍO por su cuenta. Para este módulo es
+   * indistinguible de «no había sesión», y esa indistinguibilidad es correcta:
+   * el resultado que el producto exige —descartarla y acabar en Login— es el
+   * mismo. Nomey no escribe una segunda purga; la posee ADR-017.
+   */
+  it('una sesión persistida inválida acaba en `signed-out`, nunca en `unavailable`', () => {
+    const h = harness();
+    h.emit(null);
+
+    expect(h.emitted).toEqual([{ status: 'signed-out' }]);
+    expect(h.emitted.some((state) => state.status === 'unavailable')).toBe(false);
+    expect(h.timers.pendingCount()).toBe(0);
+    h.stop();
+  });
+
+  /** 4 · comprobación PENDIENTE: mientras siga pendiente, no se resuelve nada. */
+  it('mientras la comprobación sigue pendiente no se emite ningún estado', () => {
+    const h = harness();
+
+    expect(h.emitted).toEqual([]);
+    expect(h.timers.pendingCount()).toBe(1);
+    h.stop();
+  });
+
+  /**
+   * 5 · fallo recuperable de Auth. Medido: con el backend inalcanzable, el
+   * watchdog resuelve a los 10 s **y la sesión guardada se conserva**, porque
+   * nada demostró que fuera inválida.
+   *
+   * `unavailable` NO es terminal ni es un veredicto sobre las credenciales: la
+   * suscripción sigue viva y una respuesta tardía manda.
+   */
+  it('un fallo recuperable acaba en `unavailable`, en rama pública y sin cerrar la puerta', () => {
+    const h = harness();
+    h.timers.fire();
+
+    expect(h.emitted).toEqual([{ status: 'unavailable' }]);
+    expect(isPublic(h.emitted[0])).toBe(true);
+    expect(isSignedIn(h.emitted[0])).toBe(false);
+
+    // Y la respuesta tardía sigue mandando.
+    h.emit(ALICE);
+    expect(h.emitted[1].status).toBe('signed-in');
+    h.stop();
   });
 });
