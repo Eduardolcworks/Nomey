@@ -288,9 +288,27 @@ echo "   liquidacion bloqueara, la correccion no esperaria a nadie."
 
 limpiar_operaciones
 gasto 90000000-0000-4000-8000-000000000030 "${GZ}" "${ZA}" "${ZA}" "${ZB}" 10000 >/dev/null
+# LA LECTURA VA ATADA A SU PROPIO COMANDO, y no es estilo.
+#
+# Aqui ponia `from core.operation o` sin filtro. Era correcto mientras la
+# limpieza borraba la tabla entera: quedaba una fila y era la suya. Al acotar
+# los borrados a sus identificadores, cualquier operacion ajena sobrevive y
+# esta lectura se lleva la primera que salga — medido: se llevo un
+# `personal_income`, la correccion murio con OPERATION_CLASS_MISMATCH y la
+# liquidacion, que ya no tenia correccion que ver, se acepto.
+#
+# El pendiente final seguia dando 2000 por los dos caminos —5000 menos la
+# liquidacion de 3000, o la correccion a 2000 sin liquidacion— asi que la
+# asercion siguiente lo tapaba.
+#
+# `client_operation_id` es la clave exacta: identifica el comando que creo esta
+# operacion y de nadie mas. Es el mismo criterio que `leer_op` de arriba.
 read -r OP3 V3 <<<"$(
   "${DBQ[@]}" <<SQL 2>/dev/null
-select o.id || ' ' || o.current_version_id from core.operation o;
+select o.id || ' ' || o.current_version_id
+  from core.operation o
+  join core.client_command c on c.result_operation_id = o.id
+ where c.client_operation_id = '90000000-0000-4000-8000-000000000030';
 SQL
 )"
 

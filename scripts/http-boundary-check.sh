@@ -455,8 +455,18 @@ llamada "record_settlement_by_transfer" record_settlement_by_transfer "${TOK_A}"
   \"debt_scope_id\":\"${GY}\",\"currency_definition_id\":\"${EUR}\",\"amount\":\"3000\",
   \"debtor_participant_id\":\"${YA}\",\"creditor_participant_id\":\"${YB}\"}"
 
-ejercitadas=$("${DBQ[@]}" <<'SQL' 2>/dev/null
-select count(distinct operation_class) from core.operation;
+# EL RECUENTO TAMBIEN VA ACOTADO. Contaba las clases de la tabla entera, que
+# era exacto mientras el script fuera el unico habitante de la base. Sobre una
+# base con datos, una clase ajena —un `personal_income` cualquiera— hace ocho de
+# siete y declara roto un script que se comporto bien. Es el mismo supuesto que
+# rompio la lectura de `writer-debt-concurrency.sh`, encontrado por el mismo
+# camino; este no llego a fallar en CI, y se acota antes de que lo haga.
+#
+# Las SIETE clases las escriben ${UID_A} y ${UID_B} por la ruta HTTP, asi que
+# acotar por ellos no relaja nada: sigue exigiendo que las siete se persistan.
+ejercitadas=$("${DBQ[@]}" <<SQL 2>/dev/null
+select count(distinct operation_class) from core.operation
+ where created_by in ('${UID_A}','${UID_B}');
 SQL
 )
 [ "$(tr -d '[:space:]' <<<"${ejercitadas}")" = "7" ] \
