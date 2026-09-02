@@ -13,23 +13,23 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-09-01**, al cerrar el bloque **F6.F**.
+Actualizado el **2026-09-03**, al cerrar la **Fase 6** con el bloque **F6.G**.
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| **Fase en curso**       | **Fase 6 — Modo Personal.** Primer hito enseñable. **F6.A … F6.F cerrados**    |
-| **Última fase cerrada** | **Fase 5 — Identidad y sesión** (A · B · C1 · D · E · F), el 2026-08-28        |
-| **ADR aceptados**       | ADR-001 … ADR-027                                                              |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR            |
-| **App visible**         | **Inicio escribe dinero real**: alta, corrección, anulación y ajuste del saldo |
-| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**   |
+|                         |                                                                                                                |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Fase en curso**       | **Ninguna.** La siguiente no ha empezado                                                                       |
+| **Última fase cerrada** | **Fase 6 — Modo Personal** (A … G), el 2026-09-03. **Aprobada físicamente por el usuario en iOS y en Android** |
+| **ADR aceptados**       | ADR-001 … ADR-027                                                                                              |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR                                            |
+| **App visible**         | **Inicio escribe dinero real**: alta, corrección, anulación y ajuste del saldo                                 |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                   |
 
-**La Fase 6 está abierta.** Su estado, sus decisiones de producto cerradas y las
-obligaciones de cada bloque están en
+**La Fase 6 está CERRADA.** Sus decisiones de producto, lo que entregó cada
+bloque y lo que queda deliberadamente fuera están en
 [`phase-6-handoff.md`](architecture/phase-6-handoff.md).
 
 **F6.A cerró la fundación de datos del Modo Personal**, sin pantalla y a
@@ -45,6 +45,26 @@ eligen su moneda. La decisión es
 > hoy una cuenta recién confirmada **sigue sin Modo Personal** hasta que alguien
 > llama a la función. Ese cableado es de **F6.E**, antes de que Inicio consuma el
 > ámbito.
+
+**F6.G cerró la fase igualando Android con iOS.** No añadió pantallas: la
+misma implementación se veía distinta en cada plataforma, porque **Android no
+funde las capas de un `boxShadow`** —dibuja una silueta por entrada— mientras
+que iOS compone la lista entera de una vez. De ahí salen **tres materiales de
+Android**, definidos en `ui/theme/elevation.ts` y resueltos en `ui/theme/depth.ts`:
+`control` (relleno `#1D1D1D`, rim base `0.20` y acento superior `0.08`, sin
+sombras), `window` (gris plano `#191919` y rim continuo, para los paneles) y
+`translucent-control` (conserva relleno y alfa, retira `inset` y proyección,
+añade el rim). **iOS no conoce ninguno**: sus ficheros gemelos devuelven `null`,
+así que su ruta de renderizado no cambió ni un nodo. Quedan deliberadamente
+fuera las tarjetas de Inicio, el `+`, el cristal del dock y el donut.
+
+El bloque corrigió además tres defectos visuales —la costura de un píxel del
+toroide, el indicador del selector de intervalo que se salía en los extremos, y
+los iconos de categoría grises en las tarjetas de flujo— y **abrió la categoría a
+la corrección**, con la composición `importe | € | categoría` en una sola fila y
+la ventana en su tamaño original. Ninguno de los tres tocó una regla de dominio,
+y **no hizo falta ninguna migración**: `category_id` ya viajaba de punta a punta
+desde F6.B. Los detalles, con sus causas medidas, están en el handoff.
 
 **F6.F cerró la escritura, y con ella el Modo Personal se usa de verdad.**
 Añadir un movimiento, corregirlo, anularlo y fijar el Disponible ocurren desde

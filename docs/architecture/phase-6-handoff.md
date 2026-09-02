@@ -20,8 +20,8 @@ Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 | **F6.C** | Saldo objetivo, observación y anulación      | **Cerrado como fundamento backend** |
 | **F6.D** | Superficie de lectura                        | **Cerrado como fundamento backend** |
 | **F6.E** | Inicio · **y el cableado del provisioning**  | **Cerrado**                         |
-| **F6.F** | Alta, edición y eliminación                  | **Cerrado y validado en aparato**   |
-| **F6.G** | Cierre de fase                               | No empezado                         |
+| **F6.F** | Alta, edición y eliminación                  | **Cerrado y validado en iPhone**    |
+| **F6.G** | Cierre de fase · **paridad visual Android**  | **Cerrado y validado en los dos**   |
 
 **F6.A no tiene pantalla, y es deliberado.** Sus criterios se verifican por check
 SQL y por HTTP con JWT real, no por vista.
@@ -309,16 +309,135 @@ rehacerlos, y cada uno por su función canónica.
 
 ### Lo que queda deliberadamente fuera
 
-- **La ventana de corregir muestra sólo el importe.** Concepto, categoría y
-  fecha viajan intactos en la corrección —el comando describe la versión
-  entera— pero no tienen interfaz todavía. Añadirlos es de F6.G, uno a uno.
-- **Android no se ha validado en aparato.** Toda la comprobación física de F6.F
-  es de iPhone; la implementación de Android existe y compila, pero nadie la ha
-  visto correr.
+- **La ventana de corregir muestra el importe y la categoría.** El concepto y
+  la fecha viajan intactos en la corrección —el comando describe la versión
+  entera— pero no tienen interfaz todavía. La categoría sí la tiene desde F6.G;
+  los otros dos se añaden cuando haga falta, uno a uno.
+- ~~**Android no se ha validado en aparato.**~~ **RESUELTO en F6.G**, que es de
+  lo que trata el bloque entero: emulador Android en toda la fase y aparato real
+  para la aprobación final, en las dos plataformas.
 - **El menú de categorías de iOS está partido en dos capas** —etiqueta con el
   círculo, sombra exterior fuera del `Host`— para rodear expo/expo#44126, que
   aguas arriba está cerrada sin arreglo publicado. Si esa incidencia se
   resolviera, la composición puede volver a ser una sola capa.
+
+---
+
+## 3 octies · Qué entregó F6.G, y cierra la fase
+
+**F6.G no añadió pantallas: igualó lo que ya había.** Toda la Fase 6 se había
+comprobado en iPhone, y sobre Android la misma implementación se veía distinta.
+El bloque cierra esa diferencia, corrige tres defectos que sólo se ven mirando, y
+añade el único hueco de interfaz que quedaba abierto en la corrección.
+
+### La causa de fondo, que explica casi todo lo demás
+
+**Android no funde las capas de un `boxShadow`: dibuja una silueta independiente
+por entrada.** iOS compone la lista entera en un solo paso. El mismo token que en
+iOS se lee como profundidad, en Android salía como un contorno de canto duro.
+
+De ahí sale la topología de `glass-surface.android.tsx` —host con la proyección,
+material con el tinte y la máscara, rim con todo lo que va hacia dentro— y de ahí
+salen los tres materiales de abajo. **iOS no conoce ninguno**: sus ficheros
+gemelos devuelven `null`, así que su ruta de renderizado no cambió ni un nodo.
+
+### Los tres materiales de Android, y qué recibe cada uno
+
+Viven en `ui/theme/elevation.ts` como datos puros y se resuelven en
+`ui/theme/depth.ts`. **Ningún consumidor escribe un color.**
+
+| Material              | Qué es                                                     | Composición                                                                                                     |
+| --------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `control`             | Botones, filas, oblongos, círculos neutros                 | Relleno `#1D1D1D`, rim base continuo `0.20` y acento superior `0.08`, un píxel físico cada uno. **Sin sombras** |
+| `window`              | Paneles modales (`SheetWindow`)                            | Gris plano `#191919` y rim continuo `0.20`. Sin sombra interna, exterior, inset, degradado, halo ni `elevation` |
+| `translucent-control` | Controles que deben conservar su alfa o su color semántico | Conserva su relleno; retira `inset` y proyección; añade el rim continuo `0.20`                                  |
+
+**Consumidores por material.** `control`: los cuatro grupos de Perfil, la ficha
+de dato de Cuenta, los dos `ActionButton` de Cuenta (por adhesión, con una prop
+que nadie más pide), el avatar, `Concepto`, `Personal`, el disparador de
+categoría, el selector de tipo de movimiento, el contenedor del selector de
+intervalo y su círculo de calendario, y los `IconButton` rellenos.
+`translucent-control`: la píldora seleccionada del dock y `Guardar` /
+`Guardar cambios`. `window`: las tres ventanas, en un solo sitio.
+
+### Exclusiones deliberadas
+
+- **Las tarjetas de Inicio** —Disponible, flujos, categorías— conservan su
+  relieve propio (`HomeCardRelief`), calibrado aparte y aprobado antes.
+- **El botón `+`** conserva su halo ámbar: es la lente de su nivel, no una
+  sombra oscura, y pertenece a la acción.
+- **El dock** conserva su cristal; sólo su píldora seleccionada cambió de
+  material.
+- **El donut y su leyenda** no reciben material: son geometría de datos.
+- **iOS**, entero.
+
+### Los tres defectos visuales que se corrigieron, con su causa
+
+- **La costura del toroide.** Una columna oscura de un píxel a 0° y 180°, del
+  canto del agujero al borde exterior. **No era una unión entre sectores**: el
+  recorte de las dos mitades cae en `DIAMETER / 2` = 62 dp, que a densidad 2,625
+  son 162,75 píxeles físicos, y la columna del medio no la pintaba ninguna de las
+  dos. Se cubre con un solape de **un píxel físico**, `1 / PixelRatio.get()`,
+  derivado de la densidad y **cero en iOS**, donde 62 dp caen en píxel entero.
+  Ni un grado del reparto cambió.
+- **El indicador del selector `Día/Mes/Año/Todo` se salía en los extremos.** El
+  material se pintaba con `Radius.full` sobre un host de `Radius.md`: una
+  píldora de radio 22 dentro de una caja de radio 12. El indicador —radio 8,
+  separado 2 del canto— cabe en la de 12 y no en la de 22. **El material lleva
+  ahora el radio de la caja que lo contiene**, y una máscara con ese mismo radio
+  queda como protección final.
+- **Los iconos de categoría salían grises en las tarjetas de flujo desplegadas.**
+  El color vivía tras una prop opcional, `tintByCategory`, que la segunda
+  superficie que montó la fila no pidió. **La prop desapareció**: el color de una
+  categoría es identidad de la categoría y viaja con la fila igual que su icono y
+  su nombre. La fuente sigue siendo `categoryColour`, la misma que pinta el
+  donut y su leyenda.
+
+### Y dos cosas que ganó la ventana de corregir
+
+- **El importe precargado sale en gris y pasa a blanco al tocarlo**, exactamente
+  como editar el Disponible. La condición vive en `amountTones`, el resolver que
+  ya usaban las dos ventanas: una cantidad `seeded` —precargada y sin tocar— se
+  pinta apagada. Se apaga sola en cuanto se escribe o se borra.
+- **La categoría se puede editar**, con el mismo `CategoryMenu` y el mismo
+  catálogo del alta. La composición final es `importe | € | categoría` en una
+  sola fila, y la ventana mide **exactamente lo que medía antes**: 333,0 × 265,9
+  dp, la misma que un ingreso, con el CTA en su posición original al píxel.
+  `category_id` ya viajaba de punta a punta desde F6.B — **no hizo falta ninguna
+  migración ni ampliar ningún contrato**; sólo faltaba el botón.
+
+### Reglas de dominio que el bloque NO tocó
+
+- **Un ingreso no lleva categoría.** El selector no se monta, no reserva hueco y
+  no puede mandarla: `personal_income` la rechaza por forma (ADR-027). Su
+  ventana conserva la distribución `importe | €` con su contrapeso.
+- Importes, porcentajes, reparto del donut, cálculo monetario, validación,
+  idempotencia e historial: intactos. Cambiar la categoría produce una versión
+  nueva y enciende la marca «Editado» como cualquier otra corrección.
+
+### Diferencias entre plataformas, y por qué son deliberadas
+
+**La funcionalidad es idéntica.** Lo que difiere es el renderizado, y siempre a
+través de ficheros gemelos que Metro elige por extensión — nunca por una rama de
+plataforma dentro de un componente:
+
+- `ControlMaterial`, `WindowMaterial` y `DepthLayer` **no montan ningún nodo en
+  iOS**; `GlassSurface` tiene una implementación por plataforma.
+- `Tactile`, `RimBlur` y las funciones de `depth.ts` resuelven por plataforma en
+  un solo sitio.
+- El solape del toroide y el apagado del borde del host valen **cero en iOS**.
+- El menú de categorías es el del sistema en cada plataforma: `Menu` de SwiftUI
+  y `DropdownMenu` de Compose.
+
+### Cómo se verificó
+
+**Sobre el aparato, no sobre los números.** La comprobación de este bloque fue
+capturar el emulador por ADB y medir el PNG: perfiles de píxel, recorridos
+radiales de 360°, conteo de píxeles distintos contra una build de control
+idéntica salvo por el cambio en cuestión. Las zonas congeladas se declararon con
+**cero píxeles distintos**, no con un test.
+
+**La aprobación final es del usuario, física, en iOS y en Android.**
 
 ---
 
