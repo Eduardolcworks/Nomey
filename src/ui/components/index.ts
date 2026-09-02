@@ -1,11 +1,10 @@
+export { ControlMaterial, type ControlMaterialProps } from './control-material';
+export { DepthLayer, type DepthLayerProps } from './depth-layer';
 export { ActionButton, type ActionButtonProps } from './action-button';
 export { GlassPressable, type GlassPressableProps } from './glass-pressable';
-export {
-  type GlassRim,
-  GlassSurface,
-  type GlassSurfaceProps,
-  useNativeGlass,
-} from './glass-surface';
+export { type GlassRim, GlassSurface, type GlassSurfaceProps } from './glass-surface';
+export { useNativeGlass } from './use-native-glass';
+export { WindowMaterial, type WindowMaterialProps } from './window-material';
 export { Icon, type IconProps } from './icon';
 export { IconButton, type IconButtonProps } from './icon-button';
 export { Scrim } from './scrim';

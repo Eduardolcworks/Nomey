@@ -4,7 +4,7 @@ import { currencyDefinition, money } from '@/domain';
 import { useFormat } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n';
 import { Icon, ThemedText } from '@/ui/components';
-import { Radius, Spacing, useTheme } from '@/ui/theme';
+import { HomeCardRelief, homeCardSurface, Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 import type { MovementKind } from './movement';
 import { toMinor } from './statistics';
@@ -83,7 +83,8 @@ export function FlowCard({
          * movimientos.
          */
         expanded ? null : styles.half,
-        { backgroundColor: theme.surface, borderColor: theme.border },
+        { backgroundColor: homeCardSurface(theme.surface), borderColor: theme.border },
+        HomeCardRelief,
       ]}>
       <Pressable
         accessibilityRole="button"
@@ -93,7 +94,7 @@ export function FlowCard({
         onPress={onToggle}
         style={styles.header}>
         <View style={styles.title}>
-          <Icon name={income ? 'arrow.down.left' : 'arrow.up.right'} size={15} colour={tone} />
+          <Icon name={income ? Symbols.incoming : Symbols.outgoing} size={15} colour={tone} />
           <ThemedText variant="caption" themeColor="textTertiary">
             {t(income ? 'home.income' : 'home.expenses')}
           </ThemedText>
@@ -109,7 +110,7 @@ export function FlowCard({
 
         <View style={styles.chevron}>
           <Icon
-            name={expanded ? 'chevron.up' : 'chevron.down'}
+            name={expanded ? Symbols.collapse : Symbols.expand}
             size={13}
             colour={theme.textTertiary}
           />

@@ -4,7 +4,7 @@ import { currencyDefinition, money } from '@/domain';
 import { useFormat } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n';
 import { Icon, IconButton, SwipeToDelete, ThemedText } from '@/ui/components';
-import { categoryColour, categorySymbol, Radius, Spacing, useTheme } from '@/ui/theme';
+import { categoryColour, categorySymbol, Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 import { type CategoryRow, categoryIcon, categoryName } from './category';
 import {
@@ -29,21 +29,6 @@ export type MovementRowProps = {
   readonly currencyScale: number;
   readonly expanded: boolean;
   readonly onToggle: () => void;
-  /**
-   * Pinta el círculo de un GASTO con el color de su categoría.
-   *
-   * **Es una prop y no el comportamiento por defecto** porque el color aquí
-   * pertenece a la lista, no a la fila: en «Movimientos recientes» acompaña al
-   * donut y a su leyenda, que ya hablan por color, y esa lectura no se traslada
-   * sola a cualquier otra superficie que un día monte esta misma fila. Quien la
-   * quiera, la pide.
-   *
-   * Alcanza sólo al gasto con categoría resuelta. Un ingreso, un ajuste o una
-   * categoría que esta versión no sabe nombrar conservan el círculo neutro:
-   * teñir por un identificador que no se puede resolver sería derivar
-   * presentación de un dato desconocido.
-   */
-  readonly tintByCategory?: boolean;
   /**
    * Pide editar. **Ausente mientras no hay editor**, que es el estado de ahora.
    *
@@ -99,7 +84,6 @@ export function MovementRow({
   currencyScale,
   expanded,
   onToggle,
-  tintByCategory,
   onEdit,
   onDelete,
   deleting,
@@ -204,12 +188,22 @@ export function MovementRow({
    *
    * **El color no identifica solo.** El icono y el nombre siguen ahí; esto
    * añade una tercera señal, no sustituye a las otras dos.
+   *
+   * ================== POR QUÉ YA NO SE PIDE CON UNA PROP ======================
+   *
+   * Esto vivía tras `tintByCategory`, con el argumento de que el color
+   * pertenecía a la lista —donde acompaña al donut— y no a la fila. La segunda
+   * superficie que montó esta misma fila, las tarjetas de Ingresos y Gastos
+   * desplegadas, **no la pidió**, y sus categorías salieron grises: el mismo
+   * gasto se veía de dos colores según desde dónde se mirase.
+   *
+   * El argumento era, además, del revés. El color de una categoría es identidad
+   * de LA CATEGORÍA, no lectura de una lista concreta, así que viaja con la fila
+   * igual que el icono y el nombre — que nunca estuvieron tras una prop. Dejarlo
+   * opcional hacía representable justamente el defecto que apareció.
    */
   const tint =
-    tintByCategory === true &&
-    kind === 'expense' &&
-    category !== undefined &&
-    categoryLabel !== null
+    kind === 'expense' && category !== undefined && categoryLabel !== null
       ? categoryColour(category.id)
       : null;
 
@@ -372,7 +366,7 @@ export function MovementRow({
                */}
               {editable ? (
                 <IconButton
-                  name="pencil"
+                  name={Symbols.edit}
                   label={t('home.editMovement')}
                   onPress={onEdit ?? (() => undefined)}
                   disabled={onEdit === undefined || deleting === true}
@@ -385,7 +379,7 @@ export function MovementRow({
                */}
               {deletable ? (
                 <IconButton
-                  name="trash"
+                  name={Symbols.delete}
                   label={t('home.deleteMovement')}
                   onPress={onDelete}
                   disabled={deleting === true}

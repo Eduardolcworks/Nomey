@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTranslation } from '@/lib/i18n';
 import { GlassSurface, Icon, ThemedText } from '@/ui/components';
-import { Glass, Motion, Radius, Spacing, Tactile, useTheme } from '@/ui/theme';
+import { emphasisDepth, EmphasisRim, Motion, Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 import { DESTINATIONS, type Destination, destinationFor } from './destinations';
 import { useAddBackdrop } from './add-backdrop';
@@ -200,8 +200,13 @@ function DestinationButton({
               style={[
                 styles.emphasis,
                 {
-                  borderColor: Glass.regular.highlight,
-                  boxShadow: Tactile.selected,
+                  borderColor: EmphasisRim,
+                  /*
+                   * iOS conserva su token; Android no lleva sombra interior —era
+                   * la franja negra dentro de la pildora seleccionada—, y su
+                   * canto lo pone `EmphasisRim`, el mismo rim continuo del resto.
+                   */
+                  boxShadow: emphasisDepth(),
                 },
                 emphasisStyle,
               ]}
@@ -288,7 +293,7 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
              * It is the brightest thing in the dock, which is what keeps this
              * an action rather than a third destination.
              */}
-            <Icon name="plus" size={28} colour={theme.accent} />
+            <Icon name={Symbols.add} size={28} colour={theme.accent} />
           </GlassSurface>
         </Animated.View>
       )}

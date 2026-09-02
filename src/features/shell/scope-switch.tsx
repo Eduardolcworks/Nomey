@@ -10,7 +10,7 @@ import Animated, {
 
 import { useTranslation } from '@/lib/i18n';
 import { GlassSurface, Icon, ThemedText } from '@/ui/components';
-import { Glass, Motion, Radius, Spacing, useTheme } from '@/ui/theme';
+import { Glass, Motion, Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 import { SCOPE_LABEL, SCOPES, type Scope, useScope } from './scope-context';
 import { SPRING, timing, usePressScale } from './shell-motion';
@@ -140,6 +140,7 @@ export function ScopeSwitch() {
       {({ pressed }) => (
         <Animated.View style={surfaceStyle}>
           <GlassSurface
+            material="control"
             level="regular"
             depth={pressed ? 'pressed' : 'raised'}
             radius={Radius.full}
@@ -154,7 +155,7 @@ export function ScopeSwitch() {
               {t(SCOPE_LABEL[scope])}
             </ThemedText>
             <Animated.View style={glyphStyle}>
-              <Icon name="arrow.left.arrow.right" size={13} colour={theme.textTertiary} />
+              <Icon name={Symbols.transfer} size={13} colour={theme.textTertiary} />
             </Animated.View>
           </GlassSurface>
         </Animated.View>

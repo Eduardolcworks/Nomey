@@ -1,9 +1,10 @@
 import { router, usePathname } from 'expo-router';
 import { SceneStyleInterpolators, Tabs } from 'expo-router/tabs';
-import { Easing } from 'react-native';
+import { useRef } from 'react';
+import { Easing, type View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import { AddBackdrop, DESTINATIONS, NomeyDock } from '@/features/shell';
+import { AddBackdrop, BlurTarget, DESTINATIONS, NomeyDock } from '@/features/shell';
 import { Motion } from '@/ui/theme';
 
 /**
@@ -97,65 +98,83 @@ export default function TabsLayout() {
    * `AddBackdrop` no participa en el reparto: las pestañas miden exactamente lo
    * mismo con el fondo puesto que sin él.
    */
+  const blurTarget = useRef<View | null>(null);
+
   return (
     <>
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          animation: reduceMotion ? 'none' : 'shift',
-          sceneStyleInterpolator: shiftScene,
-          transitionSpec: {
-            animation: 'timing',
-            config: {
-              duration: Motion.screen.duration,
-              easing: Easing.out(Easing.ease),
-            },
-          },
-        }}
-        /*
-         * **El navegador NO pinta barra**, y por eso tampoco reserva alto para
-         * ella: devolviendo `null` la columna se queda con el contenedor de
-         * escenas y nada más, así que la escena ocupa la pantalla entera.
-         *
-         * El dock visible se monta abajo, fuera de `<Tabs>`. Hay UNA sola
-         * implementación de sus píldoras y su `+`; lo que cambia es quién la
-         * coloca.
-         */
-        tabBar={() => null}>
-        {DESTINATIONS.map((destination) => (
-          <Tabs.Screen key={destination.route} name={destination.route} />
-        ))}
-      </Tabs>
-
       {/*
-       * EL DOCK, COMO SUPERPOSICIÓN ABSOLUTA.
+       * LO QUE HAY QUE DESENFOCAR, declarado.
        *
-       * Vive aquí y no dentro del navegador, y **eso es lo que da la geometría
-       * actual**: el navegador no pinta barra ni reserva alto, así que la escena
-       * mide la pantalla entera y el contenido pasa nítido por detrás del dock.
+       * El metodo de Android no desenfoca «lo de detras» por composicion como
+       * iOS: dibuja a partir de una vista concreta, y sin ella avisa y degrada a
+       * `none` — un relleno semitransparente, no un desenfoque.
        *
-       * Se llegó a esta estructura persiguiendo un desenfoque bajo las píldoras
-       * que se ha descartado. Se queda por lo que hace ahora —colocar la pieza
-       * donde está— y no por aquello: devolverla al `tabBar` movería el dock.
+       * Envuelve las pestañas Y el dock, que es exactamente lo que el fondo
+       * cubre cuando se abre. **El fondo se queda fuera**: es hermano de esto,
+       * no hijo, porque una vista no puede ser su propio objetivo.
        *
-       * **Absoluto desde el primer momento.** Un intento anterior colgó aquí una
-       * ventana con `flex: 1` y, al competir por el espacio, dejó las pestañas
-       * empujadas y la pieza caída. El dock ya se posiciona en absoluto en su
-       * propio estilo, así que no participa en el reparto y la escena mide lo
-       * mismo con él que sin él.
+       * Fuera de Android `BlurTargetView` es un `View` corriente, asi que con
+       * `flex: 1` la geometria es la misma que sin el.
        */}
-      <NomeyDock
-        activeRoute={activeRoute}
-        onSelect={(route) => {
-          router.navigate(route === 'index' ? '/' : '/groups');
-        }}
-      />
+      <BlurTarget target={blurTarget}>
+        <Tabs
+          screenOptions={{
+            headerShown: false,
+            animation: reduceMotion ? 'none' : 'shift',
+            sceneStyleInterpolator: shiftScene,
+            transitionSpec: {
+              animation: 'timing',
+              config: {
+                duration: Motion.screen.duration,
+                easing: Easing.out(Easing.ease),
+              },
+            },
+          }}
+          /*
+           * **El navegador NO pinta barra**, y por eso tampoco reserva alto para
+           * ella: devolviendo `null` la columna se queda con el contenedor de
+           * escenas y nada más, así que la escena ocupa la pantalla entera.
+           *
+           * El dock visible se monta abajo, fuera de `<Tabs>`. Hay UNA sola
+           * implementación de sus píldoras y su `+`; lo que cambia es quién la
+           * coloca.
+           */
+          tabBar={() => null}>
+          {DESTINATIONS.map((destination) => (
+            <Tabs.Screen key={destination.route} name={destination.route} />
+          ))}
+        </Tabs>
+
+        {/*
+         * EL DOCK, COMO SUPERPOSICIÓN ABSOLUTA.
+         *
+         * Vive aquí y no dentro del navegador, y **eso es lo que da la geometría
+         * actual**: el navegador no pinta barra ni reserva alto, así que la escena
+         * mide la pantalla entera y el contenido pasa nítido por detrás del dock.
+         *
+         * Se llegó a esta estructura persiguiendo un desenfoque bajo las píldoras
+         * que se ha descartado. Se queda por lo que hace ahora —colocar la pieza
+         * donde está— y no por aquello: devolverla al `tabBar` movería el dock.
+         *
+         * **Absoluto desde el primer momento.** Un intento anterior colgó aquí una
+         * ventana con `flex: 1` y, al competir por el espacio, dejó las pestañas
+         * empujadas y la pieza caída. El dock ya se posiciona en absoluto en su
+         * propio estilo, así que no participa en el reparto y la escena mide lo
+         * mismo con él que sin él.
+         */}
+        <NomeyDock
+          activeRoute={activeRoute}
+          onSelect={(route) => {
+            router.navigate(route === 'index' ? '/' : '/groups');
+          }}
+        />
+      </BlurTarget>
 
       {/*
        * Y el fondo de «Añadir», DESPUÉS del dock: al abrirse lo cubre y lo
        * desenfoca con el resto de la pantalla, en vez de dejarlo nítido encima.
        */}
-      <AddBackdrop />
+      <AddBackdrop target={blurTarget} />
     </>
   );
 }

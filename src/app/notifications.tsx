@@ -1,6 +1,7 @@
 import { PlaceholderScreen } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
 import { EmptyState } from '@/ui/components';
+import { Symbols } from '@/ui/theme';
 
 /**
  * Notifications, as structure only.
@@ -14,7 +15,7 @@ export default function NotificationsScreen() {
   return (
     <PlaceholderScreen title="nav.notifications">
       <EmptyState
-        symbol="bell"
+        symbol={Symbols.notifications}
         title={t('notifications.empty')}
         description={t('notifications.emptyHint')}
       />

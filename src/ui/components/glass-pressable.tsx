@@ -19,6 +19,21 @@ export type GlassPressableProps = {
   /** Cuánto brilla el borde superior. Ver `GlassRim`. */
   rim?: GlassRim;
   radius?: number;
+  /**
+   * Recorta el contenido a la forma redondeada de la superficie.
+   *
+   * Lo pide quien mete dentro un relleno OPACO que ocupa la caja entera: sin
+   * máscara ese hijo decide la forma, y si la pierde tapa la del control.
+   */
+  clip?: boolean;
+  /**
+   * Qué material recibe en Android. Por omisión el neutro sólido.
+   *
+   * Se declara porque hay controles que NO pueden volverse opacos: el CTA
+   * apagado es transparente a propósito, y sustituirle el relleno le quitaba
+   * eso. Es una excepción nombrada, no una propagación.
+   */
+  material?: 'control' | 'translucent-control';
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 };
@@ -54,6 +69,8 @@ export function GlassPressable({
   selected = false,
   rim = 'catch',
   radius = Radius.full,
+  clip = false,
+  material = 'control',
   style,
   children,
 }: GlassPressableProps) {
@@ -84,6 +101,7 @@ export function GlassPressable({
           depth={pressed ? 'pressed' : selected ? 'selected' : depth}
           rim={rim}
           radius={radius}
+          clip={clip}
           /*
            * EL RELIEVE DE LOS CONTROLES, y aquí porque esto ES un control.
            *
@@ -97,7 +115,19 @@ export function GlassPressable({
            * es «superficie que se pulsa». Las estructurales —ventana, tarjetas,
            * grupos, hoja del calendario, fondo del dock— no pasan por aqui.
            */
+          /*
+           * Un control, por definicion: esta pieza ES «superficie que se
+           * pulsa». Con esto la moneda, el calendario, el cierre y los CTA
+           * reciben el material neutro de Android sin pedirlo cada uno.
+           */
+          material={material}
           nativeEffect={false}
+          /*
+           * Deshabilitado, dicho DOS veces y a proposito: la opacidad es la
+           * respuesta compartida y no cambia, y `disabled` deja que Android
+           * elija ademas su variante de profundidad. iOS lo ignora.
+           */
+          disabled={disabled}
           style={disabled ? { opacity: 0.45 } : undefined}>
           {children}
         </GlassSurface>

@@ -1,6 +1,16 @@
 import { AmountSheet } from './amount-sheet';
+import type { CategoryRow } from './category';
+import { categoryIcon, categoryName } from './category';
+import { CategoryMenu } from './category-menu';
+import { CIRCLE } from './movement-fields';
 import { BLOCKER_HINT } from './movement-blocker';
-import { type AmountEntry, amountValue, type EntryKind, sameEntry } from './movement-entry';
+import {
+  type AmountEntry,
+  amountValue,
+  type EntryKind,
+  sameEntry,
+  usesCategory,
+} from './movement-entry';
 import type { MovementFormScope } from './movement-form';
 import { useMovementDraft } from './use-movement-draft';
 import { useRecordMovement } from './use-record-movement';
@@ -66,10 +76,13 @@ export type MovementEdit = {
 export function MovementEditor({
   scope,
   edit,
+  categories,
   onSaved,
 }: {
   readonly scope: MovementFormScope | null;
   readonly edit: MovementEdit;
+  /** El MISMO catálogo del alta, resuelto por `useEntryCategories` en la ruta. */
+  readonly categories: readonly CategoryRow[];
   readonly onSaved: () => void;
 }) {
   const { t } = useTranslation();
@@ -105,6 +118,14 @@ export function MovementEditor({
     scale,
   );
 
+  /*
+   * La categoría elegida ahora mismo, resuelta contra el catálogo exactamente
+   * como en el alta. Si el identificador guardado ya no está en la lista,
+   * `chosen` es `null` y el botón cae en su icono y su etiqueta de vacío: el
+   * mismo repliegue, no uno propio de esta ventana.
+   */
+  const chosen = categories.find((row) => row.id === draft.categoryId) ?? null;
+
   return (
     <AmountSheet
       entry={draft.entry}
@@ -116,6 +137,46 @@ export function MovementEditor({
       saveLabel={t('action.saveChanges')}
       saveDisabled={draft.blocker !== null || untouched}
       saving={status === 'saving'}
+      /*
+       * EL SELECTOR DE CATEGORÍA, en la misma fila y a la derecha del €.
+       *
+       * Va en `aside`, dentro de la fila de la cifra: **no cuesta ni un punto
+       * de alto**, así que la ventana mide exactamente lo que medía antes de
+       * que existiera. Debajo, en `fields`, costaba una fila entera y empujaba
+       * el CTA.
+       *
+       * Los dos comparten centro vertical porque los alinea la propia fila, y
+       * la separación entre ellos es la del sistema — la misma que ya separaba
+       * la cifra del €.
+       *
+       * **Es el componente del alta, no una copia.** Mismo `CategoryMenu`,
+       * mismo catálogo, mismo icono, mismo color, misma etiqueta y mismo menú
+       * anclado. De aquí no sale ni un color ni un icono.
+       *
+       * **Y sólo cuando la clase lo admite.** `usesCategory` es la misma puerta
+       * que en el alta: un ingreso no monta el botón, no reserva su hueco y no
+       * puede mandar categoría, porque `personal_income` la rechaza por forma
+       * (ADR-027). Su fila queda exactamente como estaba, contrapeso incluido.
+       */
+      aside={
+        usesCategory(draft.kind) ? (
+          <CategoryMenu
+            categories={categories}
+            selected={draft.categoryId}
+            onSelect={draft.setCategoryId}
+            size={CIRCLE}
+            icon={categoryIcon(chosen ?? undefined) ?? 'tag'}
+            chosen={chosen !== null}
+            label={
+              chosen === null
+                ? t('entry.categoryEmpty')
+                : t('entry.categoryChosen', {
+                    name: categoryName(chosen, t) ?? t('entry.categoryUnknown'),
+                  })
+            }
+          />
+        ) : null
+      }
       onSave={() => {
         /*
          * **Corrección, no operación nueva.** Los dos campos del objetivo son

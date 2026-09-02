@@ -230,13 +230,27 @@ export type AmountTone = 'entered' | 'pending';
  *   se empieza a escribir la fracción, la fracción entera es suya: dejar el
  *   segundo cero apagado en `53,40` lo leería como un hueco, cuando lo que
  *   queda es una cantidad terminada a la que aún se le puede añadir un dígito.
+ *
+ * ================ UNA CANTIDAD PRECARGADA TODAVÍA NO ES SUYA ================
+ *
+ * `seeded` apaga las tres a la vez, y es lo que iguala corregir un movimiento
+ * con editar el Disponible. Allí el importe anterior se enseña como
+ * `reference` sobre un editor vacío, así que sale apagado por no haber nada
+ * escrito; aquí el importe anterior **es** el borrador, y sin esto salía
+ * encendido desde el primer fotograma: la misma ventana afirmaba dos cosas
+ * distintas según de dónde viniera la cifra.
+ *
+ * La condición es la misma en los dos casos —**lo que se ve, ¿lo ha puesto
+ * quien edita?**— y por eso vive aquí y no en cada ventana. Se apaga sola: la
+ * primera tecla parte de vacío y el borrado retira `seeded`, así que en cuanto
+ * se toca la cifra las tres reglas de arriba vuelven a mandar.
  */
 export function amountTones(entry: AmountEntry): {
   whole: AmountTone;
   separator: AmountTone;
   fraction: AmountTone;
 } {
-  const tone = (on: boolean): AmountTone => (on ? 'entered' : 'pending');
+  const tone = (on: boolean): AmountTone => (on && entry.seeded !== true ? 'entered' : 'pending');
 
   return {
     whole: tone(amountTouched(entry)),

@@ -1,8 +1,8 @@
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { useTranslation } from '@/lib/i18n';
-import { Icon, ThemedText } from '@/ui/components';
-import { Radius, Spacing, Tactile, useTheme } from '@/ui/theme';
+import { ControlMaterial, Icon, ThemedText } from '@/ui/components';
+import { controlEdge, emphasisDepth, Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 import { initialsFrom } from './display-name';
 
@@ -59,28 +59,43 @@ export function AccountAvatar({ name }: { name: string | null }) {
         styles.avatar,
         {
           backgroundColor: pressed ? theme.surface : theme.surfaceSunken,
-          borderColor: theme.border,
-          boxShadow: pressed ? Tactile.pressed : Tactile.raised,
+          borderColor: controlEdge(theme.border),
+          boxShadow: emphasisDepth(pressed ? 'pressed' : 'raised'),
         },
       ]}>
-      {initials === null ? (
-        <Icon name="person.fill" size={38} colour={theme.textTertiary} shape="circle" />
-      ) : (
-        <ThemedText variant="title" themeColor="textSecondary">
-          {initials}
-        </ThemedText>
-      )}
+      {({ pressed }) => (
+        <>
+          {/*
+           * El círculo es un control neutro y recibe el material aprobado. El
+           * relleno sigue al estado —al pulsarlo se retira y asoma el
+           * `theme.surface` del host, que es la respuesta que ya daba—, y el rim
+           * base con su acento superior sustituyen al `inset` que oscurecía el
+           * interior. En iOS no se monta ningún nodo.
+           */}
+          <ControlMaterial radius={Radius.full} fill={!pressed} />
+          {initials === null ? (
+            <Icon name={Symbols.person} size={38} colour={theme.textTertiary} shape="circle" />
+          ) : (
+            <ThemedText variant="title" themeColor="textSecondary">
+              {initials}
+            </ThemedText>
+          )}
 
-      {/*
-       * The badge sits on `surfaceRaised` with its own rim so it reads as an
-       * object on top of the circle rather than a hole cut out of it. It is
-       * the only part of this control that says "add", which is why it is not
-       * allowed to blend in.
-       */}
-      <View
-        style={[styles.badge, { backgroundColor: theme.surfaceRaised, borderColor: theme.border }]}>
-        <Icon name="camera.fill" size={14} colour={theme.textSecondary} shape="circle" />
-      </View>
+          {/*
+           * The badge sits on `surfaceRaised` with its own rim so it reads as an
+           * object on top of the circle rather than a hole cut out of it. It is
+           * the only part of this control that says "add", which is why it is not
+           * allowed to blend in.
+           */}
+          <View
+            style={[
+              styles.badge,
+              { backgroundColor: theme.surfaceRaised, borderColor: theme.border },
+            ]}>
+            <Icon name={Symbols.camera} size={14} colour={theme.textSecondary} shape="circle" />
+          </View>
+        </>
+      )}
     </Pressable>
   );
 }

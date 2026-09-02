@@ -2,7 +2,9 @@ import { getLocales } from 'expo-localization';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ensurePersonalScope } from './personal-service';
+import { createScopeFlight } from './scope-flight';
 import {
+  type EnsureScopeResult,
   IDLE,
   type PersonalScopeState,
   recommendedCurrencyCode,
@@ -43,37 +45,37 @@ export function usePersonalScope(): {
 } {
   const [state, setState] = useState<PersonalScopeState>(IDLE);
   const [attempt, setAttempt] = useState(0);
-  const inFlight = useRef(false);
+  /*
+   * EL VUELO, no un booleano. La diferencia está en `scope-flight.ts`: una
+   * invocación cancelada por React descarta el resultado —un componente
+   * desmontado nunca escribe— pero ya no impide que la siguiente, que sigue
+   * viva, se suscriba al mismo vuelo y lo aplique.
+   */
+  const flight = useRef(createScopeFlight<EnsureScopeResult>());
 
   useEffect(() => {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        /*
-         * La moneda de la REGION, no la del idioma. `expo-localization` expone
-         * las dos y son distintas; el handoff señala expresamente que usar la
-         * segunda es el error. Si el dispositivo no la da, se manda `null` y la
-         * frontera aplica su propio fallback en vez de que lo invente el
-         * cliente.
-         */
-        const result = await ensurePersonalScope(recommendedCurrencyCode(getLocales()));
-        if (!cancelled) setState(scopeFromResult(result));
-      } catch {
+    const subscription = flight.current.join(
+      /*
+       * La moneda de la REGION, no la del idioma. `expo-localization` expone
+       * las dos y son distintas; el handoff señala expresamente que usar la
+       * segunda es el error. Si el dispositivo no la da, se manda `null` y la
+       * frontera aplica su propio fallback en vez de que lo invente el cliente.
+       */
+      () => ensurePersonalScope(recommendedCurrencyCode(getLocales())),
+      {
+        value: (result) => {
+          setState(scopeFromResult(result));
+        },
         // Recuperable y con salida, igual que `unavailable` de F5.B. No se
         // registra el objeto de error: `AGENTS.md` §8 prohíbe volcar cuerpos que
         // pueden llevar importes o descripciones a los logs de plataforma.
-        if (!cancelled) setState({ status: 'unavailable' });
-      } finally {
-        inFlight.current = false;
-      }
-    })();
+        error: () => {
+          setState({ status: 'unavailable' });
+        },
+      },
+    );
 
-    return () => {
-      cancelled = true;
-    };
+    return subscription.cancel;
   }, [attempt]);
 
   const retry = useCallback(() => {

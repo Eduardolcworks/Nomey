@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet } from 'react-native';
 import { PlaceholderScreen } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
 import { EmptyState, ErrorState, LoadingState, Section } from '@/ui/components';
-import { Spacing } from '@/ui/theme';
+import { Spacing, Symbols } from '@/ui/theme';
 
 /**
  * The three common states, side by side, on the real device.
@@ -28,7 +28,7 @@ export default function StatesScreen() {
 
         <Section title={t('home.activity')}>
           <EmptyState
-            symbol="tray"
+            symbol={Symbols.empty}
             title={t('home.activityEmpty')}
             description={t('home.activityHint')}
           />
@@ -36,7 +36,7 @@ export default function StatesScreen() {
 
         <Section title={t('groups.title')}>
           <EmptyState
-            symbol="person.2"
+            symbol={Symbols.groups}
             title={t('groups.empty')}
             description={t('groups.emptyHint')}
             action={{ label: t('groups.create'), onPress: () => undefined }}

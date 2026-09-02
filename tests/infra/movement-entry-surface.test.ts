@@ -70,6 +70,8 @@ const FORM = file('features/personal/movement-form.tsx');
 const SELECTOR = file('features/personal/entry-kind-selector.tsx');
 const PICKERS = file('features/personal/entry-pickers.tsx');
 const ENTRY = code('features/personal/movement-entry.ts');
+/** 9999 sobre 58 puntos de alto se recortaba a esto en iOS. */
+const CTA_RADIO_ESPERADO = 58 / 2;
 const LAYOUT = file('app/_layout.tsx');
 
 describe('la ventana se presenta sobre Inicio, no en lugar de Inicio', () => {
@@ -150,8 +152,8 @@ describe('la ventana se presenta sobre Inicio, no en lugar de Inicio', () => {
   });
 
   it('tocar fuera cierra, y la X también', () => {
-    expect(VENTANA).not.toContain('<Scrim />');
-    expect(VENTANA_CODE).toContain('name="xmark"');
+    expect(VENTANA).not.toContain('<Scrim target={target} />');
+    expect(VENTANA_CODE).toContain('name={Symbols.close}');
     // Una sola salida, y pasa por la animación: deshacer la ruta es lo que
     // hace `useSlideDown` cuando la hoja termina de bajar, no cada control por
     // su cuenta.
@@ -517,8 +519,8 @@ describe('los selectores son los del sistema', () => {
    * fondo vacío y se ve negro. Se muda el fondo, y SÓLO el fondo.
    */
   it('el fondo lo dibujan las pestañas, no la ruta de la ventana', () => {
-    expect(code('app/(tabs)/_layout.tsx')).toContain('<AddBackdrop />');
-    expect(code('features/shell/add-backdrop.tsx')).toContain('<Scrim />');
+    expect(code('app/(tabs)/_layout.tsx')).toContain('<AddBackdrop target={blurTarget} />');
+    expect(code('features/shell/add-backdrop.tsx')).toContain('<Scrim target={target} />');
     expect(ADD).not.toContain('Scrim');
   });
 
@@ -815,7 +817,7 @@ describe('el menú de categorías en iOS', () => {
     expect(superficie).toContain('casts ? Tactile[depth] : innerShading(depth)');
 
     // Las dos mitades salen del MISMO token, filtrado — nunca reescrito.
-    const tokens = code('ui/theme/elevation.ts');
+    const tokens = code('ui/theme/depth.ts');
     expect(tokens).toContain('layers.filter((layer) => layer.inset !== true)');
     expect(tokens).toContain('layers.filter((layer) => layer.inset === true)');
   });
@@ -1286,7 +1288,7 @@ describe('tocar dentro de la ventana no la cierra', () => {
     // Dos vías de cierre y sólo dos: el velo y la X.
     expect(ARMAZON.match(/onPress=\{close\}/g) ?? []).toHaveLength(2);
     expect(ARMAZON).toContain('style={StyleSheet.absoluteFill}');
-    expect(ARMAZON).toContain('name="xmark"');
+    expect(ARMAZON).toContain('name={Symbols.close}');
 
     // Y el velo va ANTES que la ventana: el orden de hermanos es lo que la
     // pone encima.
@@ -1356,5 +1358,305 @@ describe('tocar dentro de la ventana no la cierra', () => {
     expect(CAMPO).toContain('keyboardType="decimal-pad"');
     expect(HOJA).toContain('<SaveButton');
     expect(code('ui/components/glass-pressable.tsx')).toContain('disabled={disabled || busy}');
+  });
+});
+
+/**
+ * DOS DEFECTOS DE ANDROID QUE iOS NO ENSEÑABA.
+ *
+ * Los dos son valores que una plataforma tolera y la otra no, y los dos viven
+ * en la capa compartida por las tres ventanas —el `+`, «Editar disponible» y
+ * «Editar movimiento»—, así que se arreglan una vez.
+ */
+describe('el importe no se pinta dos veces', () => {
+  const CAMPO_CODE = code('features/personal/amount-field.tsx');
+
+  /**
+   * **HAY DOS VISTAS DIBUJANDO LA MISMA CIFRA, y es el diseño.** La composición
+   * —`AmountFigure`, con sus enteros grandes y sus céntimos pequeños— es la que
+   * se lee; el `TextInput` va encima capturando el teclado y no debe verse.
+   */
+  it('la composición y el capturador son dos capas, y sólo una se lee', () => {
+    expect(CAMPO_CODE).toContain('<AmountFigure');
+    expect(CAMPO_CODE).toContain('<TextInput');
+    // La composición no recibe toques: el capturador está encima.
+    expect(CAMPO_CODE).toContain('pointerEvents="none"');
+  });
+
+  /**
+   * **El editor nativo se apaga en Android, y sólo ahí.** `color: 'transparent'`
+   * bastaba en iOS y no en Android, donde su texto salía en negro y descentrado
+   * sobre la cifra blanca.
+   */
+  it('el capturador no pinta su texto en Android', () => {
+    expect(CAMPO_CODE).toContain(
+      'Platform.select({ android: { opacity: 0 }, default: undefined })',
+    );
+    expect(CAMPO_CODE).toContain('style={[styles.capture, invisible]}');
+    // iOS conserva exactamente lo que tenía.
+    expect(CAMPO_CODE).toContain("color: 'transparent'");
+  });
+
+  /**
+   * **Se apaga la capa, no el control.** Lo que hace funcionar el campo no
+   * depende de que pinte: el toque, el teclado, el valor controlado, el cambio
+   * y su etiqueta accesible siguen exactamente donde estaban.
+   */
+  it('apagarlo no le quita foco, teclado ni accesibilidad', () => {
+    for (const vivo of [
+      'value={amountValue(entry)}',
+      'onChangeText',
+      'keyboardType="decimal-pad"',
+      'accessibilityLabel={label}',
+    ]) {
+      expect(CAMPO_CODE, vivo).toContain(vivo);
+    }
+    // El cursor ya estaba oculto por diseño, antes de esto.
+    expect(CAMPO_CODE).toContain('caretHidden');
+    // Y no se ha escondido con algo que sí lo sacaría del árbol.
+    expect(CAMPO_CODE).not.toContain("display: 'none'");
+    expect(CAMPO_CODE).not.toContain('pointerEvents="none"\n        value');
+  });
+});
+
+describe('el CTA es una píldora en las dos plataformas', () => {
+  /**
+   * **`Radius.full` vale 9999**, el modismo de «redondea del todo», que
+   * funciona mientras la plataforma lo recorte a la mitad de la altura. En
+   * Android este oblongo salía cuadrado — y es el único control cuyo relleno
+   * visible es un hijo OPACO que ocupa la caja entera, así que perder su radio
+   * no deja nada redondeado debajo que se vea.
+   */
+  /**
+   * **iOS conserva su modismo aprobado.** `Radius.full` son 9999 puntos, que iOS
+   * recorta a la mitad de la altura. Android no lo recortaba y el relleno salía
+   * cuadrado, así que allí —y sólo allí— se usa la cifra real.
+   */
+  it('su radio es la cifra real en Android y el modismo aprobado en iOS', () => {
+    expect(HOJA).toContain('const CTA_HEIGHT = 58');
+    expect(HOJA).toContain("Platform.OS === 'android' ? CTA_HEIGHT / 2 : Radius.full");
+    expect(HOJA).toContain("const CTA_CLIP = Platform.OS === 'android'");
+  });
+
+  /** Y lo llevan LAS DOS capas visibles: el cristal y el relleno de acento. */
+  it('las dos capas visibles llevan el mismo radio', () => {
+    expect(HOJA).toContain('radius={CTA_RADIUS}');
+    expect(HOJA).toMatch(/save: \{[^}]*borderRadius: CTA_RADIUS/s);
+    expect(HOJA).toMatch(/save: \{[^}]*minHeight: CTA_HEIGHT/s);
+  });
+
+  /**
+   * **iOS no cambia.** 9999 sobre 58 puntos se recortaba a 29, que es
+   * exactamente `CTA_HEIGHT / 2`. Y no se ha recortado nada con `overflow`, que
+   * habría cortado las sombras de la superficie.
+   */
+  it('no cambia lo aprobado ni recorta sombras', () => {
+    expect(CTA_RADIO_ESPERADO).toBe(29);
+    expect(HOJA).not.toContain("overflow: 'hidden'");
+  });
+
+  /** Los tamaños, la distribución y los estados no se tocan. */
+  it('conserva altura, tinte y estado apagado', () => {
+    expect(HOJA).toContain('minHeight: CTA_HEIGHT');
+    expect(HOJA).toContain("backgroundColor: disabled ? 'transparent' : theme.accent");
+    expect(HOJA).toContain('rim="none"');
+  });
+});
+
+/**
+ * EL CTA, ESTADO POR ESTADO.
+ *
+ * Los dos estados se pintan en capas distintas, y ahí estaba el defecto:
+ * **deshabilitado** lo que se ve es la superficie de cristal —su radio funciona,
+ * y salía oblongo—; **habilitado** lo único visible pasa a ser el relleno de
+ * acento, un hijo OPACO que ocupa la caja entera, y en Android salía cuadrado
+ * pese a llevar el mismo `borderRadius`.
+ *
+ * Se arregla en la superficie, no en el relleno: con la máscara la forma la
+ * manda ella y la del hijo deja de importar.
+ */
+describe('el CTA en cada uno de sus estados', () => {
+  const SUPERFICIE = code('ui/components/glass-surface.tsx');
+  const ANDROID = code('ui/components/glass-surface.android.tsx');
+  const PULSABLE = code('ui/components/glass-pressable.tsx');
+
+  /** DESHABILITADO: lo que se ve es la superficie, y no se toca nada suyo. */
+  it('apagado conserva exactamente lo que ya estaba bien', () => {
+    expect(HOJA).toContain("backgroundColor: disabled ? 'transparent' : theme.accent");
+    expect(HOJA).toContain('color: disabled ? theme.textDisabled : theme.onAccent');
+    // Su atenuación sigue viniendo del primitive, no del CTA.
+    expect(PULSABLE).toContain('disabled ? { opacity: 0.45 } : undefined');
+  });
+
+  /** HABILITADO: el relleno amarillo lleva el MISMO radio que la superficie. */
+  it('el relleno de acento lleva el mismo radio que la superficie', () => {
+    expect(HOJA).toContain('radius={CTA_RADIUS}');
+    expect(HOJA).toMatch(/save: \{[^}]*borderRadius: CTA_RADIUS/s);
+    expect(HOJA).toMatch(/save: \{[^}]*minHeight: CTA_HEIGHT/s);
+  });
+
+  /**
+   * **Y ADEMÁS dentro de la máscara.** Es lo que hace que su forma deje de
+   * importar: si la pierde, la superficie lo recorta igual.
+   */
+  it('el relleno vive dentro del contenedor redondeado', () => {
+    expect(HOJA).toContain('clip={CTA_CLIP}');
+    expect(PULSABLE).toContain('clip={clip}');
+    expect(SUPERFICIE).toContain("...(clip ? { overflow: 'hidden' as const } : {})");
+  });
+
+  /**
+   * **PULSADO: no aparece ningún rectángulo durante la transición.** El estado
+   * pulsado cambia el sombreado de la superficie, que es la misma vista
+   * recortada; el relleno no cambia de forma ni de capa.
+   */
+  it('pulsar cambia el relieve, no la forma', () => {
+    expect(PULSABLE).toContain("depth={pressed ? 'pressed' : selected ? 'selected' : depth}");
+    // La escala se aplica en una vista SIN fondo: no hay rectángulo que crezca.
+    expect(PULSABLE).toContain('<Animated.View style={animated}>');
+    expect(PULSABLE).not.toMatch(/animated[^;]*backgroundColor/s);
+  });
+
+  /**
+   * **La máscara está apagada por defecto**, así que no toca ninguna otra
+   * superficie — ni la ventana, ni las tarjetas, ni el dock — y no recorta
+   * sombras que hoy se ven.
+   */
+  it('la máscara es opcional y sólo la pide el CTA', () => {
+    expect(SUPERFICIE).toContain('clip = false');
+    const conMascara = FILES.filter((f) => /\bclip\b/.test(code(f.path))).map((f) => f.path);
+    expect(conMascara.sort()).toEqual([
+      'features/personal/amount-sheet.tsx',
+      'ui/components/glass-pressable.tsx',
+      'ui/components/glass-surface-props.ts',
+      'ui/components/glass-surface.android.tsx',
+      'ui/components/glass-surface.tsx',
+    ]);
+  });
+
+  /** Y los tres CTA salen de la misma pieza: no hay uno por ventana. */
+  it('las tres ventanas usan el mismo CTA', () => {
+    const propios = FILES.filter((f) => code(f.path).includes('export function SaveButton'));
+    expect(propios.map((f) => f.path)).toEqual(['features/personal/amount-sheet.tsx']);
+    for (const ventana of [
+      'features/personal/movement-form.tsx',
+      'features/personal/balance-editor.tsx',
+      'features/personal/movement-editor.tsx',
+    ]) {
+      expect(code(ventana), ventana).toContain('<AmountSheet');
+    }
+  });
+});
+
+/**
+ * UNA SOLA FUENTE DE SOMBRA POR FUNCIÓN.
+ *
+ * La calibración de Android no sirve de nada si un componente escribe su propia
+ * sombra al lado: quedarían dos, y ésa es la forma del halo doble.
+ */
+describe('de dónde sale la profundidad', () => {
+  const DEPTH = code('ui/theme/depth.ts');
+  const TOKENS = code('ui/theme/elevation.ts');
+
+  /** La plataforma se elige UNA vez, y no en los tokens ni en los componentes. */
+  it('la calibración se elige en un solo sitio', () => {
+    expect(DEPTH).toContain("Platform.OS === 'android' ? TactileAndroid : TactileIOS");
+    expect(DEPTH).toContain("Platform.OS === 'android' ? RimBlurAndroid : RimBlurIOS");
+    /*
+     * Los tokens siguen siendo datos PUROS: su única referencia a React Native
+     * es un TIPO, que se borra al compilar. Es lo que permite comprobarlos sin
+     * montar nada — y lo que se rompió al meter `Platform` ahí dentro, que es
+     * por lo que la selección vive en `depth.ts` y no con los valores.
+     */
+    expect(TOKENS).toContain("import type { BoxShadowValue } from 'react-native'");
+    expect(TOKENS).not.toMatch(/^import \{[^}]*\} from 'react-native'/m);
+    expect(TOKENS).not.toContain('Platform.');
+  });
+
+  /**
+   * **Nadie escribe una sombra a mano.** Quien necesita profundidad pide un
+   * estado del token; el que la aplica es `GlassSurface` o el propio token.
+   */
+  it('ningún componente escribe su propia sombra', () => {
+    const propias = FILES.filter((f) => {
+      const fuente = code(f.path);
+      if (!fuente.includes('boxShadow')) return false;
+      /*
+       * Legítimo es pedir un ESTADO del token —de la forma que sea, incluida
+       * una condición—, preguntar a `surfaceDepth` qué mitad lleva la propia
+       * vista, o componer la lista dentro del primitive: `proyeccion` y
+       * `haciaDentro` son las dos funciones de la implementación Android, y las
+       * dos filtran el token. Ilegítimo es escribir los números.
+       */
+      const legitimo =
+        /\[|Tactile\.|castShadow\(|innerShading\(|surfaceDepth\(|emphasisDepth\(|proyeccion\(|haciaDentro\(/;
+      for (const valor of fuente.match(/boxShadow:\s*[^,\n]+/g) ?? []) {
+        if (!legitimo.test(valor)) return true;
+      }
+      return false;
+    });
+    expect(propias.map((f) => f.path)).toEqual([]);
+  });
+
+  /** Y nadie recurre a `elevation` de Android como parche. */
+  it('no hay elevation añadida por ningún lado', () => {
+    for (const f of FILES) {
+      expect(code(f.path), f.path).not.toMatch(/\belevation:\s*\d/);
+    }
+  });
+
+  /**
+   * **La sombra exterior queda fuera del recorte.** `clip` alcanza a los hijos,
+   * no a lo que la vista proyecta: por eso enmascarar el CTA no le quita su
+   * sombra.
+   */
+  it('recortar no toca la sombra de la superficie', () => {
+    const superficie = code('ui/components/glass-surface.tsx');
+    const bloque = superficie.slice(superficie.indexOf('const surface = ['));
+    // El recorte y la sombra viven en el mismo objeto de estilo, y `overflow`
+    // no alcanza a `boxShadow`.
+    expect(bloque).toContain('boxShadow: [');
+    expect(bloque).toContain("...(clip ? { overflow: 'hidden' as const } : {})");
+  });
+});
+
+/**
+ * EL MATERIAL DE ANDROID: UNA CAPA POR FUNCIÓN, Y SU PROPIO TINTE.
+ *
+ * En iOS una superficie estructural son dos cosas: el tinte del token y, encima,
+ * el material de `GlassView`. Ese material es el que la levanta del fondo. En
+ * Android `isLiquidGlassAvailable()` es false, así que el tinte se queda solo y
+ * las tarjetas se confundían con el negro.
+ */
+describe('el material de Android', () => {
+  const SUPERFICIE = code('ui/components/glass-surface.tsx');
+  const ANDROID = code('ui/components/glass-surface.android.tsx');
+  const TOKENS = code('ui/theme/elevation.ts');
+  const DEPTH = code('ui/theme/depth.ts');
+
+  /**
+   * **Una capa responsable por función.** El rim y la sombra exterior en la
+   * superficie; el relieve interior en su propia vista. Es lo que impide que
+   * Android apile dos interiores y las convierta en un anillo.
+   */
+  it('el relieve interior tiene su propia capa en Android', () => {
+    expect(ANDROID).toContain('innerHalf(TactileAndroid[estado])');
+    expect(ANDROID).toContain('styles.material');
+    // Y la proyección no viaja con el relieve: la lleva el host, aparte.
+    expect(ANDROID).toContain('outerHalf(TactileAndroid[estado])');
+    // La capa no ocupa sitio ni recibe toques.
+    expect(ANDROID).toContain('pointerEvents="none"');
+    expect(ANDROID).toMatch(/material: \{\s*position: 'absolute'/);
+  });
+
+  /**
+   * **Y en iOS todo sigue en una sola vista.** `RELIEVE_APARTE` es false allí,
+   * así que la superficie compone rim, relieve y lente como estaban aprobados y
+   * no aparece ninguna capa nueva en su árbol.
+   */
+  it('iOS conserva su composición en una sola vista', () => {
+    expect(SUPERFICIE).not.toContain('styles.material');
+    expect(SUPERFICIE).toContain('return casts ? Tactile[depth] : innerShading(depth);');
+    expect(SUPERFICIE).toContain('...(token.lens ?? [])');
   });
 });

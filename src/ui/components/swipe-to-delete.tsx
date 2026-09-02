@@ -7,7 +7,7 @@ import Animated, { type SharedValue, useAnimatedStyle } from 'react-native-reani
 
 import { Icon } from './icon';
 import { DELETE_ACTION_SIZE, DELETE_ACTION_WIDTH, deleteActionOffset } from './swipe-geometry';
-import { Radius, useTheme } from '@/ui/theme';
+import { Radius, Symbols, useTheme } from '@/ui/theme';
 
 /**
  * Una fila que descubre una acción destructiva al deslizarla hacia la
@@ -160,7 +160,7 @@ function DeleteAction({
               styles.surface,
               { backgroundColor: theme.negative, opacity: pressed || busy === true ? 0.7 : 1 },
             ]}>
-            <Icon name="trash" size={20} colour={theme.background} />
+            <Icon name={Symbols.delete} size={20} colour={theme.background} />
           </View>
         )}
       </Pressable>

@@ -3,7 +3,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 
 import { useTranslation } from '@/lib/i18n';
 import { IconButton, ThemedText } from '@/ui/components';
-import { Radius, Spacing, Typography, useTheme } from '@/ui/theme';
+import { Radius, Spacing, Symbols, Typography, useTheme } from '@/ui/theme';
 
 import { updateDisplayName } from './auth-service';
 import { normaliseDisplayName } from './credentials';
@@ -68,7 +68,7 @@ export function DisplayNameEditor({ name }: { name: string | null }) {
           {name ?? t('account.noName')}
         </ThemedText>
         <IconButton
-          name="pencil"
+          name={Symbols.edit}
           label={t('profile.editName')}
           size={16}
           colour={theme.textSecondary}
@@ -105,14 +105,14 @@ export function DisplayNameEditor({ name }: { name: string | null }) {
           ]}
         />
         <IconButton
-          name="xmark"
+          name={Symbols.close}
           label={t('action.cancel')}
           size={16}
           colour={theme.textSecondary}
           onPress={close}
         />
         <IconButton
-          name="checkmark"
+          name={Symbols.confirm}
           label={t('action.save')}
           size={18}
           colour={empty || running ? theme.textDisabled : theme.text}

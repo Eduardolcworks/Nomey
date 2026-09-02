@@ -7,7 +7,7 @@ import { useSession } from '@/features/session';
 import { PlaceholderScreen } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
 import { GlassSurface, Icon, type IconProps, Section, ThemedText } from '@/ui/components';
-import { Radius, Spacing, useTheme } from '@/ui/theme';
+import { Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 /**
  * Perfil: who you are, then what you can change.
@@ -49,9 +49,9 @@ export default function ProfileScreen() {
   const displayName = state.status === 'signed-in' ? state.identity.displayName : null;
 
   const general: readonly Option[] = [
-    { icon: 'globe', label: t('profile.languageCurrency') },
-    { icon: 'circle.lefthalf.filled', label: t('profile.appearance') },
-    { icon: 'bolt', label: t('profile.shortcuts') },
+    { icon: Symbols.language, label: t('profile.languageCurrency') },
+    { icon: Symbols.appearance, label: t('profile.appearance') },
+    { icon: Symbols.shortcuts, label: t('profile.shortcuts') },
   ];
 
   return (
@@ -87,7 +87,7 @@ export default function ProfileScreen() {
        */}
       <OptionGroup style={styles.account}>
         <OptionRow
-          icon="person.crop.circle"
+          icon={Symbols.profile}
           label={t('profile.account')}
           first
           onPress={() => {
@@ -100,7 +100,7 @@ export default function ProfileScreen() {
         <Section title={t('dev.states')}>
           <OptionGroup>
             <OptionRow
-              icon="waveform.path.ecg"
+              icon={Symbols.diagnostics}
               label={t('profile.diagnostics')}
               first
               onPress={() => {
@@ -108,14 +108,14 @@ export default function ProfileScreen() {
               }}
             />
             <OptionRow
-              icon="square.on.square"
+              icon={Symbols.states}
               label={t('dev.states')}
               onPress={() => {
                 router.push('/states');
               }}
             />
             <OptionRow
-              icon="key"
+              icon={Symbols.sessionProbe}
               label={t('dev.sessionProbe')}
               onPress={() => {
                 router.push('/session-probe');
@@ -152,9 +152,9 @@ function PlansCard() {
   const theme = useTheme();
 
   return (
-    <GlassSurface level="regular" style={styles.plans}>
+    <GlassSurface material="control" level="regular" style={styles.plans}>
       <View style={styles.plansHead}>
-        <Icon name="sparkles" size={20} colour={theme.textSecondary} />
+        <Icon name={Symbols.premium} size={20} colour={theme.textSecondary} />
         <SoonPill />
       </View>
       <ThemedText variant="bodyStrong">{t('profile.plansTitle')}</ThemedText>
@@ -168,7 +168,7 @@ function PlansCard() {
 /** The material the options sit on: one surface per group, not one per row. */
 function OptionGroup({ children, style }: { children: ReactNode; style?: ViewStyle }) {
   return (
-    <GlassSurface level="regular" style={[styles.group, style]}>
+    <GlassSurface material="control" level="regular" style={[styles.group, style]}>
       {children}
     </GlassSurface>
   );
@@ -219,7 +219,7 @@ function OptionRow({
        * Two non-colour signals for "not yet": the chevron is absent AND a pill
        * is present. Either one alone would be a guess.
        */}
-      {soon ? <SoonPill /> : <Icon name="chevron.right" size={14} colour={theme.textTertiary} />}
+      {soon ? <SoonPill /> : <Icon name={Symbols.forward} size={14} colour={theme.textTertiary} />}
     </Pressable>
   );
 }

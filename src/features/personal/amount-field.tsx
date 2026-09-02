@@ -1,4 +1,4 @@
-import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, Platform, StyleSheet, TextInput, View } from 'react-native';
 
 import {
   type AmountEntry,
@@ -97,7 +97,7 @@ export function AmountField({
         caretHidden
         selectionColor="transparent"
         accessibilityLabel={label}
-        style={styles.capture}
+        style={[styles.capture, invisible]}
       />
     </View>
   );
@@ -192,6 +192,28 @@ function AmountFigure({
  * destellos en las puntas del oblongo. El negro encima es `onAccent`, el único
  * primer plano admitido sobre el acento, a 12.4:1.
  */
+
+/**
+ * QUE EL EDITOR NATIVO NO PINTE SU PROPIO TEXTO, y en Android hace falta
+ * decirlo aparte.
+ *
+ * En esta pantalla hay DOS vistas dibujando el mismo importe: la composición
+ * —`AmountFigure`, la que se lee, con sus enteros grandes y sus céntimos
+ * pequeños— y el `TextInput` que va encima capturando el teclado. El campo se
+ * daba por invisible con `color: 'transparent'`, y en iOS lo es. En Android no:
+ * su texto aparecía en negro, descentrado y por encima de la cifra blanca,
+ * porque el cuerpo del campo son 56 puntos y la composición no.
+ *
+ * **Se apaga la CAPA, no el control.** El cursor ya estaba oculto por
+ * `caretHidden`, que es una decisión de diseño anterior a esto; el toque, el
+ * foco, el teclado, el borrado y `onChangeText` no dependen de que la vista
+ * pinte, y una vista con opacidad cero sigue en el árbol de accesibilidad con su
+ * `accessibilityLabel`. Lo único que se pierde es lo que nunca debió verse.
+ *
+ * **iOS no se toca.** Allí `color: 'transparent'` ya bastaba, y añadir opacidad
+ * sería cambiar algo aprobado por un problema que no tiene.
+ */
+const invisible = Platform.select({ android: { opacity: 0 }, default: undefined });
 
 const styles = StyleSheet.create({
   amountSlot: {

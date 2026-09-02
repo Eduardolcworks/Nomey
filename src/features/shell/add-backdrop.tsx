@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, type RefObject, useCallback, useContext, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Scrim } from '@/ui/components';
@@ -89,7 +89,7 @@ export function useAddBackdrop(): AddBackdropSignal {
  */
 const BACKDROP_ENABLED = true;
 
-export function AddBackdrop() {
+export function AddBackdrop({ target }: { readonly target?: RefObject<View | null> }) {
   const { visible } = useAddBackdrop();
 
   if (!BACKDROP_ENABLED || !visible) return null;
@@ -99,7 +99,7 @@ export function AddBackdrop() {
       style={StyleSheet.absoluteFill}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants">
-      <Scrim />
+      <Scrim target={target} />
     </View>
   );
 }

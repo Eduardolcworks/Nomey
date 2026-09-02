@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type MessageKey, useTranslation } from '@/lib/i18n';
 import { IconButton, ThemedText, ThemedView } from '@/ui/components';
-import { Spacing } from '@/ui/theme';
+import { Spacing, Symbols } from '@/ui/theme';
 
 /**
  * A pushed screen with a title, a back control and whatever the caller shows.
@@ -40,7 +40,7 @@ export function PlaceholderScreen({
       <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
           <IconButton
-            name="chevron.left"
+            name={Symbols.back}
             label={t('action.close')}
             size={20}
             onPress={() => {

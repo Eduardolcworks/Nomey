@@ -4,7 +4,15 @@ import { currencyDefinition, money } from '@/domain';
 import { useFormat } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n';
 import { GlassSurface, IconButton, ThemedText } from '@/ui/components';
-import { Radius, Spacing, type TextColor, useTheme } from '@/ui/theme';
+import {
+  HomeCardRelief,
+  homeCardSurface,
+  Radius,
+  Spacing,
+  Symbols,
+  type TextColor,
+  useTheme,
+} from '@/ui/theme';
 
 import { toMinor } from './statistics';
 
@@ -114,7 +122,12 @@ export function BalanceCard({
   const debtMinor = toMinor(debt);
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: homeCardSurface(theme.surface), borderColor: theme.border },
+        HomeCardRelief,
+      ]}>
       <View style={styles.columns}>
         <View style={styles.available}>
           <ThemedText variant="caption" themeColor="textTertiary">
@@ -160,7 +173,7 @@ export function BalanceCard({
        * affordance en F6.E — ajustar el saldo escribe, y escribir es de F6.F.
        */}
       <IconButton
-        name="pencil"
+        name={Symbols.edit}
         label={t('home.adjustBalance')}
         onPress={onAdjust}
         size={18}
