@@ -15,8 +15,23 @@
 # distinto de cero si alguna asercion falla, para que CI lo detecte.
 #
 # NO ES UNA MIGRACION y no crea ningun objeto de esquema.
+#
+# **TODA LIMPIEZA VA ACOTADA A SUS PROPIOS IDENTIFICADORES**, y no es una
+# preferencia de estilo. Aqui hubo `delete from core.operation;` sin `where`,
+# junto con otros doce borrados de tabla entera. En CI daba igual —la base se
+# levanta desde cero y el script es su unico habitante—, pero sobre una base con
+# datos borro treinta y siete operaciones reales. Un script de prueba no puede
+# tocar una sola fila que no haya creado el.
+#
+# La guarda de `local-db-guard.sh` es la OTRA proteccion, y no sustituye a esta:
+# aquella impide trabajar sobre la base equivocada, esta impide destrozar la
+# correcta.
 
 set -uo pipefail
+
+# shellcheck source=scripts/local-db-guard.sh
+. "$(dirname "${BASH_SOURCE[0]}")/local-db-guard.sh"
+exigir_base_local || exit 1
 
 DB=(docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=0)
 DBQ=(docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -t -A -v ON_ERROR_STOP=0)
@@ -39,6 +54,11 @@ YA=b0000000-0000-4000-8000-0000000000a2
 YB=b0000000-0000-4000-8000-0000000000b2
 ZA=b0000000-0000-4000-8000-0000000000a3
 ZB=b0000000-0000-4000-8000-0000000000b3
+
+# LAS DOS LISTAS QUE ACOTAN TODA LIMPIEZA, escritas una vez. Cualquier borrado
+# de este script se ata a una de ellas o al actor que lo creo; ninguno va suelto.
+AMBITOS="'${PA}','${PB}','${GX}','${GY}','${GZ}'"
+PARTICIPANTES="'${XA}','${XB}','${YA}','${YB}','${ZA}','${ZB}'"
 
 # --------------------------------------------------------------- utilidades --
 # Ejecuta una llamada autoritativa en su propia transaccion, como `authenticated`
@@ -98,23 +118,30 @@ SQL
 
 # Las FK diferibles rompen el borrado por sentencias sueltas: hay que hacerlo
 # dentro de una transaccion. Es una de las trampas conocidas del proyecto.
+# El heredoc va SIN comillas a proposito: necesita interpolar los
+# identificadores para acotar cada borrado. Con 'SQL' entrecomillado no se
+# expandian, que es como acabaron siendo borrados de tabla entera.
 limpiar_operaciones() {
-  "${DB[@]}" >/dev/null 2>&1 <<'SQL'
+  "${DB[@]}" >/dev/null 2>&1 <<SQL
 begin;
 set constraints all deferred;
-delete from core.client_command;
-delete from core.balance_observation;
-delete from core.adjustment_detail;
-delete from core.expense_category;
-delete from core.movement_detail;
-delete from core.split_participant;
-delete from core.split;
-delete from core.effect;
+delete from core.client_command where created_by in ('${UA}','${UB}');
+delete from core.balance_observation where scope_id in (${AMBITOS});
+delete from core.adjustment_detail d using core.operation_version ov
+  where ov.id = d.operation_version_id and ov.created_by in ('${UA}','${UB}');
+delete from core.expense_category x using core.operation_version ov
+  where ov.id = x.operation_version_id and ov.created_by in ('${UA}','${UB}');
+delete from core.movement_detail d using core.operation_version ov
+  where ov.id = d.operation_version_id and ov.created_by in ('${UA}','${UB}');
+delete from core.split_participant where scope_id in (${AMBITOS});
+delete from core.split where scope_id in (${AMBITOS});
+delete from core.effect where scope_id in (${AMBITOS});
 update core.operation o set current_version_id = v.id
-  from core.operation_version v where v.operation_id = o.id and v.version_no = 1;
-delete from core.operation_version where version_no > 1;
-delete from core.operation_version;
-delete from core.operation;
+  from core.operation_version v
+ where v.operation_id = o.id and v.version_no = 1
+   and o.created_by in ('${UA}','${UB}');
+delete from core.operation_version where created_by in ('${UA}','${UB}');
+delete from core.operation where created_by in ('${UA}','${UB}');
 commit;
 SQL
 }
@@ -123,21 +150,24 @@ retirar() {
   "${DB[@]}" >/dev/null 2>&1 <<SQL
 begin;
 set constraints all deferred;
-delete from core.client_command;
-delete from core.balance_observation;
-delete from core.adjustment_detail;
-delete from core.expense_category;
-delete from core.movement_detail;
-delete from core.split_participant;
-delete from core.split;
-delete from core.effect;
-delete from core.operation_version;
-delete from core.operation;
-delete from core.participant_period;
-delete from core.participant_user_link;
-delete from core.membership where scope_id in ('${PA}','${PB}','${GX}','${GY}','${GZ}');
-delete from core.participant;
-delete from core.scope where id in ('${PA}','${PB}','${GX}','${GY}','${GZ}');
+delete from core.client_command where created_by in ('${UA}','${UB}');
+delete from core.balance_observation where scope_id in (${AMBITOS});
+delete from core.adjustment_detail d using core.operation_version ov
+  where ov.id = d.operation_version_id and ov.created_by in ('${UA}','${UB}');
+delete from core.expense_category x using core.operation_version ov
+  where ov.id = x.operation_version_id and ov.created_by in ('${UA}','${UB}');
+delete from core.movement_detail d using core.operation_version ov
+  where ov.id = d.operation_version_id and ov.created_by in ('${UA}','${UB}');
+delete from core.split_participant where scope_id in (${AMBITOS});
+delete from core.split where scope_id in (${AMBITOS});
+delete from core.effect where scope_id in (${AMBITOS});
+delete from core.operation_version where created_by in ('${UA}','${UB}');
+delete from core.operation where created_by in ('${UA}','${UB}');
+delete from core.participant_period where participant_id in (${PARTICIPANTES});
+delete from core.participant_user_link where scope_id in (${AMBITOS});
+delete from core.membership where scope_id in (${AMBITOS});
+delete from core.participant where scope_id in (${AMBITOS});
+delete from core.scope where id in (${AMBITOS});
 -- SOLO su propia definicion. Desde la Fase 6.A el catalogo monetario esta
 -- SEMBRADO POR MIGRACION, y un borrado sin filtro lo arrasaria: los checks
 -- posteriores dejarian de encontrar las veinte definiciones y el provisioning
@@ -339,12 +369,16 @@ done
 echo ""
 echo "== retirada =="
 retirar
+# EL RECUENTO TAMBIEN VA ACOTADO, y por la misma razon que los borrados: contar
+# las tablas enteras da por residuo propio cualquier fila ajena, asi que sobre
+# una base con datos este script se declaraba roto comportandose bien. Lo
+# descubrio `writer-debt-isolation.sh` al sembrar su centinela.
 resto=$("${DBQ[@]}" <<SQL 2>/dev/null
-select (select count(*) from core.operation) + (select count(*) from core.effect)
-     + (select count(*) from core.scope
-         where id in ('${PA}','${PB}','${GX}','${GY}','${GZ}'))
-     + (select count(*) from core.participant)
-     + (select count(*) from core.client_command);
+select (select count(*) from core.operation where created_by in ('${UA}','${UB}'))
+     + (select count(*) from core.effect where scope_id in (${AMBITOS}))
+     + (select count(*) from core.scope where id in (${AMBITOS}))
+     + (select count(*) from core.participant where scope_id in (${AMBITOS}))
+     + (select count(*) from core.client_command where created_by in ('${UA}','${UB}'));
 SQL
 )
 resto=$(tr -d '[:space:]' <<<"${resto}")

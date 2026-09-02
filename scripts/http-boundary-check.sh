@@ -30,6 +30,10 @@
 
 set -uo pipefail
 
+# shellcheck source=scripts/local-db-guard.sh
+. "$(dirname "${BASH_SOURCE[0]}")/local-db-guard.sh"
+exigir_base_local || exit 1
+
 API=http://127.0.0.1:54321
 DB=(docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=0)
 DBQ=(docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -t -A -v ON_ERROR_STOP=0)
@@ -183,30 +187,45 @@ YB=b0000000-0000-4000-8000-00000000bb02
 retirar() {
   # SIN enmudecer el error: una retirada que falla en silencio deja residuo
   # que luego se atribuye al check siguiente. Si esto se rompe, se ve aqui.
+  # TODO VA ACOTADO A SUS PROPIOS FIXTURES, y no es estilo.
+  #
+  # Aqui hubo doce borrados de tabla entera. En CI daba igual —la base se
+  # levanta desde cero y el check es su unico habitante—, pero sobre una base
+  # con datos arrasaba el ledger completo. El mismo defecto que tenia
+  # `writer-debt-concurrency.sh`, y con el mismo remedio.
+  #
+  # Dos asideros, y ninguno inventado: los USUARIOS de este check se reconocen
+  # por su correo —los crea GoTrue, asi que sus identificadores son dinamicos— y
+  # sus AMBITOS son los cuatro sembrados mas los que el provisioning real cree
+  # en la seccion 8, que se identifican por su dueno.
+  #
+  # El orden importa: esto corre ANTES de `borrar_usuarios`, asi que las
+  # subconsultas sobre `auth.users` todavia resuelven.
+  local ACTORES="select id from auth.users where email like 'nomey-http-%'"
+  local MIOS="select id from core.scope where id in ('${PA}','${PB}','${GX}','${GY}') or owner_user_id in (${ACTORES})"
+
   "${DB[@]}" -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 set constraints all deferred;
-delete from core.client_command;
-delete from core.split_participant;
-delete from core.split;
-delete from core.balance_observation;
-delete from core.adjustment_detail;
-delete from core.expense_category;
-delete from core.movement_detail;
-delete from core.effect;
-delete from core.operation_version;
-delete from core.operation;
-delete from core.participant_period;
-delete from core.participant_user_link;
--- Los ambitos y membresias de este check son sus cuatro sembrados MAS los que
--- el provisioning real cree en la seccion 8, que se identifican por su dueno.
-delete from core.membership where scope_id in ('${PA}','${PB}','${GX}','${GY}')
-   or scope_id in (select id from core.scope s
-                     where s.owner_user_id in
-                       (select id from auth.users where email like 'nomey-http-%'));
-delete from core.participant;
-delete from core.scope where id in ('${PA}','${PB}','${GX}','${GY}')
-   or owner_user_id in (select id from auth.users where email like 'nomey-http-%');
+delete from core.client_command where created_by in (${ACTORES});
+delete from core.split_participant where scope_id in (${MIOS});
+delete from core.split where scope_id in (${MIOS});
+delete from core.balance_observation where scope_id in (${MIOS});
+delete from core.adjustment_detail d using core.operation_version ov
+  where ov.id = d.operation_version_id and ov.created_by in (${ACTORES});
+delete from core.expense_category x using core.operation_version ov
+  where ov.id = x.operation_version_id and ov.created_by in (${ACTORES});
+delete from core.movement_detail d using core.operation_version ov
+  where ov.id = d.operation_version_id and ov.created_by in (${ACTORES});
+delete from core.effect where scope_id in (${MIOS});
+delete from core.operation_version where created_by in (${ACTORES});
+delete from core.operation where created_by in (${ACTORES});
+delete from core.participant_period where participant_id in
+  (select id from core.participant where scope_id in (${MIOS}));
+delete from core.participant_user_link where scope_id in (${MIOS});
+delete from core.membership where scope_id in (${MIOS});
+delete from core.participant where scope_id in (${MIOS});
+delete from core.scope where id in (${MIOS});
 -- SOLO las dos definiciones de este check. Desde la Fase 6.A el catalogo
 -- monetario esta SEMBRADO POR MIGRACION y un borrado sin filtro lo arrasaria.
 delete from core.category where owner_user_id in (select id from auth.users where email like 'nomey-http-%');
