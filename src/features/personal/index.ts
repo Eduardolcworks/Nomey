@@ -99,3 +99,12 @@ export { type PersonalHome, usePersonalHome } from './use-personal-home';
 export { useEntryCategories } from './use-entry-categories';
 export { usePersonalScope } from './use-personal-scope';
 export { type RecordStatus, useRecordMovement } from './use-record-movement';
+export { createQueueTransport } from './queue-transport';
+export {
+  type EnqueueFailure,
+  type EntryQueue,
+  type EntryScope,
+  countUnsyncedEntries,
+  useEntryQueue,
+  wakeEntryQueue,
+} from './use-entry-queue';

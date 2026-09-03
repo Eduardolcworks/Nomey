@@ -43,7 +43,21 @@ const appStatePort: AppStatePort = {
   addEventListener: (type, handler) => AppState.addEventListener(type, handler),
 };
 
-export function SessionProvider({ children }: { children: ReactNode }) {
+export function SessionProvider({
+  children,
+  onForeground,
+}: {
+  children: ReactNode;
+  /**
+   * Wired from the composition root, never from inside a feature.
+   *
+   * F7's offline queue needs the same foreground signal this provider already
+   * listens for, and `features/` may not import `features/` — so the callback
+   * arrives as a prop, exactly as `ScopeProvider` receives the identity.
+   * ADR-028 §12 forbids a second `AppState` listener, which is the whole point.
+   */
+  onForeground?: () => void;
+}) {
   const [state, setState] = useState<SessionState>(RESTORING);
   const [attempt, setAttempt] = useState(0);
 
@@ -54,6 +68,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const stop = startSessionLifecycle({
+      // ADR-028 §12: reuse the listener this lifecycle already owns.
+      onForeground,
       auth: authPort,
       appState: appStatePort,
       emit: setState,
@@ -68,7 +84,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // Unsubscribes, removes the AppState listener, cancels the watchdog and
     // stops emitting. Re-runs only when `retry` bumps the attempt.
     return stop;
-  }, [attempt]);
+  }, [attempt, onForeground]);
 
   return <SessionContext.Provider value={{ state, retry }}>{children}</SessionContext.Provider>;
 }

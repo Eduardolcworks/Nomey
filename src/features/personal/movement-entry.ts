@@ -58,7 +58,20 @@ export type EntryDraft = {
 
 /** Por qué todavía no se puede guardar. `null` significa que sí se puede. */
 export type EntryBlocker =
-  'noRoute' | 'noScope' | 'amountMissing' | 'amountInvalid' | 'conceptMissing' | 'categoryMissing';
+  | 'noRoute'
+  | 'noScope'
+  /**
+   * Sin conexión y sin catálogo cacheado (ADR-028 §16).
+   *
+   * Es distinto de `categoryMissing`: allí hay categorías y falta elegir una,
+   * aquí **no hay ninguna que ofrecer**. Confundirlos diría «elige una
+   * categoría» sobre un selector vacío.
+   */
+  | 'noCategories'
+  | 'amountMissing'
+  | 'amountInvalid'
+  | 'conceptMissing'
+  | 'categoryMissing';
 
 const DIGITS = /^[0-9]*$/;
 
@@ -347,13 +360,21 @@ export function applyAmountInput(entry: AmountEntry, next: string, scale: number
  * Se devuelve **uno** y no una lista: el botón dice una cosa, y enumerar tres
  * problemas a la vez sobre un formulario de cuatro campos es ruido.
  */
+/**
+ * @param hasCategories si hay catálogo del que elegir. Por defecto `true`, que
+ * es como se comportaba antes de que existiera el respaldo sin conexión: sólo
+ * lo pasa quien puede saberlo. **Un ingreso no lo mira**, porque no lleva
+ * categoría (ADR-027 §3), así que la falta de catálogo nunca bloquea un ingreso.
+ */
 export function blockerFor(
   draft: EntryDraft,
   scale: number,
   hasScope: boolean,
+  hasCategories = true,
 ): EntryBlocker | null {
   if (!canRecord(draft.kind)) return 'noRoute';
   if (!hasScope) return 'noScope';
+  if (usesCategory(draft.kind) && !hasCategories) return 'noCategories';
 
   if (draft.amount.trim() === '') return 'amountMissing';
   const minor = toMinorUnits(draft.amount, scale);

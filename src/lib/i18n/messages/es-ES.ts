@@ -277,6 +277,9 @@ export const esES = {
   'entry.categoryEmpty': 'Elegir categoría',
   'entry.categoryChosen': 'Categoría: {name}',
   'entry.categoryHint': 'Elige una categoría',
+  // Sin conexión y sin haber cargado nunca el catálogo no hay categoría que
+  // elegir, y no se inventa ninguna (ADR-028 §16).
+  'entry.categoriesOffline': 'Conéctate una vez para poder elegir categoría',
   'entry.categoryUnknown': 'Sin nombre',
   'entry.dateLabel': 'Fecha',
   'entry.dateTitle': 'Fecha',

@@ -1,11 +1,11 @@
 /**
  * La cola de escritura sin conexión — ADR-028.
  *
- * **F7.B entrega la persistencia y nada más.** El worker, la conectividad, el
- * backoff, la taxonomía de respuestas, la proyección optimista y las
- * incidencias son de F7.C en adelante, y **la puerta de escritura de producción
- * sigue siendo la de F6**: conectarla antes de que exista quien envíe dejaría
- * movimientos encolados sin ninguna posibilidad de salir.
+ * **F7.B entregó la persistencia; F7.C, el worker, la clasificación medida, el
+ * backoff, el planificador y el coordinador.** La proyección optimista es de
+ * F7.D y las incidencias de F7.E, y **la puerta de escritura de producción
+ * sigue siendo la de F6**: nada monta todavía la cola, porque activarla sin la
+ * proyección dejaría el movimiento invisible hasta sincronizar.
  */
 
 export {
@@ -58,3 +58,54 @@ export {
   openOfflineDatabase,
 } from './sqlite-database';
 export { createSqliteQueueStore } from './sqlite-queue-store';
+export {
+  backoffDelayMs,
+  BACKOFF_BASE_MS,
+  BACKOFF_CEILING_MS,
+  BACKOFF_MINIMUM_MS,
+  isDue,
+  nextAttemptAt,
+  type Clock,
+  type Random,
+} from './backoff';
+export {
+  classifyResponse,
+  type Classification,
+  type ResponseClass,
+  type SessionStatus,
+  type TransportOutcome,
+} from './response';
+export {
+  describeFailure,
+  type InfrastructureFailure,
+  type InfrastructureStage,
+  type PassResult,
+} from './local-failure';
+export {
+  createSyncCoordinator,
+  type LocalQueueStatus,
+  type SyncCoordinator,
+} from './sync-coordinator';
+export {
+  createRetryScheduler,
+  IMMEDIATE_FLOOR_MS,
+  REAL_SCHEDULER,
+  type RescheduleResult,
+  type RetryScheduler,
+  type Scheduler,
+} from './retry-scheduler';
+export {
+  createSyncWorker,
+  DEFAULT_TIMEOUT_MS,
+  retryNow,
+  type IdleReason,
+  type SyncWorker,
+  type WorkerRun,
+} from './sync-worker';
+export type {
+  Connectivity,
+  ForegroundPort,
+  QueueTransport,
+  SessionPort,
+  WorkerPorts,
+} from './worker-ports';

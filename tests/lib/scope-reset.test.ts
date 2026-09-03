@@ -148,7 +148,9 @@ describe('quién conecta la sesión con el ámbito', () => {
   });
 
   it('y `ScopeBinding` vive dentro de `SessionProvider`, que es donde se puede leer', () => {
-    expect(LAYOUT).toMatch(/<SessionProvider>[\s\S]*<ScopeBinding>/);
+    // El provider admite props desde F7.C —`onForeground`, para que la cola
+    // reutilice su único listener de `AppState`— y el anidamiento no cambió.
+    expect(LAYOUT).toMatch(/<SessionProvider[^>]*>[\s\S]*<ScopeBinding>/);
   });
 
   it('no se resetea remontando con `key`, que tiraría también el navegador', () => {

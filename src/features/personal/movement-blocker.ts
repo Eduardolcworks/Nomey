@@ -11,6 +11,14 @@ import type { MessageKey } from '@/lib/i18n';
 export const BLOCKER_HINT: Record<EntryBlocker, MessageKey> = {
   noRoute: 'entry.transferSoon',
   noScope: 'entry.scopePending',
+  /**
+   * Sin conexión y sin catálogo cacheado.
+   *
+   * No dice «elige una categoría», que sería mentira sobre un selector vacío:
+   * dice qué hace falta —conectarse una vez— porque una categoría no se
+   * inventa (ADR-028 §16).
+   */
+  noCategories: 'entry.categoriesOffline',
   amountMissing: 'entry.amountHint',
   amountInvalid: 'entry.amountInvalid',
   conceptMissing: 'entry.conceptHint',
