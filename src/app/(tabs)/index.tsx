@@ -102,7 +102,18 @@ export default function HomeScreen() {
    * el Modo Personal de la cuenta y no depende de qué pestaña se esté mirando.
    * Es idempotente por estado y corre una sola vez.
    */
-  const home = usePersonalHome(ready !== null && personal, range);
+  /*
+   * La identidad va al hook porque la copia local del catálogo se guarda POR
+   * CUENTA (ADR-028 §13, §16). La ruta es quien la tiene: `features/` no puede
+   * importar `features/`, así que Inicio es el único sitio que ve la sesión y
+   * el Modo Personal a la vez — el mismo motivo por el que `ScopeProvider`
+   * recibe la identidad desde `app/_layout.tsx`.
+   *
+   * Sin sesión va cadena vacía, y `rememberCategories` se niega a escribir: un
+   * actor vacío guardaría en una casilla que luego podría leer cualquiera.
+   */
+  const actorId = state.status === 'signed-in' ? state.identity.userId : '';
+  const home = usePersonalHome(ready !== null && personal, range, actorId);
 
   useRefreshOnReturn(home.refresh);
 

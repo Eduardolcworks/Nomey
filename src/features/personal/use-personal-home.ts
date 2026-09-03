@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { rememberCategories } from './category-cache';
 import type { CategoryRow } from './category';
 import { indexCategories } from './category';
 import { type DateRange, rangeKey } from './interval';
@@ -15,6 +16,7 @@ import {
   PAGE_SIZE,
 } from './personal-service';
 import type { PersonalStatistics } from './statistics';
+import { offlineCatalogueCache } from '@/lib/offline';
 
 /**
  * Los datos de Inicio, y el plan de consultas que los trae.
@@ -37,6 +39,13 @@ import type { PersonalStatistics } from './statistics';
  * Cambiar de intervalo **no** vuelve a pedir el saldo ni el catálogo: no
  * dependen de él, y viven en su propio efecto. Eso es todo el «evitar refetches
  * duplicados» que hace falta, sin caché.
+ *
+ * **Y hay una escritura local que no es una consulta**: tras cargar el catálogo
+ * se guarda una copia para cuando no haya red (ADR-028 §16). Va **después** de
+ * pintar, **no se espera** y **no puede fallar hacia fuera**; el servidor sigue
+ * siendo la autoridad y esto es auxiliar. `actorId` está aquí por eso: el
+ * documento se guarda **por cuenta**, y al cambiar de identidad el efecto vuelve
+ * a correr con la nueva en vez de escribir en la casilla de la anterior.
  *
  * **El estado se DERIVA de qué intervalo hay cargado, no se escribe dentro del
  * efecto.** Un `setState` síncrono en el cuerpo de un efecto encadena renders
@@ -77,7 +86,7 @@ const EMPTY_VERSIONS: ReadonlyMap<string, PersonalOperationVersion> = new Map();
 const EMPTY_OBSERVATIONS: ReadonlyMap<string, BalanceObservation> = new Map();
 const EMPTY_OPERATIONS: readonly PersonalOperation[] = [];
 
-export function usePersonalHome(ready: boolean, range: DateRange): PersonalHome {
+export function usePersonalHome(ready: boolean, range: DateRange, actorId: string): PersonalHome {
   const key = rangeKey(range);
 
   const [balance, setBalance] = useState<PersonalHome['balance']>(null);
@@ -102,10 +111,42 @@ export function usePersonalHome(ready: boolean, range: DateRange): PersonalHome 
 
     void (async () => {
       try {
-        const [balanceRow, categoryRows] = await Promise.all([fetchBalance(), fetchCategories()]);
+        const [balanceRow, categoryPage] = await Promise.all([fetchBalance(), fetchCategories()]);
         if (cancelled) return;
         setBalance(balanceRow);
-        setCategories(indexCategories(categoryRows as CategoryRow[]));
+        setCategories(indexCategories(categoryPage.rows as CategoryRow[]));
+
+        /*
+         * LA CACHÉ VA DESPUÉS, APARTE, Y NO PUEDE ROMPER NADA.
+         *
+         * Es la escritura del catálogo que F7.C necesitará para dejar registrar
+         * un gasto sin conexión (ADR-028 §16). Tres cosas la hacen segura:
+         *
+         * - **Va después de pintar.** La pantalla ya tiene sus categorías, en su
+         *   orden y con sus colores; esto no toca `indexCategories` ni lo que se
+         *   ve. El servidor sigue mandando y la caché es auxiliar.
+         * - **No se espera.** `void`: la carga online no queda pendiente de que
+         *   SQLite conteste.
+         * - **No lanza.** `rememberCategories` devuelve un veredicto, y una base
+         *   que falle no puede tumbar la carga autoritativa.
+         *
+         * Y sólo guarda el catálogo COMPLETO del actor: una respuesta truncada
+         * por `max_rows` llega sin error, y guardarla sustituiría un catálogo
+         * bueno por uno al que le faltan categorías.
+         */
+        void (async () => {
+          try {
+            await rememberCategories(
+              await offlineCatalogueCache(),
+              actorId,
+              categoryPage,
+              new Date().toISOString(),
+            );
+          } catch {
+            // Abrir la base también puede fallar, y tampoco es asunto de esta
+            // pantalla. Sin registro: `AGENTS.md` §8.
+          }
+        })();
       } catch {
         // El saldo y el catálogo no bloquean la pantalla: sin saldo se pinta el
         // marcador de posición, y sin catálogo la categoría se dice desconocida.
@@ -117,7 +158,7 @@ export function usePersonalHome(ready: boolean, range: DateRange): PersonalHome 
     return () => {
       cancelled = true;
     };
-  }, [ready, attempt]);
+  }, [ready, attempt, actorId]);
 
   // ---- 3, 4 y 5 · lo que sí depende del intervalo -------------------------
   useEffect(() => {

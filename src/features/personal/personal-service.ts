@@ -181,13 +181,23 @@ export type CatalogueRow = {
   is_active: boolean;
 };
 
-export async function fetchCategories(): Promise<CatalogueRow[]> {
-  const { data, error } = await supabase
+/**
+ * El catálogo, **con cuántos hay en total**.
+ *
+ * `count: 'exact'` no es un adorno: es lo único que permite distinguir «éste es
+ * el catálogo entero» de «esto es lo que cupo». PostgREST corta en `max_rows`
+ * sin avisar, así que una respuesta truncada llega **sin error**, y guardarla
+ * como caché sustituiría un catálogo bueno por uno al que le faltan
+ * categorías. La pantalla no cambia por esto —pinta `rows` igual que antes—;
+ * quien usa `total` es la caché, para negarse a escribir lo incompleto.
+ */
+export async function fetchCategories(): Promise<Page<CatalogueRow>> {
+  const { data, error, count } = await supabase
     .from('category')
-    .select('id,message_key,label,icon,is_active');
+    .select('id,message_key,label,icon,is_active', { count: 'exact' });
   if (error !== null) throw error;
 
-  return (data ?? []) as unknown as CatalogueRow[];
+  return { rows: (data ?? []) as unknown as CatalogueRow[], total: count ?? 0 };
 }
 
 /**

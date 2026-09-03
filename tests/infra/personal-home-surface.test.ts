@@ -167,10 +167,21 @@ describe('no hay N+1', () => {
   /**
    * El saldo y el catálogo no dependen del intervalo, así que cambiar de
    * intervalo no vuelve a pedirlos: viven en su propio efecto.
+   *
+   * **`actorId` entró en las dependencias con F7.B y no lo contradice.** No
+   * cambia al cambiar de intervalo, así que la propiedad que este test protege
+   * sigue en pie; lo que sí hace es volver a correr el efecto al cambiar de
+   * cuenta, que es exactamente lo que hace falta para que la copia local del
+   * catálogo se guarde bajo la identidad correcta (ADR-028 §13). Lo que **no**
+   * puede aparecer aquí es `key` ni `range`.
    */
   it('cambiar de intervalo no refetchea el saldo ni el catálogo', () => {
-    expect(HOOK).toContain('[ready, attempt]');
+    expect(HOOK).toContain('[ready, attempt, actorId]');
     expect(HOOK).toContain('[ready, key, attempt]');
+    // Lo que hace verdadera la afirmación: el intervalo no entra en el primer
+    // efecto por ninguna de sus dos formas.
+    expect(HOOK).not.toContain('[ready, attempt, actorId, key]');
+    expect(HOOK).not.toContain('[ready, attempt, actorId, range]');
   });
 });
 
@@ -412,7 +423,9 @@ describe('el selector de ámbito', () => {
    * recibe `false` y sus efectos salen antes de pedir nada.
    */
   it('con Pareja no se lanzan consultas personales', () => {
-    expect(HOME).toContain('usePersonalHome(ready !== null && personal, range)');
+    // `actorId` se añadió en F7.B para la copia local del catálogo, y no toca
+    // esta guarda: la que apaga las consultas sigue siendo la misma condición.
+    expect(HOME).toContain('usePersonalHome(ready !== null && personal, range, actorId)');
   });
 
   /**
