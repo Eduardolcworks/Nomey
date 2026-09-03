@@ -17,7 +17,8 @@ compartida. No contiene reglas de negocio.
 | `env`      | Las dos `EXPO_PUBLIC_` de Supabase, validadas a mano        | F5.A     |
 | `supabase` | Cliente sobre `api`, y la sesión troceada sobre SecureStore | F5.A     |
 | `query`    | Configuración de react-query                                | Previsto |
-| `offline`  | Cola de escritura e idempotencia por clave de cliente       | F7.B     |
+| `offline`  | Cola de escritura, worker de sincronización y reintentos    | F7.B–C   |
+| `net`      | Lo ÚNICO que nombra `@react-native-community/netinfo`       | F7.C     |
 
 **`env` no usa Zod.** Son dos valores: una validación a mano es menos código
 que la dependencia, y además puede decir _por qué_ falla — el caso que importa
@@ -95,13 +96,14 @@ Los tests están en `tests/lib/`, y comprueban además que ninguna clave del
 catálogo quede sin usar y que ninguna pantalla incruste texto, símbolo monetario
 ni fecha a mano.
 
-## `offline`, implementado en la Fase 7.B
+## `offline`, implementado en la Fase 7.B y 7.C
 
 La cola de escritura sin conexión de
 [ADR-028](../../docs/adr/ADR-028-offline-command-queue-and-optimistic-projection.md).
-**F7.B entrega la persistencia y nada más**: el worker, la conectividad, el
-backoff, la taxonomía de respuestas, la proyección optimista y las incidencias
-son de F7.C en adelante.
+**F7.B entregó la persistencia; F7.C, el worker y todo lo que lo hace
+automático**: la taxonomía de respuestas medida contra el stack, el backoff, el
+planificador dirigido por `next_attempt_at` y el coordinador que los une. La
+proyección optimista es de F7.D y las incidencias, de F7.E.
 
 ```
 offline/
@@ -113,15 +115,48 @@ offline/
 ├── sql-database.ts           los cinco métodos de SQL que hacen falta
 ├── sqlite-queue-store.ts     adaptador
 ├── sqlite-catalogue-cache.ts adaptador
-└── sqlite-database.ts        lo ÚNICO que nombra expo-sqlite
+├── sqlite-database.ts        lo ÚNICO que nombra expo-sqlite
+├── response.ts               la clasificación de una respuesta, desde lo medido
+├── backoff.ts                el backoff de ADR-028 §12, con reloj y RNG inyectados
+├── worker-ports.ts           los puertos del worker: store, transporte, red, sesión…
+├── sync-worker.ts            una petición en vuelo, FIFO por actor, wake retenido
+├── retry-scheduler.ts        UN temporizador, puesto al `next_attempt_at` más próximo
+└── sync-coordinator.ts       une `onSettled → reschedule` y `onDue → wake`
 ```
 
-Tres cosas que conviene no volver a deducir:
+Lo que conviene no volver a deducir:
 
 - **La puerta de escritura de producción SIGUE SIENDO LA DE F6.** Nada de
   `features/` ni de `app/` consume todavía esta cola, y es deliberado:
-  conectarla antes de que exista quien envíe dejaría movimientos encolados sin
-  ninguna posibilidad de salir.
+  activarla sin la proyección optimista de F7.D cerraría la hoja y dejaría el
+  movimiento invisible hasta sincronizar. `features/personal/use-entry-queue.ts`
+  existe y está probado, y **nadie lo monta**; el worker se crea perezosamente
+  al primer `enqueue`, así que sin consumidor no existe.
+- **Un `wake()` durante una pasada se retiene, nunca se pierde.** Una entrada
+  encolada entre la última lectura del worker y el final de la pasada quedaría
+  `queued` sin `next_attempt_at`, que es justo lo que el planificador no
+  programa. El worker guarda el aviso y repite al terminar; `stop()` lo descarta
+  y además impide que una pasada en vuelo rearme el temporizador. La prueba que
+  fuerza esa ventana exacta es `tests/lib/offline-retained-wake.test.ts`.
+- **Un fallo de SQLite es infraestructura del cliente, no una respuesta.** No
+  pasa por la clasificación de ADR-028 §11: no mueve ninguna entrada a
+  `rejected`, `review` ni `conflict`, no borra ni crea claves, y no abre la
+  puerta directa. La pasada se interrumpe, `wake()` no rechaza nunca, y el
+  coordinador reintenta la base con el mismo backoff y **el mismo temporizador**
+  que la cola —el plazo de la base compite con los de las filas—. Si la
+  anotación falla DESPUÉS de la respuesta del servidor, la fila queda `sending`
+  con su clave y la siguiente pasada la relee como `queued` (§6): el servidor
+  contesta `already_processed` si aquello llegó. `localStatus()` expone el
+  estado para F7.E; `local-failure.ts` fija qué se guarda del error —nombre y
+  código, jamás el mensaje—. `tests/lib/offline-local-failure.test.ts`.
+- **La apertura que corre en el aparato es `openDatabaseAsync`, y es la que se
+  validó.** F7.B midió en Android sobre emulador, con el adaptador real de
+  `sqlite-database.ts`, que el esquema se crea, que la base sobrevive a la
+  recarga de JS y al cierre y reapertura de Expo Go, que un importe por encima
+  de 2^53 vuelve exacto y que una `sending` se repara conservando su clave
+  (commit `b1220c6`). Ese fichero no ha cambiado desde entonces, así que la
+  evidencia aplica a la ruta de hoy. **iOS sigue pendiente de validación física**,
+  y la apertura síncrona no se midió porque no se usa.
 - **Los adaptadores hablan con `SqlDatabase`, no con `expo-sqlite`.** Por eso el
   SQL real —migraciones, transacción de sustitución, `WHERE` de aislamiento— se
   prueba contra un SQLite de verdad en Vitest. Mismo reparto que

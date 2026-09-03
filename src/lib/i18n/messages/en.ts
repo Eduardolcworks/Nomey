@@ -272,6 +272,7 @@ export const en: Record<MessageKey, string> = {
   'entry.categoryEmpty': 'Choose a category',
   'entry.categoryChosen': 'Category: {name}',
   'entry.categoryHint': 'Choose a category',
+  'entry.categoriesOffline': 'Connect once so you can choose a category',
   'entry.categoryUnknown': 'Unnamed',
   'entry.dateLabel': 'Date',
   'entry.dateTitle': 'Date',

@@ -242,6 +242,89 @@ export async function recordPersonalIncome(payload: EntryPayload): Promise<Write
 }
 
 /**
+ * ═══ UNA SOLA PUERTA, Y CUÁL DE SUS DOS FORMAS ESTÁ ACTIVA ═══
+ *
+ * Las tres funciones de escritura de este fichero —las dos de arriba y
+ * `sendPersonalEntry`— salen por **el mismo cliente y las mismas dos funciones
+ * de `api`**. No hay una segunda frontera: lo que cambia es cómo se informa el
+ * fallo.
+ *
+ * |                         | quién la usa           | fallo                    |
+ * | ----------------------- | ---------------------- | ------------------------ |
+ * | `recordPersonal*`       | la pantalla, HOY       | lanza; la hoja se queda  |
+ * | `sendPersonalEntry`     | el worker, desde F7.D  | devuelve estado y código |
+ *
+ * **En F7.C sólo la primera forma está activa en producción.** La ruta de alta
+ * sigue enviando directamente, exactamente como en F6: ante un fallo conserva la
+ * hoja y el borrador, y no encola. La segunda forma existe, está probada y
+ * **no tiene ningún consumidor**.
+ *
+ * **F7.D hará la sustitución en un solo cambio** —`persistir → proyectar →
+ * despertar worker`— y entonces volverá la guarda que impide que un alta salga
+ * por la puerta directa. Ponerla ahora dejaría la app sin poder registrar nada.
+ *
+ * Por qué el worker necesita su propia forma y no puede usar la de la pantalla:
+ * la clasificación de ADR-028 §11 se decide con el estado HTTP, el código de
+ * frontera y el estado local de la sesión, y una excepción los pierde los tres.
+ */
+
+/**
+ * El envío que hace el worker, **sin lanzar y con el estado HTTP**.
+ *
+ * La clasificación de ADR-028 §11 se decide con el estado, el código de
+ * frontera y el estado local de la sesión; una excepción los perdería todos y
+ * dejaría al worker adivinando. Por eso esto devuelve la respuesta cruda y
+ * quien clasifica es `lib/offline/response.ts`, con el mapa medido.
+ *
+ * **Misma puerta**: el mismo cliente, las mismas dos funciones de `api`, el
+ * mismo payload congelado. Lo único distinto es que no se traduce el fallo a
+ * una excepción.
+ */
+export type RawWriteResponse = {
+  readonly status: number;
+  readonly code: string | null;
+  readonly envelope: WriteResult | null;
+};
+
+export async function sendPersonalEntry(
+  fn: 'record_personal_expense' | 'record_personal_income',
+  payload: Readonly<Record<string, string | number>>,
+  signal?: AbortSignal,
+): Promise<RawWriteResponse> {
+  /*
+   * `.abortSignal(signal)` — CANCELACIÓN REAL DEL `fetch`, no una espera
+   * abandonada.
+   *
+   * Está en `PostgrestTransformBuilder` de `@supabase/postgrest-js@2.112.4`, y
+   * `rpc()` devuelve un `PostgrestFilterBuilder` que hereda de él; el builder
+   * base la reenvía al `fetch` como `signal`. Comprobado sobre el paquete
+   * instalado, no de memoria.
+   *
+   * Un `Promise.race` no habría bastado: dejaría la petición viva, gastando
+   * batería y datos, y esperando a un servidor que ya no le va a contestar a
+   * nadie.
+   *
+   * **Y abortar en el cliente NO demuestra que PostgreSQL no lo haya
+   * ejecutado.** Por eso el plazo conserva la entrada y su clave: quien decide
+   * qué pasó es el servidor, en el reintento, con `already_processed`.
+   */
+  const builder = supabase.rpc(fn, { payload: payload as never });
+  const request = signal === undefined ? builder : builder.abortSignal(signal);
+
+  const response = (await request) as unknown as {
+    data: unknown;
+    error: { code?: string | null } | null;
+    status?: number;
+  };
+
+  const status = typeof response.status === 'number' ? response.status : 0;
+  if (response.error !== null && response.error !== undefined) {
+    return { status, code: response.error.code ?? null, envelope: null };
+  }
+  return { status, code: null, envelope: response.data as WriteResult | null };
+}
+
+/**
  * Un ajuste que declara el SALDO, no la diferencia.
  *
  * `api.record_adjustment` admite `delta` o `target_balance`, **exactamente uno**:

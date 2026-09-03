@@ -63,6 +63,17 @@ export type LifecycleOptions = {
   readonly clearTimer?: (handle: unknown) => void;
   /** Surfaces a rejected start/stopAutoRefresh instead of an unhandled rejection. */
   readonly onRefreshError?: (error: unknown) => void;
+  /**
+   * Called when the app comes back to the foreground.
+   *
+   * **This exists so nobody adds a second `AppState` listener.** F7's sync
+   * worker needs the same signal this lifecycle already listens for, and
+   * ADR-028 §12 is explicit that it must reuse this port rather than register
+   * its own — two listeners for one event is how two mechanisms start
+   * competing. Called only on the transition into `active`, never on every
+   * change, and never after the returned teardown.
+   */
+  readonly onForeground?: () => void;
 };
 
 /**
@@ -90,6 +101,7 @@ export function startSessionLifecycle(options: LifecycleOptions): () => void {
       clearTimeout(handle as ReturnType<typeof setTimeout>);
     },
     onRefreshError,
+    onForeground,
   } = options;
 
   let stopped = false;
@@ -155,7 +167,15 @@ export function startSessionLifecycle(options: LifecycleOptions): () => void {
   applyRefresh(appState.currentState === null || appState.currentState === 'active');
 
   const appStateSubscription = appState.addEventListener('change', (status) => {
+    /*
+     * The transition, not the state. `refreshing` still holds the previous
+     * value at this point, so comparing before `applyRefresh` is what tells a
+     * genuine return to the foreground from a repeated `active` event - and the
+     * offline queue must not be woken on every notification the OS sends.
+     */
+    const returning = status === 'active' && !refreshing;
     applyRefresh(status === 'active');
+    if (returning && !stopped) onForeground?.();
   });
 
   // ------------------------------------------------------------- teardown ---

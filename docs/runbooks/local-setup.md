@@ -401,6 +401,43 @@ con su caso positivo y su caso negativo · los importes salen como string JSON.
 > **Consecuencia práctica:** los tests de aislamiento a nivel de base de datos
 > no necesitan usuarios reales, y el job de CI no tiene que arrancar GoTrue.
 
+### La tripleta de cada clase de respuesta · puerta de aceptación de ADR-028
+
+```bash
+./scripts/offline-taxonomy-probe.sh
+```
+
+**Es una comprobación permanente, no instrumentación de un bloque.** Mide sobre
+el stack real la tripleta `estado HTTP · código de frontera · SQLSTATE` de cada
+clase de respuesta de ADR-028 §11, que es de donde sale el mapa de
+`src/lib/offline/response.ts`. La razón de que siga aquí: de esa clasificación
+depende si se puede o no proponer registrar el gasto otra vez, y equivocarse
+**duplica dinero**. Si un día la frontera cambia un estado o un código, esto lo
+enseña; sin ella, el mapa envejecería en silencio.
+
+Lo que hay que saber para leerla:
+
+- **`42501` no significa «sesión caducada».** Llega con **401** cuando no hay
+  JWT. Una denegación de autorización real, con sesión válida, llega con **403 y
+  `NOT_AUTHORIZED`**. Por eso el mapa decide por el estado y el código sólo
+  afina.
+- **El SQLSTATE no viaja en la respuesta:** `sec.raise_boundary` lo convierte en
+  estado HTTP y cuerpo (`raise sqlstate 'PGRST'`). La sonda lo dice en vez de
+  inventarlo.
+- **Fixtures propias y limpieza exacta.** Crea sus usuarios
+  `nomey-f7c-*@example.test`, su ámbito y sus comandos, y borra **sólo lo suyo**.
+  Imprime un censo antes y después —usuarios ajenos / operaciones / comandos /
+  ámbitos— y **las dos cifras tienen que coincidir**: es la prueba de que no
+  tocó los datos de desarrollo.
+- **Necesita Kong arrancado**, como `http-boundary-check.sh`: lee de él la clave
+  publicable en ejecución, así que en el repositorio no hay ninguna credencial.
+
+> **`core.operation.current_version_id` es `NOT NULL`.** Su limpieza no puede
+> «soltar» el puntero antes de borrar la versión; la FK compuesta es diferible
+> (ADR-011 §7), así que borra versión y operación en una transacción con
+> `set constraints all deferred`. Con `ON_ERROR_STOP=0` esto fallaba en silencio
+> y dejaba operaciones huérfanas — de ahí que use `ON_ERROR_STOP=1`.
+
 ### Preflight de `btree_gist` antes de un despliegue real
 
 El esquema depende de la extensión **`btree_gist`**, que es lo que da a `uuid` el
