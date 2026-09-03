@@ -1,4 +1,5 @@
 import { BlurView } from 'expo-blur';
+import type { RefObject } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
 /**
@@ -28,14 +29,30 @@ import { Platform, StyleSheet, View } from 'react-native';
  *
  * **Y no envuelve a la ventana.** Es hermano del panel, no su padre, así que el
  * modal queda completamente nítido: texto, cifra, controles y vidrio.
+ *
+ * **ANDROID NECESITA QUE SE LE DIGA QUÉ DESENFOCAR.** iOS desenfoca lo que tiene
+ * detrás por composición del sistema; el método de Android no puede: dibuja a
+ * partir de una vista concreta, y sin ella avisa —«blurTarget prop has not been
+ * configured»— y **degrada a `none`**, que es un relleno semitransparente. O
+ * sea: sin objetivo no había desenfoque en Android, sólo oscurecimiento, que es
+ * exactamente el efecto que este componente existe para no hacer.
+ *
+ * El objetivo lo pone quien sabe qué hay detrás —la capa de las pestañas—, no
+ * esta pieza, que no puede saberlo. Y **el fondo nunca es su propio objetivo**:
+ * se desenfocaría a sí mismo.
  */
-export function Scrim() {
+export function Scrim({ target }: { readonly target?: RefObject<View | null> }) {
   return (
     <View style={styles.canvas} pointerEvents="none">
       <BlurView
         intensity={70}
         tint="dark"
-        experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurViewSdk31Plus' : undefined}
+        /*
+         * `blurMethod` y no `experimentalBlurMethod`: el segundo está marcado
+         * como obsoleto en la versión instalada, y son el mismo valor.
+         */
+        blurMethod={Platform.OS === 'android' ? 'dimezisBlurViewSdk31Plus' : undefined}
+        blurTarget={target}
         style={styles.blur}
       />
       <View style={styles.veil} />

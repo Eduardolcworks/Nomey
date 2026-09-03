@@ -444,11 +444,11 @@ describe('el dock inferior se ve nítido', () => {
     const fondo = ALL_SOURCES.find((f) => f.path === 'features/shell/add-backdrop.tsx');
     expect(fondo?.text).toContain('BACKDROP_ENABLED = true');
     // El desenfoque lo pone el `Scrim`, que es donde vive desde el principio.
-    expect(fondo?.text).toContain('<Scrim />');
+    expect(fondo?.text).toContain('<Scrim target={target} />');
     const scrim = ALL_SOURCES.find((f) => f.path === 'ui/components/scrim.tsx');
     expect(scrim?.text).toContain('<BlurView');
     expect(scrim?.text).toContain('intensity={70}');
-    expect(TABS_LAYOUT).toContain('<AddBackdrop />');
+    expect(TABS_LAYOUT).toContain('<AddBackdrop target={blurTarget} />');
     expect(TABS_LAYOUT.indexOf('<NomeyDock')).toBeLessThan(TABS_LAYOUT.indexOf('<AddBackdrop'));
   });
 
@@ -466,5 +466,75 @@ describe('el dock inferior se ve nítido', () => {
     expect(TAB_BAR).toContain('style={styles.pill}');
     expect(TAB_BAR).not.toContain("backgroundColor: 'transparent'");
     expect(TAB_BAR).not.toContain('Glass.bar.tint.replace');
+  });
+});
+
+/**
+ * EL DESENFOQUE DE ANDROID NECESITA UN OBJETIVO, Y AQUÍ SE FIJA CUÁL.
+ *
+ * iOS desenfoca lo que tiene detrás por composición del sistema. El método de
+ * Android no puede: dibuja a partir de una vista concreta, y sin ella avisa
+ * —«blurTarget prop has not been configured»— y **degrada a `none`**, que es un
+ * relleno semitransparente. Sin objetivo no había desenfoque en Android, sólo
+ * oscurecimiento — justo el efecto que el `Scrim` existe para no hacer.
+ */
+describe('el objetivo del desenfoque en Android', () => {
+  const fuente = (ruta: string) => ALL_SOURCES.find((f) => f.path === ruta)?.text ?? '';
+  const SCRIM = fuente('ui/components/scrim.tsx');
+  const FONDO = fuente('features/shell/add-backdrop.tsx');
+  const LAYOUT = fuente('app/(tabs)/_layout.tsx');
+
+  /** Ningún `BlurView` con método activo se monta sin decir qué desenfoca. */
+  it('el BlurView recibe siempre su objetivo', () => {
+    expect(SCRIM).toContain('<BlurView');
+    expect(SCRIM).toContain('blurTarget={target}');
+    // Y el método sigue siendo el de Android 12+, por su prop vigente.
+    expect(SCRIM).toContain("'dimezisBlurViewSdk31Plus'");
+    expect(SCRIM).toContain('blurMethod=');
+    expect(SCRIM).not.toContain('experimentalBlurMethod');
+  });
+
+  /** El objetivo lo pone quien sabe qué hay detrás, y viaja como prop. */
+  it('el objetivo viene de fuera, no lo inventa el Scrim', () => {
+    expect(SCRIM).toContain('target?: RefObject<View | null>');
+    expect(FONDO).toContain('<Scrim target={target} />');
+    expect(LAYOUT).toContain('<AddBackdrop target={blurTarget} />');
+  });
+
+  /**
+   * **EL FONDO NO ES SU PROPIO OBJETIVO.** Envolver el `BlurView` en lo que
+   * pretende desenfocar lo haría desenfocarse a sí mismo. El objetivo cubre las
+   * pestañas y el dock —lo que el fondo tapa al abrirse— y el fondo queda
+   * FUERA, como hermano.
+   */
+  it('el objetivo envuelve lo de detrás y deja el fondo fuera', () => {
+    expect(LAYOUT).toContain('<BlurTarget target={blurTarget}>');
+    const dentro = LAYOUT.slice(LAYOUT.indexOf('<BlurTarget'), LAYOUT.indexOf('</BlurTarget>'));
+    expect(dentro).toContain('<Tabs');
+    expect(dentro).toContain('<NomeyDock');
+    expect(dentro).not.toContain('<AddBackdrop');
+    // Y el fondo se monta después de cerrarlo.
+    expect(LAYOUT.indexOf('</BlurTargetView>')).toBeLessThan(LAYOUT.indexOf('<AddBackdrop'));
+  });
+
+  /** Un solo objetivo para el único BlurView: no se multiplican. */
+  it('hay un solo objetivo y un solo BlurView', () => {
+    expect(LAYOUT.match(/<BlurTarget /g) ?? []).toHaveLength(1);
+    const conBlur = ALL_SOURCES.filter((f) => f.text.includes('<BlurView'));
+    expect(conBlur.map((f) => f.path)).toEqual(['ui/components/scrim.tsx']);
+  });
+
+  /**
+   * **Y EN iOS NO ENVUELVE NADA.** El objetivo sólo lo necesita Android, así que
+   * su variante de iOS devuelve los hijos tal cual: el árbol de iOS queda como
+   * estaba, sin una vista de más. Un envoltorio «neutro» sigue siendo una vista.
+   */
+  it('en iOS el objetivo no añade ninguna vista', () => {
+    const iOS = fuente('features/shell/blur-target.tsx');
+    const android = fuente('features/shell/blur-target.android.tsx');
+    expect(iOS).toContain('return <>{children}</>');
+    expect(iOS).not.toContain('BlurTargetView');
+    expect(android).toContain('<BlurTargetView ref={target}');
+    expect(android).toMatch(/fill: \{\s*flex: 1,\s*\}/);
   });
 });

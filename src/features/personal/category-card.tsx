@@ -1,10 +1,19 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { PixelRatio, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { useFormat } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n';
 import { EmptyState, Icon, ThemedText } from '@/ui/components';
-import { categoryColour, categorySymbol, Radius, Spacing, useTheme } from '@/ui/theme';
+import {
+  categoryColour,
+  categorySymbol,
+  HomeCardRelief,
+  homeCardSurface,
+  Radius,
+  Spacing,
+  Symbols,
+  useTheme,
+} from '@/ui/theme';
 
 import { type CategoryRow, categoryIcon, categoryName } from './category';
 import { type CategorySlice, sliceAngles, splitTop } from './statistics';
@@ -32,6 +41,41 @@ export type CategoryCardProps = {
   readonly slices: readonly CategorySlice[];
   readonly categories: ReadonlyMap<string, CategoryRow>;
 };
+
+/**
+ * EL SOLAPE QUE TAPA LA COSTURA DEL DIÁMETRO VERTICAL.
+ *
+ * ======================== QUÉ SE MIDIÓ, Y DÓNDE ============================
+ *
+ * Una línea oscura de **una sola columna** —x = 270 en la captura nativa, color
+ * 28,28,30— recorría el anillo a 0° y a 180°, de y = 1784 a y = 1847:
+ * exactamente desde el canto del agujero hasta el borde exterior, y ni un píxel
+ * dentro del hueco. Debajo asomaba la superficie de la tarjeta.
+ *
+ * **No era una unión entre sectores.** A 180° no hay frontera de datos —las de
+ * esa muestra caen en 0° y 199,4°— y `sliceAngles` cierra el último tramo en
+ * 360 exactos, así que tampoco hay hueco de redondeo al dar la vuelta. Aquí no
+ * hay SVG, ni trazo, ni separación intencionada, ni una capa de más.
+ *
+ * Lo que hay es **rasterización con coordenadas fraccionarias**: el recorte de
+ * `rightHalf` cae en `DIAMETER / 2` = 62 dp, que a densidad 2,625 son 162,75
+ * píxeles físicos. La mitad derecha empieza en el píxel 163 y la izquierda
+ * termina en el 162, así que **la columna del medio no la pinta ninguna de las
+ * dos**. A densidad 2 o 3 —las de iOS— 62 dp caen en un píxel entero y la
+ * costura no puede existir, de modo que el solape es de Android y allí vale
+ * exactamente CERO.
+ *
+ * La cifra no es un ángulo elegido a ojo: 1 / PixelRatio.get() es la expresión
+ * en dp de **un píxel físico**, que es el ancho medido del defecto.
+ *
+ * Lo que NO cambia es el reparto. El solape ensancha la caja del semicírculo y
+ * su recorte hacia el centro; el arco exterior sigue siendo una circunferencia
+ * de radio `half` con su centro donde estaba, porque los radios de esquina no
+ * se tocan, y la máscara circular de `pie` sigue fijando el diámetro. El pivote
+ * del giro queda a un píxel del centro, dentro del agujero, que se pinta
+ * encima.
+ */
+const SEAM = Platform.OS === 'android' ? 1 / PixelRatio.get() : 0;
 
 /**
  * Diámetro del gráfico y hueco central.
@@ -77,9 +121,14 @@ export function CategoryCard({ slices, categories }: CategoryCardProps) {
    */
   if (slices.length === 0) {
     return (
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: homeCardSurface(theme.surface), borderColor: theme.border },
+          HomeCardRelief,
+        ]}>
         <EmptyState
-          symbol="chart.pie"
+          symbol={Symbols.breakdown}
           title={t('home.categoriesEmpty')}
           description={t('home.categoriesEmptyHint')}
         />
@@ -96,7 +145,12 @@ export function CategoryCard({ slices, categories }: CategoryCardProps) {
   const expandable = rest.length > 0;
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: homeCardSurface(theme.surface), borderColor: theme.border },
+        HomeCardRelief,
+      ]}>
       <View style={styles.head}>
         <ThemedText variant="caption" themeColor="textTertiary">
           {t('home.categories')}
@@ -109,7 +163,7 @@ export function CategoryCard({ slices, categories }: CategoryCardProps) {
             onPress={() => setExpanded((value) => !value)}
             hitSlop={Spacing.md}>
             <Icon
-              name={expanded ? 'chevron.up' : 'chevron.down'}
+              name={expanded ? Symbols.collapse : Symbols.expand}
               size={13}
               colour={theme.textSecondary}
             />
@@ -118,7 +172,7 @@ export function CategoryCard({ slices, categories }: CategoryCardProps) {
       </View>
 
       <View style={styles.body}>
-        <Pie slices={slices} hole={theme.surface} />
+        <Pie slices={slices} hole={homeCardSurface(theme.surface)} />
 
         <View style={styles.legend}>
           {visible.map((slice) => (
@@ -249,7 +303,8 @@ function Wedge({ sweep, colour }: { sweep: number; colour: string }) {
     <View style={styles.rightHalf}>
       <View
         style={{
-          width: half,
+          // El pixel de mas va al lado del centro; el arco exterior no se mueve.
+          width: half + SEAM,
           height: DIAMETER,
           borderTopRightRadius: half,
           borderBottomRightRadius: half,
@@ -287,9 +342,11 @@ const styles = StyleSheet.create({
   },
   rightHalf: {
     position: 'absolute',
-    left: DIAMETER / 2,
+    // El recorte se abre un pixel hacia el centro para que el semicirculo pueda
+    // pintar ahi. Sin esto la caja mas ancha se recortaria en el mismo sitio.
+    left: DIAMETER / 2 - SEAM,
     top: 0,
-    width: DIAMETER / 2,
+    width: DIAMETER / 2 + SEAM,
     height: DIAMETER,
     overflow: 'hidden',
   },

@@ -8,10 +8,18 @@ import { type EntryKind, usesCategory } from './movement-entry';
 import type { MovementDraft } from './use-movement-draft';
 import { useTranslation } from '@/lib/i18n';
 import { GlassPressable, GlassSurface, Icon } from '@/ui/components';
-import { Radius, Spacing, useTheme } from '@/ui/theme';
+import { Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 /** El lado de los dos círculos de la fila, y del oblongo del concepto. */
-const CIRCLE = 52;
+/**
+ * La medida del circulo de accion de un movimiento.
+ *
+ * **Se exporta porque hay un segundo montaje.** Corregir un movimiento pone el
+ * mismo selector de categoria bajo el boton de moneda, y una cifra copiada alli
+ * seria una segunda verdad sobre el mismo control: cambiar 52 en un sitio
+ * dejaria los dos botones de distinto tamano sin que nada fallara.
+ */
+export const CIRCLE = 52;
 
 /**
  * Lo que un movimiento tiene además de una cifra: concepto, categoría y fecha.
@@ -45,6 +53,7 @@ export function MovementFields({
     <>
       <View style={styles.conceptRow}>
         <GlassSurface
+          material="control"
           level="regular"
           depth="well"
           rim="soft"
@@ -87,7 +96,7 @@ export function MovementFields({
             draft.setPicking('date');
           }}>
           <View style={styles.circle}>
-            <Icon name="calendar" size={20} colour={theme.textSecondary} shape="circle" />
+            <Icon name={Symbols.calendar} size={20} colour={theme.textSecondary} shape="circle" />
           </View>
         </GlassPressable>
       </View>

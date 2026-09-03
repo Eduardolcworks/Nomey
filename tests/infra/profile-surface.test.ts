@@ -93,7 +93,7 @@ describe('el avatar vacío', () => {
     // Vacío no puede parecer roto: iniciales o silueta, borde e insignia son
     // tres señales de que el hueco es deliberado.
     expect(AVATAR).toContain('camera');
-    expect(AVATAR).toContain('person.fill');
+    expect(AVATAR).toContain('name={Symbols.person}');
   });
 
   it('responde al toque en vez de quedarse mudo', () => {
@@ -122,7 +122,7 @@ describe('editar el nombre', () => {
   });
 
   it('el lápiz es la affordance y lleva etiqueta accesible', () => {
-    expect(EDITOR).toContain('name="pencil"');
+    expect(EDITOR).toContain('name={Symbols.edit}');
     expect(EDITOR).toContain("t('profile.editName')");
   });
 
@@ -215,7 +215,7 @@ describe('el bloque General', () => {
 
   it('lo inerte se señala con dos cosas, no sólo con el color', () => {
     // Ausencia de chevron Y presencia de la píldora.
-    expect(PROFILE).toMatch(/soon \? <SoonPill \/> : <Icon name="chevron\.right"/);
+    expect(PROFILE).toMatch(/soon \? <SoonPill \/> : <Icon name=\{Symbols\.forward\}/);
     expect(PROFILE).toContain("t('action.soon')");
   });
 });

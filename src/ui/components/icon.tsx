@@ -1,10 +1,22 @@
-import { SymbolView, type SymbolViewProps } from 'expo-symbols';
+import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 
-import { Radius } from '@/ui/theme';
+import { type PlatformSymbol, Radius } from '@/ui/theme';
 
 export type IconProps = {
-  name: SymbolViewProps['name'];
+  /**
+   * EL PAR `{ ios, android }`, nunca un nombre suelto.
+   *
+   * `SymbolView` aceptaria tambien una cadena, y ahi esta la trampa: una cadena
+   * suelta ES un nombre de SF Symbol, asi que en Android no hay nada que
+   * resolver y el icono cae en el recuadro de respaldo — compilando, pasando
+   * los tipos y viendose perfecto en el iPhone.
+   *
+   * Estrechar el tipo aqui es lo que convierte ese error en un fallo de
+   * compilacion. Los pares salen de `Symbols` para la interfaz y de
+   * `categorySymbol` para las categorias.
+   */
+  name: PlatformSymbol;
   size?: number;
   colour: string;
   /** A rounded square rather than a circle, for anything that is not an avatar. */

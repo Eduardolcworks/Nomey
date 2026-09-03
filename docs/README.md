@@ -3,7 +3,8 @@
 Wiki técnica y de producto. **En español**; el código y los commits van en
 inglés.
 
-> **Estado: Fase 6 — Modo Personal. ABIERTA. Bloques F6.A, F6.B y F6.C cerrados.**
+> **Estado: Fase 6 — Modo Personal. CERRADA el 2026-09-03 (bloques A … G),
+> aprobada físicamente por el usuario en iOS y en Android.**
 >
 > - **Fases 0, 1, 2, 3, 4 y 5:** cerradas. **ADR-001 … ADR-024 aceptados.**
 > - **F6.A** trajo la fundación de datos del Modo Personal: catálogo monetario

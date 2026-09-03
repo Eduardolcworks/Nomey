@@ -4,7 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AppTopBar, DOCK_HEIGHT } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
 import { EmptyState, ThemedView } from '@/ui/components';
-import { Spacing } from '@/ui/theme';
+import { Spacing, Symbols } from '@/ui/theme';
 
 /**
  * Grupos: the second root world.
@@ -29,7 +29,7 @@ export default function GroupsScreen() {
             { paddingBottom: DOCK_HEIGHT + insets.bottom + Spacing.lg },
           ]}>
           <EmptyState
-            symbol="person.2"
+            symbol={Symbols.groups}
             title={t('groups.empty')}
             description={t('groups.emptyHint')}
             action={{

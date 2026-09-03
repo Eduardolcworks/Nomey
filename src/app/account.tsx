@@ -9,8 +9,8 @@ import {
 import { PlaceholderScreen } from '@/features/shell';
 import { useSession } from '@/features/session';
 import { useTranslation } from '@/lib/i18n';
-import { ActionButton, Section, ThemedText } from '@/ui/components';
-import { Radius, Spacing, useTheme } from '@/ui/theme';
+import { ActionButton, ControlMaterial, Section, ThemedText } from '@/ui/components';
+import { controlEdge, Radius, Spacing, useTheme } from '@/ui/theme';
 
 /**
  * The account, and the way out of it.
@@ -119,6 +119,7 @@ export default function AccountScreen() {
             // second tap can land before this re-renders.
             disabled={running}
             busy={running}
+            material="control"
           />
           <ThemedText variant="caption" themeColor="textTertiary">
             {t('account.signOutHint')}
@@ -141,6 +142,7 @@ export default function AccountScreen() {
                 }}
                 disabled={running}
                 busy={running}
+                material="control"
               />
               <ThemedText variant="caption" themeColor="textTertiary">
                 {t('account.forgetLocalHint')}
@@ -164,11 +166,21 @@ function Detail({ label, value }: { label: string; value: string }) {
 
   return (
     <View
-      style={[styles.detail, { borderColor: theme.border, backgroundColor: theme.surface }]}
+      style={[
+        styles.detail,
+        { borderColor: controlEdge(theme.border), backgroundColor: theme.surface },
+      ]}
       // The pair reads as one thing to a screen reader instead of two
       // stranded fragments.
       accessible
       accessibilityLabel={`${label}: ${value}`}>
+      {/*
+       * La ficha es una tarjeta neutra, no una ventana: no flota sobre un velo
+       * ni recorta contenido, y por función acompaña a los controles de esta
+       * pantalla. Recibe por eso el material de control, con su relleno plano y
+       * su rim; en iOS no monta nada y la ficha queda como estaba.
+       */}
+      <ControlMaterial radius={Radius.md} />
       <ThemedText variant="caption" themeColor="textTertiary">
         {label}
       </ThemedText>

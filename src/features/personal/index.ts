@@ -71,7 +71,7 @@ export {
   usesCategory,
 } from './movement-entry';
 export { type MovementEdit, MovementEditor } from './movement-editor';
-export { MovementFields } from './movement-fields';
+export { CIRCLE, MovementFields } from './movement-fields';
 export { MovementForm, type MovementFormScope } from './movement-form';
 export { type MovementDraft, useMovementDraft } from './use-movement-draft';
 export { MovementRow } from './movement-row';

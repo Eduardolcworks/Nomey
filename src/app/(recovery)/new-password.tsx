@@ -12,7 +12,7 @@ import {
 } from '@/features/auth';
 import { useTranslation } from '@/lib/i18n';
 import { ActionButton, IconButton, LoadingState, ThemedText } from '@/ui/components';
-import { Spacing, useTheme } from '@/ui/theme';
+import { Spacing, Symbols, useTheme } from '@/ui/theme';
 
 /**
  * The whole recovery transaction, as one surface.
@@ -191,7 +191,7 @@ export default function RecoveryScreen() {
            * you can read while the original is hidden is not a confirmation.
            */}
           <IconButton
-            name={visible ? 'eye.slash' : 'eye'}
+            name={visible ? Symbols.conceal : Symbols.reveal}
             label={visible ? t('auth.hidePassword') : t('auth.showPassword')}
             size={18}
             colour={theme.textSecondary}

@@ -5,6 +5,7 @@ import {
   type MovementEdit,
   MovementEditor,
   type MovementFormScope,
+  useEntryCategories,
   usePersonalScope,
 } from '@/features/personal';
 import { EditWindow } from '@/features/shell';
@@ -37,6 +38,13 @@ import { useTranslation } from '@/lib/i18n';
 export default function EditMovementScreen() {
   const { t } = useTranslation();
   const { state } = usePersonalScope();
+  /*
+   * **El MISMO catálogo del alta**, por la misma vía: `useEntryCategories`.
+   * Corregir un gasto y darlo de alta eligen entre exactamente la misma lista,
+   * y una segunda fuente aquí sería una segunda verdad sobre qué categorías
+   * existen.
+   */
+  const categories = useEntryCategories();
 
   const params = useLocalSearchParams<{
     operationId?: string;
@@ -97,7 +105,7 @@ export default function EditMovementScreen() {
     // Sin operación que corregir no hay contenido — sólo pasa si se llega a
     // esta ruta sin sus parámetros, no mientras el ámbito resuelve.
     if (edit === null) return null;
-    return <MovementEditor scope={scope} edit={edit} onSaved={close} />;
+    return <MovementEditor scope={scope} edit={edit} categories={categories} onSaved={close} />;
   };
 
   return <EditWindow title={t('entry.editTitle')}>{contenido}</EditWindow>;

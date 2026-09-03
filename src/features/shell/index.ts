@@ -1,3 +1,4 @@
+export { BlurTarget } from './blur-target';
 export { AddBackdrop, AddBackdropProvider, useAddBackdrop } from './add-backdrop';
 export { AppTopBar, type AppTopBarProps } from './app-top-bar';
 export { DESTINATIONS, type Destination, destinationFor } from './destinations';

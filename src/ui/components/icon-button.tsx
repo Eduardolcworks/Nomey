@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, type ViewStyle } from 'react-native';
 
+import { ControlMaterial } from './control-material';
 import { Icon, type IconProps } from './icon';
 import { Radius, Spacing, useTheme } from '@/ui/theme';
 
@@ -72,6 +73,11 @@ export function IconButton({
         disabled && styles.disabled,
         style,
       ]}>
+      {/*
+       * El material neutro de Android, sobre el relleno del tema. En iOS no
+       * monta nada, asi que este boton conserva alli lo que ya tenia.
+       */}
+      {filled ? <ControlMaterial radius={Radius.full} /> : null}
       <Icon name={name} size={size} colour={colour ?? theme.text} shape="circle" />
     </Pressable>
   );

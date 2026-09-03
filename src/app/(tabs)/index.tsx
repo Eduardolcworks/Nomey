@@ -33,7 +33,7 @@ import {
   ThemedText,
   ThemedView,
 } from '@/ui/components';
-import { Spacing } from '@/ui/theme';
+import { Spacing, Symbols } from '@/ui/theme';
 
 /**
  * Inicio: de quién es el dinero, cuánto queda, y qué ha pasado.
@@ -423,7 +423,7 @@ export default function HomeScreen() {
                   <Section title={t('home.activity')}>
                     {home.operations.length === 0 ? (
                       <EmptyState
-                        symbol="tray"
+                        symbol={Symbols.empty}
                         title={t('home.activityEmpty')}
                         description={t('home.activityHint')}
                       />
@@ -446,7 +446,6 @@ export default function HomeScreen() {
                               deleteMovement(operation);
                             }}
                             deleting={annulling.pending === operation.operation_id}
-                            tintByCategory
                           />
                         ))}
 

@@ -9,11 +9,10 @@ import Animated, {
 
 import { type EntryKind, ENTRY_KINDS } from './movement-entry';
 import { type MessageKey, useTranslation } from '@/lib/i18n';
-import type { SymbolViewProps } from 'expo-symbols';
 
 import { GlassSurface, Icon } from '@/ui/components';
 import { SPRING, timing } from '@/ui/theme/motion-runtime';
-import { Motion, Radius, Spacing, useTheme } from '@/ui/theme';
+import { Motion, type PlatformSymbol, Radius, Spacing, useTheme } from '@/ui/theme';
 
 const LABEL: Record<EntryKind, MessageKey> = {
   expense: 'entry.kindExpense',
@@ -120,6 +119,7 @@ export function EntryKindSelector({
 
   return (
     <GlassSurface
+      material="control"
       level="bar"
       depth="well"
       rim="soft"
@@ -171,7 +171,7 @@ export function EntryKindSelector({
  * iOS contra `sf-symbols-typescript`, los de Android contra las 4055 entradas
  * de `expo-symbols/android/symbols.json`.
  */
-const GLYPH: Record<EntryKind, SymbolViewProps['name']> = {
+const GLYPH: Record<EntryKind, PlatformSymbol> = {
   expense: { ios: 'minus', android: 'remove' },
   income: { ios: 'plus', android: 'add' },
   transfer: { ios: 'arrow.left.arrow.right', android: 'swap_horiz' },

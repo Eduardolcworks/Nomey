@@ -1,4 +1,4 @@
-import type { SymbolViewProps } from 'expo-symbols';
+import { type PlatformSymbol } from './symbols';
 
 /**
  * La identidad visual de una categoría: su color y su icono.
@@ -53,8 +53,6 @@ export type CategoryIconKey =
   | 'salary'
   | 'extra'
   | 'tag';
-
-type PlatformSymbol = Extract<SymbolViewProps['name'], { ios?: unknown }>;
 
 const CATEGORY_SYMBOLS: Readonly<Record<CategoryIconKey, PlatformSymbol>> = {
   groceries: { ios: 'cart', android: 'shopping_cart' },

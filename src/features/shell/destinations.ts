@@ -1,6 +1,5 @@
-import type { SFSymbol } from 'expo-symbols';
-
 import type { MessageKey } from '@/lib/i18n';
+import { type PlatformSymbol, Symbols } from '@/ui/theme';
 
 /**
  * The two root destinations, and the only place they are listed.
@@ -15,12 +14,12 @@ export interface Destination {
   /** The route file inside the `(tabs)` group. */
   readonly route: 'index' | 'groups';
   readonly label: MessageKey;
-  readonly symbol: SFSymbol;
+  readonly symbol: PlatformSymbol;
 }
 
 export const DESTINATIONS: readonly Destination[] = [
-  { route: 'index', label: 'nav.home', symbol: 'house' },
-  { route: 'groups', label: 'nav.groups', symbol: 'person.2' },
+  { route: 'index', label: 'nav.home', symbol: Symbols.home },
+  { route: 'groups', label: 'nav.groups', symbol: Symbols.groups },
 ];
 
 /** Which world the action button is adding to, from the active route name. */

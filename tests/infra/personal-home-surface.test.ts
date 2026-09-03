@@ -263,7 +263,21 @@ describe('provisioning', () => {
    */
   it('el provisioning no se reintenta solo', () => {
     expect(SCOPE).toContain('[attempt]');
-    expect(SCOPE).toContain('inFlight');
+    /*
+     * **El vuelo compartido, no un booleano.** Aquí había un `inFlight` que
+     * impedía a la segunda invocación del efecto suscribirse: con el doble
+     * montaje de React, la que se quedaba con la respuesta era la que la
+     * limpieza ya había cancelado, y la viva no estaba suscrita a nada. La
+     * pantalla se quedaba en su estado inicial con un 200 en el servidor.
+     *
+     * Sigue sin reintentarse solo —el efecto sólo depende del contador— y una
+     * suscripción cancelada sigue sin escribir. Lo que cambia es que ya no
+     * impide a las demás recibir. Su comportamiento está en
+     * `tests/lib/scope-flight.test.ts`, con la reproducción del fallo incluida.
+     */
+    expect(SCOPE).toContain('createScopeFlight');
+    expect(SCOPE).toContain('return subscription.cancel;');
+    expect(SCOPE).not.toContain('inFlight');
   });
 
   /**
@@ -443,7 +457,7 @@ describe('la tarjeta de Disponible', () => {
   it('la tarjeta usa el mismo fondo que las demás y el glass queda para el sub-bloque', () => {
     // La TARJETA es plana y oscura como Ingresos/Gastos o Categorías. El glass
     // aparece una sola vez, y dentro: es el sub-bloque de Deudas.
-    expect(CARD).toContain('backgroundColor: theme.surface');
+    expect(CARD).toContain('backgroundColor: homeCardSurface(theme.surface)');
     expect(CARD).toContain('borderColor: theme.border');
     // Una sola apertura: el glass aparece exactamente una vez, y es el oblongo.
     expect(CARD.match(/<GlassSurface/g)).toHaveLength(1);
@@ -909,7 +923,9 @@ describe('la barra superior se queda, el saludo sube', () => {
     const selector = FILES.filter((f) => f.text.includes('<ScopeSwitch')).map((f) => f.path);
     expect(selector).toEqual(['features/shell/home-greeting.tsx']);
 
-    const campana = FILES.filter((f) => f.text.includes('name="bell"')).map((f) => f.path);
+    const campana = FILES.filter((f) => f.text.includes('name={Symbols.notifications}')).map(
+      (f) => f.path,
+    );
     expect(campana).toEqual(['features/shell/app-top-bar.tsx']);
 
     const barra = FILES.filter((f) => f.text.includes('export function AppTopBar')).map(
@@ -1288,11 +1304,11 @@ describe('el detalle no habla de versiones', () => {
  */
 describe('editar el Disponible', () => {
   it('el lápiz de la tarjeta abre la ventana, y no hay un segundo control', () => {
-    expect(CARD_CODE).toContain('name="pencil"');
+    expect(CARD_CODE).toContain('name={Symbols.edit}');
     expect(CARD_CODE).toContain("label={t('home.adjustBalance')}");
     expect(CARD_CODE).toContain('onPress={onAdjust}');
     // Un solo control: el que ya estaba.
-    expect(CARD_CODE.match(/name="pencil"/g) ?? []).toHaveLength(1);
+    expect(CARD_CODE.match(/name={Symbols.edit}/g) ?? []).toHaveLength(1);
 
     expect(HOME_CODE).toContain('onAdjust={editBalance}');
     expect(HOME_CODE).toContain("pathname: '/edit-balance'");
@@ -1414,7 +1430,7 @@ describe('editar el Disponible', () => {
   /** La X cierra sin escribir: la aporta la ventana compartida. */
   it('cerrar no escribe nada', () => {
     const ventana = code('ui/components/sheet-window.tsx');
-    expect(ventana).toContain('name="xmark"');
+    expect(ventana).toContain('name={Symbols.close}');
     expect(ventana).not.toContain('rpc(');
     expect(ventana).not.toContain('adjust');
   });
@@ -1635,10 +1651,17 @@ describe('el saldo actual es referencia', () => {
     expect(CAMPO).toContain('!amountTouched(entry) ? reference : entry');
   });
 
-  /** Y se pinta apagada entera, con el token del tema y sin opacidades sueltas. */
+  /**
+   * Y se pinta apagada entera, con el token del tema y sin opacidades sueltas.
+   *
+   * **La única opacidad del fichero es la del capturador en Android**, que no
+   * pinta la cifra sino que deja de pintar la suya: son cosas distintas y la
+   * de aquí sigue prohibida.
+   */
   it('se pinta con el token apagado del tema', () => {
     expect(CAMPO).toContain("muted || tone === 'pending' ? 'textDisabled' : 'text'");
-    expect(CAMPO).not.toContain('opacity:');
+    expect(CAMPO.match(/opacity:/g) ?? []).toHaveLength(1);
+    expect(CAMPO).toContain('android: { opacity: 0 }');
     for (const color of ['negative', 'positive', 'accent']) {
       expect(CAMPO, color).not.toContain(color);
     }
@@ -1870,28 +1893,56 @@ describe('corregir un movimiento no toca el Disponible', () => {
   });
 
   /**
-   * **LA VENTANA ES COMPACTA: título, cifra, moneda y CTA.** Nada más.
+   * **LA VENTANA SIGUE SIENDO COMPACTA**, y el primer campo que ha entrado es
+   * la categoría.
    *
-   * Aquí estaba la causa del parecido con «Añadir movimiento», y no en el
-   * armazón ni en la composición —que ya se compartían— sino en lo que se les
-   * metía dentro: una hoja con selector arriba y una fila de concepto,
-   * categoría y fecha abajo **es** la pantalla del alta, monte lo que monte por
-   * debajo. Con los dos huecos vacíos vuelve a ser la ventana del saldo.
+   * El parecido con «Añadir movimiento» no venía de tener campos: venía de
+   * tener LOS SUYOS —selector de clase arriba, y abajo la fila de concepto,
+   * categoría y fecha— que juntos SON la pantalla del alta. Lo que sigue
+   * vedado es esa composición, no un control.
    *
-   * Los campos se añadirán uno a uno, validando cada paso.
+   * Así que el hueco de arriba sigue vacío, la fila del alta no se monta, y lo
+   * que va en `fields` es un solo botón bajo el €.
    */
-  it('no monta selector ni campos de movimiento', () => {
+  it('no monta la composición del alta', () => {
     for (const fuente of [EDICION, RUTA_MOVIMIENTO]) {
       expect(fuente).not.toContain('MovementFields');
       expect(fuente).not.toContain('EntryKindSelector');
-      expect(fuente).not.toContain('CategorySheet');
       expect(fuente).not.toContain('DateSheet');
-      expect(fuente).not.toContain('categories');
     }
 
-    // Y no le pasa a la hoja ninguno de sus dos huecos.
+    // El hueco de arriba —el selector de clase— sigue vacío.
     expect(EDICION).not.toContain('header=');
-    expect(EDICION).not.toContain('fields=');
+  });
+
+  /**
+   * **LA CATEGORÍA ES EL COMPONENTE DEL ALTA, no una copia.**
+   *
+   * Mismo `CategoryMenu`, mismo catálogo resuelto por `useEntryCategories`,
+   * misma medida —importada, no reescrita—, misma etiqueta y mismo repliegue
+   * cuando el identificador guardado ya no está en la lista. De la ventana no
+   * sale ni un color ni un icono.
+   */
+  it('la categoría se reutiliza entera, y sólo para un gasto', () => {
+    expect(EDICION).toContain('<CategoryMenu');
+    /*
+     * En `aside`, no en `fields`: dentro de la fila de la cifra y a la
+     * derecha del control de moneda. Ahi no cuesta alto, y la ventana mide
+     * exactamente lo que media antes de que el selector existiera.
+     */
+    expect(EDICION).toContain('aside={');
+    expect(EDICION).not.toContain('fields={');
+    expect(EDICION).toContain("import { CategoryMenu } from './category-menu'");
+    expect(EDICION).toContain("import { CIRCLE } from './movement-fields'");
+    expect(EDICION).toContain('size={CIRCLE}');
+    expect(RUTA_MOVIMIENTO).toContain('useEntryCategories()');
+
+    // Ni un color, ni un icono, ni una cifra de paleta escritos aquí.
+    expect(EDICION).not.toMatch(/#[0-9a-fA-F]{3}|rgba/);
+    expect(EDICION).not.toContain('categoryColour');
+
+    // Y la misma puerta de dominio que el alta: un ingreso no la monta.
+    expect(EDICION).toContain('usesCategory(draft.kind)');
   });
 
   /**
@@ -1910,8 +1961,10 @@ describe('corregir un movimiento no toca el Disponible', () => {
       expect(fuente).toContain('saveDisabled={');
       expect(fuente).toContain('onSave={');
       expect(fuente).not.toContain('header=');
-      expect(fuente).not.toContain('fields=');
     }
+
+    // El editor del saldo NO gana campos: su ranura sigue vacía.
+    expect(EDITOR).not.toContain('fields=');
   });
 
   /**
@@ -1995,13 +2048,22 @@ describe('las dos rutas de edición comparten la ventana', () => {
     expect(hojas.map((f) => f.path)).toEqual(['features/personal/amount-sheet.tsx']);
   });
 
-  /** Ninguna pieza propia declara geometría: no hay dos juegos de números. */
+  /**
+   * Ninguna pieza propia declara geometría: no hay dos juegos de números.
+   *
+   * La única excepción es la ALINEACIÓN del botón de categoría de corregir un
+   * movimiento, que no es geometría sino colocación: `alignItems` y nada más.
+   * Sigue sin haber medidas, ni acolchados, ni radios — la del círculo se
+   * importa de donde ya vivía.
+   */
   it('ninguna pantalla ni ruta declara geometría propia', () => {
     for (const fuente of [EDITOR, EDICION, RUTA_SALDO, RUTA_MOVIMIENTO]) {
       expect(fuente).not.toContain('StyleSheet');
       expect(fuente).not.toContain('style={');
       expect(fuente).not.toContain('padding');
       expect(fuente).not.toContain('borderRadius');
+      expect(fuente).not.toContain('width:');
+      expect(fuente).not.toContain('height:');
     }
   });
 
@@ -2046,17 +2108,32 @@ describe('las dos rutas de edición comparten la ventana', () => {
  */
 describe('el círculo de la fila lleva el color de su categoría', () => {
   /**
-   * **Lo pide la lista, no lo trae la fila.** El color aquí pertenece a
-   * «Movimientos recientes», donde acompaña al donut; esa lectura no se
-   * traslada sola a cualquier otra superficie que monte esta misma fila.
+   * **LO TRAE LA FILA, y ninguna superficie puede quitárselo.**
+   *
+   * Vivía tras `tintByCategory`, opcional, con el argumento de que el color
+   * pertenecía a «Movimientos recientes». La segunda superficie que montó esta
+   * fila —las tarjetas de Ingresos y Gastos desplegadas— no la pidió, y el
+   * mismo gasto se veía de dos colores según desde dónde se mirase. El color de
+   * una categoría es identidad de la categoría, así que viaja con la fila igual
+   * que su icono y su nombre.
    */
-  it('el comportamiento se activa con una prop explícita', () => {
-    expect(ROW).toContain('readonly tintByCategory?: boolean;');
-    expect(ROW).toContain('tintByCategory === true');
+  it('la identidad de la categoría no es opcional', () => {
+    expect(ROW).not.toContain('tintByCategory');
+    expect(HOME_CODE).not.toContain('tintByCategory');
 
-    // Y quien la pide es la lista de Inicio, en su único montaje vivo.
-    const actividad = HOME_CODE.slice(HOME_CODE.indexOf("t('home.activity')"));
-    expect(actividad).toContain('tintByCategory');
+    // Y la resuelve la MISMA función que pinta el donut y su leyenda.
+    expect(ROW).toContain('categoryColour(category.id)');
+  });
+
+  /**
+   * Los DOS montajes vivos de la fila comparten identidad porque comparten
+   * componente: la lista de Inicio y el grupo que va dentro de las tarjetas de
+   * flujo. Si apareciera un tercero que resolviese el color por su cuenta, esto
+   * lo delata.
+   */
+  it('nadie resuelve el color de una fila por su cuenta', () => {
+    expect(HOME_CODE.match(/<MovementRow/g)).toHaveLength(2);
+    expect(HOME_CODE).not.toContain('categoryColour(');
   });
 
   /** 1 · Gasto resuelto: fondo de la paleta e icono oscuro. */
@@ -2257,5 +2334,143 @@ describe('la acción de eliminar: recorrido, área táctil y superficie', () => 
     expect(surface).toContain("justifyContent: 'center'");
     expect(surface).toContain("alignItems: 'center'");
     expect(SWIPE).toContain('size={20}');
+  });
+});
+
+/**
+ * UNA SOLA FUENTE PARA LA TARJETA Y PARA EL HUECO DEL DONUT.
+ *
+ * **Igualar el hexadecimal no iguala lo que se ve.** Se le dio a Android el `#0C0C0C` medido en una captura de iOS y las tarjetas
+ * volvieron a confundirse con el negro: en iOS ese color lleva encima el
+ * material de `GlassView`, y en Android no hay tal cosa. El rol existe por eso.
+ *
+ * Y el hueco del donut sale del MISMO sitio, porque es esa superficie vista por
+ * un agujero: cuando la tarjeta se aclaró y el hueco no, el centro apareció
+ * negro sobre gris. Con una sola fuente no pueden separarse.
+ */
+describe('el material de las tarjetas de Inicio', () => {
+  const TARJETAS = [
+    'features/personal/balance-card.tsx',
+    'features/personal/flow-card.tsx',
+    'features/personal/category-card.tsx',
+  ] as const;
+
+  /** Las cuatro piden el rol; ninguna escribe un color. */
+  it('las cuatro tarjetas piden el mismo material', () => {
+    for (const ruta of TARJETAS) {
+      const fuente = code(ruta);
+      expect(fuente, ruta).toContain('backgroundColor: homeCardSurface(theme.surface)');
+      expect(fuente, ruta).not.toMatch(/backgroundColor: '#/);
+    }
+  });
+
+  /** El hueco del donut resuelve el mismo rol, no un color suyo. */
+  it('el hueco del donut resuelve el material de la tarjeta', () => {
+    const tarjeta = code('features/personal/category-card.tsx');
+    expect(tarjeta).toContain('hole={homeCardSurface(theme.surface)}');
+    expect(tarjeta).not.toContain('hole={theme.background}');
+    expect(tarjeta).not.toMatch(/hole={'#/);
+    expect(tarjeta).not.toContain("'#000000'");
+  });
+
+  /** El valor vive en un solo sitio y no se dispersa. */
+  it('el material del rol está centralizado', () => {
+    const tokens = code('ui/theme/elevation.ts');
+    expect(tokens).toContain("homeCard: '#1C1C1E'");
+    expect(tokens.match(/homeCard: '#/g) ?? []).toHaveLength(1);
+    const dispersos = FILES.filter(
+      (f) => f.path !== 'ui/theme/elevation.ts' && code(f.path).includes('#1C1C1E'),
+    );
+    expect(dispersos.map((f) => f.path)).toEqual([]);
+  });
+
+  /**
+   * **EL TINTE NO PUEDE COMERSE EL BORDE NI EL RESALTE.** Al subir la tarjeta a
+   * su gris, el borde `#2A2A2A` paso de treinta puntos de contraste a catorce y
+   * dejo de verse: la tarjeta quedo como un rectangulo opaco. El relieve va
+   * DESPUES del color en el array, para que en Android mande el suyo.
+   */
+  it('el material no sustituye el borde ni el resalte', () => {
+    for (const ruta of TARJETAS) {
+      const fuente = code(ruta);
+      expect(fuente, ruta).toContain('HomeCardRelief');
+      // El orden importa: primero el color, despues el relieve.
+      const color = fuente.indexOf('homeCardSurface(theme.surface), borderColor');
+      // Se busca DESDE el color: la importacion tambien lo nombra, y va antes.
+      expect(fuente.indexOf('HomeCardRelief,', color), ruta).toBeGreaterThan(color);
+    }
+  });
+
+  /** Y el relieve son sus tres funciones, sin numeros de sombra nuevos. */
+  it('el relieve lleva borde, resalte y sombra corta', () => {
+    const depth = code('ui/theme/depth.ts');
+    expect(depth).toContain('borderWidth: 1');
+    expect(depth).toContain('blurRadius: RimBlur.catch');
+    expect(depth).toContain("...castShadow('well')");
+    // Ninguna sombra escrita a mano: la calibracion global sigue en pausa.
+    expect(depth).not.toContain("color: 'rgba(0, 0, 0");
+  });
+
+  /** En iOS es : ni capa, ni rama, ni arbol distinto. */
+  it('en iOS el relieve no existe', () => {
+    expect(code('ui/theme/depth.ts')).toContain("Platform.OS === 'android'");
+    expect(code('ui/theme/depth.ts')).toContain(': undefined;');
+  });
+
+  /** En iOS devuelve el del tema: esa superficie no cambia. */
+  it('iOS conserva el surface del tema', () => {
+    expect(code('ui/theme/depth.ts')).toContain(
+      "Platform.OS === 'android' ? AndroidSurface.homeCard : delTema",
+    );
+  });
+
+  /** Y la ventana no comparte ese material aunque comparta primitive. */
+  it('SheetWindow conserva el suyo', () => {
+    const ventana = code('ui/components/sheet-window.tsx');
+    expect(ventana).toContain('level="heavy"');
+    expect(ventana).not.toContain('homeCardSurface');
+    expect(ventana).not.toContain('AndroidSurface');
+  });
+});
+
+/**
+ * LA COSTURA DEL TOROIDE, y por qué su cifra no es un ángulo.
+ *
+ * El recorte de las dos mitades cae en `DIAMETER / 2` = 62 dp, que a densidad
+ * 2,625 son 162,75 píxeles físicos: la mitad derecha empieza en el píxel 163 y
+ * la izquierda acaba en el 162, y la columna del medio no la pintaba ninguna.
+ * Medido sobre el aparato antes de corregirlo: una columna de 28,28,30 a 0° y a
+ * 180°, del canto del agujero al borde exterior.
+ *
+ * Lo que se fija aquí es que el arreglo siga siendo **geométrico y derivado de
+ * la densidad**, y que no se cuele en su lugar un ángulo, un trazo o un cambio
+ * de reparto.
+ */
+describe('el cierre del diagrama de sectores', () => {
+  const fuente = code('features/personal/category-card.tsx');
+
+  it('el solape es un píxel físico, y sólo en Android', () => {
+    expect(fuente).toContain("const SEAM = Platform.OS === 'android' ? 1 / PixelRatio.get() : 0;");
+  });
+
+  it('se aplica a la caja del semicírculo y a su recorte, y a nada más', () => {
+    expect(fuente).toContain('width: half + SEAM,');
+    expect(fuente).toContain('left: DIAMETER / 2 - SEAM,');
+    expect(fuente).toContain('width: DIAMETER / 2 + SEAM,');
+    // La declaración y TRES usos: ni un cuarto que toque radios, agujero o
+    // diámetro.
+    expect(fuente.match(/SEAM/g)).toHaveLength(4);
+  });
+
+  it('el diámetro, el hueco y los radios del arco no se tocan', () => {
+    expect(fuente).toContain('const DIAMETER = 124;');
+    expect(fuente).toContain('const HOLE = 76;');
+    expect(fuente).toContain('borderTopRightRadius: half,');
+    expect(fuente).toContain('borderBottomRightRadius: half,');
+  });
+
+  it('no se tapó con una línea encima ni con un trazo', () => {
+    const pie = fuente.slice(fuente.indexOf('function Pie('), fuente.indexOf('const styles ='));
+    expect(pie).not.toMatch(/borderWidth|shadow|elevation/i);
   });
 });

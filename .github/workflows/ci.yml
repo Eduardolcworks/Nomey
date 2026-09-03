@@ -196,8 +196,18 @@ jobs:
       # opens simultaneous sessions, the way E15-C did. It runs LAST because it
       # writes committed rows -a row lock only exists between transactions- and
       # it removes them again, asserting that nothing is left behind.
-      - name: Debt serialization under real concurrency
-        run: ./scripts/writer-debt-concurrency.sh
+      #
+      # RUN THROUGH THE ISOLATION WRAPPER, not the script itself. The wrapper
+      # runs the whole concurrency test and additionally proves it touches no
+      # row it did not create: it seeds a sentinel outside the fixture and
+      # compares its fingerprint before and after. Running both would run the
+      # concurrency test twice for nothing.
+      #
+      # It exists because this script used to clean up with whole-table deletes.
+      # On CI's from-zero database that was invisible; on a populated one it
+      # destroyed real data.
+      - name: Debt serialization under real concurrency, and its isolation
+        run: ./scripts/writer-debt-isolation.sh
 
       # Balance serialization. Reproduces, corrected, the two races measured in
       # supabase/e22: two concurrent target adjustments land on the target, and
@@ -223,8 +233,12 @@ jobs:
       #
       # No secrets: the publishable key is read at run time from the running
       # Kong's own configuration, so nothing is committed.
-      - name: HTTP boundary with real JWT
-        run: ./scripts/http-boundary-check.sh
+      #
+      # ALSO THROUGH ITS ISOLATION WRAPPER, and for the same reason: this check
+      # had the same whole-table deletes. The wrapper runs the entire boundary
+      # check and proves a sentinel outside its fixture survives it untouched.
+      - name: HTTP boundary with real JWT, and its isolation
+        run: ./scripts/http-boundary-isolation.sh
 
       - name: Stop
         if: always()

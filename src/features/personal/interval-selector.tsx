@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTranslation } from '@/lib/i18n';
-import { Icon, ThemedText } from '@/ui/components';
-import { Radius, Spacing, useTheme } from '@/ui/theme';
+import { ControlMaterial, Icon, ThemedText } from '@/ui/components';
+import { Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 import { INTERVALS, type IntervalKind } from './interval';
 
@@ -46,6 +46,23 @@ export function IntervalSelector({ value, onChange, onCalendar }: IntervalSelect
   return (
     <View style={styles.row}>
       <View style={[styles.group, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        {/*
+         * El material neutro de Android, **con el radio de la caja que lo
+         * contiene**.
+         *
+         * Aquí decía `Radius.full`, y eso pintaba una píldora de radio 22
+         * dentro de un host de radio 12: dos siluetas para un mismo contenedor.
+         * El indicador del estado seleccionado —radio 8, separado 2 del canto—
+         * cabe holgadamente dentro de la de 12 y NO dentro de la de 22, así que
+         * en `Día` y en `Todo` sus esquinas salían por encima del rim. Medido:
+         * a 17 px del borde superior el rim de la píldora caía en x≈79 y el
+         * indicador llegaba a x=65 — trece píxeles fuera.
+         *
+         * El círculo del calendario sí es una píldora de verdad y conserva su
+         * `Radius.full`; la diferencia está en la forma del host, no en el
+         * material.
+         */}
+        <ControlMaterial radius={Radius.md} />
         {INTERVALS.map((kind) => {
           const selected = kind === value;
           return (
@@ -83,7 +100,8 @@ export function IntervalSelector({ value, onChange, onCalendar }: IntervalSelect
           { backgroundColor: theme.surface, borderColor: theme.border },
           pressed && { backgroundColor: theme.surfaceSunken },
         ]}>
-        <Icon name="calendar" size={20} colour={theme.textSecondary} />
+        <ControlMaterial radius={Radius.full} />
+        <Icon name={Symbols.calendar} size={20} colour={theme.textSecondary} />
       </Pressable>
     </View>
   );
@@ -120,6 +138,15 @@ const styles = StyleSheet.create({
     padding: Spacing.xxs,
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
+    /*
+     * Protección final, con EXACTAMENTE el radio del contenedor.
+     *
+     * No es el arreglo —el arreglo es el radio del material, arriba—, y por eso
+     * llega después: una máscara sobre una posición incorrecta recorta el
+     * síntoma y deja el indicador descentrado. Con la geometría ya correcta,
+     * esto sólo garantiza que nada futuro vuelva a asomar.
+     */
+    overflow: 'hidden',
   },
   /*
    * Ancho intrínseco, sin `flex`. `minHeight` de 40 mantiene la zona táctil de

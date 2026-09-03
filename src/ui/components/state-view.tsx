@@ -1,10 +1,9 @@
-import type { SymbolViewProps } from 'expo-symbols';
 import { ActivityIndicator, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { ActionButton } from './action-button';
 import { Icon } from './icon';
 import { ThemedText } from './themed-text';
-import { Radius, Spacing, useTheme } from '@/ui/theme';
+import { type PlatformSymbol, Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 /**
  * The three states a surface can be in when it has no content to show.
@@ -78,7 +77,7 @@ export function EmptyState({
   fill = false,
   style,
 }: Common & {
-  symbol?: SymbolViewProps['name'];
+  symbol?: PlatformSymbol;
   title: string;
   description?: string;
   action?: { label: string; onPress: () => void };
@@ -145,7 +144,7 @@ export function ErrorState({
         fill && styles.fill,
         style,
       ]}>
-      <Icon name="exclamationmark.triangle" size={30} colour={theme.negative} />
+      <Icon name={Symbols.warning} size={30} colour={theme.negative} />
       <View style={styles.copy}>
         <ThemedText variant="bodyStrong" style={styles.centred}>
           {title}

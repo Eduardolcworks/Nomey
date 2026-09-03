@@ -42,6 +42,7 @@ export function CategoryTrigger({
 
   return (
     <GlassSurface
+      material="control"
       level="regular"
       depth="well"
       rim="catch"

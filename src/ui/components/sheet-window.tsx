@@ -20,7 +20,7 @@ import { GlassSurface } from './glass-surface';
 import { IconButton } from './icon-button';
 import { ThemedText } from './themed-text';
 import { SLIDE_IN, timing } from '@/ui/theme/motion-runtime';
-import { Motion, Radius, Spacing, useTheme } from '@/ui/theme';
+import { Motion, Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 /**
  * La ventana flotante que usan las acciones de Nomey.
@@ -150,6 +150,12 @@ export function SheetWindow({ title, closeLabel, onClosed, children }: SheetWind
            */
           style={[styles.window, size, panel]}>
           <GlassSurface
+            /*
+             * Las tres ventanas —anadir, editar disponible y editar
+             * movimiento— salen de aqui, asi que el material se declara una vez.
+             * iOS lo ignora y conserva su cristal.
+             */
+            material="window"
             level="heavy"
             depth="selected"
             rim="soft"
@@ -170,7 +176,7 @@ export function SheetWindow({ title, closeLabel, onClosed, children }: SheetWind
                 {title}
               </ThemedText>
               <IconButton
-                name="xmark"
+                name={Symbols.close}
                 label={closeLabel}
                 size={17}
                 colour={theme.textSecondary}

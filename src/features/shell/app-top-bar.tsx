@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { type MessageKey, useTranslation } from '@/lib/i18n';
 import { IconButton, ThemedText } from '@/ui/components';
-import { Spacing } from '@/ui/theme';
+import { Spacing, Symbols } from '@/ui/theme';
 
 const MARK = require('../../../assets/splash/splash-icon.png') as number;
 
@@ -63,14 +63,14 @@ export function AppTopBar({ title }: AppTopBarProps) {
 
         <View style={styles.actions}>
           <IconButton
-            name="bell"
+            name={Symbols.notifications}
             label={t('nav.notifications')}
             onPress={() => {
               router.push('/notifications');
             }}
           />
           <IconButton
-            name="person.crop.circle"
+            name={Symbols.profile}
             label={t('nav.profile')}
             onPress={() => {
               router.push('/profile');
