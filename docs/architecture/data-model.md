@@ -819,7 +819,11 @@ convertirse en operación financiera válida del ámbito.
    independencia de quién pagó.
 10. **El resultado financiero de una operación no depende de quién la registre.**
 11. Los hechos son inmutables; corregir es versionar o compensar. Saldos y
-    estadísticas se derivan de la versión vigente.
+    estadísticas se derivan de la versión vigente. Una proyección local de
+    intenciones todavía no confirmadas **no es un saldo**: es una previsión, no
+    se persiste y no alimenta ninguna escritura
+    ([ADR-028](../adr/ADR-028-offline-command-queue-and-optimistic-projection.md)
+    §8, §10).
 12. Cada ámbito tiene una moneda base inmutable tras su primera operación.
 13. **Un usuario solo produce efectos sobre otro cuando la operación y el ámbito
     le conceden ese derecho.** Todo efecto es inmediato, atribuible, notificable

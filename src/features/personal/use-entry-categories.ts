@@ -27,8 +27,10 @@ export function useEntryCategories(): readonly CategoryRow[] {
     let active = true;
 
     void fetchCategories()
-      .then((all) => {
-        if (active) setRows(all.filter((row) => row.is_active));
+      // `total` no se mira aquí: el selector pinta lo que haya llegado, igual
+      // que siempre. Quien lo usa es la caché, y su escritura vive en Inicio.
+      .then((page) => {
+        if (active) setRows(page.rows.filter((row) => row.is_active));
       })
       .catch(() => {
         // Silencio deliberado: ver arriba.

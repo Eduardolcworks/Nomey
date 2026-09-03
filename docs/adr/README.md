@@ -79,35 +79,36 @@ de decisiones. El registro solo contiene decisiones tomadas.
 
 ## Índice
 
-| ADR                                                   | Título                                                | Estado    |
-| ----------------------------------------------------- | ----------------------------------------------------- | --------- |
-| [001](ADR-001-licensing.md)                           | Licencia y avisos de terceros                         | Propuesto |
-| [002](ADR-002-accounting-model.md)                    | Modelo contable                                       | Aceptado  |
-| [003](ADR-003-money-representation.md)                | Representación exacta del dinero                      | Aceptado  |
-| [004](ADR-004-currency-definition-identity.md)        | Identidad física de la definición monetaria           | Aceptado  |
-| [005](ADR-005-schema-topology.md)                     | Topología de schemas y frontera Data API              | Aceptado  |
-| [006](ADR-006-privilege-model.md)                     | Modelo de privilegios y lectura `api → core`          | Aceptado  |
-| [007](ADR-007-membership-rls.md)                      | Membresía y estrategia de RLS                         | Aceptado  |
-| [008](ADR-008-exact-data-boundary.md)                 | Frontera de datos exactos                             | Aceptado  |
-| [009](ADR-009-authoritative-write-boundary.md)        | Frontera autoritativa de escritura                    | Aceptado  |
-| [010](ADR-010-client-operation-idempotency.md)        | Idempotencia de operaciones cliente                   | Aceptado  |
-| [011](ADR-011-operation-version-model.md)             | Operaciones, versiones y comandos cliente             | Aceptado  |
-| [012](ADR-012-participant-identity.md)                | Identidad de participantes sin cuenta                 | Aceptado  |
-| [013](ADR-013-persisted-vs-derived.md)                | Persistido frente a derivado                          | Aceptado  |
-| [014](ADR-014-data-api-schema-exposure.md)            | Exposición de schemas de la Data API                  | Aceptado  |
-| [015](ADR-015-frozen-rate-physical-representation.md) | Representación física del tipo congelado              | Aceptado  |
-| [016](ADR-016-economic-attribution.md)                | Atribución económica de efectos a un usuario          | Aceptado  |
-| [017](ADR-017-secure-session-storage.md)              | Persistencia segura de la sesión                      | Aceptado  |
-| [018](ADR-018-ephemeral-recovery-session.md)          | Sesión de recuperación efímera                        | Aceptado  |
-| [019](ADR-019-personal-provisioning.md)               | Provisioning del Modo Personal y catálogo monetario   | Aceptado  |
-| [020](ADR-020-version-content-and-time.md)            | Contenido no monetario y grano temporal de la versión | Aceptado  |
-| [021](ADR-021-category-catalogue.md)                  | Catálogo de categorías y su autorización              | Aceptado  |
-| [022](ADR-022-balance-target-and-serialization.md)    | Ajuste por saldo objetivo y serialización del saldo   | Aceptado  |
-| [023](ADR-023-balance-observation.md)                 | Observación histórica de saldo                        | Aceptado  |
-| [024](ADR-024-annulment.md)                           | Anulación de una operación                            | Aceptado  |
-| [025](ADR-025-personal-read-surface.md)               | Superficie de lectura del Modo Personal               | Aceptado  |
-| [026](ADR-026-personal-statistics.md)                 | Estadísticas agregadas del Modo Personal              | Aceptado  |
-| [027](ADR-027-expense-only-categories.md)             | La categoría es del gasto; icono como clave semántica | Aceptado  |
+| ADR                                                               | Título                                                            | Estado    |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------- | --------- |
+| [001](ADR-001-licensing.md)                                       | Licencia y avisos de terceros                                     | Propuesto |
+| [002](ADR-002-accounting-model.md)                                | Modelo contable                                                   | Aceptado  |
+| [003](ADR-003-money-representation.md)                            | Representación exacta del dinero                                  | Aceptado  |
+| [004](ADR-004-currency-definition-identity.md)                    | Identidad física de la definición monetaria                       | Aceptado  |
+| [005](ADR-005-schema-topology.md)                                 | Topología de schemas y frontera Data API                          | Aceptado  |
+| [006](ADR-006-privilege-model.md)                                 | Modelo de privilegios y lectura `api → core`                      | Aceptado  |
+| [007](ADR-007-membership-rls.md)                                  | Membresía y estrategia de RLS                                     | Aceptado  |
+| [008](ADR-008-exact-data-boundary.md)                             | Frontera de datos exactos                                         | Aceptado  |
+| [009](ADR-009-authoritative-write-boundary.md)                    | Frontera autoritativa de escritura                                | Aceptado  |
+| [010](ADR-010-client-operation-idempotency.md)                    | Idempotencia de operaciones cliente                               | Aceptado  |
+| [011](ADR-011-operation-version-model.md)                         | Operaciones, versiones y comandos cliente                         | Aceptado  |
+| [012](ADR-012-participant-identity.md)                            | Identidad de participantes sin cuenta                             | Aceptado  |
+| [013](ADR-013-persisted-vs-derived.md)                            | Persistido frente a derivado                                      | Aceptado  |
+| [014](ADR-014-data-api-schema-exposure.md)                        | Exposición de schemas de la Data API                              | Aceptado  |
+| [015](ADR-015-frozen-rate-physical-representation.md)             | Representación física del tipo congelado                          | Aceptado  |
+| [016](ADR-016-economic-attribution.md)                            | Atribución económica de efectos a un usuario                      | Aceptado  |
+| [017](ADR-017-secure-session-storage.md)                          | Persistencia segura de la sesión                                  | Aceptado  |
+| [018](ADR-018-ephemeral-recovery-session.md)                      | Sesión de recuperación efímera                                    | Aceptado  |
+| [019](ADR-019-personal-provisioning.md)                           | Provisioning del Modo Personal y catálogo monetario               | Aceptado  |
+| [020](ADR-020-version-content-and-time.md)                        | Contenido no monetario y grano temporal de la versión             | Aceptado  |
+| [021](ADR-021-category-catalogue.md)                              | Catálogo de categorías y su autorización                          | Aceptado  |
+| [022](ADR-022-balance-target-and-serialization.md)                | Ajuste por saldo objetivo y serialización del saldo               | Aceptado  |
+| [023](ADR-023-balance-observation.md)                             | Observación histórica de saldo                                    | Aceptado  |
+| [024](ADR-024-annulment.md)                                       | Anulación de una operación                                        | Aceptado  |
+| [025](ADR-025-personal-read-surface.md)                           | Superficie de lectura del Modo Personal                           | Aceptado  |
+| [026](ADR-026-personal-statistics.md)                             | Estadísticas agregadas del Modo Personal                          | Aceptado  |
+| [027](ADR-027-expense-only-categories.md)                         | La categoría es del gasto; icono como clave semántica             | Aceptado  |
+| [028](ADR-028-offline-command-queue-and-optimistic-projection.md) | Cola sin conexión, durabilidad de la clave y proyección optimista | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
@@ -124,10 +125,13 @@ que ocurra. Ninguno está reservado ni prejuzgado.
   riesgo de seguridad. **La identidad y el vínculo** los cerró
   [ADR-012](ADR-012-participant-identity.md); siguen abiertos el **mecanismo de
   prueba**, la **revocación** y la **fusión**, todos delegados a F10.
-- **Cola offline para la entrada rápida.** La idempotencia del **origen
-  cliente** la cerró [ADR-010](ADR-010-client-operation-idempotency.md); siguen
-  abiertas la cola en sí y la idempotencia de **recurrencias, importaciones
-  bancarias y operaciones de backend**.
+- ~~**Cola offline para la entrada rápida**~~ — cerrada entre
+  [ADR-010](ADR-010-client-operation-idempotency.md), que fijó la idempotencia
+  del **origen cliente**, y
+  [ADR-028](ADR-028-offline-command-queue-and-optimistic-projection.md), que
+  fijó **la cola, la durabilidad de la clave y la proyección optimista**. Sigue
+  abierta la idempotencia de **recurrencias, importaciones bancarias y
+  operaciones de backend**.
 - React Native + Expo con CNG como plataforma.
 - Supabase como backend y RLS como capa de autorización.
 - ~~**Hardening del Data API**~~ — cerrado entre
