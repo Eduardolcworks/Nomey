@@ -89,6 +89,62 @@ exportaciones con la caché limpia.
 
 ---
 
+## El entorno EAS `preview` — de dónde saca Staging su configuración
+
+Un APK de Staging no tiene Metro ni el `.env` de esta máquina, así que su
+configuración tiene que venir de otro sitio. Ese sitio es el entorno **estándar**
+de EAS llamado `preview`, que es el que lee
+`eas update --environment preview`.
+
+> **Ojo con los tres nombres, porque no coinciden y es deliberado.** El
+> **entorno de EAS** se llama `preview` porque es uno de los tres estándar y no
+> se paga por uno personalizado. La **variante de Nomey** se llama `staging`, el
+> **canal de actualización** se llama `staging`, y la app en pantalla se llama
+> `Nomey Staging`.
+
+Contiene exactamente tres variables, todas **configuración pública de cliente**
+con visibilidad `plaintext`:
+
+```
+APP_VARIANT                            staging
+EXPO_PUBLIC_SUPABASE_URL               la URL LAN del stack local
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY   la publishable key local
+```
+
+Se ponen y se refrescan con un solo comando, que **valida antes de enviar** —a
+través de `src/lib/env/supabase-env.ts`, la misma frontera que usa la app al
+arrancar— y **no imprime ningún valor completo**:
+
+```bash
+node scripts/eas-preview-sync.mjs --dry-run   # valida y no envía nada
+node scripts/eas-preview-sync.mjs             # valida y escribe en preview
+```
+
+> **VUELVE A EJECUTARLO CUANDO CAMBIE LA URL LAN.** Staging apunta
+> provisionalmente al stack local por la red local, así que esa URL es la
+> dirección de **esta** máquina en **esta** red. Cambiar de red, de router o de
+> ordenador deja el valor de EAS caducado, y publicar una actualización sin
+> refrescarlo entregaría un Staging que no alcanza ningún backend. **No falla al
+> publicar: falla en el aparato**, que es la peor forma de enterarse.
+
+Y se comprueba sin dejar `.env` ni ningún artefacto:
+
+```bash
+npx eas-cli@latest env:exec preview "node scripts/staging-env-verify.mjs"
+```
+
+Inyecta las variables que EAS guarda para `preview` y afirma que resuelven
+`staging`, la identidad `es.lcworks.nomey.staging`, el canal `staging`, una URL
+bien formada, una clave que **la frontera real acepta**, y ninguna credencial de
+servidor. **No usa `env:pull`**, que escribiría un `.env.local` en el árbol de
+trabajo: una verificación que deja credenciales en disco es peor trato que la
+comodidad que compra.
+
+**`production` y `development` no tienen ninguna variable en EAS**, y así deben
+seguir hasta que exista una razón.
+
+---
+
 ## Publicar una actualización al canal `staging` — todavía no
 
 **No se ha publicado ninguna, y es deliberado: no existe aún la build de Staging
@@ -99,10 +155,18 @@ aparato delante.
 Cuando exista el APK de Staging (F8.A3/F8.A5), el comando será:
 
 ```bash
-npx eas-cli@latest update --branch staging --message "..."
+npx eas-cli@latest update --channel staging --environment preview --message "..."
 ```
 
-Tres cosas que hay que tener claras antes de escribirlo:
+Y **antes de la primera vez hay que crear el canal**, que hoy no existe —
+comprobado: `eas channel:list` y `eas branch:list` están vacíos—. Sin EAS Build
+nadie lo crea por su cuenta:
+
+```bash
+npx eas-cli@latest channel:create staging
+```
+
+Tres cosas más que hay que tener claras antes de escribirlo:
 
 - **El canal viaja en el binario, no en el comando.** Lo lleva la cabecera
   `expo-channel-name` que fija `app.config.ts`, porque Nomey no usa EAS Build y
@@ -140,11 +204,11 @@ configuración, y eso es todo lo que hay.
 
 ## Variables, y cuál es cuál
 
-| Variable                               | Qué es                    | Dónde vive                   |
-| -------------------------------------- | ------------------------- | ---------------------------- |
-| `APP_VARIANT`                          | Selección de build        | **El comando.** Nunca `.env` |
-| `EXPO_PUBLIC_SUPABASE_URL`             | Configuración **pública** | `.env`, sin versionar        |
-| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Configuración **pública** | `.env`, sin versionar        |
+| Variable                               | Qué es                    | Development                  | Staging               |
+| -------------------------------------- | ------------------------- | ---------------------------- | --------------------- |
+| `APP_VARIANT`                          | Selección de build        | **El comando.** Nunca `.env` | Entorno EAS `preview` |
+| `EXPO_PUBLIC_SUPABASE_URL`             | Configuración **pública** | `.env`, sin versionar        | Entorno EAS `preview` |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Configuración **pública** | `.env`, sin versionar        | Entorno EAS `preview` |
 
 Las dos `EXPO_PUBLIC_` **viajan dentro del binario**, y es correcto: están
 diseñadas para eso. **No son secretos**, y llamarlas así sería la clase de

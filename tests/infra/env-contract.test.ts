@@ -4,6 +4,9 @@ import CI from '../../.github/workflows/ci.yml?raw';
 import ENV_EXAMPLE from '../../.env.example?raw';
 import GITIGNORE from '../../.gitignore?raw';
 import PACKAGE_JSON from '../../package.json?raw';
+import RUNBOOK from '../../docs/runbooks/environments.md?raw';
+import PREVIEW_SYNC from '../../scripts/eas-preview-sync.mjs?raw';
+import STAGING_VERIFY from '../../scripts/staging-env-verify.mjs?raw';
 import WRAPPER from '../../scripts/with-variant.mjs?raw';
 
 /**
@@ -138,6 +141,41 @@ describe('los comandos nombran su variante en voz alta', () => {
     // `shell: true` en Windows haría que el comando lo parsease `cmd.exe`.
     expect(WRAPPER).not.toContain('shell: true');
     expect(WRAPPER).toContain('process.execPath');
+  });
+});
+
+describe('la configuración de Staging vive en el entorno EAS `preview`', () => {
+  it('el sync valida por la frontera real, no por una copia de las reglas', () => {
+    // Si reimplementase «qué es una clave válida», el día que la frontera
+    // cambie de opinión EAS se quedaría con la versión antigua.
+    expect(PREVIEW_SYNC).toContain("import('../src/lib/env/supabase-env.ts')");
+    expect(STAGING_VERIFY).toContain("import('../src/lib/env/supabase-env.ts')");
+  });
+
+  it('y ninguno de los dos escribe un `.env` en el árbol de trabajo', () => {
+    // `env:pull` dejaría un `.env.local` con credenciales en disco, y además
+    // haría que la siguiente verificación pasara por el motivo equivocado.
+    // Se busca la forma de ARGUMENTO —`'env:pull'` entre comillas, como
+    // aparecería en un argv— y no la palabra suelta, que los dos scripts
+    // mencionan legítimamente al explicar por qué no la usan.
+    for (const script of [PREVIEW_SYNC, STAGING_VERIFY]) {
+      expect(script).not.toContain("'env:pull'");
+      expect(script).not.toContain('writeFileSync');
+    }
+  });
+
+  it('el sync sólo toca `preview`, y nunca `production`', () => {
+    expect(PREVIEW_SYNC).toMatch(/^const ENVIRONMENT = 'preview';$/m);
+    expect(PREVIEW_SYNC).not.toContain("'production'");
+  });
+
+  it('el runbook dice que hay que refrescarlo cuando cambie la URL LAN', () => {
+    // Es el modo de fallo que no avisa: no falla al publicar, falla en el
+    // aparato, contra una dirección que ya no existe.
+    expect(RUNBOOK).toContain('scripts/eas-preview-sync.mjs');
+    expect(RUNBOOK).toContain('scripts/staging-env-verify.mjs');
+    expect(RUNBOOK).toContain('CUANDO CAMBIE LA URL LAN');
+    expect(RUNBOOK).toContain('channel:create staging');
   });
 });
 

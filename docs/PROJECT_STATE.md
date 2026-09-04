@@ -56,6 +56,16 @@ cadena nativa, y eso es F8.A2. Lo que hay que saber para usarlo está en
 - **El canal viaja en el binario**, como cabecera `expo-channel-name`, porque
   Nomey no usa EAS Build y no hay perfil donde declararlo. **No hay `eas.json`**,
   y no lo habrá mientras nadie ejecute nada de él.
+- **La configuración de Staging vive en el entorno EAS estándar `preview`**, con
+  las tres variables del contrato y visibilidad `plaintext`, porque un APK sin
+  Metro no tiene el `.env` de nadie. `scripts/eas-preview-sync.mjs` las escribe
+  validando antes por la frontera real, y
+  `eas env:exec preview "node scripts/staging-env-verify.mjs"` las comprueba sin
+  dejar `.env` ni artefactos. **`production` y `development` no tienen ninguna.**
+  **Hay que reejecutar el sync cuando cambie la URL LAN**, o Staging quedará
+  apuntando a una dirección muerta — y eso no falla al publicar, falla en el
+  aparato. **El canal `staging` todavía NO existe** y hay que crearlo antes de
+  la primera publicación.
 - **La guarda del bundle ya corre en CI, y sin un solo secreto de repositorio.**
   Las dos `EXPO_PUBLIC_` son configuración pública, así que CI las pone
   **ficticias** y revisa las tres variantes. Además **siembra un secreto a
