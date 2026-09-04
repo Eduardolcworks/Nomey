@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import AGENTS from '../../AGENTS.md?raw';
 import CI from '../../.github/workflows/ci.yml?raw';
+import PACKAGE_JSON from '../../package.json?raw';
 import ANDROID_CHECK from '../../scripts/android-project-check.mjs?raw';
 import DERIVE from '../../scripts/derive-brand-assets.ps1?raw';
 import ICON_CHECK from '../../scripts/icon-geometry-check.mjs?raw';
@@ -107,25 +108,71 @@ describe('la inspección del proyecto generado sigue preguntando lo que importa'
   });
 });
 
-describe('el contrato del icono adaptativo', () => {
-  it('el foreground se deriva a 1024, dentro de la misma zona segura', () => {
-    // El cambio de 512 a 1024 es de resolución y no de geometría: `Place`
-    // recibe el mismo marco y el mismo $SAFE_FRACTION.
-    expect(DERIVE).toMatch(/Place\(\$markOnly, \$markBox, 1024, \$SAFE_FRACTION, 0\)/);
-    expect(DERIVE).toMatch(/^\$SAFE_FRACTION = 0\.60$/m);
+describe('la build de Android es propia, y no depende de Expo Go', () => {
+  const manifest = JSON.parse(PACKAGE_JSON) as {
+    dependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
+  };
+
+  it('`expo-dev-client` está declarado, y dentro de SDK 57', () => {
+    // Es lo que convierte el binario propio en algo capaz de cargar desde
+    // Metro. Sin él, una build local arranca sólo con el JavaScript empotrado.
+    const declared = manifest.dependencies['expo-dev-client'];
+    expect(declared, 'expo-dev-client debe ser una dependencia de runtime').toBeDefined();
+    expect(declared).toMatch(/^~57\./);
   });
 
-  it('y el resto de los assets conserva su tamaño', () => {
+  it('y es una dependencia de runtime, no de desarrollo', () => {
+    // Va dentro del binario: `devDependencies` no se instala en un checkout de
+    // producción y la build saldría sin el cliente.
+    expect(manifest.devDependencies['expo-dev-client']).toBeUndefined();
+  });
+
+  it('el runbook explica la diferencia con Expo Go en vez de darla por sabida', () => {
+    expect(RUNBOOK).toContain('Expo Go');
+    expect(RUNBOOK).toContain('development build');
+  });
+
+  it('y no propone Expo Go como forma de ejecutar Nomey en Android', () => {
+    // Expo Go sigue siendo la vía de iOS hasta F8.B, así que la prohibición es
+    // acotada: en Android hay binario propio, y volver a Expo Go allí sería
+    // probar otro contenedor, no la aplicación.
+    const lines = RUNBOOK.split('\n').filter((line) => /Expo Go/.test(line));
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      expect(line, `«${line.trim()}»`).not.toMatch(/^\s*(npx |npm |node ).*Expo Go/);
+    }
+  });
+});
+
+describe('el contrato del icono adaptativo', () => {
+  it('las DOS capas adaptativas comparten una sola fracción', () => {
+    /*
+     * Es la guarda que importa de este bloque. El primer plano y el monocromo
+     * son el mismo icono en dos modos, así que si cada uno tuviera su constante
+     * un lanzador que alterna entre ellos mostraría la marca cambiando de
+     * tamaño. Se separaron durante exactamente una compilación de F8.A3 y se
+     * corrigió; esto impide que vuelva a pasar por descuido.
+     */
+    expect(DERIVE).toMatch(/^\$ADAPTIVE_FRACTION = 0\.54$/m);
+    expect(DERIVE).toMatch(/Place\(\$markOnly, \$markBox, 1024, \$ADAPTIVE_FRACTION, 0\)/);
+    expect(DERIVE).toMatch(/Place\(\$silhouette, \$markBox, 432, \$ADAPTIVE_FRACTION, 0\)/);
+    // Y ninguna constante suelta que pueda desalinearlas otra vez.
+    expect(DERIVE).not.toMatch(/\$SAFE_FRACTION|\$FOREGROUND_FRACTION/);
+  });
+
+  it('el icono de iOS y el splash conservan su propia proporción', () => {
+    // No comparten fracción con las capas de Android, y no deben: el de iOS
+    // reproduce el encuadre del original y el splash llena su lienzo.
     expect(DERIVE).toMatch(/Place\(\$markOnly, \$markBox, 1024, \$MARK_FRACTION, \$GROUND_ARGB\)/);
-    expect(DERIVE).toMatch(/Place\(\$silhouette, \$markBox, 432, \$SAFE_FRACTION, 0\)/);
     expect(DERIVE).toMatch(/Place\(\$splashMark, \$splashBox, 512, 0\.92, 0\)/);
   });
 
   it('la comprobación de geometría exige dimensiones, formato, alfa y proporción', () => {
     expect(ICON_CHECK).toContain("file: 'assets/icons/android-icon-foreground.png'");
-    expect(ICON_CHECK).toMatch(
-      /width: 1024,\n {4}height: 1024,\n {4}format: 'RGBA',\n {4}alpha: true,\n {4}widthFraction: 0\.6,/,
-    );
+    expect(ICON_CHECK).toContain("file: 'assets/icons/android-icon-monochrome.png'");
+    // Las dos capas de Android, con la misma fracción que el script deriva.
+    expect(ICON_CHECK.match(/widthFraction: 0\.54,/g)).toHaveLength(2);
     // El icono de iOS no puede llevar alfa, y eso no es una preferencia.
     expect(ICON_CHECK).toContain("format: 'RGB',");
     expect(ICON_CHECK).toContain('alpha: false,');

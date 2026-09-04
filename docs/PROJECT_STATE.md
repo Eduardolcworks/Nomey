@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-09-04**, al cerrar el bloque **F8.A2** de la **Fase 8**.
+Actualizado el **2026-09-04**, al cerrar el bloque **F8.A3** de la **Fase 8**.
 
 ---
 
@@ -21,7 +21,7 @@ Actualizado el **2026-09-04**, al cerrar el bloque **F8.A2** de la **Fase 8**.
 
 |                         |                                                                                                                                   |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 8 — Distribución interna y entornos.** **F8.A0**, **F8.A1** y **F8.A2** cerrados: decisiones, contrato y cadena nativa     |
+| **Fase en curso**       | **Fase 8 — Distribución interna y entornos.** **F8.A0 … F8.A3** cerrados: hay build propia de Android, instalada y validada       |
 | **Última fase cerrada** | **Fase 7 — Entrada rápida, offline y sincronización** (A … E), el 2026-09-04. **Validada en Android; iOS sin probar físicamente** |
 | **ADR aceptados**       | ADR-001 … ADR-031                                                                                                                 |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **La Fase 7 no lo tocó**                                     |
@@ -31,8 +31,9 @@ Actualizado el **2026-09-04**, al cerrar el bloque **F8.A2** de la **Fase 8**.
 **La Fase 8 está ABIERTA.** F8.A0 aceptó
 [ADR-030](adr/ADR-030-native-code-model.md) y
 [ADR-031](adr/ADR-031-environments-and-variants.md) y partió la fase en tres
-bloques trazables; **F8.A1 hizo ejecutable ese contrato** y **F8.A2 dejó la
-cadena nativa lista**. **La Fase 8 NO está
+bloques trazables; **F8.A1 hizo ejecutable ese contrato**, **F8.A2 dejó la
+cadena nativa lista** y **F8.A3 compiló, instaló y validó la primera build
+propia de Android**. **La Fase 8 NO está
 cerrada ni puede estarlo todavía**, porque dos de sus cuatro criterios
 originales siguen sin cumplirse; el estado criterio a criterio está en el
 [roadmap](product/roadmap.md), Fase 8.
@@ -115,6 +116,42 @@ saber es esto:
 > cosa**: fijar `expo-image.disable-libdav1d` en las propiedades del **Podfile de
 > iOS**. **No toca Android en absoluto**, y sin él `expo-doctor` da 21/21 igual.
 > Se decide cuando exista un proyecto de iOS que generar, no antes.
+
+**F8.A3 puso Nomey en dos aparatos Android, fuera de Expo Go, y saldó la mitad
+Android de la deuda visual de F4.** Lo reproducible está en
+[`runbooks/android-build.md`](runbooks/android-build.md); lo que no conviene
+volver a deducir es esto:
+
+- **La development build es Nomey, no un contenedor ajeno.** `expo-dev-client`
+  `~57.0.18` sólo añade la capacidad de cargar el JavaScript desde Metro; el
+  binario es `es.lcworks.nomey.dev` con su icono, su splash y sus módulos.
+  **Validada en el emulador `Pixel_7` (x86_64) y en un POCO X4 Pro 5G
+  (arm64-v8a)**, con Metro sirviendo cuatro bundles —el inicial de 2112 módulos
+  y tres recargas incrementales— y sin un solo crash nativo. **En el móvil Expo
+  Go ni siquiera está instalada**, así que allí es imposible confundirlas.
+- **La deuda visual de F4 queda saldada en Android.** Icono amarillo recortado
+  por la máscara real de dos lanzadores distintos, icono monocromo verificado
+  con «Iconos temáticos» del `Pixel_7`, splash negro con el símbolo amarillo, y
+  **ausencia de destello blanco medida, no supuesta**: 50 fotogramas de un
+  arranque en frío en el móvil, con luminancia media de **1,9 a 3,1 sobre 255**
+  durante el splash y ningún fotograma claro. **La mitad iOS sigue pendiente, y
+  es de F8.B.**
+- **La marca del icono adaptativo ocupa 0.54 del lienzo, no 0.60.** La zona
+  segura de Android permite 0.60, pero visto en un lanzador real el símbolo leía
+  grande dentro de su círculo. **Una sola constante gobierna las dos capas** —
+  primer plano y monocromo—, porque son el mismo icono en dos modos y separarlas
+  haría que la marca cambiase de tamaño al alternar. Lo vigila
+  `scripts/icon-geometry-check.mjs`, que corre en CI.
+- **Gradle instala NDK y CMake 3.22.1 por su cuenta**, y F8.A2 se equivocó al
+  decir que no harían falta: con `newArchEnabled=true` hay C++ que compilar. No
+  se instalan a mano, y explican buena parte de los **35 min 42 s** de la primera
+  compilación —las siguientes bajan a **2–3 min**—.
+- **MIUI acota lo que se puede automatizar en un Xiaomi.** La **primera**
+  instalación por ADB se rechaza con `INSTALL_FAILED_USER_RESTRICTED` y hay que
+  hacerla a mano; **las actualizaciones posteriores sí pasan por ADB**.
+  `adb shell input` está bloqueado, así que la interfaz del móvil no se pilota
+  por software. Y **Metro se alcanza por `adb reverse tcp:8081 tcp:8081`**, no
+  por LAN: el cortafuegos de Windows bloquea el puerto entrante.
 
 Cuatro cosas más que conviene tener claras antes de tocar cualquier cosa nativa:
 

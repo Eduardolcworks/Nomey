@@ -444,7 +444,7 @@ queden criterios originales sin cumplir. Estado por criterio:
 
 | Criterio | Estado                                                                                                                                                                 |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1**    | **Parcial.** La mitad Android la cierra F8.A; **la mitad iOS es de F8.B**                                                                                              |
+| **1**    | **Mitad Android CUMPLIDA** desde F8.A3: build propia instalada y validada en un POCO X4 Pro 5G y en el emulador. **La mitad iOS es de F8.B**                           |
 | **2**    | **Pendiente.** Staging apunta provisionalmente al stack local, que **no** es un entorno distinto del local — [ADR-031](../adr/ADR-031-environments-and-variants.md) §4 |
 | **3**    | **Pendiente.** Se marcará cuando exista un tester externo real; no se da por hecho con una entrega simulada                                                            |
 | **4**    | **Cubierto en Android** por F8.A, con las tres capas ya existentes. Se revalida en F8.B sobre el artefacto de iOS                                                      |

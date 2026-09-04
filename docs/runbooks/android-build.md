@@ -6,8 +6,9 @@
 > [ADR-031](../adr/ADR-031-environments-and-variants.md) y
 > [`environments.md`](environments.md).
 >
-> **Este documento no compila la app.** Llega hasta el proyecto nativo generado
-> y verificado. La primera development build es de F8.A3.
+> **Cubre hasta la development build de Development instalada en un aparato.**
+> La validación funcional completa —alta, sesión, cola, sincronización— es de
+> F8.A4, y Staging es de F8.A5.
 
 Todas las rutas se escriben con marcadores. Sustituye `<LOCALAPPDATA>` por lo
 que valga en tu máquina; ninguna ruta concreta se versiona aquí a propósito.
@@ -73,7 +74,16 @@ Con eso ya se puede instalar la plataforma:
 sdkmanager "platforms;android-36"
 ```
 
-> **Sobre las licencias.** `sdkmanager --licenses` abre un cuestionario
+> **Gradle instala componentes por su cuenta, y F8.A2 se equivocó al decir que
+> no harían falta.** Con `newArchEnabled=true`, `expo-updates`,
+> `react-native-worklets`, `react-native-screens` y `react-native-reanimated`
+> compilan C++, así que la primera compilación descarga e instala **CMake 3.22.1
+> y el NDK** sin que nadie se lo pida, aceptando sus licencias bajo el
+> `android-sdk-license` ya aceptado. Aparece en el log como
+> `License for package CMake 3.22.1 accepted`. **No hay que instalarlos a mano**;
+> conviene saberlo porque explica buena parte de los 35 minutos de la primera vez.
+
+> **Sobre las licencias que Gradle NO resuelve.** `sdkmanager --licenses` abre un cuestionario
 > interactivo que **no acepta entrada por tubería**: hay que ejecutarlo en un
 > terminal de verdad y pulsar `y` en cada pregunta. En esta máquina no hizo
 > falta: la licencia que cubre las plataformas, las build-tools y las
@@ -162,7 +172,142 @@ credencial dentro.
 
 ---
 
-## 6 · Qué es artefacto y qué es fuente
+## 6 · Compilar e instalar la development build
+
+**Qué es y en qué se diferencia de Expo Go.** Expo Go es una aplicación ajena
+que carga el JavaScript de Nomey dentro de **su** binario, con **sus** módulos
+nativos y **su** identidad: por eso sustituye el icono y el splash por los
+suyos, y por eso no puede ejecutar un módulo nativo que no lleve dentro. La
+**development build** es lo contrario: es **Nomey**, con su paquete, su icono y
+sus módulos, y `expo-dev-client` es lo único que le añade la capacidad de cargar
+el JavaScript desde Metro en vez de empotrado. Desde F8.A3, **el camino de
+Android es la development build**; Expo Go sigue siendo la vía de iOS hasta
+F8.B, y allí se sabe lo que se pierde.
+
+El cliente se instala con la versión que elige el SDK, nunca a mano:
+
+```bash
+npx expo install expo-dev-client
+node scripts/with-variant.mjs development prebuild --platform android --clean
+```
+
+Arrancar el emulador y esperar a que termine de arrancar de verdad:
+
+```bash
+emulator -avd Pixel_7 -no-boot-anim
+adb wait-for-device
+adb shell getprop sys.boot_completed    # 1 cuando ya se puede instalar
+```
+
+Y compilar:
+
+```bash
+node scripts/with-variant.mjs development run:android --device Pixel_7 --variant debug
+```
+
+> **`--device` toma el NOMBRE DEL AVD, no el serial de `adb`.** Medido:
+> `--device emulator-5554` falla con `Could not find device with name`. El
+> nombre que Expo espera es el que devuelve
+> `adb -s emulator-5554 emu avd name`, que para este emulador es `Pixel_7`.
+> Para un aparato físico, el nombre es su modelo tal y como lo lista
+> `adb devices -l`.
+
+**Dónde queda el APK:**
+
+```
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Es un artefacto dentro de un artefacto: no se versiona, no se comparte y se
+regenera. El APK que se entrega a alguien es otra cosa y llega en F8.A5.
+
+**Metro.** `run:android` deja el servidor arrancado al terminar. Si se cierra,
+se vuelve a levantar con `npm start`, que ya nombra la variante. En el emulador
+la conexión es automática; en un aparato físico por USB se necesita
+`adb reverse tcp:8081 tcp:8081`, y por LAN basta con estar en la misma red.
+
+---
+
+## 7 · Lo que falló de verdad, y cuánto tardó
+
+**Tiempos medidos**, con el estado de la caché en cada momento:
+
+| Compilación             | Tiempo          | Tareas                                      |
+| ----------------------- | --------------- | ------------------------------------------- |
+| Primera, desde cero     | **35 min 42 s** | 542: 438 ejecutadas, 92 de caché, 12 al día |
+| Cambio de ABI a arm64   | **2 min 45 s**  | 542: 44 ejecutadas, 498 al día              |
+| Cambio de asset, x86_64 | **2 min 14 s**  | 542: 39 ejecutadas, 503 al día              |
+| Cambio de asset, arm64  | **3 min 25 s**  | 542: 506 ejecutadas, 36 al día              |
+
+La primera se va casi entera en descargar: la distribución de Gradle, el árbol
+de AGP y Kotlin, y el CMake y el NDK que la nueva arquitectura necesita.
+
+**El plugin de Kotlin no se resolvió a la primera.** La primera pasada murió a
+los 10 min 11 s con:
+
+```
+Build file 'node_modulesexpo-updatesexpo-updates-gradle-pluginuild.gradle.kts' line: 4
+Plugin [id: 'org.jetbrains.kotlin.jvm', version: '2.2.0'] was not found
+  Searched in: Gradle Central Plugin Repository
+```
+
+Ese `build.gradle.kts` declara `kotlin("jvm") version("2.2.0")` y su
+`settings.gradle.kts` está vacío, así que sólo mira el Gradle Plugin Portal —
+donde ese artefacto **sí existe**. Fue un fallo **transitorio de red** con
+media cadena descargándose en paralelo: **el reintento, sin cambiar una sola
+versión ni línea de configuración, lo resolvió**. Si vuelve a pasar, reintentar
+antes que tocar nada.
+
+**Y un bloqueo de fichero de Windows**, en una recompilación posterior:
+
+```
+Execution failed for task ':expo-modules-core:bundleLibCompileToJarDebug'.
+> Unable to delete file '...expo-modules-coreandroiduild...classes.jar'
+```
+
+Un daemon de Gradle anterior retenía el `.jar`. Se arregla con
+`./gradlew --stop` desde `android/` y repetir. Tampoco exige cambiar nada.
+
+**Los `.webp` que llevan bytes PNG no son un problema.** `prebuild` genera
+`mipmap-*/ic_launcher*.webp` cuyo contenido es PNG —magic `89 50 4E 47`—, y
+**AAPT2 los acepta**: `mergeDebugResources`, `processDebugResources` y
+`packageDebug` completan sin un error y `aapt2 dump badging` lee el APK
+resultante. **No se renombran.** Queda registrado porque llama la atención al
+mirar la carpeta generada.
+
+---
+
+## 8 · Un aparato físico, y lo que MIUI no deja hacer
+
+Medido en un POCO X4 Pro 5G con **MIUI V816**. Nada de esto es un defecto de
+Nomey; es el aparato.
+
+- **`adb install` de un paquete NUEVO se rechaza** con
+  `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`, sin que aparezca
+  ningún diálogo. Lo gobierna «Instalar vía USB» de Opciones de desarrollador,
+  que Xiaomi condiciona a una cuenta Mi. **La primera instalación se hace a
+  mano**: `adb push` del APK a `Download` y tocarlo desde el gestor de archivos.
+- **Pero ACTUALIZAR un paquete ya instalado sí funciona por ADB.** Comprobado:
+  `firstInstallTime` se queda en la instalación manual y `lastUpdateTime` avanza
+  con cada `run:android`. Es decir: **el paso manual es sólo el primero**.
+- **`adb shell input` está bloqueado**:
+  `SecurityException: Injecting input events requires INJECT_EVENTS permission`.
+  Depende de «Depuración USB (Ajustes de seguridad)», también con cuenta Mi. En
+  la práctica: **no se puede pilotar la interfaz del móvil por ADB**, así que
+  elegir el servidor en el Development Client lo tiene que hacer una persona.
+  `screencap`, `screenrecord`, `am start` y `logcat` sí funcionan.
+- **MIUI no ofrece «Iconos temáticos».** El icono monocromo no se puede validar
+  visualmente ahí; se valida en el emulador, cuyo lanzador sí lo expone.
+- **La LAN no sirve para Metro desde el móvil**: `192.168.x.x:8081` responde
+  `HTTP 000` porque el cortafuegos de Windows bloquea el puerto entrante. **Por
+  USB sí**, con `adb reverse tcp:8081 tcp:8081`, y entonces
+  `curl http://localhost:8081/status` desde el aparato devuelve
+  `HTTP 200 · packager-status:running`. **Ésa es la vía buena**, y además no
+  depende de en qué red esté el teléfono.
+
+---
+
+## 9 · Qué es artefacto y qué es fuente
 
 **`/android` y `/ios` son artefactos.** Están en `.gitignore`, se regeneran sin
 pérdida y **no se editan a mano jamás** — ADR-030 §1.
@@ -183,7 +328,7 @@ scripts/               los comandos que generan y comprueban
 
 ---
 
-## 7 · Cuándo hay que repetir `prebuild --clean`
+## 10 · Cuándo hay que repetir `prebuild --clean`
 
 Siempre que cambie algo que el proyecto nativo haya copiado dentro:
 
@@ -200,7 +345,7 @@ se pierde nada, porque no hay nada que perder: es un artefacto.
 
 ---
 
-## 8 · Diagnóstico de lo que suele fallar
+## 11 · Diagnóstico de lo que suele fallar
 
 | Síntoma                                                    | Causa casi segura                                                                                  |
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -215,9 +360,9 @@ se pierde nada, porque no hay nada que perder: es un artefacto.
 
 ---
 
-## 9 · Lo que este runbook NO cubre
+## 12 · Lo que este runbook NO cubre
 
-Compilar, instalar y mirar. La development build, el emulador, el aparato
-físico y la validación visual del icono, la máscara adaptativa, el icono
-monocromo y el splash son **F8.A3**. Aquí sólo se llega a un proyecto generado
-y verificado por inspección.
+La validación **funcional** —alta, sesión, cola sin conexión, sincronización e
+incidencias dentro de la development build— es de **F8.A4**. Staging, su canal
+de EAS Update y el APK que se entrega a alguien, de **F8.A5**. Y todo lo de
+iOS, de **F8.B**.
