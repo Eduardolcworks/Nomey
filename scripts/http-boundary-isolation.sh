@@ -29,6 +29,9 @@ set -uo pipefail
 # shellcheck source=scripts/local-db-guard.sh
 . "$(dirname "${BASH_SOURCE[0]}")/local-db-guard.sh"
 exigir_base_local || exit 1
+# Este script habla por la frontera: sin gateway no hay nada que comprobar, y
+# fallar aqui es legible. Fallar en el primer curl, no.
+exigir_frontera_http || exit 1
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DB=(docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=0)

@@ -360,9 +360,53 @@ se pierde nada, porque no hay nada que perder: es un artefacto.
 
 ---
 
-## 12 · Lo que este runbook NO cubre
+## 12 · La validación funcional dentro de la build · F8.A4
 
-La validación **funcional** —alta, sesión, cola sin conexión, sincronización e
-incidencias dentro de la development build— es de **F8.A4**. Staging, su canal
-de EAS Update y el APK que se entrega a alguien, de **F8.A5**. Y todo lo de
-iOS, de **F8.B**.
+Reproduce dentro del binario propio la matriz que la Fase 7 validó en Expo Go
+—[`phase-7-handoff.md`](../architecture/phase-7-handoff.md) §4— sobre el
+emulador `Pixel_7` y el stack local, con **dos actores desechables**,
+`f8a4-alpha@nomey.test` y `f8a4-beta@nomey.test`, retirados al terminar.
+
+| Qué                                        | Resultado                                                                                    |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Alta, acceso y cierre en frío              | La sesión sobrevive por **SecureStore**; sin servidor sigue identificada                     |
+| Cierre de sesión                           | Vuelve a `Entrar`; la sesión siguiente no ve nada de la anterior                             |
+| Gasto e ingreso conectados                 | Cifras, filas, orden, categoría y donut, persistidos                                         |
+| Registro sin conexión                      | Proyección inmediata y sin marca de pendiente; sobrevive a `force-stop`                      |
+| Sincronización al volver el servidor       | Silenciosa y sin recargar nada; **ninguna cifra saltó**                                      |
+| Servidor, tras sincronizar                 | **3 operaciones, 3 claves.** Cero claves con más de una operación, cero conceptos duplicados |
+| Aislamiento entre actores                  | Ámbitos disjuntos; **cero ámbitos con efectos de dos actores**; cero fugas en pantalla       |
+| Incidencia ordinaria de ADR-029, `Sí`/`No` | Texto literal del ADR; `Sí` recreó la intención, `No` la resolvió sin llamar al servidor     |
+
+Tres cosas que conviene no volver a descubrir:
+
+- **Un rechazo terminal no quema la clave.** Medido: con la categoría dada de
+  baja en el servidor, la frontera respondió `CATEGORY_NOT_USABLE` y el censo se
+  quedó igual —mismas operaciones y **mismas claves**—, porque la reclamación de
+  ADR-011 §13 vive dentro de la misma transacción que el rechazo aborta. Pulsar
+  `Sí` tampoco creó ninguna: la intención nueva volvió a ser rechazada.
+- **El cliente retira la categoría al pasar de Gasto a Ingreso**, y no sólo la
+  oculta. Comprobado de extremo a extremo: el ingreso llegó al servidor con
+  **cero** filas de categoría, así que ADR-027 no depende de que la frontera lo
+  rechace.
+- **El globo «Tools» del dev-client se solapa con el botón de Perfil** —
+  `937–1005 × 213–281` sobre `903–1017 × 136–252`— y se lleva el toque. Es un
+  overlay del cliente de desarrollo, **no de Nomey**: no existe en una build de
+  Staging o de producción. Al pilotar por `adb`, toca la mitad libre del botón.
+
+### Un defecto de Nomey, encontrado aquí
+
+**Sin servidor, `Deudas` afirma `0,00 €` mientras todo lo demás degrada a `—`.**
+En el arranque en frío sin frontera, `Disponible`, `Ingresos` y `Gastos` se
+muestran como no disponibles y el donut dice «Reparto no disponible»; `Deudas`,
+en cambio, publica una cifra que no puede conocer. Es una cifra contable
+presentada como cierta cuando no lo es, justo lo que
+[`design-direction.md`](../product/design-direction.md) pide que nunca sea
+ambiguo. **No se arregla en F8.A4**: este bloque valida, no cambia producto.
+
+---
+
+## 13 · Lo que este runbook NO cubre
+
+Staging, su canal de EAS Update y el APK que se entrega a alguien son de
+**F8.A5**. Y todo lo de iOS, de **F8.B**.

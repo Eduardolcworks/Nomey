@@ -13,27 +13,28 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-09-04**, al cerrar el bloque **F8.A3** de la **Fase 8**.
+Actualizado el **2026-09-05**, al cerrar el bloque **F8.A4** de la **Fase 8**.
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                                                                                   |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 8 — Distribución interna y entornos.** **F8.A0 … F8.A3** cerrados: hay build propia de Android, instalada y validada       |
-| **Última fase cerrada** | **Fase 7 — Entrada rápida, offline y sincronización** (A … E), el 2026-09-04. **Validada en Android; iOS sin probar físicamente** |
-| **ADR aceptados**       | ADR-001 … ADR-031                                                                                                                 |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **La Fase 7 no lo tocó**                                     |
-| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**: el alta se encola, se proyecta al instante y se sincroniza sola           |
-| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                      |
+|                         |                                                                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Fase en curso**       | **Fase 8 — Distribución interna y entornos.** **F8.A0 … F8.A4** cerrados: hay build propia de Android, instalada y validada funcionalmente |
+| **Última fase cerrada** | **Fase 7 — Entrada rápida, offline y sincronización** (A … E), el 2026-09-04. **Validada en Android; iOS sin probar físicamente**          |
+| **ADR aceptados**       | ADR-001 … ADR-031                                                                                                                          |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **La Fase 7 no lo tocó**                                              |
+| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**: el alta se encola, se proyecta al instante y se sincroniza sola                    |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                               |
 
 **La Fase 8 está ABIERTA.** F8.A0 aceptó
 [ADR-030](adr/ADR-030-native-code-model.md) y
 [ADR-031](adr/ADR-031-environments-and-variants.md) y partió la fase en tres
 bloques trazables; **F8.A1 hizo ejecutable ese contrato**, **F8.A2 dejó la
-cadena nativa lista** y **F8.A3 compiló, instaló y validó la primera build
-propia de Android**. **La Fase 8 NO está
+cadena nativa lista**, **F8.A3 compiló, instaló y validó la primera build
+propia de Android** y **F8.A4 demostró que esa build se comporta como
+aplicación nativa completa**. **La Fase 8 NO está
 cerrada ni puede estarlo todavía**, porque dos de sus cuatro criterios
 originales siguen sin cumplirse; el estado criterio a criterio está en el
 [roadmap](product/roadmap.md), Fase 8.
@@ -101,9 +102,11 @@ saber es esto:
   plugin y se regenera; una edición a mano sobrevive hasta el siguiente
   `--clean` y desaparece sin avisar.
 - **El primer plano del icono adaptativo pasó de 512 a 1024**, que es un cambio
-  de **resolución y no de geometría**: `scripts/icon-geometry-check.mjs` mide que
-  la marca ocupa el mismo 59,96 % del lienzo, con el mismo aspecto y mejor
-  centrada. Corre en CI, porque un PNG cambia entero en un diff y no dice nada.
+  de **resolución y no de geometría**: `scripts/icon-geometry-check.mjs` mide la
+  fracción del lienzo que ocupa la marca, su aspecto y su centro, en vez de
+  comparar bytes. Corre en CI, porque un PNG cambia entero en un diff y no dice
+  nada. **La fracción vigente es 0.54, fijada en F8.A3**; el 0.5996 que dejó
+  F8.A2 ya no es lo que hay.
 - **Las dependencias están alineadas con SDK 57 y `npx expo-doctor` da 21/21.**
   Eran doce paquetes desalineados, **todos por versión de parche** dentro del
   mismo SDK; `npx expo install --fix` los alineó y `expo install --check` dice
@@ -152,6 +155,38 @@ volver a deducir es esto:
   `adb shell input` está bloqueado, así que la interfaz del móvil no se pilota
   por software. Y **Metro se alcanza por `adb reverse tcp:8081 tcp:8081`**, no
   por LAN: el cortafuegos de Windows bloquea el puerto entrante.
+
+**F8.A4 reprodujo dentro del binario propio la matriz que la Fase 7 validó en
+Expo Go, y añadió lo que Expo Go no podía probar.** Dos actores desechables
+sobre el emulador `Pixel_7` y el stack local; el detalle está en
+[`runbooks/android-build.md`](runbooks/android-build.md) §12. Lo que no conviene
+volver a deducir:
+
+- **La sesión vive en SecureStore, y el aislamiento entre actores es real.**
+  Sobrevive a un cierre en frío sin servidor, y un segundo actor no vio nada del
+  primero: ámbitos disjuntos, y **cero ámbitos con efectos de dos actores**
+  medido sobre la base.
+- **Una operación remota por clave, sin duplicados.** Tres altas, tres claves,
+  ninguna clave con más de una operación. La sincronización al volver el
+  servidor fue **silenciosa y sin recargar nada**, y ninguna cifra saltó.
+- **Un rechazo terminal no quema la clave.** Con la frontera respondiendo
+  `CATEGORY_NOT_USABLE`, el censo se quedó igual —mismas operaciones y mismas
+  claves—: la reclamación de ADR-011 §13 vive dentro de la transacción que el
+  rechazo aborta. Pulsar `Sí` en la incidencia tampoco creó ninguna.
+- **La forma excepcional de ADR-029 NO se validó, y no por descuido.** Sus dos
+  disparos son condiciones que el cliente no puede producir: `conflict` exige
+  una moneda distinta de la base del ámbito —hoy sólo EUR, e inmutable con
+  efectos— y `review` exige reutilizar una clave, justo lo que el cliente evita.
+  **Destino: F11**, con la moneda extranjera.
+- **Un defecto abierto de Nomey.** Sin servidor, `Deudas` publica `0,00 €`
+  mientras `Disponible`, `Ingresos` y `Gastos` degradan a `—`. Es una cifra
+  contable presentada como cierta cuando no se puede conocer. **F8.A4 valida, no
+  cambia producto**, así que queda escrito y sin arreglar.
+- **`supabase start` con éxito no demuestra que Kong esté en pie.** El stack
+  puede quedarse con Postgres, GoTrue y PostgREST vivos y el gateway parado, y en
+  ese estado la CLI sale con código 0 y `54321` no contesta. Lo comprueban ahora
+  los tres scripts que hablan HTTP, con `exigir_frontera_http` de
+  `scripts/local-db-guard.sh`, que **diagnostica y no toca ningún contenedor**.
 
 Cuatro cosas más que conviene tener claras antes de tocar cualquier cosa nativa:
 

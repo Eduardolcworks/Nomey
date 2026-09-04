@@ -67,6 +67,19 @@ fallo() { echo "  FALLO: $*"; fallos=$((fallos + 1)); }
 ok()    { echo "  ok: $*"; }
 
 OUT="$(mktemp -d -t nomey-bundle-XXXXXX)"
+
+# Git Bash sobre Windows: `mktemp` devuelve una ruta POSIX -`/tmp/nomey-...`-
+# que las herramientas MSYS resuelven a la carpeta temporal del perfil, pero el
+# proceso de Node que ejecuta `expo export` es de Windows y la resuelve como
+# `C:\tmp\...`, que es OTRO sitio. El export terminaba con exito, escribia alli,
+# y el recuento miraba en el temporal de MSYS y encontraba cero ficheros: la
+# guarda daba FALLO -correctamente, porque no tenia artefacto que revisar- y
+# parecia rota. `cygpath -m` da la ruta que ven los dos. En Linux no existe
+# `cygpath` y no hace falta: `/tmp` es `/tmp` para todo el mundo.
+if command -v cygpath >/dev/null 2>&1; then
+  OUT="$(cygpath -m "$OUT")"
+fi
+
 LOG="$OUT.log"
 trap 'rm -rf "$OUT" "$LOG"' EXIT
 

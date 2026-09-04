@@ -439,6 +439,82 @@ cuatro criterios siguen siendo los de arriba.
 | **F8.B** | Apple Developer, firma y credenciales de iOS, registro del dispositivo, build en el iPhone, TestFlight o ad hoc, y las deudas físicas iOS | **Puerta obligatoria antes de F14** |
 | **F8.C** | Google Play y canal de beta de Android                                                                                                    | Cuando exista una beta real         |
 
+##### F8.A, bloque a bloque
+
+La subdivisión F8.A0–F8.A5 se formalizó durante F8.A4 para hacer explícita la
+secuencia de entrega. **A0–A3 describen trabajo ya fusionado; A4 y A5 delimitan
+el trabajo pendiente.**
+
+| Sub-bloque | Qué es                                                     | Estado          |
+| ---------- | ---------------------------------------------------------- | --------------- |
+| **F8.A0**  | Decisiones: ADR-030 y ADR-031, y la partición A/B/C        | **Cerrado**     |
+| **F8.A1**  | Contrato de entornos ejecutable y EAS Update               | **Cerrado**     |
+| **F8.A2**  | Cadena nativa, CNG y assets técnicos                       | **Cerrado**     |
+| **F8.A3**  | Primera development build de Android, instalada y validada | **Cerrado**     |
+| **F8.A4**  | Validación funcional dentro de la development build        | **Cerrado**     |
+| **F8.A5**  | Primera build de Staging y su canal                        | **No empezado** |
+
+**F8.A0 — decisiones.** [ADR-030](../adr/ADR-030-native-code-model.md), que
+cumple la puerta de código nativo de esta fase, y
+[ADR-031](../adr/ADR-031-environments-and-variants.md), el contrato de entornos.
+Partió la fase en A/B/C sin reescribir los cuatro criterios.
+
+**F8.A1 — contrato ejecutable.** Las tres variantes en `app.config.ts` con su
+identidad y su canal, `runtimeVersion` con política `appVersion`, el selector
+multiplataforma de variante, la configuración de Staging en el entorno EAS
+`preview`, y la guarda del bundle corriendo en CI sobre las tres variantes con
+un secreto sembrado que la hace fallar.
+
+**F8.A2 — cadena nativa.** JDK 17, SDK Platform 36 y command-line tools con sus
+variables persistentes; `prebuild` de Development verificado sin edición manual;
+y los assets de icono medidos por geometría en vez de por hash.
+
+**F8.A3 — la build propia.** `expo-dev-client`, compilación local con Gradle
+—nunca EAS Build— para x86_64 y arm64-v8a, instalada y ejecutada **fuera de Expo
+Go** en el emulador y en un Android físico, con Metro conectada y recarga
+demostrada. Saldó la mitad Android de la comprobación visual que F4 dejó
+pendiente. Detalle en
+[`runbooks/android-build.md`](../runbooks/android-build.md).
+
+**F8.A4 — validación funcional.** Demostrar que la development build se comporta
+como aplicación nativa completa, no volver a validar compilación, icono ni
+splash. Su alcance se apoya en
+[`phase-7-handoff.md`](../architecture/phase-7-handoff.md) **§4** —la matriz que
+F7 validó en Expo Go y que aquí se reproduce dentro del binario propio— y en las
+obligaciones de su **§5**. Cubre, además de esa matriz:
+
+1. Alta, acceso y sesión de un actor local desechable, con la sesión
+   sobreviviendo a un cierre en frío por **SecureStore** y no por memoria.
+2. **Cierre de sesión** y reapertura, comprobando que las credenciales se
+   eliminan de verdad.
+3. Gasto e ingreso conectados, con sus cifras, filas, orden, categorías y
+   persistencia contra el servidor.
+4. Registro **sin conexión** con proyección inmediata y sin marcas de pendiente,
+   que sobrevive a cerrar y reabrir la aplicación sin servidor.
+5. **Sincronización** al volver el servidor sin que ninguna cifra salte, ninguna
+   fila desaparezca o se duplique, y con **una sola operación remota por clave**.
+6. **Aislamiento entre actores**: cambiar de actor no contamina snapshot, cola ni
+   proyección.
+7. **Incidencias** en la forma **ordinaria** de
+   [ADR-029](../adr/ADR-029-incident-labels-and-review-destination.md) —`Sí` y
+   `No`— y regreso a un estado estable.
+
+   **La forma excepcional no entra, y no por falta de ganas.** Sus dos disparos
+   son condiciones del servidor que el cliente no puede producir: `conflict`
+   nace de `CURRENCY_CONVERSION_UNSUPPORTED`, que exige una definición monetaria
+   distinta de la del ámbito —el cliente sólo ofrece EUR, y la moneda base es
+   inmutable en cuanto hay efectos (ADR-013, FK compuesta)—; y `review` nace de
+   `IDEMPOTENCY_KEY_REUSED`, que exige reutilizar una clave, precisamente lo que
+   el cliente evita generando un UUID nuevo por intención. **Destino: F11**, con
+   la moneda extranjera, que es cuando la primera deja de ser inalcanzable.
+
+No entra: Staging, su canal, EAS Update, la distribución a nadie, y cualquier
+cosa de iOS.
+
+**F8.A5 — Staging.** La primera build de Staging **independiente de Metro**, y la
+validación de su canal `staging` y su entorno EAS `preview`. Nada más se decide
+aquí: su alcance detallado se escribe cuando empiece.
+
 **F8.A puede cerrarse como bloque parcial. La Fase 8 sigue abierta** mientras
 queden criterios originales sin cumplir. Estado por criterio:
 
