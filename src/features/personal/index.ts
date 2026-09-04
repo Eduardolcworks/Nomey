@@ -96,7 +96,7 @@ export {
   TOP_CATEGORIES,
 } from './statistics';
 export { type PersonalHome, usePersonalHome } from './use-personal-home';
-export { type EntryCategories, useEntryCategories } from './use-entry-categories';
+export { type EntryCategories, useCategoryNames, useEntryCategories } from './use-entry-categories';
 export { usePersonalScope } from './use-personal-scope';
 export { type RecordStatus, useRecordMovement } from './use-record-movement';
 export { createQueueTransport } from './queue-transport';
@@ -113,6 +113,18 @@ export {
   useEntryQueueRuntime,
   wakeEntryQueue,
 } from './queue-runtime';
+export { IncidentCard } from './incident-card';
+export {
+  type Incident,
+  type IncidentForm,
+  incidentOf,
+  incidentsOf,
+  INCIDENT_MESSAGE,
+  incidentMessage,
+  replacementFor,
+  type ReviewDestination,
+} from './incidents';
+export { type IncidentActions, useIncidents } from './use-incidents';
 export {
   isReconciled,
   type ProjectedHome,

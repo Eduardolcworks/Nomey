@@ -46,7 +46,7 @@ describe('el alta sale por la cola y por ninguna otra puerta', () => {
     const FORM = stripComments(source('src/features/personal/movement-form.tsx'));
     expect(FORM).not.toContain('useRecordMovement');
     expect(FORM).not.toContain('recordPersonal');
-    expect(FORM).toContain('queue.enqueue(draft.draft, scope)');
+    expect(FORM).toContain('queue.enqueue(draft.draft, scope, resolving)');
     // Y se cierra SÓLO si quedó persistida.
     expect(FORM).toMatch(/if \(ok\) onSaved\(\)/);
   });

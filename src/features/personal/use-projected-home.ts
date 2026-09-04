@@ -174,7 +174,6 @@ export function useProjectedHome(
       home.balance,
       home.snapshot.balanceSeq,
       home.snapshot.intervalSeq,
-      home.status,
       home.statistics,
       home.operations,
       home.total,

@@ -20,6 +20,7 @@ import {
   resolveInterval,
   todayInDeviceCalendar,
   useAnnulMovement,
+  useIncidents,
   usePersonalHome,
   usePersonalScope,
   useProjectedHome,
@@ -128,6 +129,13 @@ export default function HomeScreen() {
    * proyectada alimenta un comando (§10).
    */
   const projected = useProjectedHome(home, ready, range, actorId);
+
+  /*
+   * The bell's dot. The queue's terminal entries ARE the incidents (ADR-028
+   * §15), so this is a read of the same rows and not a second store; the route
+   * hands the answer to the shell, which may not import this feature.
+   */
+  const incidents = useIncidents(actorId);
 
   useRefreshOnReturn(home.refresh);
 
@@ -380,7 +388,7 @@ export default function HomeScreen() {
          * rama porque no depende de ninguna: identifica la aplicación, y eso no
          * cambia porque el ámbito esté provisionándose o haya fallado.
          */}
-        <AppTopBar />
+        <AppTopBar alerts={incidents.unresolved > 0} />
 
         {!personal ? (
           <>
@@ -444,29 +452,31 @@ export default function HomeScreen() {
               <IntervalSelector value={interval} onChange={setIntervalKind} onCalendar={premium} />
 
               {/*
-               * EL ERROR DE RED NO TAPA LO LOCAL (ADR-028 §8). Sin base
-               * confirmada y sin intenciones locales, el error y la carga se
-               * pintan como siempre. Con intenciones locales, se pintan ellas:
-               * los agregados dicen que no están disponibles, y el aviso de red
-               * baja a una fila con su reintento en vez de ocupar la pantalla.
+               * ═══ NO HAY CONEXIÓN, Y NO SE DICE ═══
+               *
+               * Aquí vivía una tarjeta de error —«No hemos podido cargar tus
+               * movimientos», con su reintento— y **se ha retirado**. Su única
+               * causa posible era que el servidor no respondiera: las tres
+               * consultas de este bloque fallan por transporte o por respuesta
+               * de la frontera, y ninguna de las dos es algo que la persona
+               * pueda arreglar ni tenga que saber. Nomey sigue funcionando: se
+               * guarda, se ve y se sincroniza sola cuando vuelve.
+               *
+               * Lo que queda en su lugar no es una cifra inventada. El saldo,
+               * los totales y el reparto siguen siendo lo que se pueda
+               * demostrar —el snapshot conservado, o `—` si no lo hay (ADR-028
+               * §8)— y las intenciones locales se pintan encima. La carga
+               * inicial sigue teniendo su indicador, porque esperar y fallar no
+               * son lo mismo.
+               *
+               * Esto NO tapa las otras dos cosas: un rechazo demostrado del
+               * servidor sale por la campana, y un fallo de la base local deja
+               * la hoja abierta con su mensaje.
                */}
-              {home.status === 'error' && projected.operations.length === 0 ? (
-                <ErrorState
-                  title={t('home.dataErrorTitle')}
-                  description={t('home.dataErrorBody')}
-                  retry={{ label: t('action.retry'), onPress: home.refresh }}
-                />
-              ) : home.status === 'loading' && projected.operations.length === 0 ? (
+              {home.status === 'loading' && projected.operations.length === 0 ? (
                 <LoadingState label={t('home.loading')} />
               ) : (
                 <>
-                  {home.status === 'error' ? (
-                    <ErrorState
-                      title={t('home.dataErrorTitle')}
-                      description={t('home.dataErrorBody')}
-                      retry={{ label: t('action.retry'), onPress: home.refresh }}
-                    />
-                  ) : null}
                   {/*
                    * DOS FORMAS, UNA MISMA TARJETA.
                    *
@@ -501,11 +511,20 @@ export default function HomeScreen() {
 
                   <Section title={t('home.activity')}>
                     {projected.operations.length === 0 ? (
-                      <EmptyState
-                        symbol={Symbols.empty}
-                        title={t('home.activityEmpty')}
-                        description={t('home.activityHint')}
-                      />
+                      /*
+                       * «Todavía no hay movimientos» es una AFIRMACIÓN, y sólo
+                       * se puede hacer con una base del servidor delante. Sin
+                       * ella —arranque en frío sin red— la lista está vacía
+                       * porque no se ha podido leer, no porque no haya nada, y
+                       * decir lo segundo sería inventar. Se calla, sin avisos.
+                       */
+                      home.snapshot.intervalSeq === null ? null : (
+                        <EmptyState
+                          symbol={Symbols.empty}
+                          title={t('home.activityEmpty')}
+                          description={t('home.activityHint')}
+                        />
+                      )
                     ) : (
                       <View>
                         {projected.operations.map((operation) => (

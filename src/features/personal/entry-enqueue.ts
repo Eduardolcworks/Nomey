@@ -44,6 +44,15 @@ export async function persistEntry(
     /** Generada por quien llama, ANTES de persistir y nunca después. */
     readonly key: string;
     readonly createdAt: string;
+    /**
+     * La entrada terminal que esta intención sustituye, si viene de `Revisar`.
+     *
+     * Con ella, persistir **es** resolver: `replace` inserta la nueva y borra la
+     * vieja dentro de una sola transacción, así que no hay ningún instante con
+     * las dos ni con ninguna (ADR-028 §15, ADR-029 §4). Sin ella, un alta
+     * corriente: sólo se inserta.
+     */
+    readonly replacing?: string | null;
   },
 ): Promise<PersistOutcome> {
   // 1 · el payload, UNA vez, y con la clave ya dentro.
@@ -54,22 +63,24 @@ export async function persistEntry(
     input.draft.kind === 'income' ? 'personal_income.create' : 'personal_expense.create';
 
   // 3 · persistir, atómicamente y ANTES de cualquier petición.
+  const entry = newQueueEntry({
+    clientOperationId: input.key,
+    actorId: input.actorId,
+    scopeId: input.scope.scopeId,
+    commandType,
+    payload,
+    currency: {
+      definitionId: input.scope.currencyDefinitionId,
+      code: input.scope.currencyCode,
+      scale: input.scope.currencyScale,
+    },
+    createdAt: input.createdAt,
+  });
+
   try {
-    await store.enqueue(
-      newQueueEntry({
-        clientOperationId: input.key,
-        actorId: input.actorId,
-        scopeId: input.scope.scopeId,
-        commandType,
-        payload,
-        currency: {
-          definitionId: input.scope.currencyDefinitionId,
-          code: input.scope.currencyCode,
-          scale: input.scope.currencyScale,
-        },
-        createdAt: input.createdAt,
-      }),
-    );
+    const replacing = input.replacing ?? null;
+    if (replacing === null) await store.enqueue(entry);
+    else await store.replace(input.actorId, replacing, entry);
   } catch {
     /*
      * La inserción es una sola sentencia (ADR-028 §7): o está entera o no está.

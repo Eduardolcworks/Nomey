@@ -32,9 +32,18 @@ const MARK = require('../../../assets/splash/splash-icon.png') as number;
  */
 export type AppTopBarProps = {
   title?: MessageKey;
+  /**
+   * Whether the bell has something unresolved behind it.
+   *
+   * **Passed in, never looked up.** The shell may not import another feature,
+   * and the thing that knows is the queue, which belongs to `personal`. The
+   * route sees both and hands the answer down — the same shape `ScopeProvider`
+   * already uses for identity.
+   */
+  alerts?: boolean;
 };
 
-export function AppTopBar({ title }: AppTopBarProps) {
+export function AppTopBar({ title, alerts = false }: AppTopBarProps) {
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -64,7 +73,13 @@ export function AppTopBar({ title }: AppTopBarProps) {
         <View style={styles.actions}>
           <IconButton
             name={Symbols.notifications}
-            label={t('nav.notifications')}
+            // The dot is silent to a screen reader, so the name carries it.
+            label={
+              alerts
+                ? `${t('nav.notifications')}. ${t('incident.pending')}`
+                : t('nav.notifications')
+            }
+            badge={alerts}
             onPress={() => {
               router.push('/notifications');
             }}

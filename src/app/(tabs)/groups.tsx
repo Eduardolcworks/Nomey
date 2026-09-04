@@ -1,6 +1,8 @@
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useIncidents } from '@/features/personal';
+import { useSession } from '@/features/session';
 import { AppTopBar, DOCK_HEIGHT } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
 import { EmptyState, ThemedView } from '@/ui/components';
@@ -17,11 +19,18 @@ import { Spacing, Symbols } from '@/ui/theme';
 export default function GroupsScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  /*
+   * The same dot as Inicio. The bell is identical in both root destinations on
+   * purpose, and an indicator that only appeared in one would make finding an
+   * unresolved alert depend on which tab you happened to be looking at.
+   */
+  const { state } = useSession();
+  const incidents = useIncidents(state.status === 'signed-in' ? state.identity.userId : '');
 
   return (
     <ThemedView style={styles.screen}>
       <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-        <AppTopBar title="groups.title" />
+        <AppTopBar title="groups.title" alerts={incidents.unresolved > 0} />
 
         <ScrollView
           contentContainerStyle={[

@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { ControlMaterial } from './control-material';
 import { Icon, type IconProps } from './icon';
@@ -28,6 +28,18 @@ export type IconButtonProps = {
    * sólo se ve más tenue sigue pareciendo pulsable a quien no lo ve.
    */
   disabled?: boolean;
+  /**
+   * A quiet dot on the corner, for a control that has something waiting.
+   *
+   * A dot and not a number: what matters is that there is something, and a
+   * count would be a second thing to keep in sync with the place that holds it.
+   * It rides on the accent, which already means "look here" everywhere else, so
+   * nothing new is introduced to the palette.
+   *
+   * The accessible name has to say it too — a dot tells a screen reader
+   * nothing — so the caller passes a `label` that already includes it.
+   */
+  badge?: boolean;
   style?: ViewStyle;
 };
 
@@ -50,6 +62,7 @@ export function IconButton({
   colour,
   filled = false,
   disabled = false,
+  badge = false,
   style,
 }: IconButtonProps) {
   const theme = useTheme();
@@ -79,6 +92,11 @@ export function IconButton({
        */}
       {filled ? <ControlMaterial radius={Radius.full} /> : null}
       <Icon name={name} size={size} colour={colour ?? theme.text} shape="circle" />
+      {badge ? (
+        <View
+          style={[styles.badge, { backgroundColor: theme.accent, borderColor: theme.background }]}
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -93,5 +111,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Radius.full,
+  },
+  /**
+   * Small, and ringed in the background colour so it reads as separate from the
+   * glyph rather than as part of it whatever sits behind the control.
+   */
+  badge: {
+    position: 'absolute',
+    top: 9,
+    right: 9,
+    width: 9,
+    height: 9,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
   },
 });

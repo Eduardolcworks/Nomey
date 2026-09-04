@@ -1,16 +1,20 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 
 import {
+  currentClockTime,
+  EMPTY_AMOUNT,
   MovementForm,
   type MovementFormScope,
   useEntryCategories,
   useEntryQueue,
+  todayInDeviceCalendar,
   usePersonalScope,
 } from '@/features/personal';
 import { useSession } from '@/features/session';
 import { useAddBackdrop } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
+import type { CalendarDate } from '@/lib/format';
 import { SheetWindow } from '@/ui/components';
 
 /**
@@ -69,6 +73,33 @@ export default function AddScreen() {
    */
   const queue = useEntryQueue(actorId, session.status);
 
+  /*
+   * ═══ CUANDO LA HOJA LLEGA DESDE «REVISAR» ═══
+   *
+   * Sólo ocurre tras un conflicto monetario, donde la frontera se negó ANTES de
+   * escribir, así que repetir el movimiento no puede duplicar nada (ADR-029 §2).
+   *
+   * **Vienen el concepto, la categoría y la fecha. El importe no.** El de
+   * entonces pertenece a una definición monetaria que ya no es la vigente, y
+   * traerlo lo convertiría en la misma cifra bajo otra moneda sin que nadie
+   * hubiera convertido nada — ADR-003 §7 y ADR-028 §14 lo prohíben, y que lo
+   * confirme una persona no lo convierte en una conversión. El campo se queda
+   * vacío para que la cantidad se declare en la moneda que hay.
+   *
+   * Y `resolving` viaja hasta la cola: guardar resuelve la incidencia **en la
+   * misma transacción** que crea la intención nueva. Cerrar sin guardar no
+   * resuelve nada, que es lo que ADR-029 §4 decide.
+   */
+  const params = useLocalSearchParams<{
+    resolving?: string;
+    kind?: string;
+    concept?: string;
+    categoryId?: string;
+    date?: string;
+  }>();
+  const resolving =
+    typeof params.resolving === 'string' && params.resolving !== '' ? params.resolving : null;
+
   const scope: MovementFormScope | null =
     state.status === 'ready'
       ? {
@@ -82,8 +113,39 @@ export default function AddScreen() {
   return (
     <SheetWindow title={t('entry.title')} closeLabel={t('action.close')} onClosed={router.back}>
       {(close) => (
-        <MovementForm scope={scope} categories={categories} queue={queue} onSaved={close} />
+        <MovementForm
+          scope={scope}
+          categories={categories}
+          queue={queue}
+          initial={resolving === null ? undefined : prefill(params)}
+          resolving={resolving}
+          onSaved={close}
+        />
       )}
     </SheetWindow>
   );
+}
+
+/**
+ * Lo que `Revisar` trae, y lo que deliberadamente no trae.
+ *
+ * Sin importe y sin hora: el importe por ADR-029 §3, y la hora porque el
+ * borrador la pone al abrirse — es cuándo se registra, no un dato del
+ * movimiento anterior que haya que conservar.
+ */
+function prefill(params: {
+  kind?: string;
+  concept?: string;
+  categoryId?: string;
+  date?: string;
+}): Parameters<typeof MovementForm>[0]['initial'] {
+  return {
+    kind: params.kind === 'income' ? 'income' : 'expense',
+    amount: EMPTY_AMOUNT,
+    concept: params.concept ?? '',
+    categoryId:
+      typeof params.categoryId === 'string' && params.categoryId !== '' ? params.categoryId : null,
+    date: (params.date ?? todayInDeviceCalendar()) as CalendarDate,
+    time: currentClockTime(),
+  };
 }

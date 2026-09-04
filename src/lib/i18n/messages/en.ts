@@ -124,6 +124,31 @@ export const en: Record<MessageKey, string> = {
   'notifications.empty': 'Nothing to see here.',
   'notifications.emptyHint': 'Alerts from your groups will show up here.',
 
+  'incident.expenseNotMade':
+    "Your {amount} expense on {category} wasn't made. Do you want to try again?",
+  'incident.incomeNotMade': "Your {amount} income wasn't made. Do you want to try again?",
+  'incident.incomeNotMadeNamed':
+    "Your {amount} income ({concept}) wasn't made. Do you want to try again?",
+  'incident.expenseCurrencyMoved':
+    "Your {amount} expense on {category} wasn't recorded because you changed currency. Review it to record it again.",
+  'incident.incomeCurrencyMoved':
+    "Your {amount} income wasn't recorded because you changed currency. Review it to record it again.",
+  'incident.incomeCurrencyMovedNamed':
+    "Your {amount} income ({concept}) wasn't recorded because you changed currency. Review it to record it again.",
+  'incident.expenseUnconfirmed':
+    "We couldn't confirm whether your {amount} expense on {category} was recorded. Check before recording it again.",
+  'incident.incomeUnconfirmed':
+    "We couldn't confirm whether your {amount} income was recorded. Check before recording it again.",
+  'incident.incomeUnconfirmedNamed':
+    "We couldn't confirm whether your {amount} income ({concept}) was recorded. Check before recording it again.",
+  'incident.unknownCategory': 'no category',
+  'incident.yes': 'Yes',
+  'incident.no': 'No',
+  'incident.review': 'Review',
+  'incident.discard': 'Discard',
+  'incident.title': 'Unresolved',
+  'incident.pending': 'You have unresolved alerts.',
+
   'account.details': 'Your details',
   'account.name': 'Name',
   'account.noName': 'No name',
@@ -190,8 +215,6 @@ export const en: Record<MessageKey, string> = {
   'home.scopeErrorTitle': 'We could not set up your Personal mode',
   'home.scopeErrorBody': 'This may be temporary. Try again.',
   'home.loading': 'Loading…',
-  'home.dataErrorTitle': 'We could not load your movements',
-  'home.dataErrorBody': 'Your money is safe. Please try again.',
   'home.amountPending': '—',
   'home.balanceTitle': 'Edit available',
   'home.balanceLabel': 'Available',
@@ -219,7 +242,7 @@ export const en: Record<MessageKey, string> = {
   'home.categoriesLess': 'Show fewer categories',
   'home.categoryUnknown': 'Unknown category',
   'home.categoriesUnavailable': 'Breakdown not available',
-  'home.categoriesUnavailableHint': 'It will load once you are back online.',
+  'home.categoriesUnavailableHint': 'It will appear as soon as it can be worked out.',
   'home.adjustBlockedTitle': 'Wait until saving finishes',
   'home.adjustBlockedBody':
     'Some movements are still being saved. You can edit the available balance once they finish.',

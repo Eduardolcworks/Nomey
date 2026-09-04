@@ -129,6 +129,39 @@ export const esES = {
   'notifications.empty': 'No hay notificaciones.',
   'notifications.emptyHint': 'Los avisos de tus grupos aparecerán aquí.',
 
+  /*
+   * Las incidencias de la cola, y NINGUNA palabra de su maquinaria: ADR-028 §15
+   * prohíbe que cola, clave, intención, entrada, estado o código lleguen a la
+   * pantalla. Lo que se dice es el movimiento y qué le pasó.
+   *
+   * El botón afirmativo es «Sí» y no «Reintentar» (ADR-029 §1): la frase ya
+   * pregunta, así que los botones contestan.
+   */
+  'incident.expenseNotMade':
+    'Gasto de {amount} en {category} no realizado. ¿Quieres volver a intentarlo?',
+  'incident.incomeNotMade': 'Ingreso de {amount} no realizado. ¿Quieres volver a intentarlo?',
+  'incident.incomeNotMadeNamed':
+    'Ingreso de {amount} ({concept}) no realizado. ¿Quieres volver a intentarlo?',
+  'incident.expenseCurrencyMoved':
+    'Tu gasto de {amount} en {category} no se registró porque cambiaste de moneda. Revísalo para volver a registrarlo.',
+  'incident.incomeCurrencyMoved':
+    'Tu ingreso de {amount} no se registró porque cambiaste de moneda. Revísalo para volver a registrarlo.',
+  'incident.incomeCurrencyMovedNamed':
+    'Tu ingreso de {amount} ({concept}) no se registró porque cambiaste de moneda. Revísalo para volver a registrarlo.',
+  'incident.expenseUnconfirmed':
+    'No hemos podido confirmar si tu gasto de {amount} en {category} quedó registrado. Compruébalo antes de volver a registrarlo.',
+  'incident.incomeUnconfirmed':
+    'No hemos podido confirmar si tu ingreso de {amount} quedó registrado. Compruébalo antes de volver a registrarlo.',
+  'incident.incomeUnconfirmedNamed':
+    'No hemos podido confirmar si tu ingreso de {amount} ({concept}) quedó registrado. Compruébalo antes de volver a registrarlo.',
+  'incident.unknownCategory': 'sin categoría',
+  'incident.yes': 'Sí',
+  'incident.no': 'No',
+  'incident.review': 'Revisar',
+  'incident.discard': 'Descartar',
+  'incident.title': 'Sin resolver',
+  'incident.pending': 'Tienes avisos sin resolver.',
+
   'account.details': 'Tus datos',
   'account.name': 'Nombre',
   'account.noName': 'Sin nombre',
@@ -195,8 +228,6 @@ export const esES = {
   'home.scopeErrorTitle': 'No hemos podido preparar tu Modo Personal',
   'home.scopeErrorBody': 'Puede ser algo momentáneo. Inténtalo otra vez.',
   'home.loading': 'Cargando…',
-  'home.dataErrorTitle': 'No hemos podido cargar tus movimientos',
-  'home.dataErrorBody': 'Tu dinero está a salvo. Vuelve a intentarlo.',
   'home.amountPending': '—',
   'home.adjustBalance': 'Editar disponible',
   'home.balanceTitle': 'Editar disponible',
@@ -226,7 +257,7 @@ export const esES = {
   // Sin estadísticas confirmadas no se fabrica un reparto (ADR-028 §8): se dice
   // que no está, no que no hay gastos.
   'home.categoriesUnavailable': 'Reparto no disponible',
-  'home.categoriesUnavailableHint': 'Se cargará cuando vuelva la conexión.',
+  'home.categoriesUnavailableHint': 'Aparecerá en cuanto se pueda calcular.',
 
   // Los dos bloqueos temporales de ADR-028 §10: se explican con su motivo y su
   // condición de salida, en vez de apagar el control y callar.
