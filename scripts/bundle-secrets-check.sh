@@ -42,9 +42,17 @@
 # en el entorno no llegaba al artefacto y el check pasaba. Sin `--clear` esta
 # comprobacion no demuestra nada sobre la configuracion actual.
 #
-# NO se ejecuta en CI, y es deliberado: exportar exige las dos `EXPO_PUBLIC_`,
-# que en CI tendrian que existir como secretos del repositorio. Decidir eso es
-# modelo de build, o sea Fase 8, y no se adelanta aqui.
+# SI SE EJECUTA EN CI desde F8.A1, y la duda que dejaba escrita aqui quedo
+# resuelta al reves de como estaba planteada. Exportar exige las dos
+# `EXPO_PUBLIC_`, pero NO exige las de nadie: son configuracion publica, no
+# secretos, asi que CI las pone FICTICIAS. Un secreto de repositorio habria sido
+# la respuesta equivocada -habria metido un valor real en un job cuyo unico
+# proposito es demostrar que ahi no hay valores reales-.
+#
+# Quien lo orquesta es `scripts/bundle-secrets-matrix.sh`: pasa las tres
+# variantes con valores ficticios y, ademas, siembra un secreto a proposito para
+# comprobar que esta guarda FALLA. Una guarda que solo se ha visto pasar no se
+# ha visto funcionar.
 #
 # Uso, desde la raiz del repositorio y con el `.env` de la maquina puesto:
 #
@@ -61,6 +69,10 @@ ok()    { echo "  ok: $*"; }
 OUT="$(mktemp -d -t nomey-bundle-XXXXXX)"
 LOG="$OUT.log"
 trap 'rm -rf "$OUT" "$LOG"' EXIT
+
+echo
+echo "=== Variante bajo revision ==="
+echo "  APP_VARIANT=${APP_VARIANT:-(sin definir, resuelve development)}"
 
 echo
 echo "=== Exportando el bundle de iOS a un directorio temporal ==="

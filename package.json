@@ -7,9 +7,12 @@
     "node": ">=22.13.0 <23"
   },
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "start": "node scripts/with-variant.mjs development start",
+    "android": "node scripts/with-variant.mjs development start --android",
+    "ios": "node scripts/with-variant.mjs development start --ios",
+    "config:development": "node scripts/with-variant.mjs development config --type public",
+    "config:staging": "node scripts/with-variant.mjs staging config --type public",
+    "config:production": "node scripts/with-variant.mjs production config --type public",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tests",
     "format": "prettier --write .",
@@ -37,6 +40,7 @@
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.2",
     "expo-system-ui": "~57.0.2",
+    "expo-updates": "~57.0.21",
     "expo-web-browser": "~57.0.2",
     "react": "19.2.3",
     "react-native": "0.86.2",

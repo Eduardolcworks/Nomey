@@ -47,6 +47,43 @@ jobs:
       - name: Test
         run: npm test
 
+  environments:
+    name: Variantes y guarda del bundle
+    runs-on: ubuntu-latest
+
+    # Las dos comprobaciones de ADR-031 que no caben en `npm test`: resuelven la
+    # configuracion de verdad con la CLI de Expo y exportan el bundle, y cada
+    # invocacion cuesta segundos. En su propio job para que no alarguen el
+    # camino corto de typecheck/lint/tests.
+    #
+    # NO USA NINGUN SECRETO DEL REPOSITORIO, y es la decision que cierra la
+    # duda que `bundle-secrets-check.sh` dejaba escrita para la Fase 8.
+    # `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` son
+    # configuracion publica, no secretos, asi que la matriz las pone FICTICIAS.
+    # Meter aqui un valor real seria contradictorio: es el job cuyo unico
+    # proposito es demostrar que en el bundle no hay valores reales.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Las tres variantes resuelven, tienen la identidad de ADR-031 §1, no
+      # difieren en nada mas, una ausente da development y una desconocida falla.
+      - name: Variant matrix
+        run: node scripts/variant-matrix-check.mjs
+
+      # Las tres se exportan sin ninguna credencial de backend dentro, y un
+      # secreto sembrado a proposito hace fallar la guarda. Sin ese caso
+      # negativo, un grep roto pasaria en verde igual que un bundle limpio.
+      - name: Bundle secrets matrix
+        run: ./scripts/bundle-secrets-matrix.sh
+
   database:
     name: Migrations rebuilt from zero
     runs-on: ubuntu-latest

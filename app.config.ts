@@ -4,26 +4,124 @@ import type { ExpoConfig } from 'expo/config';
  * Nomey app configuration.
  *
  * Migrated from app.json to TypeScript so the config can branch on the
- * environment. Set APP_VARIANT=development to build the dev variant, which
- * uses a separate bundle identifier and can therefore be installed alongside
- * production on the same device.
+ * environment. The environment is selected with `APP_VARIANT`, and the three
+ * variants, their identities and their update channels are fixed by
+ * ADR-031 - `docs/adr/ADR-031-environments-and-variants.md`.
  *
  * Bundle identifiers are permanent once an app is published to the App Store
- * or Play Store. They are provisional only until the first store submission.
+ * or Play Store. `es.lcworks.nomey` is reverse DNS of `lcworks.es`, a domain
+ * Nomey's owner controls, and it is final; the `.dev` and `.staging` ones are
+ * only a reinstall away from changing.
  */
-const IS_DEV = process.env.APP_VARIANT === 'development';
 
-const BUNDLE_ID = IS_DEV ? 'es.lcworks.nomey.dev' : 'es.lcworks.nomey';
+/** The three environments of ADR-031 §1. There is no fourth. */
+type VariantName = 'development' | 'staging' | 'production';
 
 /**
- * Deep link scheme, split per variant like the bundle identifier.
+ * What a variant is allowed to change.
  *
- * With a single shared scheme, a device holding both builds resolves
- * `nomey://` ambiguously and the OS picks a winner: a dev deep link can open
- * production, or the reverse. That is precisely the kind of bug that shows up
- * once and is never reproducible.
+ * Read the field list as the contract it is: a variant may change **who the
+ * binary is** and **which update channel it listens to**, and nothing else.
+ * Product behaviour is identical in the three, which is why no branch of the
+ * source code ever asks which environment it is running in - ADR-031 §2.
  */
-const SCHEME = IS_DEV ? 'nomey-dev' : 'nomey';
+type Variant = {
+  readonly displayName: string;
+  readonly bundleIdentifier: string;
+  readonly scheme: string;
+  readonly updatesEnabled: boolean;
+  readonly channel: 'staging' | 'production' | null;
+};
+
+/**
+ * Deep link schemes are split per variant like the bundle identifier.
+ *
+ * With a single shared scheme, a device holding two builds resolves `nomey://`
+ * ambiguously and the OS picks a winner: a staging deep link can open
+ * production, or the reverse. That is precisely the kind of bug that shows up
+ * once and is never reproducible. Nomey's auth recovery arrives by deep link,
+ * so the winner would be deciding which app receives a password reset.
+ */
+const VARIANTS: Readonly<Record<VariantName, Variant>> = {
+  development: {
+    displayName: 'Nomey Dev',
+    bundleIdentifier: 'es.lcworks.nomey.dev',
+    scheme: 'nomey-dev',
+    // Development is served by Metro and must never fetch a published update:
+    // a development binary listening on a channel would silently replace the
+    // code under test with whatever was last published.
+    updatesEnabled: false,
+    channel: null,
+  },
+  staging: {
+    displayName: 'Nomey Staging',
+    bundleIdentifier: 'es.lcworks.nomey.staging',
+    scheme: 'nomey-staging',
+    updatesEnabled: true,
+    channel: 'staging',
+  },
+  production: {
+    displayName: 'Nomey',
+    bundleIdentifier: 'es.lcworks.nomey',
+    scheme: 'nomey',
+    updatesEnabled: true,
+    channel: 'production',
+  },
+};
+
+const VARIANT_NAMES = Object.keys(VARIANTS) as readonly VariantName[];
+
+/**
+ * What an absent `APP_VARIANT` means, and why it is not production.
+ *
+ * A missing variable is the normal state of a shell that has just been opened,
+ * of a fresh clone and of a CI job nobody configured. If that state resolved to
+ * production, the accident would be silent in every one of them: the config
+ * would carry the production identity and, once updates exist, the production
+ * channel. Defaulting to `development` makes the same accident inert - the
+ * artefact is `Nomey Dev`, it fetches nothing, and it is obvious on the device.
+ *
+ * Production is therefore reachable **only** by asking for it by name.
+ */
+const DEFAULT_VARIANT: VariantName = 'development';
+
+function resolveVariant(raw: string | undefined): VariantName {
+  const requested = (raw ?? '').trim();
+
+  if (requested === '') {
+    return DEFAULT_VARIANT;
+  }
+
+  // A typo must not fall back to anything. Resolving `stagin` to the default
+  // would hand back a development identity to someone who believes they are
+  // looking at staging, and the config would be internally consistent while
+  // answering the wrong question.
+  if (!VARIANT_NAMES.includes(requested as VariantName)) {
+    throw new Error(
+      `Nomey: APP_VARIANT="${requested}" is not a known variant. ` +
+        `Use one of: ${VARIANT_NAMES.join(', ')}. ` +
+        `Leaving it unset selects "${DEFAULT_VARIANT}"; production is never implicit. ` +
+        `See docs/adr/ADR-031-environments-and-variants.md.`,
+    );
+  }
+
+  return requested as VariantName;
+}
+
+const VARIANT = resolveVariant(process.env.APP_VARIANT);
+const variant = VARIANTS[VARIANT];
+
+/**
+ * The EAS project, created as `@lcworks/nomey`.
+ *
+ * Neither value is a secret: the project id travels in every binary as part of
+ * the update URL, and the account name is public. They are written out here
+ * rather than read from the environment because they are properties of the
+ * project, not of the machine building it - a build that resolved a different
+ * project id would publish to somewhere else without saying so.
+ */
+const EAS_ACCOUNT = 'lcworks';
+const EAS_PROJECT_ID = 'a5640f9f-b248-4fbe-8e9c-94ad9ed338a6';
 
 /**
  * Nomey's ground colour, for the native chrome.
@@ -55,12 +153,32 @@ const BACKGROUND_COLOR = '#000000';
 const ICON_GROUND_COLOR = '#FDC506';
 
 const config: ExpoConfig = {
-  name: IS_DEV ? 'Nomey Dev' : 'Nomey',
+  name: variant.displayName,
   slug: 'nomey',
+  owner: EAS_ACCOUNT,
+
+  /**
+   * The application version, and the runtime it names.
+   *
+   * `runtimeVersion` uses the `appVersion` policy, so the runtime identity of a
+   * binary is exactly this string. The consequence is the rule that matters:
+   * **an update only reaches a binary whose runtime matches**, so any change to
+   * the native side that the JavaScript depends on - a new module, a new
+   * permission, an SDK upgrade - requires bumping `version` and shipping a new
+   * binary. Publishing such a change to the old runtime would hand a binary
+   * JavaScript that calls into native code it does not contain.
+   *
+   * The `fingerprint` policy computes that boundary automatically instead of
+   * trusting a human to bump a string. It is deliberately not used while it is
+   * still experimental: a wrong fingerprint is a silent mismatch, and this is
+   * not the place to find out.
+   */
   version: '1.0.0',
+  runtimeVersion: { policy: 'appVersion' },
+
   orientation: 'portrait',
   icon: './assets/icons/icon.png',
-  scheme: SCHEME,
+  scheme: variant.scheme,
 
   /**
    * Nomey ships dark-only. Forcing it here means the OS, the native views and
@@ -86,12 +204,39 @@ const config: ExpoConfig = {
   // Nomey is a mobile-only product. Web is deliberately not a target.
   platforms: ['ios', 'android'],
 
+  /**
+   * EAS Update, and the channel each variant listens on.
+   *
+   * The channel is declared here rather than in a build profile because Nomey
+   * does not use EAS Build: with a locally compiled binary, the only place the
+   * channel can come from is `expo-channel-name` in the update request headers.
+   *
+   * `enabled` is false in development on purpose - see the variant table. The
+   * URL is the same in all three because it identifies the project, not the
+   * environment; what separates them is the channel.
+   */
+  updates: {
+    enabled: variant.updatesEnabled,
+    url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
+    ...(variant.channel === null
+      ? {}
+      : { requestHeaders: { 'expo-channel-name': variant.channel } }),
+  },
+
   ios: {
-    bundleIdentifier: BUNDLE_ID,
+    bundleIdentifier: variant.bundleIdentifier,
+    // No iOS binary exists yet, and it is set anyway: the App Store rejects an
+    // upload whose build number is not greater than the previous one, and
+    // starting at an explicit 1 makes the counter a decision rather than a
+    // default discovered at submission time. Every later binary increments it.
+    buildNumber: '1',
   },
 
   android: {
-    package: BUNDLE_ID,
+    package: variant.bundleIdentifier,
+    // Same counter, same rule: Play refuses an APK whose versionCode is not
+    // greater than one already uploaded. Every later binary increments it.
+    versionCode: 1,
     adaptiveIcon: {
       backgroundColor: ICON_GROUND_COLOR,
       foregroundImage: './assets/icons/android-icon-foreground.png',
@@ -139,6 +284,10 @@ const config: ExpoConfig = {
       { configureAndroidBackup: true, faceIDPermission: false },
     ],
   ],
+
+  extra: {
+    eas: { projectId: EAS_PROJECT_ID },
+  },
 
   experiments: {
     typedRoutes: true,

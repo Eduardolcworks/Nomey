@@ -481,19 +481,34 @@ the `adr` skill to draft one.
 > surface, the invariants a future phase must not break, and what is deferred.
 > This section keeps the detail that only matters while touching the data layer.
 
-**Phases 0 through 5 are CLOSED.** Phase 3 (persistence and data boundary) closed
-on 2026-08-27 and Phase 5 (identity and session) on 2026-08-28. **ADR-001 through
-ADR-027 are accepted**; ADR-003 met its E11 gate against a real local Supabase
-stack.
+**Phases 0 through 7 are CLOSED.** Phase 3 (persistence and data boundary) closed
+on 2026-08-27, Phase 5 (identity and session) on 2026-08-28, Phase 6 (Modo
+Personal) on 2026-09-03 and Phase 7 (quick entry, offline and sync) on
+2026-09-04 — **the latter validated on Android; iOS is not physically tested**.
+**ADR-001 through ADR-031 are accepted**; ADR-003 met its E11 gate against a
+real local Supabase stack.
 
-**Phase 6 is OPEN** — Modo Personal, the first showable milestone. It touches the
-backend, the domain and the screens. Its state block by block, and the
-obligations each block leaves the next, are in
-[`docs/architecture/phase-6-handoff.md`](docs/architecture/phase-6-handoff.md).
-What it inherits from Phase 5 is in
-[`docs/architecture/phase-5-handoff.md`](docs/architecture/phase-5-handoff.md).
+**Phase 8 is OPEN** — internal distribution and environments. It is split into
+**F8.A** (now), **F8.B** (Apple, a mandatory gate before F14) and **F8.C**
+(Google Play). Two of its four original closure criteria are still **pending**,
+so the phase cannot be declared closed; the state criterion by criterion is in
+the [roadmap](docs/product/roadmap.md), Fase 8, and the environment contract is
+in [ADR-031](docs/adr/ADR-031-environments-and-variants.md) with its runbook in
+[`docs/runbooks/environments.md`](docs/runbooks/environments.md).
 
-Two artefacts closed the phase and are worth knowing about:
+**Never build without naming the variant.** `APP_VARIANT` selects the identity —
+`development` · `staging` · `production` — an unset value resolves to
+`development`, an unknown one fails loudly, and **production is never implicit**.
+Use `npm start` and the `config:*` scripts, or
+`node scripts/with-variant.mjs <variant> <expo-args…>`; never a bare `expo`
+command, and never `APP_VARIANT=` in `.env`.
+
+What each closed phase left behind, block by block, is in its handoff:
+[phase 7](docs/architecture/phase-7-handoff.md) ·
+[phase 6](docs/architecture/phase-6-handoff.md) ·
+[phase 5](docs/architecture/phase-5-handoff.md).
+
+Two artefacts closed Phase 5 and are worth knowing about:
 
 - [`docs/architecture/model-coverage.md`](docs/architecture/model-coverage.md) —
   every concept of `data-model.md` mapped to persisted, derivable, projection,
