@@ -183,13 +183,21 @@ volver a deducir:
   `personal-incidents.test.ts` §10, §14, §3, §12, §8 y §11 y en
   `personal-incident-flows.test.ts` §1, §4 y §5. **No se traslada a ninguna
   fase.** Lo único que F8.A4 no afirma es haberla pulsado a mano en el aparato.
-- **`Deudas` ya no afirma un cero que nadie ha derivado.** Llevaba un marcador de
-  interfaz fijo aplicado por defecto, así que enseñaba `0,00 €` **siempre**, con
-  servidor y sin él. Ahora, sin información durable, usa el mismo estado de no
-  disponible que el resto de la tarjeta; un cero fiable seguirá siendo `0,00 €`
-  cuando F9 traiga el dato. La distinción vive en
-  `src/features/personal/debt-display.ts`, y un texto ilegible es desconocido y
-  nunca cero — que es donde `toMinor` no sirve.
+- **`Deudas` sale del snapshot cargado, y distingue tres cosas que se
+  confundían.** Llevaba un marcador de interfaz fijo aplicado como parámetro por
+  defecto, así que enseñaba `0,00 €` **siempre**, con servidor y sin él.
+  **Cuidado con la corrección obvia**: quitar el marcador y dejar el defecto en
+  `null` cambia un cero permanente por un desconocido permanente, que es
+  igualmente falso. Ahora la prop **no tiene valor por defecto** —el compilador
+  obliga a pasarla— y `homeDebt` resuelve desde `home.balance`: sin snapshot,
+  no disponible; con snapshot y ninguna deuda, **cero conocido**; con deudas, su
+  suma con signo. **`loaded` es «llegó el dato», nunca «hay red»**, y por eso un
+  refresco que falla sobre un snapshot conservado no vuelve a desconocer nada.
+  El cero de hoy es derivado, no supuesto: una dimensión de deuda sólo llega a un
+  ámbito personal por `core.participant_user_link`, que no tiene ruta de
+  escritura para el cliente ni para el escritor y está vacía hasta F10. La lógica
+  vive en `src/features/personal/debt-display.ts`, y un texto ilegible es
+  desconocido y nunca cero — que es donde `toMinor` no sirve.
 - **`supabase start` con éxito no demuestra que Kong esté en pie.** El stack
   puede quedarse con Postgres, GoTrue y PostgREST vivos y el gateway parado, y en
   ese estado la CLI sale con código 0 y `54321` no contesta. Lo comprueban ahora

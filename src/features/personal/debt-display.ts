@@ -1,7 +1,8 @@
 /**
  * QUÉ ENSEÑAR EN EL BLOQUE DE DEUDAS, Y CUÁNDO NO ENSEÑAR NADA.
  *
- * **Cero y «no se sabe» son dos respuestas distintas, y sólo una es `0,00 €`.**
+ * **Cero, «no se sabe» y «no hay red» son TRES cosas, y sólo la primera es
+ * `0,00 €`.**
  * «No debes nada» es un hecho sobre el dinero de alguien; «todavía no hay dato»
  * no lo es. Presentar el segundo como el primero es afirmar una cifra contable
  * que nadie ha derivado — exactamente lo que `AGENTS.md` §1 llama un valor de
@@ -48,6 +49,59 @@ const UNKNOWN: DebtDisplay = { kind: 'unknown' };
  * verdad y se muestra como tal. Y un texto que no es un entero es desconocido,
  * porque no hay ninguna cifra que se pueda defender.
  */
+/**
+ * Lo que se sabe de las deudas del actor cuando se va a pintar la tarjeta.
+ *
+ * **`loaded` responde a «¿llegó el dato?», nunca a «¿hay red?».** Son cosas
+ * distintas y confundirlas es el error que esta distinción existe para impedir:
+ * una carga que terminó bien y no encontró ninguna deuda **sabe** que la deuda
+ * es cero, y un refresco posterior que falla no lo desconoce otra vez si el
+ * snapshot anterior sigue en pie.
+ */
+export type DebtSnapshot =
+  /** No hay snapshot fiable: cargando, o falló sin dejar ninguno. */
+  | { readonly loaded: false }
+  /** El snapshot llegó. `amounts` es la colección de deudas, y puede ser vacía. */
+  | { readonly loaded: true; readonly amounts: readonly string[] };
+
+/**
+ * Las deudas que el Modo Personal puede tener hoy: ninguna, y por estructura.
+ *
+ * **No es una suposición, y por eso puede producir un cero CONOCIDO.** Una
+ * dimensión de deuda sólo llega a un ámbito personal a través de
+ * `core.participant_user_link` —es el vínculo por el que `api.claimed_dimension`
+ * atribuye las dos puntas de una deuda (ADR-016)—, esa relación **no tiene ruta
+ * de escritura para nadie** salvo el propietario de la base, y hasta F10 no
+ * existe el comando que la abra. Medido: cero vínculos y cero efectos de deuda
+ * en ámbitos personales.
+ *
+ * **Lo que cambia en F9/F10 es esta constante, y nada más.** En cuanto haya
+ * deudas reales se pasa la colección de verdad y `homeDebt` ya las suma, con su
+ * signo, sin tocar la tarjeta ni esta lógica.
+ */
+export const PERSONAL_DEBT_AMOUNTS: readonly string[] = [];
+
+/**
+ * Resuelve la deuda a partir del snapshot cargado.
+ *
+ * Sin snapshot, desconocido. Con snapshot y **ninguna** deuda, cero de verdad —
+ * que es la diferencia con dejar la tarjeta en `—` para siempre—. Con deudas,
+ * su suma con signo. Y si una sola de ellas es ilegible, **desconocido**: una
+ * cifra que no se puede defender no se convierte en el resto de la suma.
+ */
+export function homeDebt(snapshot: DebtSnapshot): DebtDisplay {
+  if (!snapshot.loaded) return UNKNOWN;
+
+  let total = 0n;
+  for (const amount of snapshot.amounts) {
+    const one = debtDisplay(amount);
+    if (one.kind === 'unknown') return UNKNOWN;
+    total += one.minor;
+  }
+
+  return { kind: 'amount', minor: total };
+}
+
 export function debtDisplay(debt: string | null | undefined): DebtDisplay {
   if (debt === null || debt === undefined) return UNKNOWN;
 

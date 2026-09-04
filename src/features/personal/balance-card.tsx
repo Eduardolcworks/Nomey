@@ -14,7 +14,7 @@ import {
   useTheme,
 } from '@/ui/theme';
 
-import { debtDisplay } from './debt-display';
+import type { DebtDisplay } from './debt-display';
 import { toMinor } from './statistics';
 
 export type BalanceCardProps = {
@@ -23,16 +23,20 @@ export type BalanceCardProps = {
   readonly currencyCode: string;
   readonly currencyScale: number;
   /**
-   * La deuda neta, en unidad mínima y con signo. **Todavía nadie la pasa**, y
-   * por eso su valor por defecto es `null`: sin dato la tarjeta dice que no lo
-   * sabe, en vez de afirmar un cero que nadie ha derivado. La distinción entre
-   * «cero» y «no se sabe» vive en [`debtDisplay`](./debt-display.ts).
+   * La deuda, ya resuelta a lo que se puede afirmar — ver
+   * [`homeDebt`](./debt-display.ts).
+   *
+   * **Es OBLIGATORIA a propósito, y antes no lo era.** Tenía un valor por
+   * defecto, nadie la pasaba, y el defecto se pintaba como si fuera un dato:
+   * primero un `'0'` que afirmaba un cero inexistente y después un `null` que
+   * dejaba la tarjeta en desconocido para siempre. Los dos fallos son el mismo,
+   * y sin valor por defecto ninguno de los dos se puede repetir sin que el
+   * compilador lo diga.
    *
    * Negativo = debes · positivo = te deben · cero = en paz. Es el mismo criterio
-   * de signo que usan los efectos de deuda en `core`, así que F9 podrá
-   * enchufarlo sin traducir nada.
+   * de signo que usan los efectos de deuda en `core`.
    */
-  readonly debt?: string | null;
+  readonly debt: DebtDisplay;
   /** Ajustar el saldo. La escritura llega en F6.F. */
   readonly onAdjust: () => void;
 };
@@ -95,7 +99,7 @@ export function BalanceCard({
   amount,
   currencyCode,
   currencyScale,
-  debt = null,
+  debt,
   onAdjust,
 }: BalanceCardProps) {
   const { t } = useTranslation();
@@ -107,8 +111,6 @@ export function BalanceCard({
     code: currencyCode,
     scale: currencyScale,
   });
-
-  const shownDebt = debtDisplay(debt);
 
   return (
     <View
@@ -156,16 +158,13 @@ export function BalanceCard({
            * el saldo y las dos tarjetas de flujo—, así que las cuatro cifras de
            * la pantalla dicen «no se sabe» de la misma manera.
            */}
-          {shownDebt.kind === 'unknown' ? (
+          {debt.kind === 'unknown' ? (
             <ThemedText variant="amountRow" themeColor="textDisabled">
               {t('home.amountPending')}
             </ThemedText>
           ) : (
-            <ThemedText
-              variant="amountRow"
-              themeColor={debtTone(shownDebt.minor)}
-              numberOfLines={1}>
-              {format.money(money(shownDebt.minor, definition))}
+            <ThemedText variant="amountRow" themeColor={debtTone(debt.minor)} numberOfLines={1}>
+              {format.money(money(debt.minor, definition))}
             </ThemedText>
           )}
         </GlassSurface>

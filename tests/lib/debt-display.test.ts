@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { debtDisplay } from '../../src/features/personal/debt-display';
+import {
+  debtDisplay,
+  homeDebt,
+  PERSONAL_DEBT_AMOUNTS,
+} from '../../src/features/personal/debt-display';
 
 /**
  * Una deuda desconocida no es una deuda de cero.
@@ -66,5 +70,87 @@ describe('qué se puede afirmar sobre la deuda', () => {
       kind: 'amount',
       minor: 9007199254740993n,
     });
+  });
+});
+
+/**
+ * Y lo que de verdad se pinta en Inicio: la deuda resuelta desde el snapshot.
+ *
+ * **La segunda mitad del mismo defecto.** Quitar el `0,00 €` fijo dejó la
+ * tarjeta en `—` para siempre, porque la prop tenía un valor por defecto y nadie
+ * la pasaba. Un desconocido permanente es tan falso como un cero permanente: una
+ * carga que terminó bien y no encontró ninguna deuda **sabe** que la deuda es
+ * cero.
+ *
+ * **`loaded` es «llegó el dato», no «hay red».** Es la distinción que estas
+ * pruebas fijan, y la que impide sustituirla por `isOnline`: un refresco que
+ * falla sobre un snapshot ya cargado no vuelve a desconocer nada.
+ */
+describe('la deuda que Inicio resuelve del snapshot', () => {
+  it('carga pendiente o sin snapshot fiable → desconocido', () => {
+    expect(homeDebt({ loaded: false })).toEqual({ kind: 'unknown' });
+  });
+
+  it('error de carga sin dato fiable → desconocido', () => {
+    // Es el mismo estado: lo que decide es que no hay snapshot, no por qué.
+    expect(homeDebt({ loaded: false })).toEqual({ kind: 'unknown' });
+  });
+
+  it('snapshot cargado y colección de deudas vacía → cero CONOCIDO', () => {
+    expect(homeDebt({ loaded: true, amounts: [] })).toEqual({ kind: 'amount', minor: 0n });
+    // Y es exactamente el caso del alcance funcional de hoy.
+    expect(homeDebt({ loaded: true, amounts: PERSONAL_DEBT_AMOUNTS })).toEqual({
+      kind: 'amount',
+      minor: 0n,
+    });
+  });
+
+  it('deuda conocida positiva → importe positivo, y te deben', () => {
+    expect(homeDebt({ loaded: true, amounts: ['3000', '1500'] })).toEqual({
+      kind: 'amount',
+      minor: 4500n,
+    });
+  });
+
+  it('deuda conocida negativa → importe negativo, y debes', () => {
+    expect(homeDebt({ loaded: true, amounts: ['-3000', '-1500'] })).toEqual({
+      kind: 'amount',
+      minor: -4500n,
+    });
+  });
+
+  it('recuperación de desconocido a snapshot vacío: de `—` a 0,00 €', () => {
+    const antes = homeDebt({ loaded: false });
+    const despues = homeDebt({ loaded: true, amounts: [] });
+
+    expect(antes).toEqual({ kind: 'unknown' });
+    expect(despues).toEqual({ kind: 'amount', minor: 0n });
+  });
+
+  it('recuperación de desconocido a deuda real: de `—` al importe', () => {
+    const antes = homeDebt({ loaded: false });
+    const despues = homeDebt({ loaded: true, amounts: ['-12000'] });
+
+    expect(antes).toEqual({ kind: 'unknown' });
+    expect(despues).toEqual({ kind: 'amount', minor: -12000n });
+  });
+
+  it('una cadena vacía o ilegible NUNCA se convierte en cero conocido', () => {
+    /*
+     * Ni sola ni acompañada. Si una sola cifra de la colección no se puede
+     * defender, el total tampoco: dejar fuera la ilegible y sumar el resto daría
+     * una cifra creíble y equivocada, que es peor que decir que no se sabe.
+     */
+    expect(homeDebt({ loaded: true, amounts: [''] })).toEqual({ kind: 'unknown' });
+    expect(homeDebt({ loaded: true, amounts: ['4,50'] })).toEqual({ kind: 'unknown' });
+    expect(homeDebt({ loaded: true, amounts: ['3000', 'no es un número'] })).toEqual({
+      kind: 'unknown',
+    });
+  });
+
+  it('la colección del alcance actual está vacía, y por eso el cero es conocido', () => {
+    // Si alguien la rellenara con un valor de relleno, el cero dejaría de ser
+    // derivado y volvería a ser una afirmación.
+    expect(PERSONAL_DEBT_AMOUNTS).toEqual([]);
   });
 });

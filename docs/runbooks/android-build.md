@@ -440,14 +440,41 @@ aplicado como parámetro por defecto, de modo que la cifra era falsa **siempre**
 también conectada. Sólo se notó allí porque el contraste con los demás `—` la
 delató.
 
-Corregido en F8.A4, con el cambio mínimo: sin información durable se usa el
-mismo estado de no disponible que el resto de la tarjeta; un cero fiable sigue
-siendo `0,00 €`, y un importe fiable conserva su signo. La distinción vive en
-`src/features/personal/debt-display.ts` y **un texto ilegible es desconocido,
-nunca cero** — que es exactamente donde `toMinor` no sirve, porque devolver `0n`
-ante lo ilegible es correcto para un total de gastos y falso para una deuda.
-Cuatro regresiones en `tests/lib/debt-display.test.ts`; verificado además en la
-build, donde sin túnel se ven **cuatro** `—` y no tres y un cero.
+Corregido en F8.A4. **Y la corrección obvia se quedaba corta**: quitar el
+marcador y dejar el valor por defecto en `null` cambia un cero permanente por un
+desconocido permanente, que es igualmente falso — la tarjeta seguía en `—`
+después de una carga correcta. La causa común de las dos versiones era el **valor
+por defecto**, que hacía que «nadie la pasa» pareciera correcto, así que la prop
+ya no tiene ninguno y el compilador obliga a cablearla.
+
+Lo que se pinta sale de `homeDebt`, en
+`src/features/personal/debt-display.ts`, sobre el snapshot que Inicio ya tiene:
+
+| Estado                               | Se ve                |
+| ------------------------------------ | -------------------- |
+| Cargando, o falló sin dejar snapshot | `—`                  |
+| Snapshot cargado y ninguna deuda     | `0,00 €`             |
+| Deuda a favor · en contra            | importe con su signo |
+
+**`loaded` es «llegó el dato», nunca «hay red»**: un refresco que falla sobre un
+snapshot conservado no vuelve a desconocer nada. Y **un texto ilegible es
+desconocido, nunca cero** — donde `toMinor` no sirve, porque devolver `0n` ante
+lo ilegible es correcto para un total de gastos y falso para una deuda.
+
+El cero de hoy es derivado y no supuesto: una dimensión de deuda sólo llega a un
+ámbito personal por `core.participant_user_link`, que no tiene ruta de escritura
+para el cliente ni para el escritor y está vacía hasta F10.
+
+Ocho regresiones en `tests/lib/debt-display.test.ts`, y comprobado en la build:
+sin túnel, **cuatro** `—`; repuesto y con la carga terminada, `Disponible`
+−18,00 €, `Gastos` −18,00 € y `Deudas` **`0,00 €`**. La recuperación de `—` a
+`0,00 €` ocurre al volver a Inicio, sin reiniciar.
+
+> **Ojo al probarlo por `adb`.** `useRefreshOnReturn` se dispara con el **foco de
+> ruta**, no con el primer plano de la aplicación: mandar la app a segundo plano
+> con `KEYCODE_HOME` y volver **no** refresca, porque Inicio nunca perdió el
+> foco. Para verlo hay que navegar a Grupos y volver, o arrancar en frío. No es
+> un fallo: es lo que ese hook dice que hace.
 
 ---
 

@@ -582,37 +582,58 @@ describe('la tarjeta de Disponible', () => {
    */
   it('la deuda está arriba y el lápiz solo abajo, sin competir', () => {
     expect(CARD.indexOf("t('home.debts')")).toBeLessThan(CARD.indexOf("t('home.adjustBalance')"));
-    expect(CARD).toContain('themeColor={debtTone(shownDebt.minor)}');
+    expect(CARD).toContain('themeColor={debtTone(debt.minor)}');
     expect(CARD).toContain("alignSelf: 'flex-end'");
   });
 
   /**
-   * **Sin dato, la deuda dice que no se sabe — y ya no finge un cero.**
+   * **La deuda sale del snapshot cargado: ni un cero fijo, ni un desconocido
+   * eterno.**
    *
-   * Hasta F8.A4 aquí vivía un `DEBT_PLACEHOLDER = '0'` de interfaz, aplicado
-   * como parámetro por defecto porque nadie pasaba la deuda. El efecto no era
-   * «sin conexión sale mal»: la tarjeta enseñaba `0,00 €` **siempre**, también
-   * conectada, afirmando una cifra contable que nadie había derivado. Se vio en
-   * un arranque en frío sin frontera sólo porque allí el resto degradaba a `—`.
+   * Dos versiones del mismo defecto, las dos de F8.A4. Primero un
+   * `DEBT_PLACEHOLDER = '0'` aplicado como parámetro por defecto, con nadie
+   * pasando la deuda: la tarjeta afirmaba `0,00 €` **siempre**, también
+   * conectada. Al quitarlo quedó un `null` por defecto, y entonces afirmaba «no
+   * se sabe» siempre, incluso con la carga terminada. **La causa común era el
+   * valor por defecto**, que hacía que «nadie la pasa» pareciera correcto, así
+   * que ahora la prop es obligatoria y el compilador lo impide.
    *
-   * El comportamiento —cero contra desconocido contra importe— se prueba en
-   * `tests/lib/debt-display.test.ts`. Aquí sólo se vigila que la pantalla no
-   * vuelva a inventarse el valor por defecto.
+   * El comportamiento —desconocido, cero conocido, positivo, negativo— se prueba
+   * en `tests/lib/debt-display.test.ts`. Aquí se vigila el cableado.
    */
-  it('sin dato de deuda no se afirma ningún cero', () => {
+  it('la deuda es obligatoria y no tiene valor por defecto', () => {
     expect(CARD).not.toContain('DEBT_PLACEHOLDER');
-    expect(CARD).toContain('debt = null');
-    expect(CARD).toContain('debtDisplay');
+    expect(CARD).toContain('readonly debt: DebtDisplay;');
+    expect(CARD).not.toMatch(/debt\s*=\s*(null|DEBT_PLACEHOLDER|'0')/);
     // Y cuando no se sabe, EL MISMO marcador que el Disponible.
-    expect(CARD).toMatch(/shownDebt\.kind === 'unknown' \?/);
+    expect(CARD).toMatch(/debt\.kind === 'unknown' \?/);
     // Dos llamadas, no una: el Disponible y la deuda. Se cuentan las llamadas
     // y no las menciones, para que un comentario no infle el número.
     expect(CARD.match(/t\('home\.amountPending'\)/g)?.length).toBe(2);
 
     expect(SERVICE).not.toContain('debt');
     // Y no se cruza con el Disponible por ninguna vía.
-    expect(CARD).not.toMatch(/shownDebt\.minor\s*[+\-]\s*\w/);
+    expect(CARD).not.toMatch(/debt\.minor\s*[+\-]\s*\w/);
     expect(CARD).not.toMatch(/amount.*[+\-].*debt/);
+  });
+
+  /**
+   * **Y el estado que decide es el snapshot, no la conectividad.**
+   *
+   * `home.balance` es `null` mientras la carga no ha terminado o si falló sin
+   * dejar snapshot, y una fila en cuanto llegó — y **se conserva** cuando un
+   * refresco posterior falla. Sustituirlo por `isOnline` o por el estado de red
+   * devolvería la tarjeta a desconocido por perder la cobertura, teniendo el
+   * dato en la mano.
+   */
+  it('el cero conocido se deriva del snapshot cargado, nunca de la red', () => {
+    expect(HOME).toContain('homeDebt(');
+    expect(HOME).toMatch(/home\.balance === null\s*\?\s*\{ loaded: false \}/);
+    expect(HOME).toContain('{ loaded: true, amounts: PERSONAL_DEBT_AMOUNTS }');
+
+    // El cableado de la deuda no mira la red por ninguna vía.
+    const wiring = HOME.slice(HOME.indexOf('homeDebt('), HOME.indexOf('onAdjust={editBalance}'));
+    expect(wiring).not.toMatch(/isOnline|isConnected|netinfo|status === 'error'/i);
   });
 
   /**
@@ -625,8 +646,9 @@ describe('la tarjeta de Disponible', () => {
     expect(CARD).toMatch(/minor < 0n\) return 'negative'/);
     expect(CARD).toMatch(/minor > 0n\) return 'positive'/);
     expect(CARD).toMatch(/return 'text'/);
-    // F9 sólo tiene que pasar el dato: la prop ya existe.
-    expect(CARD).toContain('readonly debt?: string | null;');
+    // F9 sólo tiene que pasar la colección real: la resolución ya existe, y la
+    // tarjeta ya sabe pintar los tres signos.
+    expect(CARD).toContain('readonly debt: DebtDisplay;');
   });
 
   /** Y sigue sin escribir nada: ajustar el saldo es de F6.F. */
@@ -1515,7 +1537,7 @@ describe('editar el Disponible', () => {
 
   /** Y la subtarjeta de deudas no se toca. */
   it('la deuda queda exactamente como estaba', () => {
-    expect(CARD_CODE).toContain('debtTone(shownDebt.minor)');
+    expect(CARD_CODE).toContain('debtTone(debt.minor)');
     for (const fuente of [AJUSTE, EDITOR, RUTA_SALDO]) {
       expect(fuente).not.toContain('debt');
     }
