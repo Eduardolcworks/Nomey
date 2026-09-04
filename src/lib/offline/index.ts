@@ -39,6 +39,7 @@ export {
   type QueueRow,
 } from './queue-entry';
 export {
+  type QueueBarrier,
   QueueWriteRejected,
   type QueueStore,
   type QueueWriteError,
@@ -105,6 +106,7 @@ export {
 export type {
   Connectivity,
   ForegroundPort,
+  ProgressChange,
   QueueTransport,
   SessionPort,
   WorkerPorts,

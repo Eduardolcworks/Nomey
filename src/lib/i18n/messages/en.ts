@@ -218,6 +218,13 @@ export const en: Record<MessageKey, string> = {
   'home.categoriesMore': 'Show all categories',
   'home.categoriesLess': 'Show fewer categories',
   'home.categoryUnknown': 'Unknown category',
+  'home.categoriesUnavailable': 'Breakdown not available',
+  'home.categoriesUnavailableHint': 'It will load once you are back online.',
+  'home.adjustBlockedTitle': 'Wait until saving finishes',
+  'home.adjustBlockedBody':
+    'Some movements are still being saved. You can edit the available balance once they finish.',
+  'home.rowBlockedTitle': 'Still saving',
+  'home.rowBlockedBody': 'You can edit or delete this movement once it finishes saving.',
 
   'home.movement': 'Movement',
   'home.adjustedTo': 'Balance adjusted to {amount}',
@@ -279,6 +286,7 @@ export const en: Record<MessageKey, string> = {
   'entry.scopePending': 'Setting up your Personal mode',
   'entry.transferSoon': 'Transfers are coming later',
   'entry.saveFailed': 'Could not save. Try again',
+  'entry.queueFailed': 'Could not save on this device. Try again',
 
   'sample.income': 'Income',
   'sample.expense': 'Expense',

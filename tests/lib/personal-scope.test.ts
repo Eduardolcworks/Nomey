@@ -11,8 +11,11 @@ import {
   IDLE,
   isResolving,
   readyScope,
+  parseScope,
   recommendedCurrencyCode,
+  SCOPE_CACHE_KEY,
   scopeFromResult,
+  serializeScope,
 } from '../../src/features/personal/personal-scope';
 import { esES } from '../../src/lib/i18n/messages/es-ES';
 import type { MessageKey } from '../../src/lib/i18n';
@@ -219,5 +222,89 @@ describe('las opciones del menú de categorías', () => {
       translate,
     );
     expect(options[0]?.icon).toBe('tag');
+  });
+});
+
+describe('el ámbito guardado como respaldo sin red (F7.D)', () => {
+  const ready = scopeFromResult({
+    scope_id: 'scope-1',
+    base_currency_definition_id: 'eur',
+    currency_code: 'EUR',
+    currency_scale: 2,
+    created: true,
+  });
+
+  it('va y vuelve intacto, y al volver nunca dice que lo creó esta llamada', () => {
+    expect(ready.status).toBe('ready');
+    if (ready.status !== 'ready') return;
+    const back = parseScope(serializeScope(ready));
+    expect(back).toEqual({ ...ready, created: false });
+  });
+
+  it('no lleva ninguna cifra: sólo identidad y definición monetaria', () => {
+    if (ready.status !== 'ready') return;
+    expect(Object.keys(JSON.parse(serializeScope(ready))).sort()).toEqual(
+      ['currencyCode', 'currencyDefinitionId', 'currencyScale', 'scopeId', 'v'].sort(),
+    );
+  });
+
+  it.each([
+    ['no es JSON', '{'],
+    [
+      'otra versión',
+      JSON.stringify({
+        v: 2,
+        scopeId: 's',
+        currencyDefinitionId: 'c',
+        currencyCode: 'EUR',
+        currencyScale: 2,
+      }),
+    ],
+    [
+      'sin ámbito',
+      JSON.stringify({
+        v: 1,
+        scopeId: '',
+        currencyDefinitionId: 'c',
+        currencyCode: 'EUR',
+        currencyScale: 2,
+      }),
+    ],
+    [
+      'escala no entera',
+      JSON.stringify({
+        v: 1,
+        scopeId: 's',
+        currencyDefinitionId: 'c',
+        currencyCode: 'EUR',
+        currencyScale: 2.5,
+      }),
+    ],
+    [
+      'escala negativa',
+      JSON.stringify({
+        v: 1,
+        scopeId: 's',
+        currencyDefinitionId: 'c',
+        currencyCode: 'EUR',
+        currencyScale: -1,
+      }),
+    ],
+    [
+      'sin moneda',
+      JSON.stringify({
+        v: 1,
+        scopeId: 's',
+        currencyDefinitionId: '',
+        currencyCode: 'EUR',
+        currencyScale: 2,
+      }),
+    ],
+  ])('se descarta entero si %s', (_label, document) => {
+    expect(parseScope(document)).toBeNull();
+  });
+
+  it('la clave del documento es estable y distinta de la del catálogo', () => {
+    expect(SCOPE_CACHE_KEY).toBe('personal-scope');
   });
 });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { rememberCategories } from './category-cache';
+import { CATEGORY_CACHE_KEY, parseCategories, rememberCategories } from './category-cache';
 import type { CategoryRow } from './category';
 import { indexCategories } from './category';
 import { type DateRange, rangeKey } from './interval';
@@ -15,6 +15,8 @@ import {
   fetchVersions,
   PAGE_SIZE,
 } from './personal-service';
+import { isProjecting, readBarrier } from './queue-runtime';
+import { inQuietWindow, type QuietWindowPorts } from './snapshot-window';
 import type { PersonalStatistics } from './statistics';
 import { offlineCatalogueCache } from '@/lib/offline';
 
@@ -71,16 +73,52 @@ export type PersonalHome = {
   /** Pide las observaciones de la página. Idempotente y perezosa. */
   readonly ensureObservations: () => void;
   readonly refresh: () => void;
+  /**
+   * `snapshot.seq` de ADR-028 §9, por parte: el valor del contador durable de
+   * reconciliación en el instante en que ARRANCÓ la consulta que trajo cada
+   * una. El saldo y el bloque del intervalo se piden por separado y el segundo
+   * se repite al cambiar de intervalo, así que cada uno lleva el suyo; quien
+   * proyecta retira cada agregado con el `seq` de la consulta que lo produjo.
+   * `null` mientras esa parte no ha llegado, o si el contador no se pudo leer:
+   * entonces nada se retira, que es la lectura conservadora.
+   */
+  readonly snapshot: {
+    readonly balanceSeq: number | null;
+    readonly intervalSeq: number | null;
+  };
 };
 
-/** Lo cargado, con el intervalo al que pertenece. */
+/** Lo cargado, con el intervalo al que pertenece y el `seq` con que arrancó. */
 type Loaded = {
   readonly key: string;
   readonly statistics: PersonalStatistics | null;
   readonly operations: PersonalOperation[];
   readonly total: number;
   readonly versions: Map<string, PersonalOperationVersion>;
+  readonly seq: number | null;
 };
+
+/**
+ * The barrier ports for one actor.
+ *
+ * The barrier is read twice per query — before and after — and `inQuietWindow`
+ * decides what the pair allows; the mark kept on the snapshot is always the one
+ * taken at the START. `null` means the local database would not answer, and
+ * then the only thing that matters is whether anything local is on screen.
+ */
+function windowPorts(actorId: string): QuietWindowPorts {
+  return {
+    barrier: async () => {
+      if (actorId === '') return null;
+      try {
+        return await readBarrier(actorId);
+      } catch {
+        return null;
+      }
+    },
+    projecting: () => isProjecting(actorId),
+  };
+}
 
 const EMPTY_VERSIONS: ReadonlyMap<string, PersonalOperationVersion> = new Map();
 const EMPTY_OBSERVATIONS: ReadonlyMap<string, BalanceObservation> = new Map();
@@ -89,8 +127,22 @@ const EMPTY_OPERATIONS: readonly PersonalOperation[] = [];
 export function usePersonalHome(ready: boolean, range: DateRange, actorId: string): PersonalHome {
   const key = rangeKey(range);
 
-  const [balance, setBalance] = useState<PersonalHome['balance']>(null);
+  const [balance, setBalance] = useState<{
+    readonly row: PersonalHome['balance'];
+    readonly seq: number | null;
+  }>({ row: null, seq: null });
   const [categories, setCategories] = useState<ReadonlyMap<string, CategoryRow>>(new Map());
+  /*
+   * El efecto del intervalo no depende del actor —cambiar de cuenta desmonta la
+   * rama entera— pero necesita leer su contador. Una referencia se lo da sin
+   * tocar sus dependencias, que son contrato: ver la comprobación de superficie.
+   * Se sincroniza en un efecto, no en el render, y va declarado ANTES del
+   * efecto que la lee: los efectos corren en orden de declaración.
+   */
+  const actorRef = useRef(actorId);
+  useEffect(() => {
+    actorRef.current = actorId;
+  }, [actorId]);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   /** El intervalo cuya carga falló. Comparado con el actual, es el estado de error. */
   const [failed, setFailed] = useState<string | null>(null);
@@ -100,6 +152,23 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
   } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  /**
+   * The attempt whose response was already discarded for not being quiet.
+   *
+   * Discarding and nothing else would leave the screen waiting for a base that
+   * may never come — whoever announces a confirmation asks for its own refresh,
+   * but that lives in ANOTHER hook and cannot be the only guarantee — so the
+   * attempt is retried here. The `ref` is what stops the two queries, which run
+   * at the same time, from asking for two retries of the same attempt. And
+   * there is no loop: a retry only happens when the barrier moved, and only the
+   * worker moves it.
+   */
+  const retried = useRef(-1);
+  const supersede = useCallback((of: number) => {
+    if (retried.current === of) return;
+    retried.current = of;
+    setAttempt((value) => value + 1);
+  }, []);
 
   /** Las observaciones se piden una vez por página; esto recuerda si ya se hizo. */
   const observationsAsked = useRef<string | null>(null);
@@ -109,11 +178,45 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
     if (!ready) return;
     let cancelled = false;
 
+    let answered = false;
+
+    /*
+     * EL CATÁLOGO GUARDADO, A LA VEZ QUE LA RED (ADR-028 §16). Sin conexión, la
+     * fila de un gasto local necesita el nombre y el icono de su categoría, y el
+     * servidor no va a contestar —o va a tardar mucho en rendirse—. La copia
+     * de la última carga completa nombra igual; si la red contesta, manda ella
+     * y sobrescribe. Es presentación, no una cifra: no hay nada económico aquí.
+     */
+    void (async () => {
+      if (actorId === '') return;
+      try {
+        const document = await (await offlineCatalogueCache()).read(actorId, CATEGORY_CACHE_KEY);
+        const rows = document === null ? null : parseCategories(document.document);
+        if (cancelled || answered || rows === null) return;
+        setCategories(indexCategories(rows));
+      } catch {
+        // Sin base no hay respaldo; se dirá «sin categoría conocida», como hoy.
+      }
+    })();
+
     void (async () => {
       try {
-        const [balanceRow, categoryPage] = await Promise.all([fetchBalance(), fetchCategories()]);
+        /*
+         * ADR-028 §9: the barrier is read BEFORE the query runs and again when
+         * the response lands, to tell whether the window was quiet. If it was
+         * not, the BALANCE is not committed — it would be a base nobody can say
+         * whether the server already charged — and the attempt is retried. The
+         * CATALOGUE is applied either way: it is presentation, and no send can
+         * alter it.
+         */
+        const window = await inQuietWindow(windowPorts(actorId), () =>
+          Promise.all([fetchBalance(), fetchCategories()]),
+        );
         if (cancelled) return;
-        setBalance(balanceRow);
+        const [balanceRow, categoryPage] = window.value;
+        answered = true;
+        if (window.kind === 'base') setBalance({ row: balanceRow, seq: window.seq });
+        else supersede(attempt);
         setCategories(indexCategories(categoryPage.rows as CategoryRow[]));
 
         /*
@@ -158,7 +261,7 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
     return () => {
       cancelled = true;
     };
-  }, [ready, attempt, actorId]);
+  }, [ready, attempt, actorId, supersede]);
 
   // ---- 3, 4 y 5 · lo que sí depende del intervalo -------------------------
   useEffect(() => {
@@ -168,22 +271,45 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
     void (async () => {
       try {
         /*
-         * En paralelo a propósito: las estadísticas no dependen de la lista, y
-         * la lista no depende de las estadísticas. Encadenarlas duplicaría la
-         * latencia sin ganar nada.
+         * THE WHOLE INTERVAL BLOCK INSIDE ONE WINDOW, and not each query in its
+         * own: the statistics, the list and the versions are retired with a
+         * single `seq`, so they have to have been fetched under one quietness.
+         * If anything happens while one of them is in flight, the ENTIRE block
+         * is discarded and retried; committing half would leave totals without
+         * the expense and a list with it.
          */
-        const [statistics, page] = await Promise.all([
-          fetchStatistics(range),
-          fetchOperations(range, 0, PAGE_SIZE),
-        ]);
+        const window = await inQuietWindow(windowPorts(actorRef.current), async () => {
+          /*
+           * En paralelo a propósito: las estadísticas no dependen de la lista, y
+           * la lista no depende de las estadísticas. Encadenarlas duplicaría la
+           * latencia sin ganar nada.
+           */
+          const [statistics, page] = await Promise.all([
+            fetchStatistics(range),
+            fetchOperations(range, 0, PAGE_SIZE),
+          ]);
+          // Las versiones anteriores SÓLO si alguna fila las tiene, y en UNA
+          // consulta para toda la página. Nunca una por fila.
+          const versions = indexVersions(await fetchVersions(previousVersionIds(page.rows)));
+          return { statistics, page, versions };
+        });
         if (cancelled) return;
+        if (window.kind !== 'base') {
+          supersede(attempt);
+          return;
+        }
+        const { statistics, page, versions } = window.value;
 
-        // Las versiones anteriores SÓLO si alguna fila las tiene, y en UNA
-        // consulta para toda la página. Nunca una por fila.
-        const versions = indexVersions(await fetchVersions(previousVersionIds(page.rows)));
-        if (cancelled) return;
-
-        setLoaded({ key, statistics, operations: page.rows, total: page.total, versions });
+        // Un refresco parcial o cancelado no llega aquí: sólo el completo fija
+        // el snapshot y su `seq`, que es lo único que puede retirar proyecciones.
+        setLoaded({
+          key,
+          statistics,
+          operations: page.rows,
+          total: page.total,
+          versions,
+          seq: window.seq,
+        });
       } catch {
         if (!cancelled) setFailed(key);
       }
@@ -210,8 +336,22 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
 
     void (async () => {
       try {
-        const page = await fetchOperations(range, current.operations.length, PAGE_SIZE);
-        const versions = indexVersions(await fetchVersions(previousVersionIds(page.rows)));
+        /*
+         * "SEE MORE" NEEDS THE QUIET WINDOW TOO. The rows it appends join the
+         * ones that prove §9's shortcut — "the server row is already on the
+         * page" — and that shortcut retires the entry from the totals, which
+         * come from the PREVIOUS query. If anything settles while this page is
+         * in flight, appending it would retire it from totals that do not carry
+         * it yet: the expense would vanish for an instant. The page is
+         * discarded; the refresh the confirmation asks for reloads the first.
+         */
+        const window = await inQuietWindow(windowPorts(actorRef.current), async () => {
+          const page = await fetchOperations(range, current.operations.length, PAGE_SIZE);
+          const versions = indexVersions(await fetchVersions(previousVersionIds(page.rows)));
+          return { page, versions };
+        });
+        if (window.kind !== 'base' || window.seq !== current.seq) return;
+        const { page, versions } = window.value;
 
         setLoaded((previous) =>
           previous === null || previous.key !== key
@@ -269,7 +409,8 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
   return useMemo(
     () => ({
       status,
-      balance,
+      balance: balance.row,
+      snapshot: { balanceSeq: balance.seq, intervalSeq: current?.seq ?? null },
       statistics: current?.statistics ?? null,
       operations,
       total,

@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { isRecoveryActive, RecoveryProvider, useRecovery, useRecoveryLink } from '@/features/auth';
+import { useEntryQueueRuntime, wakeEntryQueue } from '@/features/personal';
 import {
   identityKey,
   isPublic,
@@ -59,7 +60,12 @@ export default function RootLayout() {
      * debajo mide distinto con ella.
      */
     <GestureHandlerRootView style={styles.root}>
-      <SessionProvider>
+      {/*
+       * The offline queue reuses THIS provider's `AppState` listener for its
+       * foreground trigger (ADR-028 §12): `onForeground` is the seam F7.C left
+       * for it, and there is no second listener anywhere.
+       */}
+      <SessionProvider onForeground={wakeEntryQueue}>
         {/*
          * `RecoveryProvider` sits INSIDE the session provider and owns nothing it
          * owns. It models one transaction - a password recovery - over a separate,
@@ -72,13 +78,15 @@ export default function RootLayout() {
          */}
         <RecoveryProvider>
           <ScopeBinding>
-            {/*
-             * Fixed light, not "auto". The app is dark-only, so the status bar
-             * content is always light-on-dark; "auto" would resolve from the
-             * scheme and add a branch that can only go one way.
-             */}
-            <StatusBar style="light" />
-            <RootNavigator />
+            <QueueBinding>
+              {/*
+               * Fixed light, not "auto". The app is dark-only, so the status bar
+               * content is always light-on-dark; "auto" would resolve from the
+               * scheme and add a branch that can only go one way.
+               */}
+              <StatusBar style="light" />
+              <RootNavigator />
+            </QueueBinding>
           </ScopeBinding>
         </RecoveryProvider>
       </SessionProvider>
@@ -111,6 +119,23 @@ const styles = StyleSheet.create({
 function ScopeBinding({ children }: { children: ReactNode }) {
   const { state } = useSession();
   return <ScopeProvider identityKey={identityKey(state)}>{children}</ScopeProvider>;
+}
+
+/**
+ * Mounts the offline queue's worker ONCE, tied to whoever is signed in.
+ *
+ * Same reasoning as `ScopeBinding`: the queue lives in `features/personal` and
+ * may not ask the session who the actor is, so the composition root hands it
+ * the identity. The worker is a process, not screen state - mounting it inside
+ * the add sheet would kill it mid-request every time the sheet closed - which
+ * is why it sits here, above the navigator, and nowhere else (ADR-028 §12).
+ *
+ * Renders nothing of its own; it exists to run one hook inside the provider.
+ */
+function QueueBinding({ children }: { children: ReactNode }) {
+  const { state } = useSession();
+  useEntryQueueRuntime(state.status === 'signed-in' ? state.identity.userId : '', state.status);
+  return <>{children}</>;
 }
 
 function RootNavigator() {

@@ -42,6 +42,13 @@ export class QueueWriteRejected extends Error {
   }
 }
 
+/** What a read of the server has to be measured against. See `barrier`. */
+export type QueueBarrier = {
+  readonly confirmSeq: number;
+  readonly dispatchSeq: number;
+  readonly uncertain: number;
+};
+
 export type QueueStore = {
   /**
    * Escribe la entrada. **Una sola sentencia, y antes de cualquier petición.**
@@ -94,4 +101,50 @@ export type QueueStore = {
 
   /** Las filas que esta versión no sabe ejecutar. Visibles, nunca enviables. */
   unsupported(actorId: string): Promise<UnsupportedEntry[]>;
+
+  /**
+   * El siguiente valor del contador de reconciliación del actor, **avanzándolo
+   * en disco** (ADR-028 §9). Monótono entre reinicios: vive en su propia tabla
+   * y nunca se deriva de las entradas, que se podan.
+   */
+  nextConfirmSeq(actorId: string): Promise<number>;
+
+  /**
+   * Takes the next dispatch number for this actor. Monotonic, durable, per
+   * actor, and it only ever grows — gaps are fine, order is not.
+   */
+  nextDispatchSeq(actorId: string): Promise<number>;
+
+  /**
+   * Declares that this entry's send is about to start.
+   *
+   * ONE statement, so `state = 'sending'` and the dispatch mark can never be
+   * written apart: a mark without the state would be invisible to the worker,
+   * and a state without the mark would let a request that may have written
+   * pass for one that never left. Called before the transport.
+   */
+  markDispatched(actorId: string, clientOperationId: string, dispatchSeq: number): Promise<void>;
+
+  /**
+   * THE READ BARRIER of ADR-028 §9, in one read.
+   *
+   * `confirmSeq` reconciles — it says which entries the server already had when
+   * a query started. The other two decide whether a response may be TRUSTED at
+   * all:
+   *
+   *   dispatchSeq  the actor's dispatch counter. If it moved while a response
+   *                was in flight, a whole send happened inside that window.
+   *   uncertain    how many entries are still projected AND may already exist
+   *                on the server: dispatched, not yet confirmed, not terminal.
+   *                A terminal entry is not projected, so it cannot be counted
+   *                twice and is deliberately not a hazard.
+   */
+  barrier(actorId: string): Promise<QueueBarrier>;
+
+  /**
+   * El valor actual del contador, sin avanzarlo. Es `snapshot.seq`: se lee al
+   * ARRANCAR un refresco autoritativo, y toda entrada con `confirm_seq` menor o
+   * igual estaba ya confirmada cuando la consulta corrió.
+   */
+  confirmSequence(actorId: string): Promise<number>;
 };

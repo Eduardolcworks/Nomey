@@ -93,6 +93,19 @@ export type QueueProgress = {
   readonly lastErrorCode: string | null;
   readonly confirmSeq: number | null;
   readonly resultOperationId: string | null;
+  /**
+   * When this entry's send was declared, from the per-actor dispatch counter.
+   *
+   * `null` is the ONLY proof that the server cannot hold this entry, and that
+   * is what it exists for: a read of the server can be trusted as a projection
+   * base only while every projected entry is still `null` here.
+   *
+   * Written before the transport, in the same statement as `state = 'sending'`,
+   * so it survives a process that dies mid-request. Never cleared while the
+   * entry is alive: a request that may have reached the server stays uncertain
+   * until idempotency settles it.
+   */
+  readonly dispatchSeq: number | null;
 };
 
 export type QueueEntry = QueueIntent & QueueProgress;
@@ -123,6 +136,7 @@ export function newQueueEntry(intent: {
     lastErrorCode: null,
     confirmSeq: null,
     resultOperationId: null,
+    dispatchSeq: null,
   };
 }
 
@@ -144,6 +158,7 @@ export type QueueRow = {
   last_error_class: string | null;
   last_error_code: string | null;
   confirm_seq: number | null;
+  dispatch_seq?: number | null;
   result_operation_id: string | null;
 };
 
@@ -208,5 +223,8 @@ export function rowToEntry(row: QueueRow): QueueEntry | null {
     lastErrorCode: row.last_error_code,
     confirmSeq: row.confirm_seq,
     resultOperationId: row.result_operation_id,
+    // A base written before F7.D has no column at all; `undefined` there means
+    // "never dispatched", which is what an untouched row of that era was.
+    dispatchSeq: row.dispatch_seq ?? null,
   };
 }

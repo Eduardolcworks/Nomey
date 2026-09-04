@@ -238,8 +238,15 @@ describe('orden y concurrencia', () => {
     worker.wake();
     worker.wake();
     worker.wake();
-    // Deja correr el bucle hasta que se vacíe.
-    for (let i = 0; i < 50 && worker.isRunning(); i += 1) await Promise.resolve();
+    /*
+     * Deja correr el bucle hasta que se vacíe. El presupuesto de ticks es sólo
+     * eso: desde F7.D cada envío escribe además su marca durable, así que una
+     * pasada gasta más microtareas. Lo que la prueba afirma —una sola petición
+     * en vuelo— no cambia; lo que cambia es cuánto hay que esperar a que el
+     * bucle termine antes de drenar, y drenar sobre un bucle vivo mediría dos
+     * pasadas solapadas por el arnés, no por el worker.
+     */
+    for (let i = 0; i < 400 && worker.isRunning(); i += 1) await Promise.resolve();
     await worker.drain();
 
     expect(maximo).toBe(1);

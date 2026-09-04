@@ -1200,7 +1200,8 @@ describe('guardar una vez, aunque se pulse dos', () => {
   });
 
   it('el botón no se puede pulsar mientras está enviando', () => {
-    expect(FORM).toContain("saving={status === 'saving'}");
+    // Desde F7.D «enviando» es persistir en la cola: `saving` lo dice la cola.
+    expect(FORM).toContain('saving={queue.saving}');
     expect(HOJA).toContain('busy={saving}');
     expect(file('ui/components/glass-pressable.tsx')).toContain('disabled={disabled || busy}');
   });

@@ -214,28 +214,70 @@ export type WriteResult = {
 };
 
 /**
- * Registra un gasto personal.
+ * Un payload que CORRIGE una operación existente: lleva `operation_id` y
+ * `expected_version_id`, y con ellos la frontera hace el CAS (ADR-011 §5).
+ *
+ * Es el único que estas dos funciones aceptan desde F7.D. Un alta —el mismo
+ * payload sin esos dos campos— sale por la cola y por `sendPersonalEntry`, y
+ * por ninguna otra puerta.
+ */
+export type CorrectionPayload = EntryPayload & {
+  readonly operation_id: string;
+  readonly expected_version_id: string;
+};
+
+export function isCorrection(payload: EntryPayload): payload is CorrectionPayload {
+  return (
+    typeof payload.operation_id === 'string' &&
+    payload.operation_id !== '' &&
+    typeof payload.expected_version_id === 'string' &&
+    payload.expected_version_id !== ''
+  );
+}
+
+/**
+ * LA GUARDA ESTRUCTURAL de ADR-028 §1: un alta no sale por la puerta directa.
+ *
+ * El tipo ya lo impide en compilación; esto lo impide en ejecución, para que un
+ * `as` o un payload construido a mano tampoco puedan. Se lanza ANTES de tocar
+ * la red, así que no hay ni petición ni idempotencia que consumir.
+ */
+export class DirectCreationRefused extends Error {
+  constructor(fn: string) {
+    super(`${fn}: un alta sólo sale por la cola (ADR-028 §1); la puerta directa es para corregir`);
+    this.name = 'DirectCreationRefused';
+  }
+}
+
+function assertCorrection(payload: EntryPayload, fn: string): void {
+  if (!isCorrection(payload)) throw new DirectCreationRefused(fn);
+}
+
+/**
+ * Corrige un gasto personal. **Sólo corrige**: el alta va por la cola.
  *
  * La categoría es obligatoria en el payload, y **la ausencia de fila no la
  * impide ninguna restricción del esquema**: quien la exige es esta frontera
  * más el cierre de las escrituras directas a `core` (ADR-027 §2). Omitirla
  * devuelve `PAYLOAD_INVALID · 400`.
  */
-export async function recordPersonalExpense(payload: EntryPayload): Promise<WriteResult> {
+export async function recordPersonalExpense(payload: CorrectionPayload): Promise<WriteResult> {
+  assertCorrection(payload, 'record_personal_expense');
   const { data, error } = await supabase.rpc('record_personal_expense', { payload });
   if (error !== null) throw error;
   return data as unknown as WriteResult;
 }
 
 /**
- * Registra un ingreso personal.
+ * Corrige un ingreso personal. **Sólo corrige**: el alta va por la cola.
  *
  * **Sin categoría, y no por omisión de esta función**: `category_id` no es un
  * campo admisible de esta clase, así que mandarlo se rechaza por FORMA del
  * payload antes de mirar a qué apunta. Es lo que `buildPayload` garantiza al
  * construirlo, y lo que ADR-027 §3 decidió.
  */
-export async function recordPersonalIncome(payload: EntryPayload): Promise<WriteResult> {
+export async function recordPersonalIncome(payload: CorrectionPayload): Promise<WriteResult> {
+  assertCorrection(payload, 'record_personal_income');
   const { data, error } = await supabase.rpc('record_personal_income', { payload });
   if (error !== null) throw error;
   return data as unknown as WriteResult;
@@ -251,17 +293,16 @@ export async function recordPersonalIncome(payload: EntryPayload): Promise<Write
  *
  * |                         | quién la usa           | fallo                    |
  * | ----------------------- | ---------------------- | ------------------------ |
- * | `recordPersonal*`       | la pantalla, HOY       | lanza; la hoja se queda  |
- * | `sendPersonalEntry`     | el worker, desde F7.D  | devuelve estado y código |
+ * | `recordPersonal*`       | corregir, desde la pantalla | lanza; la ventana se queda |
+ * | `sendPersonalEntry`     | el worker: TODA alta        | devuelve estado y código   |
  *
- * **En F7.C sólo la primera forma está activa en producción.** La ruta de alta
- * sigue enviando directamente, exactamente como en F6: ante un fallo conserva la
- * hoja y el borrador, y no encola. La segunda forma existe, está probada y
- * **no tiene ningún consumidor**.
- *
- * **F7.D hará la sustitución en un solo cambio** —`persistir → proyectar →
- * despertar worker`— y entonces volverá la guarda que impide que un alta salga
- * por la puerta directa. Ponerla ahora dejaría la app sin poder registrar nada.
+ * **Desde F7.D la ruta de alta es la cola, sin excepción.** Un gasto o un
+ * ingreso nuevo se persiste en SQLite, se proyecta, y lo envía el worker por
+ * `sendPersonalEntry` con su clave durable. `recordPersonal*` sólo aceptan una
+ * CORRECCIÓN —payload con `operation_id` y `expected_version_id`— y lo
+ * comprueban en compilación (`CorrectionPayload`) y en ejecución
+ * (`DirectCreationRefused`). Correcciones, anulaciones y ajustes siguen fuera
+ * de la cola (ADR-028 §4).
  *
  * Por qué el worker necesita su propia forma y no puede usar la de la pantalla:
  * la clasificación de ADR-028 §11 se decide con el estado HTTP, el código de

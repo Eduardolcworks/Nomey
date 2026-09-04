@@ -5,8 +5,10 @@ import {
   MovementForm,
   type MovementFormScope,
   useEntryCategories,
+  useEntryQueue,
   usePersonalScope,
 } from '@/features/personal';
+import { useSession } from '@/features/session';
 import { useAddBackdrop } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
 import { SheetWindow } from '@/ui/components';
@@ -29,7 +31,13 @@ import { SheetWindow } from '@/ui/components';
 export default function AddScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { state } = usePersonalScope();
+  const { state: session } = useSession();
+  const actorId = session.status === 'signed-in' ? session.identity.userId : '';
+  /*
+   * Con el actor: sin red, el ámbito sale de la copia guardada en la última
+   * resolución correcta de ESTA cuenta, y la hoja puede registrar igual.
+   */
+  const { state } = usePersonalScope(actorId);
   const backdrop = useAddBackdrop();
 
   /*
@@ -47,7 +55,19 @@ export default function AddScreen() {
    */
   const hideBackdrop = backdrop.hide;
   useEffect(() => hideBackdrop, [hideBackdrop]);
-  const categories = useEntryCategories();
+
+  /*
+   * LA IDENTIDAD LA PONE LA RUTA, como en Inicio: `features/` no puede leer la
+   * sesión. Con ella, la cola aísla la entrada por cuenta (ADR-028 §13) y el
+   * catálogo cacheado se lee de la casilla de ESTE actor (§16).
+   */
+  const categories = useEntryCategories(actorId);
+  /*
+   * Desde F7.D guardar es ENCOLAR: la hoja persiste la intención y se cierra
+   * sólo cuando quedó en disco; el worker —montado en la raíz— la envía por
+   * detrás. La ventana no espera a la red, con conexión o sin ella.
+   */
+  const queue = useEntryQueue(actorId, session.status);
 
   const scope: MovementFormScope | null =
     state.status === 'ready'
@@ -61,7 +81,9 @@ export default function AddScreen() {
 
   return (
     <SheetWindow title={t('entry.title')} closeLabel={t('action.close')} onClosed={router.back}>
-      {(close) => <MovementForm scope={scope} categories={categories} onSaved={close} />}
+      {(close) => (
+        <MovementForm scope={scope} categories={categories} queue={queue} onSaved={close} />
+      )}
     </SheetWindow>
   );
 }

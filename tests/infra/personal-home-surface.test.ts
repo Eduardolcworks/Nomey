@@ -172,16 +172,23 @@ describe('no hay N+1', () => {
    * cambia al cambiar de intervalo, así que la propiedad que este test protege
    * sigue en pie; lo que sí hace es volver a correr el efecto al cambiar de
    * cuenta, que es exactamente lo que hace falta para que la copia local del
-   * catálogo se guarde bajo la identidad correcta (ADR-028 §13). Lo que **no**
-   * puede aparecer aquí es `key` ni `range`.
+   * catálogo se guarde bajo la identidad correcta (ADR-028 §13). Y `supersede`
+   * entró con F7.D: es estable —`useCallback` sin dependencias— así que tampoco
+   * puede disparar el efecto. Lo que **no** puede aparecer aquí es `key` ni
+   * `range`.
    */
   it('cambiar de intervalo no refetchea el saldo ni el catálogo', () => {
-    expect(HOOK).toContain('[ready, attempt, actorId]');
+    expect(HOOK).toContain('[ready, attempt, actorId, supersede]');
     expect(HOOK).toContain('[ready, key, attempt]');
     // Lo que hace verdadera la afirmación: el intervalo no entra en el primer
     // efecto por ninguna de sus dos formas.
     expect(HOOK).not.toContain('[ready, attempt, actorId, key]');
     expect(HOOK).not.toContain('[ready, attempt, actorId, range]');
+    expect(HOOK).not.toContain('[ready, attempt, actorId, supersede, key]');
+    expect(HOOK).not.toContain('[ready, attempt, actorId, supersede, range]');
+    // Y `supersede` no depende de nada, así que su identidad no cambia.
+    expect(HOOK).toContain('const supersede = useCallback((of: number) => {');
+    expect(HOOK).toContain(['    setAttempt((value) => value + 1);', '  }, []);'].join('\n'));
   });
 });
 
@@ -273,7 +280,9 @@ describe('provisioning', () => {
    * no vuelve a intentarlo solo.
    */
   it('el provisioning no se reintenta solo', () => {
-    expect(SCOPE).toContain('[attempt]');
+    // El contador de reintentos y el actor —cuyo respaldo sin red se lee por
+    // cuenta (F7.D)—: nada que cambie por render.
+    expect(SCOPE).toContain('[attempt, actorId]');
     /*
      * **El vuelo compartido, no un booleano.** Aquí había un `inFlight` que
      * impedía a la segunda invocación del efecto suscribirse: con el doble
@@ -287,7 +296,8 @@ describe('provisioning', () => {
      * `tests/lib/scope-flight.test.ts`, con la reproducción del fallo incluida.
      */
     expect(SCOPE).toContain('createScopeFlight');
-    expect(SCOPE).toContain('return subscription.cancel;');
+    // La limpieza cancela la suscripción (y apaga el respaldo en vuelo).
+    expect(SCOPE).toContain('subscription.cancel();');
     expect(SCOPE).not.toContain('inFlight');
   });
 
@@ -433,8 +443,10 @@ describe('el selector de ámbito', () => {
    * no depende de qué pestaña se mire. Es idempotente por estado.
    */
   it('el provisioning no depende del selector', () => {
-    expect(HOME).toMatch(/const scope = usePersonalScope\(\);/);
-    expect(HOME).not.toMatch(/usePersonalScope\([^)]+\)/);
+    // Recibe el ACTOR —para el respaldo del ámbito sin red (F7.D)— y nunca el
+    // selector Personal/Pareja: provisionar no depende de qué pestaña se mira.
+    expect(HOME).toMatch(/const scope = usePersonalScope\(actorId\);/);
+    expect(HOME).not.toMatch(/usePersonalScope\([^)]*(activeScope|personal)[^)]*\)/);
   });
 
   /**
@@ -1609,10 +1621,11 @@ describe('el ajuste en Movimientos recientes', () => {
    */
   it('sigue fuera de ingresos, gastos y categorías', () => {
     // Los desplegables de flujo filtran por clase, y el ajuste no es ninguna.
-    expect(HOME_CODE).toContain("operationsOfKind(home.operations, 'income')");
-    expect(HOME_CODE).toContain("operationsOfKind(home.operations, 'expense')");
-    // Y el reparto sigue saliendo del servidor, no de la lista.
-    expect(HOME_CODE).toContain('categorySlices(home.statistics.categories');
+    expect(HOME_CODE).toContain("movementKind(op.operation_class) === 'income'");
+    expect(HOME_CODE).toContain("movementKind(op.operation_class) === 'expense'");
+    // Y el reparto sigue saliendo de las estadísticas —las del servidor más la
+    // proyección local (ADR-028 §8)—, nunca de sumar la lista.
+    expect(HOME_CODE).toContain('categorySlices(projected.statistics.categories');
     expect(HOME_CODE).not.toContain("'adjustment'");
   });
 
@@ -1948,7 +1961,9 @@ describe('corregir un movimiento no toca el Disponible', () => {
     expect(EDICION).toContain("import { CategoryMenu } from './category-menu'");
     expect(EDICION).toContain("import { CIRCLE } from './movement-fields'");
     expect(EDICION).toContain('size={CIRCLE}');
-    expect(RUTA_MOVIMIENTO).toContain('useEntryCategories()');
+    // Con el actor: el catálogo cacheado de respaldo está aislado por cuenta.
+    expect(RUTA_MOVIMIENTO).toContain('useEntryCategories(');
+    expect(RUTA_MOVIMIENTO).toContain('categories={categories.rows}');
 
     // Ni un color, ni un icono, ni una cifra de paleta escritos aquí.
     expect(EDICION).not.toMatch(/#[0-9a-fA-F]{3}|rgba/);

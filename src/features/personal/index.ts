@@ -96,7 +96,7 @@ export {
   TOP_CATEGORIES,
 } from './statistics';
 export { type PersonalHome, usePersonalHome } from './use-personal-home';
-export { useEntryCategories } from './use-entry-categories';
+export { type EntryCategories, useEntryCategories } from './use-entry-categories';
 export { usePersonalScope } from './use-personal-scope';
 export { type RecordStatus, useRecordMovement } from './use-record-movement';
 export { createQueueTransport } from './queue-transport';
@@ -104,7 +104,20 @@ export {
   type EnqueueFailure,
   type EntryQueue,
   type EntryScope,
-  countUnsyncedEntries,
   useEntryQueue,
-  wakeEntryQueue,
 } from './use-entry-queue';
+export {
+  countUnsyncedEntries,
+  localQueueStatus,
+  readBarrier,
+  useEntryQueueRuntime,
+  wakeEntryQueue,
+} from './queue-runtime';
+export {
+  isReconciled,
+  type ProjectedHome,
+  type ProjectedOperation,
+  type ProjectionSnapshot,
+  projectHome,
+} from './projection';
+export { useProjectedHome } from './use-projected-home';

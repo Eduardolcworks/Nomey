@@ -27,7 +27,8 @@ import type { SqlDatabase, SqlValue } from './sql-database';
 
 const COLUMNS = `client_operation_id, schema_version, actor_id, scope_id, command_type, payload,
   currency_definition_id, currency_code, currency_scale, created_at, state, attempts,
-  next_attempt_at, last_error_class, last_error_code, confirm_seq, result_operation_id`;
+  next_attempt_at, last_error_class, last_error_code, confirm_seq, result_operation_id,
+  dispatch_seq`;
 
 /** FIFO estable: la fecha de creación, y la clave para desempatar. */
 const ORDER = 'order by created_at asc, client_operation_id asc';
@@ -51,11 +52,19 @@ function bind(entry: QueueEntry): SqlValue[] {
     entry.lastErrorCode,
     entry.confirmSeq,
     entry.resultOperationId,
+    entry.dispatchSeq,
   ];
 }
 
 const INSERT = `insert into queue_entry (${COLUMNS})
-  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+/**
+ * The states a projection still paints (ADR-028 §6). A terminal entry is NOT
+ * here on purpose: its projection is withdrawn, so it cannot be counted twice
+ * and it is not a read hazard however uncertain its result may be.
+ */
+const PROJECTED = `('queued', 'sending', 'retryable', 'blocked_session')`;
 
 /**
  * Lo que se comprueba **antes** de escribir, y por qué aquí.
@@ -183,6 +192,12 @@ export function createSqliteQueueStore(db: SqlDatabase): QueueStore {
     },
 
     async recoverSending(actorId) {
+      /*
+       * ONLY the state. The dispatch mark is deliberately left alone: repairing
+       * a row that was caught mid-request is not evidence that the request never
+       * left, and clearing it here would turn every crash into a licence to
+       * accept a base that may already carry the effect.
+       */
       const stuck = await db.getAllAsync<{ client_operation_id: string }>(
         `select client_operation_id from queue_entry where actor_id = ? and state = 'sending'`,
         [actorId],
@@ -194,6 +209,85 @@ export function createSqliteQueueStore(db: SqlDatabase): QueueStore {
         [actorId],
       );
       return stuck.length;
+    },
+
+    async markDispatched(actorId, clientOperationId, dispatchSeq) {
+      /*
+       * ONE statement. The state and the mark cannot come apart, and the mark
+       * outlives the process: whatever happens after this line — the request
+       * leaves, the app dies, the response is lost — the row already says that
+       * this entry may exist on the server.
+       */
+      await db.runAsync(
+        `update queue_entry set state = 'sending', dispatch_seq = ?
+          where actor_id = ? and client_operation_id = ?`,
+        [dispatchSeq, actorId, clientOperationId],
+      );
+    },
+
+    async nextDispatchSeq(actorId) {
+      const row = await db.getFirstAsync<{ dispatch_seq: number }>(
+        `insert into reconcile_cursor (actor_id, dispatch_seq) values (?, 1)
+         on conflict (actor_id) do update set dispatch_seq = reconcile_cursor.dispatch_seq + 1
+         returning dispatch_seq`,
+        [actorId],
+      );
+      if (row === null) throw new Error('the dispatch cursor returned no value');
+      return row.dispatch_seq;
+    },
+
+    async barrier(actorId) {
+      /*
+       * One read, so the three numbers describe the same instant. Reading them
+       * apart would leave a gap in which a send could start between the counter
+       * and the count, which is the very thing this measures.
+       */
+      const row = await db.getFirstAsync<{
+        confirm_seq: number;
+        dispatch_seq: number;
+        uncertain: number;
+      }>(
+        `select coalesce(c.confirm_seq, 0)  as confirm_seq,
+                coalesce(c.dispatch_seq, 0) as dispatch_seq,
+                (select count(*) from queue_entry e
+                  where e.actor_id = ?
+                    and e.dispatch_seq is not null
+                    and e.confirm_seq is null
+                    and e.state in ${PROJECTED}) as uncertain
+           from (select 1) one
+           left join reconcile_cursor c on c.actor_id = ?`,
+        [actorId, actorId],
+      );
+      if (row === null) throw new Error('the barrier returned no value');
+      return {
+        confirmSeq: row.confirm_seq,
+        dispatchSeq: row.dispatch_seq,
+        uncertain: row.uncertain,
+      };
+    },
+
+    async nextConfirmSeq(actorId) {
+      /*
+       * Una sola sentencia: crea el cursor del actor en 1 o lo avanza en uno, y
+       * devuelve el valor. Atomica por construccion, asi que dos confirmaciones
+       * nunca reciben el mismo numero.
+       */
+      const row = await db.getFirstAsync<{ confirm_seq: number }>(
+        `insert into reconcile_cursor (actor_id, confirm_seq) values (?, 1)
+         on conflict (actor_id) do update set confirm_seq = reconcile_cursor.confirm_seq + 1
+         returning confirm_seq`,
+        [actorId],
+      );
+      if (row === null) throw new Error('el cursor de reconciliación no devolvió valor');
+      return row.confirm_seq;
+    },
+
+    async confirmSequence(actorId) {
+      const row = await db.getFirstAsync<{ confirm_seq: number }>(
+        'select confirm_seq from reconcile_cursor where actor_id = ?',
+        [actorId],
+      );
+      return row?.confirm_seq ?? 0;
     },
 
     async unsupported(actorId): Promise<UnsupportedEntry[]> {
