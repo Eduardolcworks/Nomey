@@ -173,15 +173,23 @@ volver a deducir:
   `CATEGORY_NOT_USABLE`, el censo se quedó igual —mismas operaciones y mismas
   claves—: la reclamación de ADR-011 §13 vive dentro de la transacción que el
   rechazo aborta. Pulsar `Sí` en la incidencia tampoco creó ninguna.
-- **La forma excepcional de ADR-029 NO se validó, y no por descuido.** Sus dos
-  disparos son condiciones que el cliente no puede producir: `conflict` exige
-  una moneda distinta de la base del ámbito —hoy sólo EUR, e inmutable con
+- **La forma excepcional de ADR-029 no tiene ruta manual, y sí tiene pruebas.**
+  Sus dos disparos son condiciones que el cliente no puede producir: `conflict`
+  exige una moneda distinta de la base del ámbito —hoy sólo EUR, e inmutable con
   efectos— y `review` exige reutilizar una clave, justo lo que el cliente evita.
-  **Destino: F11**, con la moneda extranjera.
-- **Un defecto abierto de Nomey.** Sin servidor, `Deudas` publica `0,00 €`
-  mientras `Disponible`, `Ingresos` y `Gastos` degradan a `—`. Es una cifra
-  contable presentada como cierta cuando no se puede conocer. **F8.A4 valida, no
-  cambia producto**, así que queda escrito y sin arreglar.
+  **Que no haya ruta desde la interfaz no significa que no esté probada**: la
+  frontera produce los dos códigos y `scripts/offline-taxonomy-probe.sh` los
+  mide contra el stack real, y presentación, persistencia y resolución están en
+  `personal-incidents.test.ts` §10, §14, §3, §12, §8 y §11 y en
+  `personal-incident-flows.test.ts` §1, §4 y §5. **No se traslada a ninguna
+  fase.** Lo único que F8.A4 no afirma es haberla pulsado a mano en el aparato.
+- **`Deudas` ya no afirma un cero que nadie ha derivado.** Llevaba un marcador de
+  interfaz fijo aplicado por defecto, así que enseñaba `0,00 €` **siempre**, con
+  servidor y sin él. Ahora, sin información durable, usa el mismo estado de no
+  disponible que el resto de la tarjeta; un cero fiable seguirá siendo `0,00 €`
+  cuando F9 traiga el dato. La distinción vive en
+  `src/features/personal/debt-display.ts`, y un texto ilegible es desconocido y
+  nunca cero — que es donde `toMinor` no sirve.
 - **`supabase start` con éxito no demuestra que Kong esté en pie.** El stack
   puede quedarse con Postgres, GoTrue y PostgREST vivos y el gateway parado, y en
   ese estado la CLI sale con código 0 y `54321` no contesta. Lo comprueban ahora

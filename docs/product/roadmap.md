@@ -495,18 +495,35 @@ obligaciones de su **§5**. Cubre, además de esa matriz:
    fila desaparezca o se duplique, y con **una sola operación remota por clave**.
 6. **Aislamiento entre actores**: cambiar de actor no contamina snapshot, cola ni
    proyección.
-7. **Incidencias** en la forma **ordinaria** de
-   [ADR-029](../adr/ADR-029-incident-labels-and-review-destination.md) —`Sí` y
-   `No`— y regreso a un estado estable.
+7. **Incidencias** de
+   [ADR-029](../adr/ADR-029-incident-labels-and-review-destination.md), con
+   regreso a un estado estable. La forma **ordinaria** —`Sí` y `No`— se ejercita
+   a mano dentro de la build; la **excepcional** no, y conviene separar por qué.
 
-   **La forma excepcional no entra, y no por falta de ganas.** Sus dos disparos
-   son condiciones del servidor que el cliente no puede producir: `conflict`
-   nace de `CURRENCY_CONVERSION_UNSUPPORTED`, que exige una definición monetaria
-   distinta de la del ámbito —el cliente sólo ofrece EUR, y la moneda base es
-   inmutable en cuanto hay efectos (ADR-013, FK compuesta)—; y `review` nace de
-   `IDEMPOTENCY_KEY_REUSED`, que exige reutilizar una clave, precisamente lo que
-   el cliente evita generando un UUID nuevo por intención. **Destino: F11**, con
-   la moneda extranjera, que es cuando la primera deja de ser inalcanzable.
+   **La forma excepcional no tiene ruta desde la interfaz, y eso es correcto.**
+   Sus dos disparos son condiciones del servidor que el cliente no puede
+   producir: `conflict` nace de `CURRENCY_CONVERSION_UNSUPPORTED`, que exige una
+   definición monetaria distinta de la del ámbito —el cliente sólo ofrece EUR, y
+   la moneda base es inmutable en cuanto hay efectos (ADR-013, FK compuesta)—; y
+   `review` nace de `IDEMPOTENCY_KEY_REUSED`, que exige reutilizar una clave,
+   precisamente lo que el cliente evita generando un UUID nuevo por intención.
+
+   **Pero «sin ruta manual» no es «sin probar», y aquí sí está probada.** La
+   cadena entera está cubierta y es verificable:
+
+   | Eslabón                         | Dónde                                                                                   |
+   | ------------------------------- | --------------------------------------------------------------------------------------- |
+   | La frontera produce los códigos | `scripts/offline-taxonomy-probe.sh`, contra el stack real: `409` y `422` medidos        |
+   | El cliente los clasifica        | `tests/lib/offline-response.test.ts` → `review` y `conflict`                            |
+   | Presentación                    | `tests/lib/personal-incidents.test.ts` §10 y §14 — forma, frases y destino de `Revisar` |
+   | Persistencia                    | ídem §3 —la incidencia **es** la fila— y §12, por actor                                 |
+   | Resolución                      | ídem §8 y §11; `tests/lib/personal-incident-flows.test.ts` §1, §4 y §5                  |
+
+   **No se traslada a ninguna fase**, y en particular **no a F11**: el alcance de
+   F11 es multimoneda —tipos, conversión, jerarquía visual y conflicto de moneda
+   base— y ninguno de sus cinco criterios de cierre habla de las formas de la
+   incidencia. Asignárselo sería darle trabajo nuevo por conveniencia. Lo único
+   que F8.A4 no afirma es haberla pulsado a mano en el aparato.
 
 No entra: Staging, su canal, EAS Update, la distribución a nadie, y cualquier
 cosa de iOS.

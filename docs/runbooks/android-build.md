@@ -222,9 +222,44 @@ Es un artefacto dentro de un artefacto: no se versiona, no se comparte y se
 regenera. El APK que se entrega a alguien es otra cosa y llega en F8.A5.
 
 **Metro.** `run:android` deja el servidor arrancado al terminar. Si se cierra,
-se vuelve a levantar con `npm start`, que ya nombra la variante. En el emulador
-la conexión es automática; en un aparato físico por USB se necesita
-`adb reverse tcp:8081 tcp:8081`, y por LAN basta con estar en la misma red.
+se vuelve a levantar con `npm start`, que ya nombra la variante.
+
+### El aparato alcanza el ordenador por `127.0.0.1`, no por la red
+
+**La dirección del backend en Development es `http://127.0.0.1:54321`**, y no
+una IP de la red local. El túnel lo abre ADB:
+
+```bash
+npm run android              # configura los túneles y arranca Metro
+npm run android:reverse      # sólo los túneles
+npm run android:reverse:check   # sólo comprobar, sin tocar nada
+```
+
+`scripts/android-reverse.mjs` lee la `.env` **únicamente para saber a dónde
+apunta** —no imprime nada de dentro y no la modifica—, y abre el túnel del
+puerto de Supabase y el de Metro para el aparato conectado. Con varios
+conectados hay que elegir: `--device <serie>`.
+
+> **Por qué loopback y no una IP de red local.** Una IP de red local es
+> propiedad del sitio donde estás: al cambiar de Wi-Fi deja de resolver, y el
+> síntoma no aparece al compilar sino dentro de la aplicación, como un fallo de
+> red. Con `adb reverse` la dirección deja de depender de la red y **la `.env`
+> no vuelve a tocarse al cambiar de sitio**. Tampoco hace falta abrir puertos al
+> resto de la red ni tocar el cortafuegos.
+>
+> **Y por qué no `10.0.2.2`.** Es el alias que el emulador da a su anfitrión y
+> **sólo existe en el emulador**: un teléfono por cable no lo resuelve.
+> `127.0.0.1` con `adb reverse` sirve a los dos con una sola configuración.
+>
+> **Esto es de Development y de nadie más.** Staging y Producción no pasan por
+> Metro ni por este flujo; la configuración de Staging vive en el entorno EAS
+> `preview` y es de F8.A5.
+
+> **Un túnel se pierde solo, y sin avisar.** Al reconectar el aparato, al
+> reiniciarlo y al reiniciar el servidor de ADB. Por eso existe `--check`:
+> comprobado en F8.A4, retirar el túnel deja la pantalla con las cuatro cifras
+> en `—` y **ningún mensaje que nombre la causa**. El script sí la nombra, y
+> sale con código 1.
 
 ---
 
@@ -394,15 +429,25 @@ Tres cosas que conviene no volver a descubrir:
   overlay del cliente de desarrollo, **no de Nomey**: no existe en una build de
   Staging o de producción. Al pilotar por `adb`, toca la mitad libre del botón.
 
-### Un defecto de Nomey, encontrado aquí
+### Un defecto de Nomey, encontrado aquí y corregido aquí
 
-**Sin servidor, `Deudas` afirma `0,00 €` mientras todo lo demás degrada a `—`.**
-En el arranque en frío sin frontera, `Disponible`, `Ingresos` y `Gastos` se
-muestran como no disponibles y el donut dice «Reparto no disponible»; `Deudas`,
-en cambio, publica una cifra que no puede conocer. Es una cifra contable
-presentada como cierta cuando no lo es, justo lo que
-[`design-direction.md`](../product/design-direction.md) pide que nunca sea
-ambiguo. **No se arregla en F8.A4**: este bloque valida, no cambia producto.
+**`Deudas` afirmaba `0,00 €` sin haberlo derivado de nada.** Se vio en el
+arranque en frío sin frontera, donde `Disponible`, `Ingresos` y `Gastos`
+degradan a `—` y el donut dice «Reparto no disponible» mientras `Deudas`
+publicaba una cifra. Al mirarlo, la causa resultó ser peor que el síntoma: no
+era una degradación mal hecha sino un `DEBT_PLACEHOLDER = '0'` de interfaz
+aplicado como parámetro por defecto, de modo que la cifra era falsa **siempre**,
+también conectada. Sólo se notó allí porque el contraste con los demás `—` la
+delató.
+
+Corregido en F8.A4, con el cambio mínimo: sin información durable se usa el
+mismo estado de no disponible que el resto de la tarjeta; un cero fiable sigue
+siendo `0,00 €`, y un importe fiable conserva su signo. La distinción vive en
+`src/features/personal/debt-display.ts` y **un texto ilegible es desconocido,
+nunca cero** — que es exactamente donde `toMinor` no sirve, porque devolver `0n`
+ante lo ilegible es correcto para un total de gastos y falso para una deuda.
+Cuatro regresiones en `tests/lib/debt-display.test.ts`; verificado además en la
+build, donde sin túnel se ven **cuatro** `—` y no tres y un cero.
 
 ---
 
