@@ -54,6 +54,12 @@ compartidos donde todos los participantes deben tener cuenta prueba un producto
 distinto del que se quiere construir: invitar a alguien que no ha instalado la
 app es el caso de uso central. Esperar a F10 hace que la beta mida lo relevante.
 
+> **Y, mientras F8.B esté aplazada, la beta sólo puede correr en Android.** No
+> contradice ninguna dependencia —el hito pide distribución controlada, no
+> paridad de plataformas— pero sí estrecha la mitigación que este documento se
+> da a sí mismo en §Riesgo asumido. Su canal es **F8.C**, activable en cuanto
+> haya testers reales.
+
 ---
 
 ## Fases
@@ -402,7 +408,8 @@ lanzamiento.
 
 **Dependencias.** F6, para tener algo que distribuir.
 
-**Cierre.**
+**Cierre.** Los cuatro criterios son los originales de la fase y **no se
+reescriben ni se reinterpretan**:
 
 1. Un build de desarrollo se instala en un dispositivo físico Android y en uno
    iOS.
@@ -413,10 +420,59 @@ lanzamiento.
 
 **Puertas.**
 
-- **ADR de código nativo:** CNG con config plugins, o prebuild versionado.
-  `AGENTS.md` exige que sea una decisión de ADR antes de introducir código
-  nativo, y **cambia el modelo de build de todo el proyecto**, así que se decide
-  aquí aunque las superficies nativas se implementen en F16.
+- ~~**ADR de código nativo:** CNG con config plugins, o prebuild versionado.~~
+  **Resuelta el 2026-09-04 por [ADR-030](../adr/ADR-030-native-code-model.md):
+  CNG con config plugins**, sin versionar `/ios` ni `/android`, con el código
+  nativo propio expresado como plugin local versionado. Abandonar el modelo
+  exige un ADR nuevo que demuestre una limitación material.
+
+#### La fase se ejecuta en tres bloques, y no cierra con el primero
+
+La cuenta de desarrollador de Apple **se contrata al terminar F13 y antes de
+empezar F14**, porque es Premium quien necesita la integración real con las
+tiendas. Esa secuencia parte la fase, y la partición es de **ejecución**: los
+cuatro criterios siguen siendo los de arriba.
+
+| Bloque   | Qué contiene                                                                                                                              | Cuándo                              |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| **F8.A** | Decisiones, contrato de entornos, toolchain, build propia de Android, Staging actualizable y validación funcional en Android              | **Ahora**                           |
+| **F8.B** | Apple Developer, firma y credenciales de iOS, registro del dispositivo, build en el iPhone, TestFlight o ad hoc, y las deudas físicas iOS | **Puerta obligatoria antes de F14** |
+| **F8.C** | Google Play y canal de beta de Android                                                                                                    | Cuando exista una beta real         |
+
+**F8.A puede cerrarse como bloque parcial. La Fase 8 sigue abierta** mientras
+queden criterios originales sin cumplir. Estado por criterio:
+
+| Criterio | Estado                                                                                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1**    | **Parcial.** La mitad Android la cierra F8.A; **la mitad iOS es de F8.B**                                                                                              |
+| **2**    | **Pendiente.** Staging apunta provisionalmente al stack local, que **no** es un entorno distinto del local — [ADR-031](../adr/ADR-031-environments-and-variants.md) §4 |
+| **3**    | **Pendiente.** Se marcará cuando exista un tester externo real; no se da por hecho con una entrega simulada                                                            |
+| **4**    | **Cubierto en Android** por F8.A, con las tres capas ya existentes. Se revalida en F8.B sobre el artefacto de iOS                                                      |
+
+**F8.B no es opcional y no puede desaparecer.** Es puerta de F14 por la
+dependencia que esa fase ya declara —«F8, por las cuentas de tienda»— y absorbe
+dos deudas anteriores: la mitad iOS de la comprobación pendiente de F4 —icono,
+máscara, splash, transición nativa y ausencia de destello— y la obligación que
+F7 dejó escrita, reproducir su secuencia completa en un dispositivo iOS.
+
+**Lo que F8.B no bloquea.** F9 a F13 no declaran ninguna dependencia de iOS, de
+una cuenta de desarrollador ni de una tienda, y ninguno de sus criterios de
+cierre las nombra. Pueden avanzar con F8.B aplazada. Dos avisos, escritos para
+que la decisión sea consciente y no una omisión:
+
+- **La puerta de F9 puede adelantar F8.B.** Si «notificación» se resuelve como
+  push, iOS necesita APNs y APNs necesita la cuenta de Apple. Esa puerta debe
+  resolverse sabiendo que F8.B está aplazada.
+- **La beta cerrada queda sólo en Android** mientras F8.B no se ejecute. No
+  contradice ninguna dependencia, pero **debilita la mitigación** que este
+  roadmap se da a sí mismo en §Riesgo asumido.
+
+**Decidido en F8.A y ejecutado más adelante.** ADR-030 §5 deja fijado que Nomey
+llevará **dos iconos de aplicación** —el amarillo por defecto y el negro como
+distintivo de Premium—, que los dos son recursos nativos y que **tienen que
+estar dentro del binario antes de la primera publicación**, porque EAS Update no
+añade recursos nativos. **El selector, los entitlements y el cambio de icono son
+trabajo de F14**, no de esta fase.
 
 ---
 
@@ -437,8 +493,9 @@ usuario, y ADR-002 la incluye entre las cinco capas que sustituyen a la
 confirmación previa. Un grupo sin notificación es el modelo de efecto inmediato
 sin su contrapeso.
 
-**Dependencias.** F7 · F8, por el development build que las notificaciones
-necesitan.
+**Dependencias.** F7 · **F8.A**, por el development build que las
+notificaciones necesitan. F8.B no bloquea esta fase salvo que su puerta se
+resuelva como push, porque entonces iOS necesitaría APNs y la cuenta de Apple.
 
 **Cierre.**
 
@@ -602,7 +659,15 @@ capa independiente de capacidades invoca operaciones del dominio; el dominio
 nunca consulta capacidades._
 
 **Dependencias.** F13, porque la capa de capacidades solo puede regular
-capacidades que existen · F8, por las cuentas de tienda.
+capacidades que existen · **F8.B**, por las cuentas de tienda, que es la puerta
+que esta fase no puede saltarse.
+
+**Trae, además, el icono alternativo.** ADR-030 §5 dejó decidido que Nomey
+lleva dos iconos y que los dos viajan en el binario. Aquí se implementa el
+comportamiento: al activarse Premium se habilita y selecciona el icono negro,
+respetando la confirmación que exija el sistema; desde Ajustes la persona
+suscrita alterna entre amarillo y negro; al terminar Premium vuelve el amarillo.
+**Elegir un icono no cambia la estética interior de la aplicación.**
 
 **Cierre.**
 
@@ -666,7 +731,9 @@ ellos.
 
 **Dependencias.** F7, porque un widget que registra un gasto debe escribir en la
 cola sin conexión, lo que en iOS implica almacenamiento compartido entre app y
-extensión · **ADR de código nativo, decidido en F8**.
+extensión · **[ADR-030](../adr/ADR-030-native-code-model.md), ya aceptado**, que
+obliga a expresar las extensiones como **plugin local versionado** y no abriendo
+`/ios`.
 
 **Cierre.**
 
@@ -677,8 +744,11 @@ extensión · **ADR de código nativo, decidido en F8**.
 3. Existe paridad declarada entre iOS y Android, o una asimetría documentada y
    aceptada.
 
-**Puertas.** El ADR de código nativo debe estar aceptado; si no lo está, la fase
-no arranca.
+**Puertas.** ~~El ADR de código nativo debe estar aceptado; si no lo está, la
+fase no arranca.~~ **Cumplida el 2026-09-04** —
+[ADR-030](../adr/ADR-030-native-code-model.md). Lo que la puerta deja en su
+lugar es una restricción: las superficies nativas se implementan bajo CNG, como
+plugin local versionado y detrás de una frontera nativa explícita.
 
 ---
 
@@ -788,7 +858,7 @@ de tienda, despliegue y operación.
 | ----------------------------------------------------------- | --------------- |
 | Runner de tests y vectores de prueba derivados de ADR-002   | 3.A             |
 | Arquitectura UX e i18n (F4 completa)                        | 3.C             |
-| Cuentas de desarrollador y firma                            | desde F6        |
+| Cuentas de desarrollador y firma (**F8.B**)                 | antes de F14    |
 | **Proveedor, contrato y viabilidad del agregador bancario** | **desde F9**    |
 | Selección de proveedor de tipos de cambio                   | desde F9        |
 | Configuración de productos de suscripción en las tiendas    | desde F12       |
@@ -802,9 +872,12 @@ Ordenadas por riesgo.
 1. **Agregador bancario (F17).** Contrato, verificación de la empresa y posibles
    requisitos regulatorios. Plazos ajenos a la ingeniería. Es la razón de abrir
    el hilo en F9.
-2. **ADR de código nativo (F8).** Si resuelve «prebuild versionado», cambia el
-   modelo de build de todo el proyecto y `/ios` y `/android` dejan de estar
-   git-ignorados.
+2. ~~**ADR de código nativo (F8).**~~ **Resuelto el 2026-09-04 como CNG con
+   config plugins** — [ADR-030](../adr/ADR-030-native-code-model.md). `/ios` y
+   `/android` siguen git-ignorados, así que el riesgo de calendario que este
+   punto describía desaparece. En su lugar entra una dependencia externa nueva y
+   menor: **la cuenta de Expo que EAS Update necesita** para actualizar Staging
+   — [ADR-031](../adr/ADR-031-environments-and-variants.md) §5.
 3. **Revisión de App Store y Google Play (F14 y F19).** Las suscripciones tienen
    reglas propias y rechazos frecuentes en la primera vuelta.
 4. **Proveedor de tipos de cambio (F11).** Su granularidad y su histórico
@@ -822,12 +895,12 @@ Ordenadas por riesgo.
 | ---- | ------------------------------------------------------------------------------------------- |
 | 3.A  | **E11 → ADR-003.** Si contradice una premisa, la fase se detiene                            |
 | 3.C  | Identidad de la definición monetaria · esquema expuesto · grants · membresía · idempotencia |
-| 8    | **ADR de código nativo:** CNG con config plugins o prebuild versionado                      |
+| 8    | ~~ADR de código nativo~~ · **cumplida: [ADR-030](../adr/ADR-030-native-code-model.md)**     |
 | 9    | Qué significa «notificación»: en la app, o push                                             |
 | 10   | ADR de invitación y reclamación de participantes sin cuenta                                 |
 | 11   | Proveedor de tipos de cambio con histórico                                                  |
 | 15   | Presentación de agregaciones entre definiciones monetarias                                  |
-| 16   | ADR de código nativo aceptado                                                               |
+| 16   | ~~ADR de código nativo aceptado~~ · **cumplida: ADR-030**                                   |
 | 17   | ADR de conciliación · contrato y viabilidad regulatoria                                     |
 
 ---
@@ -843,5 +916,12 @@ La mitigación está dentro del propio roadmap y es la razón por la que la
 distribución interna sube a F8: **la beta cerrada desde F10 es lo que impide que
 ese riesgo se materialice.** Si la beta se retrasa o se queda en muy pocas
 personas, el riesgo vuelve entero.
+
+**Aplazar F8.B a antes de F14 estrecha esa mitigación, y es un coste aceptado.**
+La beta cerrada queda limitada a Android hasta que exista la cuenta de Apple, de
+modo que el contraste con usuarios reales se obtiene sobre una sola plataforma.
+La alternativa era contratar la cuenta varias fases antes de necesitarla; se
+eligió esto. Adelantar F8.B es la palanca si el contraste en iOS resulta
+necesario antes.
 
 Queda escrito para que la decisión sea consciente, no por omisión.

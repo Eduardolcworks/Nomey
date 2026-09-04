@@ -110,6 +110,8 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [027](ADR-027-expense-only-categories.md)                         | La categoría es del gasto; icono como clave semántica             | Aceptado  |
 | [028](ADR-028-offline-command-queue-and-optimistic-projection.md) | Cola sin conexión, durabilidad de la clave y proyección optimista | Aceptado  |
 | [029](ADR-029-incident-labels-and-review-destination.md)          | Etiquetas visibles de la incidencia y destino de «Revisar»        | Aceptado  |
+| [030](ADR-030-native-code-model.md)                               | Modelo de código nativo: CNG con config plugins                   | Aceptado  |
+| [031](ADR-031-environments-and-variants.md)                       | Contrato de entornos, variantes y separación de configuración     | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
@@ -133,7 +135,8 @@ que ocurra. Ninguno está reservado ni prejuzgado.
   fijó **la cola, la durabilidad de la clave y la proyección optimista**. Sigue
   abierta la idempotencia de **recurrencias, importaciones bancarias y
   operaciones de backend**.
-- React Native + Expo con CNG como plataforma.
+- ~~**React Native + Expo con CNG como plataforma**~~ — cerrado por
+  [ADR-030](ADR-030-native-code-model.md).
 - Supabase como backend y RLS como capa de autorización.
 - ~~**Hardening del Data API**~~ — cerrado entre
   [ADR-005](ADR-005-schema-topology.md), que fijó el esquema expuesto,
@@ -145,6 +148,12 @@ que ocurra. Ninguno está reservado ni prejuzgado.
   [ADR-007](ADR-007-membership-rls.md): helper `SECURITY DEFINER` reducido, sin
   claims de membresía en el JWT.
 - Arquitectura por capas y reglas de import.
-- Estrategia de código nativo iOS (CNG vs prebuild versionado).
-- Estrategia de entornos (dev / staging / producción).
+- ~~**Estrategia de código nativo iOS (CNG vs prebuild versionado)**~~ —
+  cerrada por [ADR-030](ADR-030-native-code-model.md), que decide **CNG con
+  config plugins** para las dos plataformas y fija qué haría falta para
+  abandonarlo.
+- ~~**Estrategia de entornos (dev / staging / producción)**~~ — cerrada por
+  [ADR-031](ADR-031-environments-and-variants.md). Siguen abiertos, y ahí
+  enumerados, el backend alojado, la adopción de EAS Build y la política de
+  `runtimeVersion`.
 - Estrategia de i18n y localización.

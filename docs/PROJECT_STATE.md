@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-09-03**, al cerrar la **Fase 6** con el bloque **F6.G**.
+Actualizado el **2026-09-04**, al abrir la **Fase 8** con el bloque **F8.A0**.
 
 ---
 
@@ -21,12 +21,53 @@ Actualizado el **2026-09-03**, al cerrar la **Fase 6** con el bloque **F6.G**.
 
 |                         |                                                                                                                                   |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Ninguna.** La siguiente no ha empezado                                                                                          |
+| **Fase en curso**       | **Fase 8 — Distribución interna y entornos.** Bloque **F8.A0** cerrado: sólo decisiones, ninguna herramienta ni build todavía     |
 | **Última fase cerrada** | **Fase 7 — Entrada rápida, offline y sincronización** (A … E), el 2026-09-04. **Validada en Android; iOS sin probar físicamente** |
-| **ADR aceptados**       | ADR-001 … ADR-029                                                                                                                 |
+| **ADR aceptados**       | ADR-001 … ADR-031                                                                                                                 |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **La Fase 7 no lo tocó**                                     |
 | **App visible**         | **Inicio escribe dinero real y funciona sin conexión**: el alta se encola, se proyecta al instante y se sincroniza sola           |
 | **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                      |
+
+**La Fase 8 está ABIERTA y sólo ha decidido.** F8.A0 no instaló nada, no compiló
+nada y no tocó ni una línea de código: aceptó
+[ADR-030](adr/ADR-030-native-code-model.md) y
+[ADR-031](adr/ADR-031-environments-and-variants.md), y dejó la fase partida en
+tres bloques trazables. **La Fase 8 NO está cerrada ni puede estarlo todavía**,
+porque dos de sus cuatro criterios originales siguen sin cumplirse; el estado
+criterio a criterio está en el [roadmap](product/roadmap.md), Fase 8.
+
+Cinco cosas que conviene tener claras antes de tocar cualquier cosa nativa:
+
+- **El modelo de build es CNG, y ya no es una suposición.** `/ios` y `/android`
+  son artefactos: no se versionan, no se editan y se regeneran sin pérdida. Lo
+  nativo propio —incluidas las extensiones de F16— se expresa como **plugin
+  local versionado** y se consume desde **un único punto de `src/lib/`**, nunca
+  desde `features/`. Salir de CNG exige un ADR nuevo que **demuestre** una
+  limitación material, no que la señale como incómoda.
+- **Hay tres identidades instalables a la vez**, no dos: `Nomey Dev`
+  (`es.lcworks.nomey.dev`, scheme `nomey-dev`), `Nomey Staging`
+  (`es.lcworks.nomey.staging`, `nomey-staging`) y `Nomey`
+  (`es.lcworks.nomey`, `nomey`). **El identificador de producción es
+  definitivo**: es DNS inverso de `lcworks.es`, dominio que el propietario de
+  Nomey controla, y que será la base de los enlaces universales, el correo de
+  autenticación, el soporte y las páginas legales. **Hoy no hay ningún DNS ni
+  servicio web configurado**, y no se configura en esta fase.
+- **Staging existirá antes que un backend distinto del local**, y eso no cierra
+  el criterio. Será un APK sin Metro, actualizado por el canal `staging` de EAS
+  Update, apuntando **provisionalmente al mismo stack local**. Un stack local
+  alcanzado por otra ruta no es otro entorno: el criterio «existe al menos un
+  entorno distinto del local» queda **pendiente**, escrito como pendiente, y no
+  se dará por cumplido renombrando nada.
+- **Se adopta EAS Update, no EAS Build.** Android se compila localmente. De ahí
+  sale la regla que más tarde muerde: **EAS Update no añade recursos nativos**,
+  así que un icono, un permiso o un módulo nuevo exigen binario nuevo.
+- **Nomey llevará dos iconos, y los dos tienen que estar en el binario antes de
+  publicar.** El amarillo es el predeterminado y el negro es el distintivo de
+  Premium. El comportamiento —activarlo con la suscripción, alternarlo desde
+  Ajustes, volver al amarillo al terminar, y **no** cambiar por ello la estética
+  interior— es **trabajo de F14**; ADR-030 §5 sólo fija que el modelo de build
+  lo admite y cómo. No hay selector, ni entitlement, ni cambio de icono
+  implementado.
 
 **La Fase 7 está CERRADA, y con ella el tercer pilar del producto.** Un gasto se
 registra sin conexión, aparece de inmediato como uno normal y se sincroniza solo
@@ -186,8 +227,13 @@ forma parte del alcance ni de los cuatro criterios de la Fase 5 en el roadmap:
 se añadió como requisito de producto a mitad de fase. Sigue siendo una capacidad
 de autenticación pendiente, y lo que la difiere es una dependencia real — el
 login nativo de Google no funciona en Expo Go y exige un development build, y
-Apple exige el programa de desarrollador. **Las dos capacidades las introduce la
-Fase 8**, y se ejecutará cuando existan, sin reabrir la Fase 5.
+Apple exige el programa de desarrollador.
+
+**La Fase 8 no las implementa: las hace ejecutables**, que es lo que dice el
+roadmap y manda sobre cualquier otra redacción. En concreto, **F8.A** deja
+disponible el prerrequisito de Google —el development build de Android— y
+**F8.B** el de Apple —la cuenta de desarrollador—. Implementar cada login es
+trabajo posterior con su propio bloque, y no reabre la Fase 5.
 
 **F5.F fue el cierre de fase**: verificar los cuatro criterios normativos,
 validar la integración completa en un solo recorrido físico, añadir la evidencia
@@ -480,8 +526,9 @@ sesión ausente tras recargar y tras reabrir Expo Go, y el ámbito de vuelta en
 Personal al entrar de nuevo.
 
 **El splash propio no es verificable en Expo Go**, que sustituye el nativo por el
-suyo; espera a una build iOS propia. El gate es React puro y sí está comprobado:
-aunque el splash fallara, lo que se ve es el fondo de la app, nunca una pantalla.
+suyo; espera a **la primera build propia de cada plataforma** — Android en
+**F8.A**, iOS en **F8.B**. El gate es React puro y sí está comprobado: aunque el
+splash fallara, lo que se ve es el fondo de la app, nunca una pantalla.
 
 ### La recuperación de acceso, y por qué está fuera de la sesión
 
@@ -578,22 +625,28 @@ Ninguna bloqueó el cierre de la Fase 5. El detalle completo, con motivo y
 destino de cada una,
 está en [`model-coverage.md`](architecture/model-coverage.md).
 
-| Aplazado                                        | Dónde queda                               |
-| ----------------------------------------------- | ----------------------------------------- |
-| **Google y Apple**, requisito de producto       | Diferido: prerrequisitos en la **Fase 8** |
-| **Subida real de la foto de perfil**            | Bloque posterior, con decisión propia     |
-| **Timeout de las operaciones de autenticación** | Deuda abierta, sin ADR                    |
-| Persistencia de la preferencia de idioma        | Con la UI de Ajustes                      |
-| **Resolución autoritativa del FX**              | Decisión de producto — **F11**            |
-| **Cambio de divisa base con historia**          | **F11**. Elegirla ya se puede (F6.A)      |
-| **Provisioning** de Grupos y participantes      | **F9** y **F10**                          |
-| **Modo Pareja** completo, con su `Cierre`       | Su fase                                   |
-| Mecanismo de claim, revocación y fusión         | **F10**                                   |
-| Notificación                                    | Abierto                                   |
-| Acceso residual                                 | Abierto                                   |
-| ~~Anulación, distinta de la corrección~~        | **Resuelta en F6.C** — ADR-024            |
-| Idempotencia de recurrencias e importaciones    | Abierto                                   |
-| Preflight de `btree_gist` en producción         | Antes del primer deploy                   |
+| Aplazado                                        | Dónde queda                                          |
+| ----------------------------------------------- | ---------------------------------------------------- |
+| **Google**, requisito de producto               | Prerrequisito en **F8.A**; implementación, posterior |
+| **Apple**, requisito de producto                | Prerrequisito en **F8.B**; implementación, posterior |
+| **Entorno realmente distinto del local**        | Criterio 2 de F8, **pendiente**. Sin fecha           |
+| **Tester externo real**                         | Criterio 3 de F8, **pendiente**. Sin fecha           |
+| **Icono alternativo negro de Premium**          | **F14** — decidido en ADR-030 §5, sin implementar    |
+| **Cuenta de Apple, firma y TestFlight**         | **F8.B**, puerta obligatoria antes de F14            |
+| **Google Play e Internal Testing**              | **F8.C**, cuando exista una beta Android real        |
+| **Subida real de la foto de perfil**            | Bloque posterior, con decisión propia                |
+| **Timeout de las operaciones de autenticación** | Deuda abierta, sin ADR                               |
+| Persistencia de la preferencia de idioma        | Con la UI de Ajustes                                 |
+| **Resolución autoritativa del FX**              | Decisión de producto — **F11**                       |
+| **Cambio de divisa base con historia**          | **F11**. Elegirla ya se puede (F6.A)                 |
+| **Provisioning** de Grupos y participantes      | **F9** y **F10**                                     |
+| **Modo Pareja** completo, con su `Cierre`       | Su fase                                              |
+| Mecanismo de claim, revocación y fusión         | **F10**                                              |
+| Notificación                                    | Abierto                                              |
+| Acceso residual                                 | Abierto                                              |
+| ~~Anulación, distinta de la corrección~~        | **Resuelta en F6.C** — ADR-024                       |
+| Idempotencia de recurrencias e importaciones    | Abierto                                              |
+| Preflight de `btree_gist` en producción         | Antes del primer deploy                              |
 
 > **La foto de perfil, y qué está hecho exactamente:** la **affordance** está
 > terminada y aprobada en dispositivo —hueco circular con iniciales o silueta,
@@ -690,10 +743,17 @@ la estética y su regla de accesibilidad es vinculante. F4 la convierte en
 tokens; **no la redefine**.
 
 **Pendiente de validar en dispositivo**, sin bloquear a nadie: el icono y el
-splash **nativos**, que Expo Go sustituye por los suyos y esperan a la primera
-build iOS propia; y la tabla diagnóstica de `Intl`, cuya **validación funcional
-sí se hizo** en iPhone —arranque, EUR, JPY, fecha e importe de 21 dígitos— pero
-**no fila a fila**.
+splash **nativos**, que Expo Go sustituye por los suyos; y la tabla diagnóstica
+de `Intl`, cuya **validación funcional sí se hizo** en iPhone —arranque, EUR,
+JPY, fecha e importe de 21 dígitos— pero **no fila a fila**.
+
+> **La comprobación nativa pendiente se parte, y no es iOS-only.** F4 la escribió
+> como «la primera build iOS propia» porque entonces el iPhone era el único
+> aparato físico disponible, no porque la comprobación fuera de iOS. Son cinco
+> cosas —icono en la pantalla de inicio, máscara final, splash exacto,
+> transición nativa previa al JS y ausencia de destello blanco— y **las cinco
+> tienen mitad Android y mitad iOS**: la primera la salda **F8.A**, con el icono
+> adaptativo y el monocromo temático de Android además; la segunda, **F8.B**.
 
 Fuera de alcance de F4: biblioteca de componentes completa, design system
 consolidado y el flujo detallado de entrada rápida, que se diseña en F7 contra
@@ -708,11 +768,13 @@ una feature escribible real.
 | Reglas del repositorio y del agente          | [`AGENTS.md`](../AGENTS.md)                                                        |
 | Semántica contable y escenarios              | [`architecture/data-model.md`](architecture/data-model.md)                         |
 | Dónde vive cada concepto del modelo          | [`architecture/model-coverage.md`](architecture/model-coverage.md)                 |
-| Una decisión y su porqué                     | [`adr/README.md`](adr/README.md) — ADR-001 … ADR-016                               |
+| Una decisión y su porqué                     | [`adr/README.md`](adr/README.md) — ADR-001 … ADR-031                               |
 | Secuencia de fases y criterios de cierre     | [`product/roadmap.md`](product/roadmap.md)                                         |
 | Vocabulario                                  | [`product/glossary.md`](product/glossary.md)                                       |
 | Estética, antes de cualquier UI              | [`product/design-direction.md`](product/design-direction.md)                       |
-| **Continuar la Fase 5**                      | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)               |
+| **Continuar la Fase 8**                      | [`product/roadmap.md`](product/roadmap.md), Fase 8 · ADR-030 · ADR-031             |
+| Cómo quedó la Fase 7, ya cerrada             | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)               |
+| Cómo quedó la Fase 5, ya cerrada             | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)               |
 | Cómo quedó la Fase 4, ya cerrada             | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                         |
 | Cómo se usan i18n y el formateo              | [`src/lib/README.md`](../src/lib/README.md)                                        |
 | Levantar el entorno, migrar, ejecutar checks | [`runbooks/local-setup.md`](runbooks/local-setup.md)                               |

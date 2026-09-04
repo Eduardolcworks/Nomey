@@ -55,6 +55,17 @@ el bundle de iOS se empaqueta—; lo pendiente es **mirarlos**, no comprobarlos.
 > revisan en la primera build iOS propia. No se monta EAS, certificados ni
 > ninguna infraestructura nueva para adelantarla.
 
+> **Nota añadida el 2026-09-04, al abrir la Fase 8.** El texto de arriba se
+> conserva como se escribió; esto sólo corrige su **alcance**, que quedó más
+> estrecho de lo que la comprobación es. Decía «build **iOS**» porque cuando se
+> escribió el iPhone era el único aparato físico disponible, no porque las cinco
+> comprobaciones fueran de iOS: **las cinco tienen mitad Android y mitad iOS**.
+> La mitad Android —incluyendo además el icono adaptativo y el monocromo
+> temático de Android 13— la salda **F8.A**, con la primera build propia de
+> Android; la mitad iOS la salda **F8.B**. La condición «no se monta
+> infraestructura nueva para adelantarla» **sigue vigente y se ha respetado**:
+> la Fase 8 llega por el roadmap, no para adelantar esta comprobación.
+
 ### Criterios de cierre por bloque
 
 Se suman a los cuatro del roadmap, que son los de la fase completa.
