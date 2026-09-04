@@ -51,8 +51,10 @@ publicado.
 
 ## Staging — resolver y verificar
 
-Hoy Staging se puede **resolver y verificar**; construirlo es F8.A2/F8.A3, que
-son las que traen la cadena nativa de Android.
+Hoy Staging se puede **resolver y verificar**. Construirlo es **F8.A5**: F8.A2
+trajo la cadena nativa y F8.A3 la primera build propia, pero **esa build es de
+Development**, con las actualizaciones apagadas, así que no puede validar ni
+consumir el canal.
 
 ```bash
 npm run config:staging
@@ -152,13 +154,13 @@ que pudiera recibirla.** Publicar antes dejaría una actualización en un canal 
 destinatario, y la primera vez que algo así se prueba conviene que haya un
 aparato delante.
 
-Cuando exista el APK de Staging (F8.A3/F8.A5), el comando será:
+Cuando exista el APK de Staging (**F8.A5**), el comando será:
 
 ```bash
 npx eas-cli@latest update --channel staging --environment preview --message "..."
 ```
 
-Y **antes de la primera vez hay que crear el canal**, que hoy no existe —
+**El canal se crea con la primera build de Staging, no antes.** Hoy no existe —
 comprobado: `eas channel:list` y `eas branch:list` están vacíos—. Sin EAS Build
 nadie lo crea por su cuenta:
 

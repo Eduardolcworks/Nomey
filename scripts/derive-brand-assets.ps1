@@ -49,9 +49,24 @@ $RAMP_HI = 150.0
 $CHROMA_LO = 60.0
 $CHROMA_HI = 140.0
 
-# Android masks an adaptive icon down to the inner 66 of 108 units. Keeping the
-# mark within 0.60 of the canvas leaves it whole under every mask shape.
-$SAFE_FRACTION = 0.60
+# How much of the canvas the mark occupies in BOTH Android adaptive layers -
+# the foreground and the Android 13+ monochrome silhouette.
+#
+# Android masks an adaptive icon down to the inner 66 of 108 units, so 0.60 is
+# the geometric LIMIT: the largest the mark can be without any mask shape
+# cutting it. F8.A3 measured that a limit is not a composition. Seen on a real
+# home screen next to other icons - a POCO X4 Pro - the symbol read slightly
+# oversized inside its yellow circle, so it sits a tenth inside that limit
+# instead of against it. Decided by looking at a launcher, not by arithmetic.
+#
+# ONE constant for both layers on purpose. They are the same icon in two modes,
+# and a launcher that switches between them would show the mark changing size.
+# Separating them was tried for exactly one build and corrected here.
+#
+# Nothing else moves with it: same mark, same centre, same ground colour, same
+# canvases. And 0.54 is still well inside the safe zone, so the reason 0.60
+# existed is respected with room to spare rather than weakened.
+$ADAPTIVE_FRACTION = 0.54
 
 # Nomey's brand yellow, the same value as `Colors.dark.accent` in
 # src/ui/theme/colors.ts. The icon ground is flat brand yellow, not a sample of
@@ -311,7 +326,7 @@ $appIcon = [Brand]::Place($markOnly, $markBox, 1024, $MARK_FRACTION, $GROUND_ARG
 #
 # 1024 rather than the 512 it was first written at, which is a change of
 # resolution and NOT of geometry: `Place` takes the same mark, the same
-# bounding box and the same $SAFE_FRACTION, so the symbol keeps its share of
+# bounding box and the same fraction, so the symbol keeps its share of
 # the canvas and its centre and is simply rasterised onto a finer grid.
 # `scripts/icon-geometry-check.mjs` is what holds that claim up.
 #
@@ -320,12 +335,17 @@ $appIcon = [Brand]::Place($markOnly, $markBox, 1024, $MARK_FRACTION, $GROUND_ARG
 # that, and 512 leaves almost no headroom. 1024 is what Expo's own
 # documentation asks for, and the file is consumed by the native build - it
 # never enters the JavaScript bundle - so its weight costs no startup time.
-$foreground = [Brand]::Place($markOnly, $markBox, 1024, $SAFE_FRACTION, 0)
+$foreground = [Brand]::Place($markOnly, $markBox, 1024, $ADAPTIVE_FRACTION, 0)
 $foreground.Save((Join-Path $icons 'android-icon-foreground.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 
-# --- Android monochrome: same silhouette, flattened to one colour -----------
+# --- Android monochrome: same silhouette, same fraction, one colour --------
+#
+# 432 px is the full adaptive canvas at xxxhdpi, and the fraction is the SAME
+# as the foreground: the themed icon is this icon in another mode, not another
+# icon, so a launcher that toggles between them must not show the mark change
+# size.
 $silhouette = [Brand]::Key($cropped, $RAMP_LO, $RAMP_HI, $false, 0)
-$mono = [Brand]::Place($silhouette, $markBox, 432, $SAFE_FRACTION, 0)
+$mono = [Brand]::Place($silhouette, $markBox, 432, $ADAPTIVE_FRACTION, 0)
 $mono.Save((Join-Path $icons 'android-icon-monochrome.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 
 # --- Splash: secondary variant, yellow mark on transparent ------------------

@@ -170,9 +170,12 @@ const EXPECTED = [
     height: 1024,
     format: 'RGBA',
     alpha: true,
-    widthFraction: 0.6,
+    // 0.54, no 0.60: la zona segura permite 0.60, pero visto en el lanzador de
+    // un aparato real el simbolo leia grande dentro de su circulo. Un decimo
+    // menos, decidido mirando, no calculando. F8.A3.
+    widthFraction: 0.54,
     centered: true,
-    why: 'primer plano del icono adaptativo, dentro de la zona segura 0,60',
+    why: 'primer plano del icono adaptativo, un 10% por dentro de la zona segura',
   },
   {
     file: 'assets/icons/android-icon-monochrome.png',
@@ -180,9 +183,12 @@ const EXPECTED = [
     height: 432,
     format: 'RGBA',
     alpha: true,
-    widthFraction: 0.6,
+    // La MISMA fraccion que el primer plano, y no por casualidad: el icono
+    // tematico es este icono en otro modo. Si difirieran, un lanzador que
+    // alterna entre los dos mostraria la marca cambiando de tamano.
+    widthFraction: 0.54,
     centered: true,
-    why: 'icono tematico de Android 13+, misma silueta y misma zona segura',
+    why: 'icono tematico de Android 13+, misma silueta y la misma fraccion',
   },
   {
     file: 'assets/splash/splash-icon.png',
