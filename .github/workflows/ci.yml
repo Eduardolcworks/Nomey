@@ -47,6 +47,14 @@ jobs:
       - name: Test
         run: npm test
 
+      # Los assets de marca son ficheros versionados que un editor de imagenes
+      # puede reescribir sin que el diff diga nada util: un PNG cambia entero.
+      # Lo que tiene que sobrevivir es geometrico -que la marca ocupe lo mismo
+      # y siga centrada- y eso se mide, no se mira. Node puro, sin dependencias
+      # ni cadena nativa, asi que cabe en este job.
+      - name: Brand asset geometry
+        run: node scripts/icon-geometry-check.mjs
+
   environments:
     name: Variantes y guarda del bundle
     runs-on: ubuntu-latest

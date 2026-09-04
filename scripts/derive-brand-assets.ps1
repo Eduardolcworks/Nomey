@@ -308,7 +308,19 @@ $appIcon = [Brand]::Place($markOnly, $markBox, 1024, $MARK_FRACTION, $GROUND_ARG
 [Brand]::SaveOpaque($appIcon, (Join-Path $icons 'icon.png'))
 
 # --- Android adaptive foreground: the mark alone, inside the safe zone ------
-$foreground = [Brand]::Place($markOnly, $markBox, 512, $SAFE_FRACTION, 0)
+#
+# 1024 rather than the 512 it was first written at, which is a change of
+# resolution and NOT of geometry: `Place` takes the same mark, the same
+# bounding box and the same $SAFE_FRACTION, so the symbol keeps its share of
+# the canvas and its centre and is simply rasterised onto a finer grid.
+# `scripts/icon-geometry-check.mjs` is what holds that claim up.
+#
+# The reason to spend the pixels: the adaptive canvas is 432 px at xxxhdpi, but
+# launchers, the app switcher and Play itself all scale a foreground up beyond
+# that, and 512 leaves almost no headroom. 1024 is what Expo's own
+# documentation asks for, and the file is consumed by the native build - it
+# never enters the JavaScript bundle - so its weight costs no startup time.
+$foreground = [Brand]::Place($markOnly, $markBox, 1024, $SAFE_FRACTION, 0)
 $foreground.Save((Join-Path $icons 'android-icon-foreground.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 
 # --- Android monochrome: same silhouette, flattened to one colour -----------

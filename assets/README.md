@@ -36,12 +36,12 @@ se redibuja ni se aproxima**. Si cambia un original, se vuelve a ejecutar:
 powershell -ExecutionPolicy Bypass -File scripts/derive-brand-assets.ps1
 ```
 
-| Derivado                            | De         | Qué es                                            |
-| ----------------------------------- | ---------- | ------------------------------------------------- |
-| `icons/icon.png`                    | Principal  | 1024×1024, **sin alfa**, fondo amarillo a sangre  |
-| `icons/android-icon-foreground.png` | Principal  | Símbolo solo, dentro de la zona segura de Android |
-| `icons/android-icon-monochrome.png` | Principal  | Silueta para el icono temático de Android 13+     |
-| `splash/splash-icon.png`            | Secundaria | Símbolo amarillo sobre transparente               |
+| Derivado                            | De         | Qué es                                           |
+| ----------------------------------- | ---------- | ------------------------------------------------ |
+| `icons/icon.png`                    | Principal  | 1024×1024, **sin alfa**, fondo amarillo a sangre |
+| `icons/android-icon-foreground.png` | Principal  | 1024×1024, símbolo solo dentro de la zona segura |
+| `icons/android-icon-monochrome.png` | Principal  | Silueta para el icono temático de Android 13+    |
+| `splash/splash-icon.png`            | Secundaria | Símbolo amarillo sobre transparente              |
 
 **El icono de app se compone, no se recorta del render.** El original tiene las
 esquinas redondeadas a un tercio de su anchura, bastante más que la máscara de
@@ -57,6 +57,14 @@ en el original. El brillo se queda en el original, que es para lo que está.
 tema, y el del icono adaptativo al **amarillo** de marca.
 `tests/infra/brand-chrome.test.ts` falla si cualquiera de los dos deja de
 coincidir con su token, o si aparece un hex suelto.
+
+**La geometría de los cuatro derivados se mide, no se mira.**
+`scripts/icon-geometry-check.mjs` comprueba dimensiones, formato, canal alfa y
+—lo que de verdad importa— **qué fracción del lienzo ocupa la marca y si sigue
+centrada**. Un PNG cambia entero en un diff, así que un hash no distingue
+«mismo símbolo a otra resolución» de «símbolo movido»; la fracción sí. Corre en
+CI, y es lo que permitió llevar el primer plano de Android de 512 a 1024
+demostrando que la geometría no se tocó.
 
 **No hay capa `background` de Android.** Con un `backgroundColor` plano sobra, y
 el archivo que había era del template.
