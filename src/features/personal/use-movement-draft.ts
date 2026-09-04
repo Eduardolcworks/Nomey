@@ -57,6 +57,9 @@ export type MovementDraft = {
  * @param initial de dónde arranca. Ausente, un movimiento nuevo: gasto, importe
  * vacío, hoy y la hora de ahora. Presente, la versión vigente que se corrige —
  * y **su importe SÍ es el borrador**, porque corregir parte de lo que había.
+ * @param hasCategories si hay catálogo del que elegir. `false` sólo cuando se
+ * SABE que no lo hay —sin red y sin copia local (ADR-028 §16)—; entonces el
+ * gasto se bloquea con `noCategories` y su explicación. Un ingreso no lo mira.
  */
 export function useMovementDraft(
   scale: number,
@@ -69,6 +72,7 @@ export function useMovementDraft(
     readonly date: CalendarDate;
     readonly time: string;
   },
+  hasCategories = true,
 ): MovementDraft {
   /*
    * Los inicializadores son perezosos, así que esto se evalúa una vez: el
@@ -125,6 +129,6 @@ export function useMovementDraft(
     picking,
     setPicking,
     draft,
-    blocker: blockerFor(draft, scale, hasScope),
+    blocker: blockerFor(draft, scale, hasScope, hasCategories),
   };
 }

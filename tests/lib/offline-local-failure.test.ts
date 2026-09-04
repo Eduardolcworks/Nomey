@@ -95,7 +95,7 @@ const macrotask = () =>
     setImmediate(resolve);
   });
 
-type Method = 'pending' | 'markProgress' | 'enqueue';
+type Method = 'pending' | 'markProgress' | 'markDispatched' | 'enqueue';
 type Call = { readonly n: number; readonly progress?: Partial<QueueProgress> };
 
 /**
@@ -107,7 +107,12 @@ type Call = { readonly n: number; readonly progress?: Partial<QueueProgress> };
  */
 function faultyStore(real: QueueStore) {
   const rules: { method: Method; when: (call: Call) => boolean }[] = [];
-  const calls: Record<Method, number> = { pending: 0, markProgress: 0, enqueue: 0 };
+  const calls: Record<Method, number> = {
+    pending: 0,
+    markProgress: 0,
+    markDispatched: 0,
+    enqueue: 0,
+  };
 
   function guard(method: Method, call: Call) {
     calls[method] += 1;
@@ -126,6 +131,16 @@ function faultyStore(real: QueueStore) {
     async markProgress(actorId, id, progress) {
       guard('markProgress', { n: 0, progress });
       return real.markProgress(actorId, id, progress);
+    },
+    /*
+     * Desde F7.D la transición a `sending` es `markDispatched`: una sentencia
+     * que escribe el estado Y la marca durable de envío antes del transporte.
+     * Romperla es exactamente lo que estas pruebas rompían antes con
+     * `markProgress({ state: 'sending' })`.
+     */
+    async markDispatched(actorId, id, dispatchSeq) {
+      guard('markDispatched', { n: 0 });
+      return real.markDispatched(actorId, id, dispatchSeq);
     },
     async enqueue(entry) {
       guard('enqueue', { n: 0 });
@@ -338,7 +353,7 @@ describe('2 · la transición a `sending` falla', () => {
     const t = await setup();
     const entry = expense(ACTOR_A);
     await t.real.enqueue(entry);
-    t.faults.fail('markProgress', ({ progress }) => progress?.state === 'sending');
+    t.faults.fail('markDispatched');
 
     t.coordinator.wake();
     await settle();
@@ -619,7 +634,7 @@ describe('el reintento de la infraestructura', () => {
   it('lo que se observa NO lleva payload, importe, concepto ni mensaje', async () => {
     const t = await setup();
     await t.real.enqueue(expense(ACTOR_A));
-    t.faults.fail('markProgress', ({ progress }) => progress?.state === 'sending');
+    t.faults.fail('markDispatched');
 
     t.coordinator.wake();
     await settle();

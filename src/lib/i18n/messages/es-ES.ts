@@ -223,6 +223,18 @@ export const esES = {
   'home.categoriesMore': 'Ver todas las categorías',
   'home.categoriesLess': 'Ver menos categorías',
   'home.categoryUnknown': 'Sin categoría conocida',
+  // Sin estadísticas confirmadas no se fabrica un reparto (ADR-028 §8): se dice
+  // que no está, no que no hay gastos.
+  'home.categoriesUnavailable': 'Reparto no disponible',
+  'home.categoriesUnavailableHint': 'Se cargará cuando vuelva la conexión.',
+
+  // Los dos bloqueos temporales de ADR-028 §10: se explican con su motivo y su
+  // condición de salida, en vez de apagar el control y callar.
+  'home.adjustBlockedTitle': 'Espera a que termine de guardarse',
+  'home.adjustBlockedBody':
+    'Hay movimientos que todavía se están guardando. Podrás editar el disponible cuando terminen.',
+  'home.rowBlockedTitle': 'Todavía se está guardando',
+  'home.rowBlockedBody': 'Podrás editar o eliminar este movimiento cuando termine de guardarse.',
 
   'home.movement': 'Movimiento',
   'home.adjustedTo': 'Saldo ajustado a {amount}',
@@ -286,6 +298,9 @@ export const esES = {
   'entry.scopePending': 'Preparando tu Modo Personal',
   'entry.transferSoon': 'Las transferencias llegan más adelante',
   'entry.saveFailed': 'No se pudo guardar. Inténtalo otra vez',
+  // La base local no respondió: la hoja se queda y se puede reintentar aquí
+  // mismo. No se envía nada directamente para salvarlo (ADR-028 §1).
+  'entry.queueFailed': 'No se pudo guardar en este dispositivo. Inténtalo otra vez',
 
   'sample.income': 'Ingreso',
   'sample.expense': 'Gasto',

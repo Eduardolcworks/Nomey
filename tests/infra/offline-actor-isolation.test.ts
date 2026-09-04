@@ -25,7 +25,7 @@ const ADAPTERS = [
 ] as const;
 
 /** Las dos tablas cuyas filas pertenecen a una cuenta concreta. */
-const OWNED_TABLES = ['queue_entry', 'catalogue_cache'] as const;
+const OWNED_TABLES = ['queue_entry', 'catalogue_cache', 'reconcile_cursor'] as const;
 
 /**
  * El fuente versionado, leído como texto.
@@ -127,7 +127,9 @@ describe('toda sentencia sobre una tabla con dueño lleva su predicado de actor'
         // Es la única escritura sin `where`, y por eso se comprueba aparte: lo
         // que la acota es el objetivo del conflicto, que incluye `actor_id`.
         for (const sql of found.filter((s) => s.includes('on conflict'))) {
-          expect(sql).toMatch(/on conflict \(actor_id, key\)/);
+          // El catálogo por `(actor_id, key)`; el cursor de reconciliación, por
+          // `(actor_id)`. En los dos el actor forma parte del objetivo.
+          expect(sql).toMatch(/on conflict \(actor_id(, key)?\)/);
         }
       });
     });

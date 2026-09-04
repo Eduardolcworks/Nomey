@@ -14,6 +14,7 @@
 import type { Clock, Random } from './backoff';
 import type { FrozenPayload, QueueCommandType } from './command';
 import type { PassResult } from './local-failure';
+import type { QueueEntryState } from './queue-entry';
 import type { QueueStore } from './queue-store';
 import type { SessionStatus, TransportOutcome } from './response';
 
@@ -98,4 +99,22 @@ export type WorkerPorts = {
    * propia base, y sólo el coordinador tiene con qué calcularlo.
    */
   readonly onSettled?: (pass: PassResult) => void;
+
+  /**
+   * Una entrada cambió de estado por una respuesta del servidor.
+   *
+   * Es lo que permite a la proyección de Inicio releer la cola y, al
+   * confirmarse algo, pedir un refresco autoritativo (ADR-028 §9). Lleva de
+   * quién, cuál y a qué estado — nunca el payload. Es un observador: si lanza,
+   * se ignora, porque un oyente roto no puede convertir una anotación correcta
+   * en un fallo de la base.
+   */
+  readonly onProgress?: (change: ProgressChange) => void;
+};
+
+export type ProgressChange = {
+  readonly actorId: string;
+  readonly clientOperationId: string;
+  readonly state: QueueEntryState;
+  readonly resultOperationId: string | null;
 };

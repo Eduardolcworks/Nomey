@@ -11,8 +11,12 @@ import { toMinor } from './statistics';
 
 export type FlowCardProps = {
   readonly kind: Extract<MovementKind, 'income' | 'expense'>;
-  /** Exacto, en unidad mínima, tal como llega del servidor. */
-  readonly total: string;
+  /**
+   * Exacto, en unidad mínima, tal como sale de la proyección. `null` cuando no
+   * hay estadísticas confirmadas: entonces no se fabrica una cifra, se enseña el
+   * mismo marcador que el Disponible (ADR-028 §8).
+   */
+  readonly total: string | null;
   readonly currencyCode: string;
   readonly currencyScale: number;
   readonly expanded: boolean;
@@ -102,10 +106,12 @@ export function FlowCard({
 
         <ThemedText
           variant="amountRow"
-          themeColor={income ? 'positive' : 'negative'}
+          themeColor={total === null ? 'textTertiary' : income ? 'positive' : 'negative'}
           numberOfLines={1}
           adjustsFontSizeToFit>
-          {format.money(money(shown, definition), { sign: 'always' })}
+          {total === null
+            ? t('home.amountPending')
+            : format.money(money(shown, definition), { sign: 'always' })}
         </ThemedText>
 
         <View style={styles.chevron}>

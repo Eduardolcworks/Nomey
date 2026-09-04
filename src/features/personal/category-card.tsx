@@ -40,6 +40,12 @@ import { type CategorySlice, sliceAngles, splitTop } from './statistics';
 export type CategoryCardProps = {
   readonly slices: readonly CategorySlice[];
   readonly categories: ReadonlyMap<string, CategoryRow>;
+  /**
+   * Sin estadísticas confirmadas no hay reparto que enseñar, y no se fabrica
+   * uno (ADR-028 §8). Se distingue de «sin gastos», que es una afirmación sobre
+   * el intervalo: aquí lo que no hay es el dato.
+   */
+  readonly unavailable?: boolean;
 };
 
 /**
@@ -105,12 +111,29 @@ const SEAM = Platform.OS === 'android' ? 1 / PixelRatio.get() : 0;
 const DIAMETER = 124;
 const HOLE = 76;
 
-export function CategoryCard({ slices, categories }: CategoryCardProps) {
+export function CategoryCard({ slices, categories, unavailable = false }: CategoryCardProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
 
   const { top, rest } = splitTop(slices);
+
+  if (unavailable) {
+    return (
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: homeCardSurface(theme.surface), borderColor: theme.border },
+          HomeCardRelief,
+        ]}>
+        <EmptyState
+          symbol={Symbols.breakdown}
+          title={t('home.categoriesUnavailable')}
+          description={t('home.categoriesUnavailableHint')}
+        />
+      </View>
+    );
+  }
 
   /**
    * Sin gasto no hay reparto, y no se inventa uno.

@@ -11,16 +11,18 @@ import {
   INITIAL_INTERVAL,
   IntervalSelector,
   type IntervalKind,
+  isReconciled,
   isResolving,
+  movementKind,
   MovementRow,
-  operationsOfKind,
-  type PersonalOperation,
+  type ProjectedOperation,
   readyScope,
   resolveInterval,
   todayInDeviceCalendar,
   useAnnulMovement,
   usePersonalHome,
   usePersonalScope,
+  useProjectedHome,
 } from '@/features/personal';
 import { useSession } from '@/features/session';
 import { AppTopBar, DOCK_HEIGHT, HomeGreeting, useAddBackdrop, useScope } from '@/features/shell';
@@ -77,7 +79,19 @@ export default function HomeScreen() {
    */
   const personal = activeScope === 'personal';
 
-  const scope = usePersonalScope();
+  /*
+   * La identidad va a los hooks porque la copia local del catálogo y el ámbito
+   * de respaldo se guardan POR CUENTA (ADR-028 §13, §16). La ruta es quien la
+   * tiene: `features/` no puede importar `features/`, así que Inicio es el
+   * único sitio que ve la sesión y el Modo Personal a la vez — el mismo motivo
+   * por el que `ScopeProvider` recibe la identidad desde `app/_layout.tsx`.
+   *
+   * Sin sesión va cadena vacía, y nada se escribe ni se lee de la casilla de
+   * nadie: un actor vacío guardaría en una que luego podría leer cualquiera.
+   */
+  const actorId = state.status === 'signed-in' ? state.identity.userId : '';
+
+  const scope = usePersonalScope(actorId);
   const [interval, setIntervalKind] = useState<IntervalKind>(INITIAL_INTERVAL);
   const [openFlow, setOpenFlow] = useState<'income' | 'expense' | null>(null);
   const [openMovement, setOpenMovement] = useState<string | null>(null);
@@ -102,18 +116,18 @@ export default function HomeScreen() {
    * el Modo Personal de la cuenta y no depende de qué pestaña se esté mirando.
    * Es idempotente por estado y corre una sola vez.
    */
-  /*
-   * La identidad va al hook porque la copia local del catálogo se guarda POR
-   * CUENTA (ADR-028 §13, §16). La ruta es quien la tiene: `features/` no puede
-   * importar `features/`, así que Inicio es el único sitio que ve la sesión y
-   * el Modo Personal a la vez — el mismo motivo por el que `ScopeProvider`
-   * recibe la identidad desde `app/_layout.tsx`.
-   *
-   * Sin sesión va cadena vacía, y `rememberCategories` se niega a escribir: un
-   * actor vacío guardaría en una casilla que luego podría leer cualquiera.
-   */
-  const actorId = state.status === 'signed-in' ? state.identity.userId : '';
   const home = usePersonalHome(ready !== null && personal, range, actorId);
+
+  /*
+   * LO QUE SE PINTA ES LA PROYECCIÓN, no el snapshot (ADR-028 §8): el saldo,
+   * los totales, el reparto y la lista salen de UNA función pura que suma al
+   * snapshot del servidor las intenciones locales todavía no reconciliadas, con
+   * las mismas funciones de dominio que reproduce la frontera. Un movimiento
+   * recién guardado aparece aquí igual que uno confirmado, y la confirmación no
+   * cambia ni un píxel. Las escrituras siguen leyendo `home`: ninguna cifra
+   * proyectada alimenta un comando (§10).
+   */
+  const projected = useProjectedHome(home, ready, range, actorId);
 
   useRefreshOnReturn(home.refresh);
 
@@ -145,7 +159,25 @@ export default function HomeScreen() {
    */
   const annulling = useAnnulMovement();
 
-  const deleteMovement = (operation: PersonalOperation) => {
+  /*
+   * LOS DOS BLOQUEOS TEMPORALES DE ADR-028 §10, explicados y no mudos.
+   *
+   * Una fila que todavía no tiene versión vigente no puede corregirse ni
+   * anularse —no hay CAS que enviar—, y mientras haya intenciones sin
+   * reconciliar «Fijar el Disponible» declararía un saldo ambiguo. El control
+   * sigue ahí y responde; lo que dice es que hay una espera y cuándo acaba.
+   */
+  const rowBlocked = () => {
+    Alert.alert(t('home.rowBlockedTitle'), t('home.rowBlockedBody'), [
+      { text: t('action.understood') },
+    ]);
+  };
+
+  const deleteMovement = (operation: ProjectedOperation) => {
+    if (!isReconciled(operation)) {
+      rowBlocked();
+      return;
+    }
     Alert.alert(t('home.deleteMovement'), t('home.deleteMovementBody'), [
       { text: t('action.cancel'), style: 'cancel' },
       {
@@ -196,7 +228,11 @@ export default function HomeScreen() {
    * declarada, y el signo lo pone la clase. Todo viaja como TEXTO, así que
    * ningún `number` toca el dinero.
    */
-  const editMovement = (operation: PersonalOperation) => {
+  const editMovement = (operation: ProjectedOperation) => {
+    if (!isReconciled(operation)) {
+      rowBlocked();
+      return;
+    }
     backdrop.show();
     router.push({
       pathname: '/edit-movement',
@@ -231,9 +267,17 @@ export default function HomeScreen() {
    *
    */
   const editBalance = () => {
+    if (projected.unreconciled > 0) {
+      Alert.alert(t('home.adjustBlockedTitle'), t('home.adjustBlockedBody'), [
+        { text: t('action.understood') },
+      ]);
+      return;
+    }
     backdrop.show();
     router.push({
       pathname: '/edit-balance',
+      // El Disponible CONFIRMADO, nunca el proyectado (ADR-028 §10). Con el
+      // bloqueo de arriba los dos coinciden, y aun así se manda el del servidor.
       params: { current: home.balance?.amount ?? '' },
     });
   };
@@ -255,12 +299,14 @@ export default function HomeScreen() {
   };
 
   const slices =
-    home.statistics === null
+    projected.statistics === null
       ? []
-      : categorySlices(home.statistics.categories, home.statistics.expense_total);
+      : categorySlices(projected.statistics.categories, projected.statistics.expense_total);
 
-  const income = operationsOfKind(home.operations, 'income');
-  const expenses = operationsOfKind(home.operations, 'expense');
+  const income = projected.operations.filter((op) => movementKind(op.operation_class) === 'income');
+  const expenses = projected.operations.filter(
+    (op) => movementKind(op.operation_class) === 'expense',
+  );
 
   /**
    * Una de las dos tarjetas de flujo, cerrada o abierta.
@@ -272,8 +318,14 @@ export default function HomeScreen() {
    */
   const flowCard = (kind: 'income' | 'expense') => {
     const rows = kind === 'income' ? income : expenses;
+    // `null` cuando no hay estadísticas confirmadas: la tarjeta enseña el
+    // marcador, no un cero ni una suma local (ADR-028 §8).
     const total =
-      (kind === 'income' ? home.statistics?.income_total : home.statistics?.expense_total) ?? '0';
+      projected.statistics === null
+        ? null
+        : kind === 'income'
+          ? projected.statistics.income_total
+          : projected.statistics.expense_total;
 
     return (
       <FlowCard
@@ -288,8 +340,6 @@ export default function HomeScreen() {
         <MovementGroup
           operations={rows}
           home={home}
-          currencyCode={ready?.currencyCode ?? ''}
-          currencyScale={ready?.currencyScale ?? 2}
           openMovement={openMovement}
           onToggleMovement={toggleMovement}
           onEdit={editMovement}
@@ -385,7 +435,7 @@ export default function HomeScreen() {
 
             <View style={styles.body}>
               <BalanceCard
-                amount={home.balance?.amount ?? null}
+                amount={projected.balance}
                 currencyCode={ready.currencyCode}
                 currencyScale={ready.currencyScale}
                 onAdjust={editBalance}
@@ -393,16 +443,30 @@ export default function HomeScreen() {
 
               <IntervalSelector value={interval} onChange={setIntervalKind} onCalendar={premium} />
 
-              {home.status === 'error' ? (
+              {/*
+               * EL ERROR DE RED NO TAPA LO LOCAL (ADR-028 §8). Sin base
+               * confirmada y sin intenciones locales, el error y la carga se
+               * pintan como siempre. Con intenciones locales, se pintan ellas:
+               * los agregados dicen que no están disponibles, y el aviso de red
+               * baja a una fila con su reintento en vez de ocupar la pantalla.
+               */}
+              {home.status === 'error' && projected.operations.length === 0 ? (
                 <ErrorState
                   title={t('home.dataErrorTitle')}
                   description={t('home.dataErrorBody')}
                   retry={{ label: t('action.retry'), onPress: home.refresh }}
                 />
-              ) : home.status === 'loading' ? (
+              ) : home.status === 'loading' && projected.operations.length === 0 ? (
                 <LoadingState label={t('home.loading')} />
               ) : (
                 <>
+                  {home.status === 'error' ? (
+                    <ErrorState
+                      title={t('home.dataErrorTitle')}
+                      description={t('home.dataErrorBody')}
+                      retry={{ label: t('action.retry'), onPress: home.refresh }}
+                    />
+                  ) : null}
                   {/*
                    * DOS FORMAS, UNA MISMA TARJETA.
                    *
@@ -429,10 +493,14 @@ export default function HomeScreen() {
                     flowCard(openFlow)
                   )}
 
-                  <CategoryCard slices={slices} categories={home.categories} />
+                  <CategoryCard
+                    slices={slices}
+                    categories={home.categories}
+                    unavailable={projected.statistics === null}
+                  />
 
                   <Section title={t('home.activity')}>
-                    {home.operations.length === 0 ? (
+                    {projected.operations.length === 0 ? (
                       <EmptyState
                         symbol={Symbols.empty}
                         title={t('home.activityEmpty')}
@@ -440,16 +508,29 @@ export default function HomeScreen() {
                       />
                     ) : (
                       <View>
-                        {home.operations.map((operation) => (
+                        {projected.operations.map((operation) => (
                           <MovementRow
-                            key={operation.operation_id}
+                            /*
+                             * La clave de render es la de la proyección: una
+                             * fila local se pinta con su clave de cliente y la
+                             * del servidor que la sustituye la hereda, así que
+                             * la confirmación no remonta nada (ADR-028 §9).
+                             */
+                            key={operation.render_key}
                             operation={operation}
                             previous={versionOf(operation, home)}
                             categories={home.categories}
-                            currencyCode={ready.currencyCode}
-                            currencyScale={ready.currencyScale}
-                            expanded={openMovement === operation.operation_id}
-                            onToggle={() => toggleMovement(operation.operation_id)}
+                            /*
+                             * THE ROW'S CURRENCY, not the scope's. They coincide
+                             * except when the base moved underneath an already
+                             * captured entry (ADR-003 §7, ADR-028 §14): that row
+                             * keeps its amount and its currency, and painting it
+                             * with the new scale would reinterpret the amount.
+                             */
+                            currencyCode={operation.currency_code}
+                            currencyScale={operation.currency_scale}
+                            expanded={openMovement === operation.render_key}
+                            onToggle={() => toggleMovement(operation.render_key)}
                             onEdit={() => {
                               editMovement(operation);
                             }}
@@ -460,9 +541,9 @@ export default function HomeScreen() {
                           />
                         ))}
 
-                        {home.operations.length < home.total ? (
+                        {projected.operations.length < projected.total ? (
                           <MoreRow
-                            remaining={home.total - home.operations.length}
+                            remaining={projected.total - projected.operations.length}
                             loading={home.loadingMore}
                             onPress={home.loadMore}
                           />
@@ -481,7 +562,7 @@ export default function HomeScreen() {
 }
 
 /** La versión anterior de una operación, ya resuelta por identificador. */
-function versionOf(operation: PersonalOperation, home: ReturnType<typeof usePersonalHome>) {
+function versionOf(operation: ProjectedOperation, home: ReturnType<typeof usePersonalHome>) {
   return operation.previous_version_id === null
     ? undefined
     : home.versions.get(operation.previous_version_id);
@@ -490,8 +571,6 @@ function versionOf(operation: PersonalOperation, home: ReturnType<typeof usePers
 function MovementGroup({
   operations,
   home,
-  currencyCode,
-  currencyScale,
   openMovement,
   onToggleMovement,
   onEdit,
@@ -499,16 +578,14 @@ function MovementGroup({
   deleting,
   emptyLabel,
 }: {
-  operations: readonly PersonalOperation[];
+  operations: readonly ProjectedOperation[];
   home: ReturnType<typeof usePersonalHome>;
-  currencyCode: string;
-  currencyScale: number;
   openMovement: string | null;
   onToggleMovement: (id: string) => void;
   /** Corrige esa operación: el writer necesita su id y su versión vigente. */
-  onEdit: (operation: PersonalOperation) => void;
+  onEdit: (operation: ProjectedOperation) => void;
   /** La operación entera: el writer necesita su id y su versión vigente. */
-  onDelete: (operation: PersonalOperation) => void;
+  onDelete: (operation: ProjectedOperation) => void;
   /** Cuál se está anulando ahora mismo, si alguna. */
   deleting: string | null;
   emptyLabel: string;
@@ -525,14 +602,14 @@ function MovementGroup({
     <View>
       {operations.map((operation) => (
         <MovementRow
-          key={operation.operation_id}
+          key={operation.render_key}
           operation={operation}
           previous={versionOf(operation, home)}
           categories={home.categories}
-          currencyCode={currencyCode}
-          currencyScale={currencyScale}
-          expanded={openMovement === operation.operation_id}
-          onToggle={() => onToggleMovement(operation.operation_id)}
+          currencyCode={operation.currency_code}
+          currencyScale={operation.currency_scale}
+          expanded={openMovement === operation.render_key}
+          onToggle={() => onToggleMovement(operation.render_key)}
           onEdit={() => {
             onEdit(operation);
           }}

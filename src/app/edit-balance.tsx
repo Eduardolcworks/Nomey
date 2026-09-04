@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 
 import { BalanceEditor, type MovementFormScope, usePersonalScope } from '@/features/personal';
+import { useSession } from '@/features/session';
 import { EditWindow } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
 
@@ -19,7 +20,8 @@ import { useTranslation } from '@/lib/i18n';
  */
 export default function EditBalanceScreen() {
   const { t } = useTranslation();
-  const { state } = usePersonalScope();
+  const { state: session } = useSession();
+  const { state } = usePersonalScope(session.status === 'signed-in' ? session.identity.userId : '');
 
   const params = useLocalSearchParams<{ current?: string }>();
 

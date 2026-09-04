@@ -189,14 +189,37 @@ export function createSyncWorker(ports: WorkerPorts): SyncWorker {
   ): Promise<Classification> {
     const classification = classifyResponse(outcome, ports.session.status());
 
+    const announce = (resultOperationId: string | null) => {
+      try {
+        ports.onProgress?.({
+          actorId,
+          clientOperationId: entry.clientOperationId,
+          state: classification.state,
+          resultOperationId,
+        });
+      } catch {
+        // Un observador que lanza no cambia lo que acaba de quedar escrito.
+      }
+    };
+
     if (classification.state === 'confirmed' && outcome.kind === 'ok') {
+      /*
+       * EL `confirm_seq` SE TOMA DEL CURSOR DURABLE y se escribe junto al
+       * `result_operation_id`, en la misma sentencia (ADR-028 §9). Si el
+       * proceso muere entre avanzar el cursor y anotar, la fila queda
+       * `sending`, se reenvía con su clave, recibe `already_processed` y toma
+       * un número nuevo: el cursor sólo crece, que es lo único que importa.
+       */
+      const confirmSeq = await ports.store.nextConfirmSeq(actorId);
       await ports.store.markProgress(actorId, entry.clientOperationId, {
         state: 'confirmed',
         resultOperationId: outcome.operationId,
+        confirmSeq,
         lastErrorClass: null,
         lastErrorCode: null,
         nextAttemptAt: null,
       });
+      announce(outcome.operationId);
       return classification;
     }
 
@@ -221,6 +244,7 @@ export function createSyncWorker(ports: WorkerPorts): SyncWorker {
         lastErrorClass: classification.responseClass,
         lastErrorCode: classification.code,
       });
+      announce(null);
       return classification;
     }
 
@@ -238,6 +262,7 @@ export function createSyncWorker(ports: WorkerPorts): SyncWorker {
       lastErrorCode: classification.code,
       nextAttemptAt: null,
     });
+    announce(null);
     return classification;
   }
 
@@ -300,11 +325,36 @@ export function createSyncWorker(ports: WorkerPorts): SyncWorker {
      */
     if (stopped) return { kind: 'idle', reason: 'stopped' };
 
-    // Si esto falla, la fila sigue `queued` y NADA ha salido: se reintentará.
+    /*
+     * THE SEND IS DECLARED BEFORE IT HAPPENS, and it is declared durably.
+     *
+     * Two writes, and every order in which they can be interrupted is safe:
+     *
+     *   counter taken, then death   nothing left, nothing sent. The counter
+     *                               skipped a number, and it only has to grow.
+     *   mark written, then death    nothing sent, yet the row says the entry
+     *                               MAY exist on the server. Conservative: a
+     *                               refresh will refuse to trust a new base
+     *                               until the retry settles it, which it does
+     *                               with the same key.
+     *   mark written, sent, death   the case this exists for. The mark is on
+     *                               disk, so nobody accepts a server read that
+     *                               may already contain this movement while it
+     *                               is still being projected.
+     *
+     * If either write fails the row stays `queued` and NOTHING has left, so the
+     * pass is retried. The mark itself is one statement (`markDispatched`), so
+     * the state and the mark can never come apart.
+     */
+    const dispatchSeq = await local(
+      'markSending',
+      { clientOperationId: next.clientOperationId, afterSend: false },
+      () => ports.store.nextDispatchSeq(actorId),
+    );
     await local(
       'markSending',
       { clientOperationId: next.clientOperationId, afterSend: false },
-      () => ports.store.markProgress(actorId, next.clientOperationId, { state: 'sending' }),
+      () => ports.store.markDispatched(actorId, next.clientOperationId, dispatchSeq),
     );
     const outcome = await sendWithTimeout(ports, next, timeoutMs);
     /*

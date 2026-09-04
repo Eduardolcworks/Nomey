@@ -149,6 +149,15 @@ Lo que conviene no volver a deducir:
   contesta `already_processed` si aquello llegó. `localStatus()` expone el
   estado para F7.E; `local-failure.ts` fija qué se guarda del error —nombre y
   código, jamás el mensaje—. `tests/lib/offline-local-failure.test.ts`.
+- **La secuencia de reconciliación es durable, y es el paso 2 del esquema.**
+  ADR-028 §9 compara `confirm_seq` con `snapshot.seq`, así que el contador no
+  puede vivir en memoria —tras reabrir volvería a cero y una confirmación nueva
+  parecería anterior a un snapshot viejo— ni derivarse de las entradas, que se
+  podan. Vive en `reconcile_cursor`, por actor, y sólo crece:
+  `nextConfirmSeq` lo avanza al confirmar y `confirmSequence` lo lee al arrancar
+  un refresco. F7.D lo consume desde `features/personal/projection.ts`, que
+  aplica la regla por superficie —saldo y bloque del intervalo llegan por
+  consultas distintas— y poda sólo cuando las tres la han retirado.
 - **La apertura que corre en el aparato es `openDatabaseAsync`, y es la que se
   validó.** F7.B midió en Android sobre emulador, con el adaptador real de
   `sqlite-database.ts`, que el esquema se crea, que la base sobrevive a la
