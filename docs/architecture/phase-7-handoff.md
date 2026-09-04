@@ -131,7 +131,9 @@ el mecanismo de `scripts/http-boundary-check.sh`:
 ## 5 · Obligaciones que la Fase 7 deja
 
 - **iOS sin validar físicamente.** Antes de cualquier distribución, la misma
-  secuencia en un dispositivo iOS.
+  secuencia en un dispositivo iOS. **Desde el 2026-09-04 esa obligación tiene
+  destino: F8.B**, junto con la cuenta de Apple y la firma, y es puerta
+  obligatoria antes de F14.
 - **La idempotencia de recurrencias, importaciones y operaciones de backend
   sigue abierta.** ADR-010 y ADR-028 cerraron **el origen cliente** y nada más.
 - **Un drenaje largo retrasa la base.** Cada envío mueve el contador, así que
