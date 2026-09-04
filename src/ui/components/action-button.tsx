@@ -19,8 +19,14 @@ export type ActionButtonProps = {
   /**
    * `primary` is a filled control for the one action a surface is asking for;
    * `secondary` is outlined, for anything alongside it.
+   *
+   * `brand` is the yellow call to action, and it exists for one situation: a
+   * card that asks a question about money and needs the answer that CONTINUES
+   * to be obvious. It rides on `accent` / `accentPressed` / `onAccent`, the
+   * same three tokens the sheet's save button uses, so there is one yellow in
+   * the app and not two.
    */
-  tone?: 'primary' | 'secondary';
+  tone?: 'primary' | 'secondary' | 'brand';
   disabled?: boolean;
   /**
    * The action is running. Reaches assistive tech as ,
@@ -50,10 +56,13 @@ export type ActionButtonProps = {
  * minimum. What it removes is that repetition; what it fixes is that the three
  * had already started to drift apart in radius and padding.
  *
- * The brand accent is deliberately absent. On this shell the filled yellow
- * belongs to the floating action and to nothing else, so a primary button here
- * is a lifted neutral surface with a strong edge, which is enough to read as
- * primary next to an outlined one.
+ * **The brand accent used to be absent here, and now has one door.** The rule
+ * it protected is still the rule — the filled yellow is the action a surface is
+ * asking for, and nothing else earns it — so `primary` remains a lifted neutral
+ * surface. What changed is that a surface appeared where the neutral pair was
+ * not enough: an incident asks a question about money, and which answer
+ * CONTINUES has to be obvious at a glance. That is `brand`, and it takes the
+ * same three tokens as the save button rather than a colour of its own.
  */
 export function ActionButton({
   label,
@@ -65,8 +74,9 @@ export function ActionButton({
   style,
 }: ActionButtonProps) {
   const theme = useTheme();
+  const brand = tone === 'brand';
   const primary = tone === 'primary';
-  const neutro = material === 'control';
+  const neutro = material === 'control' && !brand;
 
   return (
     <Pressable
@@ -82,6 +92,23 @@ export function ActionButton({
          * equivalentes se separan en cuanto una cambie.
          */
         const tacto = estado(pressed, primary);
+
+        if (brand) {
+          /*
+           * El amarillo es opaco y se pinta solo: ni material neutro ni capa de
+           * relieve encima, que lo taparían. El tacto lo lleva `accentPressed`,
+           * que es el token que ya existe para eso.
+           */
+          return [
+            styles.button,
+            {
+              backgroundColor: pressed ? theme.accentPressed : theme.accent,
+              borderColor: 'transparent',
+              opacity: disabled ? 0.5 : 1,
+            },
+            style,
+          ];
+        }
 
         return [
           styles.button,
@@ -109,7 +136,7 @@ export function ActionButton({
            * `DepthLayer` no monta nada y `surfaceDepth` devuelve el token
            * entero: este control queda como estaba.
            */}
-          {neutro ? (
+          {brand ? null : neutro ? (
             /*
              * El material neutro. `fill` sigue al estado: al pulsar se retira
              * el relleno plano y aparece el `surfaceSunken` del host, que es
@@ -120,7 +147,9 @@ export function ActionButton({
           ) : (
             <DepthLayer state={estado(pressed, primary)} radius={Radius.full} />
           )}
-          <ThemedText variant="label" themeColor={disabled ? 'textDisabled' : 'text'}>
+          <ThemedText
+            variant="label"
+            themeColor={disabled ? 'textDisabled' : brand ? 'onAccent' : 'text'}>
             {label}
           </ThemedText>
         </>

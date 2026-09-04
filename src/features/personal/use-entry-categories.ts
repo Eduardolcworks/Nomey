@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   type CachedCategory,
@@ -6,7 +6,7 @@ import {
   CATEGORY_CACHE_KEY,
   parseCategories,
 } from './category-cache';
-import type { CategoryRow } from './category';
+import { type CategoryRow, indexCategories } from './category';
 import { fetchCategories } from './personal-service';
 import { offlineCatalogueCache } from '@/lib/offline';
 
@@ -81,4 +81,43 @@ export function useEntryCategories(actorId: string): EntryCategories {
   }, [actorId]);
 
   return state;
+}
+
+/**
+ * EL CATÁLOGO ENTERO, PARA NOMBRAR Y NO PARA ELEGIR.
+ *
+ * `useEntryCategories` filtra por `is_active` porque pinta un selector, y
+ * ofrecer una categoría retirada acabaría en `CATEGORY_NOT_USABLE · 422`. Pero
+ * **nombrar es lo contrario**: ADR-021 §7 conserva las retiradas justamente
+ * para que el histórico sepa decir cómo se llamaban, y un gasto de hace un año
+ * quedaría sin nombre si se filtrasen aquí.
+ *
+ * Medido en el aparato: una incidencia sobre una categoría que se acababa de
+ * dar de baja decía «en sin categoría» en lugar de su nombre. Es el mismo
+ * catálogo sin filtrar que la lista de movimientos usa desde F6.D.
+ *
+ * Con el respaldo local detrás, así que sin red también nombra (ADR-028 §16).
+ */
+export function useCategoryNames(actorId: string): ReadonlyMap<string, CategoryRow> {
+  const [rows, setRows] = useState<readonly CategoryRow[]>([]);
+
+  useEffect(() => {
+    let active = true;
+
+    void (async () => {
+      try {
+        const page = await fetchCategories();
+        if (active) setRows(page.rows as CategoryRow[]);
+      } catch {
+        const cached = await cachedCategories(actorId);
+        if (active && cached !== null) setRows(cached);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [actorId]);
+
+  return useMemo(() => indexCategories(rows), [rows]);
 }

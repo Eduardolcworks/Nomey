@@ -19,17 +19,40 @@ Actualizado el **2026-09-03**, al cerrar la **Fase 6** con el bloque **F6.G**.
 
 ## Dónde estamos
 
-|                         |                                                                                                                |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Ninguna.** La siguiente no ha empezado                                                                       |
-| **Última fase cerrada** | **Fase 6 — Modo Personal** (A … G), el 2026-09-03. **Aprobada físicamente por el usuario en iOS y en Android** |
-| **ADR aceptados**       | ADR-001 … ADR-027                                                                                              |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR                                            |
-| **App visible**         | **Inicio escribe dinero real**: alta, corrección, anulación y ajuste del saldo                                 |
-| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                   |
+|                         |                                                                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Fase en curso**       | **Ninguna.** La siguiente no ha empezado                                                                                          |
+| **Última fase cerrada** | **Fase 7 — Entrada rápida, offline y sincronización** (A … E), el 2026-09-04. **Validada en Android; iOS sin probar físicamente** |
+| **ADR aceptados**       | ADR-001 … ADR-029                                                                                                                 |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **La Fase 7 no lo tocó**                                     |
+| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**: el alta se encola, se proyecta al instante y se sincroniza sola           |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                      |
 
-**La Fase 6 está CERRADA.** Sus decisiones de producto, lo que entregó cada
-bloque y lo que queda deliberadamente fuera están en
+**La Fase 7 está CERRADA, y con ella el tercer pilar del producto.** Un gasto se
+registra sin conexión, aparece de inmediato como uno normal y se sincroniza solo
+al volver la red, **sin duplicar dinero jamás**. Lo que entregó cada bloque, qué
+se validó físicamente y qué queda fuera están en
+[`phase-7-handoff.md`](architecture/phase-7-handoff.md).
+
+Cuatro cosas de la Fase 7 que una fase futura tiene que conocer:
+
+- **El alta sale por la cola y por ninguna otra puerta.** La escritura directa
+  para altas ya no existe; `personal-service` la refuerza con una guarda.
+  `useRecordMovement` se queda sólo con las correcciones, que tienen CAS propio
+  y **no se encolan** (ADR-028 §4).
+- **La proyección optimista es una excepción acotada y una sola función.** Todas
+  las superficies de Inicio leen `projectHome`, que reutiliza `src/domain/effects`
+  para que cliente y frontera sean la misma aritmética. **No se persiste ningún
+  agregado económico**: lo único duradero es el comando inmutable.
+- **Una respuesta remota sólo es base si su ventana fue quieta.** `confirm_seq`
+  reconcilia, pero no puede ver una escritura del servidor anterior a que el
+  cliente se entere; por eso el envío se marca durablemente con `dispatch_seq`
+  antes del transporte. Sin esa barrera, un movimiento se cuenta dos veces.
+- **La campana es la única superficie visible de la cola**, con dos formas y
+  ninguna palabra de la maquinaria en pantalla
+  ([ADR-029](adr/ADR-029-incident-labels-and-review-destination.md)).
+
+**La Fase 6 sigue CERRADA** y su handoff vigente:
 [`phase-6-handoff.md`](architecture/phase-6-handoff.md).
 
 **F6.A cerró la fundación de datos del Modo Personal**, sin pantalla y a

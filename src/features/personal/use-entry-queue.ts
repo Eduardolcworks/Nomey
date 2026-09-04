@@ -42,8 +42,18 @@ export type { EntryScope } from './entry-enqueue';
 export type EnqueueFailure = 'noScope' | 'noSession' | PersistFailure;
 
 export type EntryQueue = {
-  /** `true` si quedó persistida. Sólo entonces puede cerrarse la hoja. */
-  readonly enqueue: (draft: EntryDraft, scope: EntryScope) => Promise<boolean>;
+  /**
+   * `true` si quedó persistida. Sólo entonces puede cerrarse la hoja.
+   *
+   * `resolving` es la entrada terminal que esta intención sustituye cuando la
+   * hoja se abrió desde `Revisar`. Con ella, persistir y resolver la incidencia
+   * son la misma transacción (ADR-029 §4).
+   */
+  readonly enqueue: (
+    draft: EntryDraft,
+    scope: EntryScope,
+    resolving?: string | null,
+  ) => Promise<boolean>;
   readonly failure: EnqueueFailure | null;
   readonly saving: boolean;
 };
@@ -59,7 +69,7 @@ export function useEntryQueue(actorId: string, status: SessionStatus): EntryQueu
   const inFlight = useRef(false);
 
   const enqueue = useCallback(
-    async (draft: EntryDraft, scope: EntryScope): Promise<boolean> => {
+    async (draft: EntryDraft, scope: EntryScope, resolving?: string | null): Promise<boolean> => {
       if (inFlight.current) return false; // el doble toque muere aquí, síncrono
       inFlight.current = true;
       setFailure(null);
@@ -87,6 +97,7 @@ export function useEntryQueue(actorId: string, status: SessionStatus): EntryQueu
           scope,
           key: newClientOperationId(),
           createdAt: new Date().toISOString(),
+          replacing: resolving ?? null,
         });
         if (!persisted.ok) {
           setFailure(persisted.reason);

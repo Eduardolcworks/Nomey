@@ -49,18 +49,30 @@ export function MovementForm({
   scope,
   categories,
   queue,
+  initial,
+  resolving,
   onSaved,
 }: {
   scope: MovementFormScope | null;
   categories: EntryCategories;
   /** La cola del actor, montada por la ruta: `features/` no puede leer la sesión. */
   queue: EntryQueue;
+  /**
+   * Con qué llega la hoja rellena, cuando se abre desde `Revisar`.
+   *
+   * **El importe no viene nunca** (ADR-029 §3): el de la entrada en conflicto
+   * pertenece a otra definición monetaria, y traerlo lo convertiría en doce de
+   * algo distinto sin que nadie hubiera convertido nada.
+   */
+  initial?: Parameters<typeof useMovementDraft>[2];
+  /** La entrada terminal que se resolverá al guardar, en la misma transacción. */
+  resolving?: string | null;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
 
   const scale = scope?.currencyScale ?? 2;
-  const draft = useMovementDraft(scale, scope !== null, undefined, !categories.unavailable);
+  const draft = useMovementDraft(scale, scope !== null, initial, !categories.unavailable);
 
   /*
    * Qué se dice cuando no quedó persistida. Sin sesión o con un borrador que la
@@ -103,7 +115,7 @@ export function MovementForm({
       onSave={() => {
         if (scope === null) return;
         // 3 → 5: se cierra SÓLO cuando la entrada quedó en disco.
-        void queue.enqueue(draft.draft, scope).then((ok) => {
+        void queue.enqueue(draft.draft, scope, resolving).then((ok) => {
           if (ok) onSaved();
         });
       }}

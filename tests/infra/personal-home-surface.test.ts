@@ -322,12 +322,26 @@ describe('provisioning', () => {
 });
 
 describe('estados y accesibilidad', () => {
-  it('Inicio contempla cargando, error recuperable y vacío', () => {
+  /**
+   * **Y desde F7.E ya NO contempla un error de datos**, que es la diferencia
+   * que hay que proteger. La única causa que podía tener era que el servidor no
+   * respondiera, y eso no es algo que la persona pueda arreglar ni tenga que
+   * saber: la app sigue guardando, pintando y sincronizando sola. Lo que se
+   * conserva es el error del ÁMBITO —sin él no hay dónde poner el dinero— y el
+   * indicador de carga, porque esperar no es fallar.
+   */
+  it('Inicio contempla cargando, ámbito irrecuperable y vacío, pero NO error de datos', () => {
     expect(HOME).toContain('LoadingState');
-    expect(HOME).toContain('ErrorState');
     expect(HOME).toContain('EmptyState');
     expect(HOME).toContain('onPress: scope.retry');
-    expect(HOME).toContain('onPress: home.refresh');
+
+    // La tarjeta de conectividad y su reintento, fuera.
+    expect(HOME).not.toContain('home.dataErrorTitle');
+    expect(HOME).not.toContain('home.dataErrorBody');
+    expect(HOME).not.toContain('onPress: home.refresh');
+    // Y el único ErrorState que queda es el del ámbito.
+    expect(HOME.match(/<ErrorState/g)).toHaveLength(1);
+    expect(HOME).toContain('home.scopeErrorTitle');
   });
 
   it('reutiliza los estados existentes en vez de inventar otros', () => {
@@ -885,8 +899,8 @@ describe('la tarjeta de categorías', () => {
 describe('la barra superior se queda, el saludo sube', () => {
   it('la barra superior vive FUERA del ScrollView', () => {
     const home = code('app/(tabs)/index.tsx');
-    expect(home.indexOf('<AppTopBar />')).toBeGreaterThan(0);
-    expect(home.indexOf('<AppTopBar />')).toBeLessThan(home.indexOf('<ScrollView'));
+    expect(home.indexOf('<AppTopBar ')).toBeGreaterThan(0);
+    expect(home.indexOf('<AppTopBar ')).toBeLessThan(home.indexOf('<ScrollView'));
 
     // Y no se ha colado dentro del contenido desplazable.
     const scroll = home.slice(home.indexOf('<ScrollView'), home.indexOf('</ScrollView>'));
@@ -964,8 +978,11 @@ describe('la barra superior se queda, el saludo sube', () => {
     const barra = code('features/shell/app-top-bar.tsx');
     expect(barra).not.toContain('ScopeSwitch');
     expect(barra).not.toContain('useScope');
-    // La usan los dos destinos raíz, con la misma implementación.
-    expect(code('app/(tabs)/groups.tsx')).toContain('<AppTopBar title="groups.title" />');
+    // La usan los dos destinos raíz, con la misma implementación, y desde F7.E
+    // los dos le pasan el aviso de la campana: un indicador que sólo estuviera
+    // en uno haría depender de la pestaña el encontrar algo sin resolver.
+    expect(code('app/(tabs)/groups.tsx')).toContain('<AppTopBar title="groups.title" alerts=');
+    expect(code('app/(tabs)/index.tsx')).toContain('<AppTopBar alerts=');
   });
 
   /**
@@ -984,7 +1001,13 @@ describe('la barra superior se queda, el saludo sube', () => {
     const barra = code('features/shell/app-top-bar.tsx');
     expect(barra).toContain("router.push('/notifications')");
     expect(barra).toContain("router.push('/profile')");
-    expect(barra).toContain("label={t('nav.notifications')}");
+    /*
+     * El nombre accesible sigue saliendo del catálogo. Desde F7.E la campana
+     * añade el aviso cuando hay algo sin resolver, porque un punto no le dice
+     * nada a un lector de pantalla; lo que no hace es dejar de nombrarse.
+     */
+    expect(barra).toContain("t('nav.notifications')");
+    expect(barra).toContain("t('incident.pending')");
     expect(barra).toContain("label={t('nav.profile')}");
   });
 
