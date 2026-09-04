@@ -349,20 +349,33 @@ aquí, a partir de un caso real.
 **Objetivo.** Cumplir el tercer pilar del producto y validar el diseño de
 idempotencia mientras la superficie de escritura es todavía una sola.
 
-**Alcance.** Registro en ~5 segundos dentro de la app, interfaz optimista, cola
-de escritura sin conexión, reintentos sobre la clave de idempotencia definida en
-3.C, y el conflicto de sincronización descrito en ADR-003 §7.
+**Alcance.** Un recorrido de alta **corto y continuo, con aparición inmediata**
+dentro de la app, interfaz optimista, cola de escritura sin conexión, reintentos
+sobre la clave de idempotencia definida en 3.C, y el conflicto de sincronización
+descrito en ADR-003 §7.
+
+> **«En el orden de cinco segundos» era una descripción del concepto**, no un
+> umbral de aceptación. Cronometrarlo habría medido el teclado del aparato y la
+> longitud del concepto que a alguien le apeteciera escribir, no si el recorrido
+> es bueno. Lo que sí se exige es lo que se puede comprobar mirando: que no haya
+> pasos de más, que nada espere a la red y que el movimiento aparezca en cuanto
+> se guarda.
 
 **Dependencias.** F6 · mecanismo de idempotencia decidido en 3.C.
 
 **Cierre.**
 
-1. Un gasto ordinario se registra en el orden de cinco segundos, medido.
+1. Un gasto ordinario se registra **en un recorrido corto y continuo**: se abre
+   la hoja, se escribe la cantidad, se elige la categoría y se guarda, sin pasos
+   intermedios y **sin esperar a la red**. Hay una prueba funcional del
+   recorrido, y el movimiento **aparece de inmediato** al guardarse.
 2. Sin red, la operación se encola y se sincroniza al recuperar conexión.
 3. **Reproducir la misma operación no crea un segundo registro**, verificado con
    un test, según el invariante 19 de `data-model.md`.
 4. Una operación creada bajo una configuración monetaria anterior **no se
    reinterpreta en silencio**, según ADR-003 §7.
+5. Un rechazo demostrado se resuelve **desde la campana y sin vocabulario
+   interno**, y un fallo transitorio no genera aviso ninguno.
 
 **Puertas.** Ninguna.
 
