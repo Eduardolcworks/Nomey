@@ -38,6 +38,37 @@ const FILES = Object.entries({ ...SOURCES, ...CONFIGS }).map(([path, text]) => (
   text: text as string,
 }));
 
+const SCRIPTS = Object.entries(
+  import.meta.glob('../../scripts/**/*.{sh,mjs}', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }),
+).map(([path, text]) => ({
+  path: path.replace('../../', ''),
+  text: text as string,
+}));
+
+/**
+ * El único fichero al que se le permite llevar credenciales con forma real, y
+ * los tres valores exactos que puede llevar.
+ *
+ * **Por qué existe la excepción.** La guarda del bundle necesita demostrar que
+ * FALLA, y para eso hay que sembrarle un secreto. Un secreto sembrado es un
+ * literal, y no hay forma de tener uno sin escribirlo — construirlo por
+ * concatenación para esquivar este test sería peor: sería ofuscación para
+ * evadir nuestra propia guarda.
+ *
+ * **Por qué la excepción no es un agujero.** No basta con estar en ese
+ * fichero: el valor tiene que ser **exactamente** uno de estos tres. Pegar ahí
+ * una clave real falla igual que pegarla en cualquier otro sitio.
+ */
+const FIXTURE_FILE = 'scripts/bundle-secrets-matrix.sh';
+const ALLOWED_FIXTURES: readonly string[] = [
+  'sb_publishable_FICTICIA0000000000000000',
+  'sb_secret_FICTICIA0000000000000000',
+];
+
 /**
  * Formas literales de credencial. Se buscan como literal seguido de contenido:
  * el prefijo a secas aparece legítimamente en mensajes de error y en
@@ -148,5 +179,53 @@ describe('la tercera capa: el bundle exportado', () => {
     for (const { pattern } of CREDENTIAL_SHAPES) {
       expect(BUNDLE_CHECK).not.toMatch(pattern);
     }
+  });
+});
+
+describe('los scripts tampoco llevan credenciales, salvo los fixtures declarados', () => {
+  it('revisa de verdad lo que dice revisar', () => {
+    const paths = SCRIPTS.map((script) => script.path);
+    expect(SCRIPTS.length).toBeGreaterThan(5);
+    expect(paths).toContain(FIXTURE_FILE);
+    expect(paths).toContain('scripts/bundle-secrets-check.sh');
+  });
+
+  for (const { name, pattern } of CREDENTIAL_SHAPES) {
+    it(`ningún script salvo el de la matriz lleva una ${name}`, () => {
+      const offenders = SCRIPTS.filter((script) => script.path !== FIXTURE_FILE)
+        .filter((script) => pattern.test(script.text))
+        .map((script) => script.path);
+      expect(offenders).toEqual([]);
+    });
+  }
+
+  it('y el de la matriz sólo lleva los fixtures ficticios, exactamente', () => {
+    const fixtures = SCRIPTS.find((script) => script.path === FIXTURE_FILE);
+    expect(fixtures, `${FIXTURE_FILE} debe existir`).toBeDefined();
+
+    const found = new Set<string>();
+    for (const { pattern } of CREDENTIAL_SHAPES) {
+      for (const match of (fixtures?.text ?? '').matchAll(new RegExp(pattern, 'g'))) {
+        found.add(match[0]);
+      }
+    }
+
+    expect([...found].sort()).toEqual([...ALLOWED_FIXTURES].sort());
+  });
+
+  it('y cada uno se llama ficticio en su propio texto', () => {
+    // El nombre es la mitad de la defensa: quien lea el fichero de un vistazo
+    // tiene que ver que no es de nadie, sin ir a buscar este test.
+    for (const fixture of ALLOWED_FIXTURES) {
+      expect(fixture).toContain('FICTICIA');
+    }
+  });
+
+  it('la matriz espera que la guarda FALLE con el secreto sembrado', () => {
+    // Sin esta expectativa, el caso negativo pasaría en verde por la razón
+    // contraria: la guarda no encontraría nada y nadie se enteraría.
+    const fixtures = SCRIPTS.find((script) => script.path === FIXTURE_FILE)?.text ?? '';
+    expect(fixtures).toContain('se espera QUE FALLE');
+    expect(fixtures).toContain('la guarda PASO con un secreto sembrado');
   });
 });
