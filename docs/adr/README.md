@@ -109,6 +109,7 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [026](ADR-026-personal-statistics.md)                             | Estadísticas agregadas del Modo Personal                          | Aceptado  |
 | [027](ADR-027-expense-only-categories.md)                         | La categoría es del gasto; icono como clave semántica             | Aceptado  |
 | [028](ADR-028-offline-command-queue-and-optimistic-projection.md) | Cola sin conexión, durabilidad de la clave y proyección optimista | Aceptado  |
+| [029](ADR-029-incident-labels-and-review-destination.md)          | Etiquetas visibles de la incidencia y destino de «Revisar»        | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos
