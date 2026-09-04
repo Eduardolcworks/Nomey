@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-09-04**, al cerrar el bloque **F8.A1** de la **Fase 8**.
+Actualizado el **2026-09-04**, al cerrar el bloque **F8.A2** de la **Fase 8**.
 
 ---
 
@@ -21,7 +21,7 @@ Actualizado el **2026-09-04**, al cerrar el bloque **F8.A1** de la **Fase 8**.
 
 |                         |                                                                                                                                   |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 8 — Distribución interna y entornos.** **F8.A0** y **F8.A1** cerrados: decisiones y contrato ejecutable, sin build aún     |
+| **Fase en curso**       | **Fase 8 — Distribución interna y entornos.** **F8.A0**, **F8.A1** y **F8.A2** cerrados: decisiones, contrato y cadena nativa     |
 | **Última fase cerrada** | **Fase 7 — Entrada rápida, offline y sincronización** (A … E), el 2026-09-04. **Validada en Android; iOS sin probar físicamente** |
 | **ADR aceptados**       | ADR-001 … ADR-031                                                                                                                 |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **La Fase 7 no lo tocó**                                     |
@@ -31,15 +31,16 @@ Actualizado el **2026-09-04**, al cerrar el bloque **F8.A1** de la **Fase 8**.
 **La Fase 8 está ABIERTA.** F8.A0 aceptó
 [ADR-030](adr/ADR-030-native-code-model.md) y
 [ADR-031](adr/ADR-031-environments-and-variants.md) y partió la fase en tres
-bloques trazables; **F8.A1 hizo ejecutable ese contrato**. **La Fase 8 NO está
+bloques trazables; **F8.A1 hizo ejecutable ese contrato** y **F8.A2 dejó la
+cadena nativa lista**. **La Fase 8 NO está
 cerrada ni puede estarlo todavía**, porque dos de sus cuatro criterios
 originales siguen sin cumplirse; el estado criterio a criterio está en el
 [roadmap](product/roadmap.md), Fase 8.
 
 **F8.A1 dejó el contrato de entornos funcionando, y no hay ninguna build.** Las
-tres variantes se resuelven, se comparan y se exportan; lo que no existe es
-cadena nativa, y eso es F8.A2. Lo que hay que saber para usarlo está en
-[`runbooks/environments.md`](runbooks/environments.md), y en una línea:
+tres variantes se resuelven, se comparan y se exportan. Lo que hay que saber
+para usarlo está en [`runbooks/environments.md`](runbooks/environments.md), y en
+una línea:
 
 - **`APP_VARIANT` selecciona la identidad y pertenece al comando, nunca a
   `.env`.** Ausente resuelve `development`, desconocida **falla nombrando las
@@ -75,6 +76,45 @@ cadena nativa, y eso es F8.A2. Lo que hay que saber para usarlo está en
   lo separa de Development es la identidad, el artefacto sin Metro y el canal —
   **no el backend**. El criterio «un entorno distinto del local» sigue
   **pendiente**, y no se dará por cumplido renombrando nada.
+
+**F8.A2 dejó la máquina capaz de generar el proyecto Android, y nada más.** No
+compila, no instala y no arranca la app: eso es F8.A3. Lo reproducible está en
+[`runbooks/android-build.md`](runbooks/android-build.md), y lo que conviene
+saber es esto:
+
+- **La cadena es JDK 17 + SDK Platform 36 + command-line tools**, con
+  `JAVA_HOME` y `ANDROID_HOME` persistentes de usuario y `ANDROID_SDK_ROOT`
+  **deliberadamente sin definir** —está obsoleta, y tener las dos es cómo
+  acaban apuntando a sitios distintos—. **El JBR de Android Studio no sirve como
+  JDK del proyecto**: es un OpenJDK 25 y la cadena espera 17.
+- **`compileSdkVersion 36` no es una suposición**: es el valor por defecto de
+  `expo-modules-core`, en `ProjectConfiguration.kt`. Por eso la 35 y la 37 que
+  ya había instaladas no valían.
+- **`prebuild --clean` de Development se ejecuta y se verifica**, con
+  `scripts/android-project-check.mjs`: identidad `es.lcworks.nomey.dev`, **cero
+  rastro de Staging o Producción**, updates apagadas y sin canal, plugins
+  aplicados —incluidas las reglas de backup de ADR-017—, colores del tema y
+  ninguna credencial dentro. **No hizo falta ninguna edición manual**, que es lo
+  que ADR-030 exigía demostrar.
+- **`/android` sigue ignorado y es un artefacto.** Se edita `app.config.ts` o un
+  plugin y se regenera; una edición a mano sobrevive hasta el siguiente
+  `--clean` y desaparece sin avisar.
+- **El primer plano del icono adaptativo pasó de 512 a 1024**, que es un cambio
+  de **resolución y no de geometría**: `scripts/icon-geometry-check.mjs` mide que
+  la marca ocupa el mismo 59,96 % del lienzo, con el mismo aspecto y mejor
+  centrada. Corre en CI, porque un PNG cambia entero en un diff y no dice nada.
+- **Las dependencias están alineadas con SDK 57 y `npx expo-doctor` da 21/21.**
+  Eran doce paquetes desalineados, **todos por versión de parche** dentro del
+  mismo SDK; `npx expo install --fix` los alineó y `expo install --check` dice
+  «up to date». **F8.A2 no se cierra con un check en rojo justo antes del primer
+  Gradle**: un aviso de compatibilidad que ya estaba ahí es indistinguible de
+  uno que aparece al compilar.
+
+> **Una observación de `expo-image@57.0.4` para F8.B, no para ahora.** Esa
+> versión trae un config plugin que Expo sugiere declarar, y que hace **una sola
+> cosa**: fijar `expo-image.disable-libdav1d` en las propiedades del **Podfile de
+> iOS**. **No toca Android en absoluto**, y sin él `expo-doctor` da 21/21 igual.
+> Se decide cuando exista un proyecto de iOS que generar, no antes.
 
 Cuatro cosas más que conviene tener claras antes de tocar cualquier cosa nativa:
 
@@ -797,23 +837,24 @@ una feature escribible real.
 
 ## Qué consultar, y cuándo
 
-| Necesitas…                                    | Lee                                                                                |
-| --------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Reglas del repositorio y del agente           | [`AGENTS.md`](../AGENTS.md)                                                        |
-| Semántica contable y escenarios               | [`architecture/data-model.md`](architecture/data-model.md)                         |
-| Dónde vive cada concepto del modelo           | [`architecture/model-coverage.md`](architecture/model-coverage.md)                 |
-| Una decisión y su porqué                      | [`adr/README.md`](adr/README.md) — ADR-001 … ADR-031                               |
-| Secuencia de fases y criterios de cierre      | [`product/roadmap.md`](product/roadmap.md)                                         |
-| Vocabulario                                   | [`product/glossary.md`](product/glossary.md)                                       |
-| Estética, antes de cualquier UI               | [`product/design-direction.md`](product/design-direction.md)                       |
-| **Continuar la Fase 8**                       | [`product/roadmap.md`](product/roadmap.md), Fase 8 · ADR-030 · ADR-031             |
-| Cómo quedó la Fase 7, ya cerrada              | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)               |
-| Cómo quedó la Fase 5, ya cerrada              | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)               |
-| Cómo quedó la Fase 4, ya cerrada              | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                         |
-| Cómo se usan i18n y el formateo               | [`src/lib/README.md`](../src/lib/README.md)                                        |
-| Levantar el entorno, migrar, ejecutar checks  | [`runbooks/local-setup.md`](runbooks/local-setup.md)                               |
-| **Arrancar, resolver o verificar un entorno** | [`runbooks/environments.md`](runbooks/environments.md)                             |
-| **Por qué** la Fase 3 quedó como quedó        | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico |
+| Necesitas…                                      | Lee                                                                                |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Reglas del repositorio y del agente             | [`AGENTS.md`](../AGENTS.md)                                                        |
+| Semántica contable y escenarios                 | [`architecture/data-model.md`](architecture/data-model.md)                         |
+| Dónde vive cada concepto del modelo             | [`architecture/model-coverage.md`](architecture/model-coverage.md)                 |
+| Una decisión y su porqué                        | [`adr/README.md`](adr/README.md) — ADR-001 … ADR-031                               |
+| Secuencia de fases y criterios de cierre        | [`product/roadmap.md`](product/roadmap.md)                                         |
+| Vocabulario                                     | [`product/glossary.md`](product/glossary.md)                                       |
+| Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                       |
+| **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · ADR-030 · ADR-031             |
+| Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)               |
+| Cómo quedó la Fase 5, ya cerrada                | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)               |
+| Cómo quedó la Fase 4, ya cerrada                | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                         |
+| Cómo se usan i18n y el formateo                 | [`src/lib/README.md`](../src/lib/README.md)                                        |
+| Levantar el entorno, migrar, ejecutar checks    | [`runbooks/local-setup.md`](runbooks/local-setup.md)                               |
+| **Arrancar, resolver o verificar un entorno**   | [`runbooks/environments.md`](runbooks/environments.md)                             |
+| **Preparar la cadena nativa y generar Android** | [`runbooks/android-build.md`](runbooks/android-build.md)                           |
+| **Por qué** la Fase 3 quedó como quedó          | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico |
 
 **Evidencia empírica:** `supabase/e11/` … `supabase/e20/`. Son sondas
 desechables sobre maquetas y **nunca deben convertirse en migración**.
