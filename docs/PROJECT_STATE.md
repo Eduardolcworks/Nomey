@@ -103,6 +103,18 @@ saber es esto:
   de **resolución y no de geometría**: `scripts/icon-geometry-check.mjs` mide que
   la marca ocupa el mismo 59,96 % del lienzo, con el mismo aspecto y mejor
   centrada. Corre en CI, porque un PNG cambia entero en un diff y no dice nada.
+- **Las dependencias están alineadas con SDK 57 y `npx expo-doctor` da 21/21.**
+  Eran doce paquetes desalineados, **todos por versión de parche** dentro del
+  mismo SDK; `npx expo install --fix` los alineó y `expo install --check` dice
+  «up to date». **F8.A2 no se cierra con un check en rojo justo antes del primer
+  Gradle**: un aviso de compatibilidad que ya estaba ahí es indistinguible de
+  uno que aparece al compilar.
+
+> **Una observación de `expo-image@57.0.4` para F8.B, no para ahora.** Esa
+> versión trae un config plugin que Expo sugiere declarar, y que hace **una sola
+> cosa**: fijar `expo-image.disable-libdav1d` en las propiedades del **Podfile de
+> iOS**. **No toca Android en absoluto**, y sin él `expo-doctor` da 21/21 igual.
+> Se decide cuando exista un proyecto de iOS que generar, no antes.
 
 Cuatro cosas más que conviene tener claras antes de tocar cualquier cosa nativa:
 
