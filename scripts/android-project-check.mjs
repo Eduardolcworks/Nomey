@@ -63,10 +63,18 @@ function textFiles(dir) {
 
 const files = textFiles(ROOT);
 
-const EXPECTED = {
-  name: 'Nomey Dev',
-  applicationId: 'es.lcworks.nomey.dev',
-  scheme: 'nomey-dev',
+/**
+ * Lo que cada variante tiene que ser, y lo que NO puede tener rastro de ser.
+ *
+ * **Una sola tabla y una sola lógica.** Duplicar el script por variante habría
+ * dejado dos comprobaciones que envejecen por separado, y la que menos se
+ * ejecuta es la que se queda atrás sin que nadie lo note.
+ *
+ * `otherIdentity` es la parte que atrapa una mezcla: la negación deja pasar la
+ * identidad propia y captura las otras dos, así que un proyecto generado para
+ * una variante con restos de otra falla en vez de instalarse.
+ */
+const COMMON = {
   version: '1.0.0',
   versionCode: '1',
   updateUrl: 'https://u.expo.dev/a5640f9f-b248-4fbe-8e9c-94ad9ed338a6',
@@ -74,7 +82,44 @@ const EXPECTED = {
   iconGround: '#FDC506',
 };
 
-console.log('\n=== Identidad: es Development y no otra variante ===');
+const VARIANTS = {
+  development: {
+    ...COMMON,
+    name: 'Nomey Dev',
+    applicationId: 'es.lcworks.nomey.dev',
+    scheme: 'nomey-dev',
+    updatesEnabled: false,
+    channel: null,
+    localHttp: false,
+    otherIdentity: /es\.lcworks\.nomey(?!\.dev)/,
+    otherSchemes: /android:scheme="nomey(-staging)?"/,
+    otherNames: ['Nomey Staging'],
+  },
+  staging: {
+    ...COMMON,
+    name: 'Nomey Staging',
+    applicationId: 'es.lcworks.nomey.staging',
+    scheme: 'nomey-staging',
+    updatesEnabled: true,
+    channel: 'staging',
+    localHttp: true,
+    otherIdentity: /es\.lcworks\.nomey(?!\.staging)/,
+    otherSchemes: /android:scheme="nomey(-dev)?"/,
+    otherNames: ['Nomey Dev'],
+  },
+};
+
+const VARIANT = process.argv[2] ?? 'development';
+if (!Object.hasOwn(VARIANTS, VARIANT)) {
+  console.log(
+    `\nERROR: variante desconocida "${VARIANT}". Usa: ${Object.keys(VARIANTS).join(', ')}`,
+  );
+  console.log('  Production no se comprueba aqui: no se compila en la Fase 8.');
+  process.exit(64);
+}
+const EXPECTED = VARIANTS[VARIANT];
+
+console.log(`\n=== Identidad: es ${EXPECTED.name} y no otra variante ===`);
 
 const strings = read('app/src/main/res/values/strings.xml') ?? '';
 const gradle = read('app/build.gradle') ?? '';
@@ -94,42 +139,105 @@ for (const [label, haystack, needle] of identity) {
   else fail(`${label}: no se encuentra ${needle.trim()}`);
 }
 
-console.log('\n=== Y no hay rastro de Staging ni de Produccion ===');
+console.log('\n=== Y no hay rastro de ninguna otra variante ===');
 
-// `es.lcworks.nomey` sin `.dev` detras es, necesariamente, otra variante:
-// produccion tal cual, o `.staging`.
-const OTHER_VARIANT = /es\.lcworks\.nomey(?!\.dev)/;
-const strays = files.filter((file) => OTHER_VARIANT.test(file.text)).map((file) => file.path);
+const strays = files.filter((file) => EXPECTED.otherIdentity.test(file.text)).map((f) => f.path);
 if (strays.length > 0) fail(`identificador de otra variante en: ${strays.join(', ')}`);
-else ok('ningun fichero nombra es.lcworks.nomey ni es.lcworks.nomey.staging');
+else ok(`ningun fichero nombra un applicationId que no sea ${EXPECTED.applicationId}`);
 
-const otherSchemes = files.filter((file) => /android:scheme="nomey(-staging)?"/.test(file.text));
+const otherSchemes = files.filter((file) => EXPECTED.otherSchemes.test(file.text));
 if (otherSchemes.length > 0)
   fail(`scheme de otra variante en: ${otherSchemes.map((f) => f.path).join(', ')}`);
-else ok('ningun intent-filter registra nomey:// ni nomey-staging://');
+else ok(`ningun intent-filter registra un scheme que no sea ${EXPECTED.scheme}://`);
 
-console.log('\n=== Actualizaciones: apagadas, que es lo que Development pide ===');
+const otherName = EXPECTED.otherNames.find((name) => strings.includes(`>${name}<`));
+if (otherName !== undefined) fail(`el nombre visible de otra variante esta presente: ${otherName}`);
+else ok('el nombre visible es solo el suyo');
+
+console.log('\n=== Actualizaciones ===');
 
 const updates = [
-  ['ENABLED false', 'expo.modules.updates.ENABLED" android:value="false"'],
+  ['ENABLED', `expo.modules.updates.ENABLED" android:value="${String(EXPECTED.updatesEnabled)}"`],
   ['runtime por recurso', 'EXPO_RUNTIME_VERSION" android:value="@string/expo_runtime_version"'],
   ['url del proyecto', `EXPO_UPDATE_URL" android:value="${EXPECTED.updateUrl}"`],
 ];
 for (const [label, needle] of updates) {
-  if (manifest.includes(needle)) ok(label);
+  if (manifest.includes(needle)) ok(`${label}: ${needle.split('android:value=')[1]}`);
   else fail(`${label}: no se encuentra en el manifiesto`);
 }
 
 if (strings.includes(`<string name="expo_runtime_version">${EXPECTED.version}</string>`)) {
   ok(`runtimeVersion resuelto a ${EXPECTED.version} por la politica appVersion`);
 } else {
-  fail('el recurso expo_runtime_version no vale 1.0.0');
+  fail(`el recurso expo_runtime_version no vale ${EXPECTED.version}`);
 }
 
-// Un canal en un binario servido por Metro es la puerta por la que una
-// actualizacion publicada reemplaza el codigo bajo prueba.
-if (/expo-channel-name/i.test(manifest)) fail('Development declara un canal de actualizacion');
-else ok('ningun expo-channel-name: Development no escucha ningun canal');
+/*
+ * EL CANAL ES LA PIEZA QUE AISLA LAS VARIANTES.
+ *
+ * Un canal en un binario servido por Metro es la puerta por la que una
+ * actualizacion publicada reemplaza el codigo bajo prueba; y un Staging SIN
+ * canal no recibiria nunca nada y lo pareceria todo. Las dos direcciones se
+ * comprueban, porque las dos fallan en silencio.
+ */
+const channelHeader = /UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY" android:value="([^"]*)"/.exec(
+  manifest,
+);
+// El valor viaja con entidades XML dentro del manifiesto -`&quot;` por comilla-,
+// asi que se deshacen antes de leerlo. Sin esto el canal parece llamarse "quot".
+const headerJson = (channelHeader?.[1] ?? '').replace(/&quot;/g, '"');
+const declaredChannel = /"expo-channel-name":"([^"]+)"/.exec(headerJson)?.[1];
+
+if (EXPECTED.channel === null) {
+  if (declaredChannel !== undefined) fail(`declara el canal "${declaredChannel}" y no debe`);
+  else ok('ningun expo-channel-name: no escucha ningun canal');
+} else if (declaredChannel === EXPECTED.channel) {
+  ok(`escucha el canal "${EXPECTED.channel}", y solo ese`);
+} else {
+  fail(`deberia escuchar "${EXPECTED.channel}" y declara ${JSON.stringify(declaredChannel)}`);
+}
+
+console.log('\n=== HTTP sin cifrar: solo donde se ha decidido, y acotado ===');
+
+const netSec = manifest.includes('android:networkSecurityConfig="@xml/network_security_config"');
+const netSecFile = read('app/src/main/res/xml/network_security_config.xml');
+
+if (EXPECTED.localHttp) {
+  if (netSec && netSecFile !== null) ok('lleva la configuracion de seguridad de red del plugin');
+  else fail('deberia llevar la configuracion de seguridad de red y no esta');
+
+  const hosts = [...(netSecFile ?? '').matchAll(/<domain[^>]*>([^<]+)<\/domain>/g)].map(
+    (m) => m[1],
+  );
+  const allowed = new Set(['127.0.0.1', 'localhost']);
+  const extra = hosts.filter((host) => !allowed.has(host));
+  if (hosts.length === 0) fail('la configuracion no permite ningun host: no serviria de nada');
+  else if (extra.length > 0) fail(`permite texto claro fuera de loopback: ${extra.join(', ')}`);
+  else ok(`texto claro acotado a ${hosts.join(' y ')}, nada mas`);
+} else {
+  if (netSec || netSecFile !== null) fail('lleva configuracion de HTTP sin cifrar y NO debe');
+  else ok('sin configuracion de seguridad de red: no se abre nada');
+}
+
+/**
+ * Los manifiestos de la familia debug, que pone la plantilla.
+ *
+ * Son `src/debug` y `src/debugOptimized`, y su `usesCleartextTraffic` sólo
+ * afecta a las builds servidas por Metro. Se excluyen del barrido del permiso
+ * general porque no llegan a un artefacto de release.
+ */
+const DEBUG_MANIFEST = /src\/debug[A-Za-z]*\/AndroidManifest\.xml$/;
+
+// El permiso general, en cualquier variante y en cualquier otro fichero.
+const blanket = files
+  // Se normalizan las barras antes de mirar: en Windows el separador es `\`, y
+  // una clase de caracteres con la barra invertida dentro es donde se cuela un
+  // escape mal puesto sin que nada falle.
+  .filter((file) => !DEBUG_MANIFEST.test(file.path.split(path.sep).join('/')))
+  .filter((file) => /usesCleartextTraffic="true"/.test(file.text));
+if (blanket.length > 0)
+  fail(`permiso general de texto claro en: ${blanket.map((f) => f.path).join(', ')}`);
+else ok('ningun usesCleartextTraffic general fuera del manifiesto de debug');
 
 console.log('\n=== Plugins aplicados ===');
 
@@ -235,7 +343,7 @@ if (existsSync(largest)) {
 
 console.log('');
 if (failures === 0) {
-  console.log(`OK - ${files.length} ficheros revisados. El proyecto es el de Development.`);
+  console.log(`OK - ${files.length} ficheros revisados. El proyecto es el de ${EXPECTED.name}.`);
   process.exit(0);
 }
 console.log(`${failures} comprobacion/es fallidas.`);

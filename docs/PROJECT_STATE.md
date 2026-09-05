@@ -13,28 +13,29 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-09-05**, al cerrar el bloque **F8.A4** de la **Fase 8**.
+Actualizado el **2026-09-05**, al cerrar el bloque **F8.A5** de la **Fase 8**.
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                                                                                            |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Fase en curso**       | **Fase 8 — Distribución interna y entornos.** **F8.A0 … F8.A4** cerrados: hay build propia de Android, instalada y validada funcionalmente |
-| **Última fase cerrada** | **Fase 7 — Entrada rápida, offline y sincronización** (A … E), el 2026-09-04. **Validada en Android; iOS sin probar físicamente**          |
-| **ADR aceptados**       | ADR-001 … ADR-031                                                                                                                          |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **La Fase 7 no lo tocó**                                              |
-| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**: el alta se encola, se proyecta al instante y se sincroniza sola                    |
-| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                               |
+|                         |                                                                                                                                                           |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Fase en curso**       | **Fase 8 — Distribución interna y entornos.** **F8.A0 … F8.A5** cerrados: hay build propia de Android y un Staging autónomo con su canal de actualización |
+| **Última fase cerrada** | **Fase 7 — Entrada rápida, offline y sincronización** (A … E), el 2026-09-04. **Validada en Android; iOS sin probar físicamente**                         |
+| **ADR aceptados**       | ADR-001 … ADR-031                                                                                                                                         |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **La Fase 7 no lo tocó**                                                             |
+| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**: el alta se encola, se proyecta al instante y se sincroniza sola                                   |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                                              |
 
 **La Fase 8 está ABIERTA.** F8.A0 aceptó
 [ADR-030](adr/ADR-030-native-code-model.md) y
 [ADR-031](adr/ADR-031-environments-and-variants.md) y partió la fase en tres
 bloques trazables; **F8.A1 hizo ejecutable ese contrato**, **F8.A2 dejó la
 cadena nativa lista**, **F8.A3 compiló, instaló y validó la primera build
-propia de Android** y **F8.A4 demostró que esa build se comporta como
-aplicación nativa completa**. **La Fase 8 NO está
+propia de Android** , **F8.A4 demostró que esa build se comporta como
+aplicación nativa completa** y **F8.A5 compiló el primer Staging independiente de
+Metro y validó su canal**. **La Fase 8 NO está
 cerrada ni puede estarlo todavía**, porque dos de sus cuatro criterios
 originales siguen sin cumplirse; el estado criterio a criterio está en el
 [roadmap](product/roadmap.md), Fase 8.
@@ -203,6 +204,36 @@ volver a deducir:
   ese estado la CLI sale con código 0 y `54321` no contesta. Lo comprueban ahora
   los tres scripts que hablan HTTP, con `exigir_frontera_http` de
   `scripts/local-db-guard.sh`, que **diagnostica y no toca ningún contenedor**.
+
+**F8.A5 puso en un aparato el primer Staging que no depende de Metro, con su
+canal.** Procedimiento en [`runbooks/environments.md`](runbooks/environments.md);
+lo que no conviene volver a deducir:
+
+- **Se compila con `npm run staging:build`, y ese comando carga `preview`
+  siempre.** Un APK inlinea `EXPO_PUBLIC_*` al compilar: sin esas variables sale
+  con la configuración vacía, no falla al compilar ni al instalar, y falla en el
+  aparato. `scripts/gradle-release.mjs` lo exige antes de gastar Gradle.
+- **La firma es la de depuración, y es estable.** El proyecto generado por CNG
+  firma `release` con `debug.keystore`. Medido: **byte a byte idéntico** entre
+  regeneraciones de `prebuild --clean`, y el APK lleva ese mismo certificado. Su
+  certificado es **público y compartido** por cualquiera que use la plantilla de
+  React Native, así que sirve para distribución interna y **no para Google Play**.
+  La firma de producción se decide en **F8.C**.
+- **Una build de release NO habla HTTP sin cifrar**, y eso no se ve venir: el
+  `usesCleartextTraffic` de la plantilla vive **sólo** en el manifiesto de debug.
+  Lo concede `plugins/with-local-http.js` —el primer config plugin local de
+  Nomey, ADR-030 §3— acotado a `127.0.0.1` y `localhost`, y **sólo para Staging**.
+  Production no lo lleva, comprobado sobre su proyecto generado.
+- **El ciclo de `expo-updates` son DOS arranques.** El primero descarga en
+  segundo plano, el segundo arranca la actualización. Una prueba de un solo
+  arranque concluye que no llegó.
+- **`runtimeVersion` manda sobre el canal.** Una actualización publicada con
+  `version` `1.0.1` **no llegó** al binario `1.0.0` ni tras dos ciclos, sin aviso
+  ninguno. Cualquier cambio nativo del que dependa el JavaScript exige subir
+  `version` y compilar de nuevo.
+- **El criterio 2 de la Fase 8 sigue abierto.** Staging apunta al **mismo stack
+  local** por `adb reverse`: independiente de la red, **no** de este ordenador ni
+  del cable. ADR-031 §4, que no se reinterpreta.
 
 Cuatro cosas más que conviene tener claras antes de tocar cualquier cosa nativa:
 

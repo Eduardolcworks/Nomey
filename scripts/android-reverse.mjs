@@ -19,10 +19,14 @@
  * sirve a los dos con una sola configuración, y no exige abrir ningún puerto al
  * resto de la red ni tocar el cortafuegos.
  *
+ * **Sirve también a Staging, con `--no-metro`.** Un artefacto de Staging no
+ * depende de Metro pero sí alcanza el mismo stack local por el mismo túnel del
+ * 54321, así que la pieza es la misma y sólo cambia qué puertos se piden.
+ * Production no pasa por aquí: no habla con esta máquina.
+ *
  * **Qué NO hace.** No edita la `.env`, no la lee para escribir nada, no imprime
- * la clave y no sabe nada de Staging ni de Producción — ésos no pasan por Metro
- * ni por este flujo. Y no arranca ni para ningún servicio: si el puerto del
- * ordenador no escucha, lo dice.
+ * la clave y no sabe nada de Producción. Y no arranca ni para ningún servicio:
+ * si el puerto del ordenador no escucha, lo dice.
  *
  * **La comprobación importa tanto como la configuración.** Un `adb reverse` se
  * pierde al reconectar el aparato, al reiniciarlo y al reiniciar el servidor de
@@ -32,10 +36,21 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const CHECK_ONLY = process.argv.includes('--check');
 const deviceFlag = process.argv.indexOf('--device');
 const WANTED_DEVICE = deviceFlag === -1 ? null : process.argv[deviceFlag + 1];
+
+/**
+ * `--no-metro` deja fuera el túnel de Metro y monta sólo el de la frontera.
+ *
+ * **Es lo que necesita Staging, y la diferencia importa.** Un artefacto de
+ * Staging es independiente de Metro por definición, así que abrirle el 8081
+ * sería dejar en pie justo la dependencia que ese artefacto existe para no
+ * tener — y una comprobación que la use dejaría de demostrar nada.
+ */
+const NO_METRO = process.argv.includes('--no-metro');
 
 /** El puerto de Metro. Fijo porque lo fija Expo, no esta configuración. */
 const METRO_PORT = 8081;
@@ -108,41 +123,94 @@ function supabasePortFromEnv() {
   return Number(parsed.port || (parsed.protocol === 'https:' ? 443 : 80));
 }
 
-/** Un solo aparato, o el que se pidió. Cero o varios sin elegir es un error. */
+/**
+ * LO QUE `adb devices` DICE, LEÍDO SIN CONFIAR EN LOS FINALES DE LÍNEA.
+ *
+ * **El defecto que corrige, encontrado con el POCO y el emulador a la vez.** En
+ * Windows cada línea termina en CRLF, así que el estado llega como `"device\r"`
+ * y una comparación contra `"device"` no casa nunca. Como la salida se
+ * recortaba **entera** y no línea a línea, el `\r` sólo desaparecía de la
+ * ÚLTIMA: con un solo aparato el script funcionaba por casualidad y con dos
+ * reconocía sólo el último, dando por «no conectado» al que sí lo estaba. Peor
+ * que fallar, porque parecía una respuesta.
+ *
+ * Se exporta para poder probarlo con salidas de verdad —LF, CRLF, uno, dos,
+ * invertidos, `offline`, `unauthorized`— sin necesitar un `adb` de mentira.
+ */
+export function parseDevices(out) {
+  return out
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '' && !line.startsWith('List of devices'))
+    .map((line) => {
+      const [serial, state] = line.split(/\s+/);
+      return { serial, state };
+    })
+    .filter((entry) => entry.serial !== undefined && entry.state !== undefined);
+}
+
+/**
+ * Elige el aparato, o se niega.
+ *
+ * **`device` no es lo mismo que estar conectado.** Un `offline` o un
+ * `unauthorized` aparecen en la lista y no aceptan un `reverse`; decirlo por su
+ * nombre ahorra el rato de mirar por qué «no funciona» un teléfono que está
+ * enchufado y esperando que alguien acepte la depuración en su pantalla.
+ *
+ * Y con varios conectados **nunca elige por su cuenta**: crear el túnel en el
+ * aparato equivocado es indistinguible de no crearlo hasta mucho después.
+ */
+export function chooseDevice(entries, wanted) {
+  const ready = entries.filter((entry) => entry.state === 'device');
+
+  if (wanted !== null && wanted !== undefined) {
+    const found = entries.find((entry) => entry.serial === wanted);
+    if (found === undefined) {
+      return {
+        error: `el aparato "${wanted}" no está conectado.`,
+        detail: `Conectados: ${entries.map((e) => `${e.serial} (${e.state})`).join(', ') || 'ninguno'}`,
+      };
+    }
+    if (found.state !== 'device') {
+      return {
+        error: `el aparato "${wanted}" está en estado "${found.state}", no "device".`,
+        detail:
+          found.state === 'unauthorized'
+            ? 'Acepta la depuración USB en la pantalla del aparato.'
+            : 'Reconecta el cable o reinicia adb: en ese estado no acepta un reverse.',
+      };
+    }
+    return { device: found.serial };
+  }
+
+  if (ready.length === 0) {
+    const pending = entries.filter((entry) => entry.state !== 'device');
+    return {
+      error: 'no hay ningún Android listo.',
+      detail:
+        pending.length > 0
+          ? `Hay ${pending.map((e) => `${e.serial} (${e.state})`).join(', ')}, que no aceptan un reverse.`
+          : 'Arranca el emulador, o conecta el teléfono con depuración USB autorizada.',
+    };
+  }
+
+  if (ready.length > 1) {
+    return {
+      error: `hay ${ready.length} aparatos listos y ninguno elegido.`,
+      detail: `Usa --device <serie>. Listos: ${ready.map((e) => e.serial).join(', ')}`,
+    };
+  }
+
+  return { device: ready[0].serial };
+}
+
 function resolveDevice() {
   const { status, out } = adb(['devices']);
   if (status !== 0) fail('`adb devices` falló.', out);
 
-  const devices = out
-    .split('\n')
-    .slice(1)
-    .map((line) => line.split('\t'))
-    .filter((parts) => parts[1] === 'device')
-    .map((parts) => parts[0]);
-
-  if (WANTED_DEVICE) {
-    if (!devices.includes(WANTED_DEVICE)) {
-      fail(
-        `el aparato "${WANTED_DEVICE}" no está conectado.`,
-        `Conectados: ${devices.join(', ') || 'ninguno'}`,
-      );
-    }
-    return WANTED_DEVICE;
-  }
-
-  if (devices.length === 0) {
-    fail(
-      'no hay ningún Android conectado.',
-      'Arranca el emulador, o conecta el teléfono con depuración USB autorizada.',
-    );
-  }
-  if (devices.length > 1) {
-    fail(
-      `hay ${devices.length} aparatos conectados y ninguno elegido.`,
-      `Usa --device <serie>. Conectados: ${devices.join(', ')}`,
-    );
-  }
-  return devices[0];
+  const chosen = chooseDevice(parseDevices(out), WANTED_DEVICE);
+  if (chosen.error !== undefined) fail(chosen.error, chosen.detail);
+  return chosen.device;
 }
 
 /** Los túneles vigentes de ese aparato, como puertos del propio aparato. */
@@ -158,47 +226,65 @@ function activeReverses(device) {
   return ports;
 }
 
-const device = resolveDevice();
-console.log(`\n=== Túneles de Android Development · ${device} ===`);
+/**
+ * El programa, separado de sus piezas.
+ *
+ * Sin esta guarda, importar el fichero para probar `parseDevices` y
+ * `chooseDevice` lanzaria adb y podria crear tuneles: una prueba que cambia el
+ * aparato de quien la ejecuta no es una prueba.
+ */
+function main() {
+  const device = resolveDevice();
+  console.log(`\n=== Túneles de Android Development · ${device} ===`);
 
-const supabasePort = supabasePortFromEnv();
-const wanted = [
-  { port: METRO_PORT, what: 'Metro' },
-  ...(supabasePort === null ? [] : [{ port: supabasePort, what: 'Supabase (frontera local)' }]),
-];
+  const supabasePort = supabasePortFromEnv();
+  const wanted = [
+    ...(NO_METRO ? [] : [{ port: METRO_PORT, what: 'Metro' }]),
+    ...(supabasePort === null ? [] : [{ port: supabasePort, what: 'Supabase (frontera local)' }]),
+  ];
 
-let missing = 0;
-for (const { port, what } of wanted) {
-  const present = activeReverses(device).has(port);
-
-  if (present) {
-    console.log(`  ok: ${what} — el aparato alcanza 127.0.0.1:${port}`);
-    continue;
+  if (NO_METRO) {
+    console.log('  (--no-metro: sólo la frontera. Un artefacto de Staging no depende de Metro.)');
   }
 
-  if (CHECK_ONLY) {
-    missing += 1;
-    console.log(`  FALTA: ${what} — no hay túnel para 127.0.0.1:${port}`);
-    continue;
+  let missing = 0;
+  for (const { port, what } of wanted) {
+    const present = activeReverses(device).has(port);
+
+    if (present) {
+      console.log(`  ok: ${what} — el aparato alcanza 127.0.0.1:${port}`);
+      continue;
+    }
+
+    if (CHECK_ONLY) {
+      missing += 1;
+      console.log(`  FALTA: ${what} — no hay túnel para 127.0.0.1:${port}`);
+      continue;
+    }
+
+    const { status, out } = adb(['-s', device, 'reverse', `tcp:${port}`, `tcp:${port}`]);
+    if (status !== 0) {
+      missing += 1;
+      console.log(`  FALLO: no se pudo abrir el túnel de ${what} (${port}): ${out}`);
+    } else {
+      console.log(`  puesto: ${what} — el aparato ya alcanza 127.0.0.1:${port}`);
+    }
   }
 
-  const { status, out } = adb(['-s', device, 'reverse', `tcp:${port}`, `tcp:${port}`]);
-  if (status !== 0) {
-    missing += 1;
-    console.log(`  FALLO: no se pudo abrir el túnel de ${what} (${port}): ${out}`);
-  } else {
-    console.log(`  puesto: ${what} — el aparato ya alcanza 127.0.0.1:${port}`);
+  if (missing > 0) {
+    console.error(
+      `\nFaltan ${missing} túnel/es. Sin ellos la aplicación no alcanza nada en 127.0.0.1\n` +
+        'desde el aparato, y el síntoma aparece dentro de la app como un fallo de red.\n' +
+        `Arréglalo con:  node scripts/android-reverse.mjs --device ${device}\n` +
+        'Un túnel se pierde al reconectar el aparato, al reiniciarlo y al reiniciar adb.',
+    );
+    process.exit(1);
   }
+
+  console.log('\nOK - el aparato alcanza el ordenador por 127.0.0.1, sin depender de la red.\n');
 }
 
-if (missing > 0) {
-  console.error(
-    `\nFaltan ${missing} túnel/es. Sin ellos la aplicación no alcanza nada en 127.0.0.1\n` +
-      'desde el aparato, y el síntoma aparece dentro de la app como un fallo de red.\n' +
-      `Arréglalo con:  node scripts/android-reverse.mjs --device ${device}\n` +
-      'Un túnel se pierde al reconectar el aparato, al reiniciarlo y al reiniciar adb.',
-  );
-  process.exit(1);
+// Sólo cuando se ejecuta, nunca al importarlo.
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
 }
-
-console.log('\nOK - el aparato alcanza el ordenador por 127.0.0.1, sin depender de la red.\n');

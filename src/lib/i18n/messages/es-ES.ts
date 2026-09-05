@@ -44,6 +44,8 @@ export const esES = {
   'auth.email': 'Email',
   'auth.emailPlaceholder': 'tu@email.com',
   'auth.password': 'Contraseña',
+  'auth.showPassword': 'Mostrar contraseña',
+  'auth.hidePassword': 'Ocultar contraseña',
   'auth.passwordPlaceholder': 'Tu contraseña',
   'auth.signInAction': 'Entrar',
   'auth.signUpAction': 'Crear cuenta',
@@ -82,8 +84,6 @@ export const esES = {
   'auth.newPasswordAction': 'Guardar contraseña',
   'auth.newPasswordDoneTitle': 'Contraseña actualizada',
   'auth.newPasswordDoneBody': 'Hemos cerrado la sesión del enlace. Entra con tu contraseña nueva.',
-  'auth.showPassword': 'Mostrar contraseña',
-  'auth.hidePassword': 'Ocultar contraseña',
 
   'authError.invalidCredentials': 'Email o contraseña incorrectos.',
   'authError.emailNotConfirmed': 'Todavía no has confirmado tu email. Revisa tu correo.',

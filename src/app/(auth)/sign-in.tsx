@@ -115,7 +115,7 @@ export default function SignInScreen() {
           value={password}
           onChangeText={setPassword}
           editable={!running}
-          secureTextEntry
+          revealable
           autoCapitalize="none"
           autoComplete="current-password"
           textContentType="password"

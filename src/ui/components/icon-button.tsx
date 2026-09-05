@@ -29,6 +29,18 @@ export type IconButtonProps = {
    */
   disabled?: boolean;
   /**
+   * Para un botón que alterna entre dos estados, no para uno que sólo actúa.
+   *
+   * El nombre accesible ya cambia con el estado en esos casos, pero un nombre
+   * distinto no es un estado: quien usa un lector de pantalla oye «Ocultar
+   * contraseña» y no sabe si eso describe lo que hay o lo que pasará. Con
+   * `selected` el sistema lo anuncia además de leerlo.
+   *
+   * Se queda sin definir por defecto, así que ninguna llamada anterior cambia:
+   * un botón que no alterna nada no debe anunciar que está o no seleccionado.
+   */
+  selected?: boolean;
+  /**
    * A quiet dot on the corner, for a control that has something waiting.
    *
    * A dot and not a number: what matters is that there is something, and a
@@ -62,6 +74,7 @@ export function IconButton({
   colour,
   filled = false,
   disabled = false,
+  selected,
   badge = false,
   style,
 }: IconButtonProps) {
@@ -71,7 +84,7 @@ export function IconButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled, ...(selected === undefined ? {} : { selected }) }}
       disabled={disabled}
       hitSlop={Spacing.sm}
       onPress={onPress}
