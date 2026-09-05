@@ -49,7 +49,23 @@ const MAY_DIFFER = [
   ['android', 'package'],
   ['updates', 'enabled'],
   ['updates', 'requestHeaders'],
+  // La lista de plugins, y SOLO por el de HTTP local. Se compara aparte, abajo,
+  // en vez de quedar exenta: dejarla fuera sin mas admitiria cualquier
+  // divergencia futura de plugins, que es justo lo que esta guarda existe para
+  // no permitir.
+  ['plugins'],
 ];
+
+/**
+ * El unico plugin que puede estar en unas variantes y no en otras, y donde.
+ *
+ * F8.A5 anadio un eje de diferencia real: Staging necesita hablar HTTP sin
+ * cifrar contra `127.0.0.1` porque su backend es el stack local, y una build de
+ * release no lo hace por defecto. Development no lo necesita —Metro ya trae el
+ * permiso de la plantilla— y **Production no debe tenerlo nunca**.
+ */
+const VARIANT_ONLY_PLUGIN = './plugins/with-local-http.js';
+const PLUGIN_EXPECTED_IN = new Set(['staging']);
 
 /** Identity fixed by ADR-031 §1, restated here so the check has an oracle. */
 const EXPECTED = {
@@ -202,6 +218,37 @@ if (names.length < 3) {
     } else {
       ok(`${variant} es identica a ${reference} salvo identidad y canal`);
     }
+  }
+}
+
+console.log('\n=== Los plugins son los mismos, salvo el de HTTP local ===');
+
+for (const [variant, config] of Object.entries(resolved)) {
+  const plugins = (config.plugins ?? []).map((entry) =>
+    Array.isArray(entry) ? String(entry[0]) : String(entry),
+  );
+  const hasLocalHttp = plugins.includes(VARIANT_ONLY_PLUGIN);
+  const shouldHave = PLUGIN_EXPECTED_IN.has(variant);
+
+  if (hasLocalHttp !== shouldHave) {
+    fail(
+      hasLocalHttp
+        ? `${variant} lleva ${VARIANT_ONLY_PLUGIN} y NO debe: abriria HTTP sin cifrar`
+        : `${variant} deberia llevar ${VARIANT_ONLY_PLUGIN} y no lo lleva`,
+    );
+  } else {
+    ok(`${variant}: ${hasLocalHttp ? 'con' : 'sin'} el plugin de HTTP local, como toca`);
+  }
+
+  // El RESTO de la lista tiene que ser identica en las tres. Sin esto, la
+  // exencion de `plugins` habria abierto la puerta a cualquier divergencia.
+  const others = canonical(plugins.filter((name) => name !== VARIANT_ONLY_PLUGIN));
+  if (variant === 'development') {
+    globalThis.__pluginBaseline = others;
+  } else if (others !== globalThis.__pluginBaseline) {
+    fail(`${variant} tiene otros plugins distintos de los de development`);
+  } else {
+    ok(`${variant} comparte el resto de plugins con development`);
   }
 }
 

@@ -106,9 +106,17 @@ describe('la inspección del proyecto generado sigue preguntando lo que importa'
     expect(ANDROID_CHECK).toContain('android:scheme="nomey(-staging)?"');
   });
 
-  it('comprueba que Development no escucha ningún canal', () => {
-    expect(ANDROID_CHECK).toContain('expo.modules.updates.ENABLED" android:value="false"');
+  it('comprueba el canal en las dos direcciones, no sólo en una', () => {
+    /*
+     * Desde F8.A5 la comprobación está parametrizada por variante, así que ya no
+     * basta con «Development no escucha»: un Staging **sin** canal tampoco
+     * recibiría nunca nada, y lo parecería todo. El script exige lo que cada
+     * variante declara y rechaza lo contrario.
+     */
+    expect(ANDROID_CHECK).toContain('expo.modules.updates.ENABLED" android:value="${String(');
     expect(ANDROID_CHECK).toContain('expo-channel-name');
+    expect(ANDROID_CHECK).toContain('declara el canal');
+    expect(ANDROID_CHECK).toMatch(/deberia escuchar/);
   });
 
   it('y que las reglas de backup de la sesión siguen aplicadas — ADR-017', () => {

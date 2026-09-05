@@ -19,10 +19,14 @@
  * sirve a los dos con una sola configuración, y no exige abrir ningún puerto al
  * resto de la red ni tocar el cortafuegos.
  *
+ * **Sirve también a Staging, con `--no-metro`.** Un artefacto de Staging no
+ * depende de Metro pero sí alcanza el mismo stack local por el mismo túnel del
+ * 54321, así que la pieza es la misma y sólo cambia qué puertos se piden.
+ * Production no pasa por aquí: no habla con esta máquina.
+ *
  * **Qué NO hace.** No edita la `.env`, no la lee para escribir nada, no imprime
- * la clave y no sabe nada de Staging ni de Producción — ésos no pasan por Metro
- * ni por este flujo. Y no arranca ni para ningún servicio: si el puerto del
- * ordenador no escucha, lo dice.
+ * la clave y no sabe nada de Producción. Y no arranca ni para ningún servicio:
+ * si el puerto del ordenador no escucha, lo dice.
  *
  * **La comprobación importa tanto como la configuración.** Un `adb reverse` se
  * pierde al reconectar el aparato, al reiniciarlo y al reiniciar el servidor de
@@ -36,6 +40,16 @@ import { join } from 'node:path';
 const CHECK_ONLY = process.argv.includes('--check');
 const deviceFlag = process.argv.indexOf('--device');
 const WANTED_DEVICE = deviceFlag === -1 ? null : process.argv[deviceFlag + 1];
+
+/**
+ * `--no-metro` deja fuera el túnel de Metro y monta sólo el de la frontera.
+ *
+ * **Es lo que necesita Staging, y la diferencia importa.** Un artefacto de
+ * Staging es independiente de Metro por definición, así que abrirle el 8081
+ * sería dejar en pie justo la dependencia que ese artefacto existe para no
+ * tener — y una comprobación que la use dejaría de demostrar nada.
+ */
+const NO_METRO = process.argv.includes('--no-metro');
 
 /** El puerto de Metro. Fijo porque lo fija Expo, no esta configuración. */
 const METRO_PORT = 8081;
@@ -163,9 +177,13 @@ console.log(`\n=== Túneles de Android Development · ${device} ===`);
 
 const supabasePort = supabasePortFromEnv();
 const wanted = [
-  { port: METRO_PORT, what: 'Metro' },
+  ...(NO_METRO ? [] : [{ port: METRO_PORT, what: 'Metro' }]),
   ...(supabasePort === null ? [] : [{ port: supabasePort, what: 'Supabase (frontera local)' }]),
 ];
+
+if (NO_METRO) {
+  console.log('  (--no-metro: sólo la frontera. Un artefacto de Staging no depende de Metro.)');
+}
 
 let missing = 0;
 for (const { port, what } of wanted) {

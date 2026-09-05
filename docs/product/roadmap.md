@@ -445,14 +445,14 @@ La subdivisión F8.A0–F8.A5 se formalizó durante F8.A4 para hacer explícita 
 secuencia de entrega. **A0–A3 describen trabajo ya fusionado; A4 y A5 delimitan
 el trabajo pendiente.**
 
-| Sub-bloque | Qué es                                                     | Estado          |
-| ---------- | ---------------------------------------------------------- | --------------- |
-| **F8.A0**  | Decisiones: ADR-030 y ADR-031, y la partición A/B/C        | **Cerrado**     |
-| **F8.A1**  | Contrato de entornos ejecutable y EAS Update               | **Cerrado**     |
-| **F8.A2**  | Cadena nativa, CNG y assets técnicos                       | **Cerrado**     |
-| **F8.A3**  | Primera development build de Android, instalada y validada | **Cerrado**     |
-| **F8.A4**  | Validación funcional dentro de la development build        | **Cerrado**     |
-| **F8.A5**  | Primera build de Staging y su canal                        | **No empezado** |
+| Sub-bloque | Qué es                                                     | Estado      |
+| ---------- | ---------------------------------------------------------- | ----------- |
+| **F8.A0**  | Decisiones: ADR-030 y ADR-031, y la partición A/B/C        | **Cerrado** |
+| **F8.A1**  | Contrato de entornos ejecutable y EAS Update               | **Cerrado** |
+| **F8.A2**  | Cadena nativa, CNG y assets técnicos                       | **Cerrado** |
+| **F8.A3**  | Primera development build de Android, instalada y validada | **Cerrado** |
+| **F8.A4**  | Validación funcional dentro de la development build        | **Cerrado** |
+| **F8.A5**  | Primera build de Staging y su canal                        | **Cerrado** |
 
 **F8.A0 — decisiones.** [ADR-030](../adr/ADR-030-native-code-model.md), que
 cumple la puerta de código nativo de esta fase, y
@@ -528,9 +528,32 @@ obligaciones de su **§5**. Cubre, además de esa matriz:
 No entra: Staging, su canal, EAS Update, la distribución a nadie, y cualquier
 cosa de iOS.
 
-**F8.A5 — Staging.** La primera build de Staging **independiente de Metro**, y la
-validación de su canal `staging` y su entorno EAS `preview`. Nada más se decide
-aquí: su alcance detallado se escribe cuando empiece.
+**F8.A5 — Staging.** La primera build de Staging **independiente de Metro**, su
+canal `staging` y su entorno EAS `preview`. Cierra con:
+
+1. APK de **release** con la identidad de Staging —`Nomey Staging`,
+   `es.lcworks.nomey.staging`, `nomey-staging`—, compilado **localmente**: ADR-031
+   §5 descarta EAS Build, así que no hay cola, cuota ni coste.
+2. Instalado **junto a** Nomey Dev, sin sustituirla, y arrancando **con Metro
+   detenido**: alta, lectura y una operación real contra el stack local.
+3. El canal `staging` existe y apunta sólo a su rama.
+4. Una actualización **compatible** llega al binario sin reinstalarlo, y
+   **persiste** al cerrar y reabrir.
+5. Una actualización de **runtime incompatible** —`1.0.1` contra un binario
+   `1.0.0`— **no se aplica**, y no en silencio: sencillamente no la recibe.
+6. **Development no recibe nada** de ese canal: no lo declara.
+7. El bundle no lleva secretos ni valores de otro entorno.
+
+**Lo que NO cierra, y sigue escrito como pendiente.** El backend de Staging es el
+**mismo stack local**, alcanzado por `adb reverse` sobre `127.0.0.1`. Eso lo hace
+independiente de la red pero **no** de este ordenador, así que el **criterio 2 de
+la Fase 8 sigue abierto** — ADR-031 §4, que no se reinterpreta.
+
+**La firma tampoco es de producción.** El APK va firmado con el **keystore de
+depuración** que genera la plantilla, cuyo certificado es público y compartido
+por cualquiera que use CNG. Sirve para distribución interna y **no** para Google
+Play; la firma del paquete de producción se decide en **F8.C**, y el paquete
+`.staging` es independiente del de producción.
 
 **F8.A puede cerrarse como bloque parcial. La Fase 8 sigue abierta** mientras
 queden criterios originales sin cumplir. Estado por criterio:

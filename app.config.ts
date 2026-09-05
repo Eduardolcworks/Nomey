@@ -31,6 +31,20 @@ type Variant = {
   readonly scheme: string;
   readonly updatesEnabled: boolean;
   readonly channel: 'staging' | 'production' | null;
+  /**
+   * Si el binario puede hablar HTTP sin cifrar contra `127.0.0.1`.
+   *
+   * **Sólo Staging, y sólo mientras su backend sea el stack local.** Una build
+   * de release no puede hacerlo por defecto —medido en F8.A5 sobre el manifiesto
+   * fusionado— y Staging lo necesita porque alcanza el stack de esta máquina por
+   * `adb reverse`. Lo concede `plugins/with-local-http.js`, acotado a loopback:
+   * cualquier otro destino sigue exigiendo TLS.
+   *
+   * **Production es `false` y no es negociable aquí.** Un binario de producción
+   * que acepte texto claro es una degradación permanente, y una guarda de
+   * `tests/infra/` lo comprueba en vez de fiarlo a la lectura.
+   */
+  readonly allowsLocalHttp: boolean;
 };
 
 /**
@@ -52,6 +66,9 @@ const VARIANTS: Readonly<Record<VariantName, Variant>> = {
     // code under test with whatever was last published.
     updatesEnabled: false,
     channel: null,
+    // Development va servido por Metro, que ya trae su propio permiso en el
+    // manifiesto de debug. No necesita el plugin, y no lo lleva.
+    allowsLocalHttp: false,
   },
   staging: {
     displayName: 'Nomey Staging',
@@ -59,6 +76,9 @@ const VARIANTS: Readonly<Record<VariantName, Variant>> = {
     scheme: 'nomey-staging',
     updatesEnabled: true,
     channel: 'staging',
+    // Su backend es el stack local por `adb reverse`, y una build de release no
+    // habla texto claro por defecto.
+    allowsLocalHttp: true,
   },
   production: {
     displayName: 'Nomey',
@@ -66,6 +86,7 @@ const VARIANTS: Readonly<Record<VariantName, Variant>> = {
     scheme: 'nomey',
     updatesEnabled: true,
     channel: 'production',
+    allowsLocalHttp: false,
   },
 };
 
@@ -283,6 +304,22 @@ const config: ExpoConfig = {
       'expo-secure-store',
       { configureAndroidBackup: true, faceIDPermission: false },
     ],
+
+    /*
+     * HTTP sin cifrar contra `127.0.0.1`, y SÓLO para la variante que lo pide.
+     *
+     * Una build de release no habla texto claro por defecto —medido en F8.A5
+     * sobre el manifiesto fusionado: cero menciones del atributo— y Staging lo
+     * necesita porque alcanza el stack local de esta máquina por `adb reverse`.
+     * El plugin lo concede acotado a loopback, así que cualquier otro destino
+     * sigue exigiendo TLS.
+     *
+     * El condicional es lo que aísla las variantes: **Production nunca lo
+     * declara**, y `tests/infra/` lo comprueba en vez de fiarlo a la lectura.
+     * Development tampoco lo necesita, porque su manifiesto de debug ya trae el
+     * permiso que pone la plantilla.
+     */
+    ...(variant.allowsLocalHttp ? ['./plugins/with-local-http.js'] : []),
   ],
 
   extra: {

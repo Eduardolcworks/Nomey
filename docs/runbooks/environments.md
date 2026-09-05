@@ -39,9 +39,12 @@ Necesita un `.env` con las dos variables públicas apuntando al stack Supabase
 local. La plantilla es [`.env.example`](../../.env.example); los valores no se
 commitean nunca, porque la URL es la dirección de esta máquina en su red.
 
-- **Emulador de Android** — `localhost` del host se alcanza en `10.0.2.2`.
-- **Aparato físico** — la IP de la máquina en la LAN, y el aparato en la misma
-  red.
+**La dirección es `http://127.0.0.1:54321`, y no una IP de red local.** El
+aparato la alcanza por `adb reverse`, que monta `npm run android`. Así deja de
+depender de en qué Wi-Fi estés, que es lo que obligaba a editar la `.env` en cada
+cambio de sitio. `10.0.2.2` queda descartado porque **sólo existe en el
+emulador**: un teléfono por cable no lo resuelve. Detalle en
+[`android-build.md`](android-build.md) §6.
 
 `updates` está **apagado** en development: un binario de desarrollo que
 escuchase un canal se reemplazaría el código bajo prueba por lo último
@@ -51,10 +54,9 @@ publicado.
 
 ## Staging — resolver y verificar
 
-Hoy Staging se puede **resolver y verificar**. Construirlo es **F8.A5**: F8.A2
-trajo la cadena nativa y F8.A3 la primera build propia, pero **esa build es de
-Development**, con las actualizaciones apagadas, así que no puede validar ni
-consumir el canal.
+Staging se **resuelve, se verifica y se compila** desde F8.A5. Para construirlo e
+instalarlo, la sección «Compilar Staging» de más abajo; esto es sólo la
+resolución de su configuración.
 
 ```bash
 npm run config:staging
@@ -109,7 +111,7 @@ con visibilidad `plaintext`:
 
 ```
 APP_VARIANT                            staging
-EXPO_PUBLIC_SUPABASE_URL               la URL LAN del stack local
+EXPO_PUBLIC_SUPABASE_URL               http://127.0.0.1:54321
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY   la publishable key local
 ```
 
@@ -122,12 +124,19 @@ node scripts/eas-preview-sync.mjs --dry-run   # valida y no envía nada
 node scripts/eas-preview-sync.mjs             # valida y escribe en preview
 ```
 
-> **VUELVE A EJECUTARLO CUANDO CAMBIE LA URL LAN.** Staging apunta
-> provisionalmente al stack local por la red local, así que esa URL es la
-> dirección de **esta** máquina en **esta** red. Cambiar de red, de router o de
-> ordenador deja el valor de EAS caducado, y publicar una actualización sin
-> refrescarlo entregaría un Staging que no alcanza ningún backend. **No falla al
-> publicar: falla en el aparato**, que es la peor forma de enterarse.
+> **Desde F8.A5 la URL es loopback y ya no caduca al cambiar de red.** Antes era
+> la dirección de esta máquina en esta red, y cambiar de Wi-Fi dejaba el valor de
+> EAS apuntando a ninguna parte: no fallaba al publicar, fallaba en el aparato.
+> Ahora lo que hace falta es **el túnel**, no la dirección correcta:
+>
+> ```bash
+> npm run staging:reverse   # y `--check` para comprobarlo sin tocar nada
+> ```
+>
+> **Un túnel se pierde solo**: al reconectar el aparato, al reiniciarlo, al
+> reiniciar adb y —medido en F8.A5— justo después de arrancar el emulador. El
+> síntoma dentro de la app es «Sin conexión», que es honesto pero no nombra la
+> causa.
 
 Y se comprueba sin dejar `.env` ni ningún artefacto:
 
@@ -147,12 +156,61 @@ seguir hasta que exista una razón.
 
 ---
 
-## Publicar una actualización al canal `staging` — todavía no
+## Compilar Staging, y publicar en su canal
 
-**No se ha publicado ninguna, y es deliberado: no existe aún la build de Staging
-que pudiera recibirla.** Publicar antes dejaría una actualización en un canal sin
-destinatario, y la primera vez que algo así se prueba conviene que haya un
-aparato delante.
+**Existe desde F8.A5**, y el procedimiento entero son tres comandos:
+
+```bash
+npm run staging:build        # preview -> prebuild -> guarda -> assembleRelease
+npm run staging:reverse      # el tunel del 54321, SIN abrir el de Metro
+adb install android/app/build/outputs/apk/release/app-release.apk
+```
+
+`staging:build` **carga siempre el entorno `preview`**, y no por comodidad: un
+APK inlinea `EXPO_PUBLIC_*` al compilar, así que sin esas variables sale con la
+configuración vacía —no falla al compilar, no falla al instalar, y falla en el
+aparato—. `scripts/gradle-release.mjs` lo exige antes de gastar los minutos de
+Gradle. Sale sólo para `x86_64`, que es lo que corre el emulador; para otra ABI,
+`NOMEY_RELEASE_ABI`.
+
+> **La firma es la de depuración, y hay que saberlo.** El proyecto generado por
+> CNG firma `release` con `debug.keystore`, cuyo certificado —SHA-256
+> `FA:C6:17:45…03:3B:9C`— es **público y compartido** por cualquiera que use la
+> plantilla de React Native. Medido en F8.A5: es **estable entre regeneraciones**
+> de `prebuild --clean`, byte a byte, así que sirve para reinstalar sobre la
+> misma app en distribución interna. **No es una firma de producción y no vale
+> para Google Play**; eso se decide en **F8.C**, y el paquete `.staging` es
+> independiente del de producción.
+
+> **HTTP sin cifrar, sólo en Staging y sólo contra loopback.** Una build de
+> release no habla texto claro por defecto —medido sobre el manifiesto fusionado:
+> el `usesCleartextTraffic` de la plantilla vive **sólo** en el manifiesto de
+> `debug`—. `plugins/with-local-http.js` escribe una configuración de seguridad
+> de red que lo permite **exclusivamente** contra `127.0.0.1` y `localhost`.
+> Development no lo lleva y **Production tampoco**, comprobado sobre su proyecto
+> generado y vigilado por `tests/infra/staging-channel.test.ts`.
+
+Publicar una actualización:
+
+```bash
+npx eas-cli@latest update --channel staging --environment preview \
+  --platform android --message "…"
+```
+
+> **El ciclo real son DOS arranques, no uno.** Medido en F8.A5: el primero
+> descarga la actualización en segundo plano y el segundo la arranca. Una prueba
+> que sólo abra la app una vez concluirá que no llegó.
+
+> **Y `runtimeVersion` manda sobre el canal.** Se publicó a propósito una
+> actualización con `version` `1.0.1` y el binario `1.0.0` **no la recibió**, ni
+> siquiera tras dos ciclos. No hay aviso: simplemente no es para él. Cualquier
+> cambio nativo del que dependa el JavaScript exige subir `version` y compilar.
+
+## Publicar al canal `staging` — cómo era antes de F8.A5
+
+**Ya no aplica: F8.A5 creó el canal y publicó tres.** Se conserva el porqué del
+aplazamiento —una actualización en un canal sin destinatario no demuestra nada— y
+el resto de esta sección, que sigue siendo cierto.
 
 Cuando exista el APK de Staging (**F8.A5**), el comando será:
 
@@ -160,8 +218,7 @@ Cuando exista el APK de Staging (**F8.A5**), el comando será:
 npx eas-cli@latest update --channel staging --environment preview --message "..."
 ```
 
-**El canal se crea con la primera build de Staging, no antes.** Hoy no existe —
-comprobado: `eas channel:list` y `eas branch:list` están vacíos—. Sin EAS Build
+**El canal se creó con la primera build de Staging**, y no antes. Sin EAS Build
 nadie lo crea por su cuenta:
 
 ```bash
@@ -186,11 +243,12 @@ Tres cosas más que hay que tener claras antes de escribirlo:
 
 ## Lo que Staging todavía NO es
 
-**Staging depende de este ordenador.** Apunta provisionalmente al mismo stack
-Supabase local, alcanzado por la red local: si la máquina está apagada, o el
-aparato está en otra red, Staging no tiene backend. Lo que separa a Staging de
-Development hoy es la identidad, el artefacto sin Metro y el canal de
-actualización — **no el backend**.
+**Staging depende de este ordenador, y de estar conectado a él.** Apunta
+provisionalmente al mismo stack Supabase local, alcanzado por `adb reverse` sobre
+`127.0.0.1`: si la máquina está apagada, o el aparato no está conectado por ADB,
+Staging no tiene backend. **El cambio de F8.A5 lo hizo independiente de la red,
+no del cable.** Lo que separa a Staging de Development es la identidad, el
+artefacto sin Metro y el canal de actualización — **no el backend**.
 
 > **Esto NO cumple el criterio 2 de cierre de la Fase 8**, que pide «al menos un
 > entorno distinto del local». Un stack local alcanzado por otra ruta sigue

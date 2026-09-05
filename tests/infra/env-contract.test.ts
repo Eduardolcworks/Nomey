@@ -169,13 +169,26 @@ describe('la configuración de Staging vive en el entorno EAS `preview`', () => 
     expect(PREVIEW_SYNC).not.toContain("'production'");
   });
 
-  it('el runbook dice que hay que refrescarlo cuando cambie la URL LAN', () => {
-    // Es el modo de fallo que no avisa: no falla al publicar, falla en el
-    // aparato, contra una dirección que ya no existe.
+  it('el runbook nombra el modo de fallo VIGENTE, que ya no es la URL', () => {
+    /*
+     * Antes de F8.A5 la advertencia era «refréscalo cuando cambie la URL LAN»:
+     * el valor de EAS caducaba al cambiar de Wi-Fi y fallaba en el aparato, no
+     * al publicar. **Ese modo de fallo ya no existe** — la dirección es loopback
+     * y no depende de la red — así que exigir aquella frase congelaría un aviso
+     * que dejó de ser cierto.
+     *
+     * Lo que sí puede faltar ahora es el TÚNEL, y se pierde solo. El runbook
+     * tiene que decirlo, porque el síntoma dentro de la app es «Sin conexión»,
+     * que es honesto pero no nombra la causa.
+     */
     expect(RUNBOOK).toContain('scripts/eas-preview-sync.mjs');
     expect(RUNBOOK).toContain('scripts/staging-env-verify.mjs');
-    expect(RUNBOOK).toContain('CUANDO CAMBIE LA URL LAN');
     expect(RUNBOOK).toContain('channel:create staging');
+
+    expect(RUNBOOK).not.toContain('CUANDO CAMBIE LA URL LAN');
+    expect(RUNBOOK).toContain('http://127.0.0.1:54321');
+    expect(RUNBOOK).toContain('npm run staging:reverse');
+    expect(RUNBOOK).toMatch(/Un túnel se pierde solo/);
   });
 });
 
