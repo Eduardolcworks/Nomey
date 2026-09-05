@@ -41,6 +41,8 @@ export const en: Record<MessageKey, string> = {
   'auth.email': 'Email',
   'auth.emailPlaceholder': 'you@email.com',
   'auth.password': 'Password',
+  'auth.showPassword': 'Show password',
+  'auth.hidePassword': 'Hide password',
   'auth.passwordPlaceholder': 'Your password',
   'auth.signInAction': 'Sign in',
   'auth.signUpAction': 'Create account',
@@ -79,8 +81,6 @@ export const en: Record<MessageKey, string> = {
   'auth.newPasswordAction': 'Save password',
   'auth.newPasswordDoneTitle': 'Password updated',
   'auth.newPasswordDoneBody': 'We closed the link session. Sign in with your new password.',
-  'auth.showPassword': 'Show password',
-  'auth.hidePassword': 'Hide password',
 
   'authError.invalidCredentials': 'Wrong email or password.',
   'authError.emailNotConfirmed': 'You have not confirmed your email yet. Check your inbox.',
