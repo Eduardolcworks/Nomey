@@ -14,21 +14,8 @@ import {
   useTheme,
 } from '@/ui/theme';
 
+import type { DebtDisplay } from './debt-display';
 import { toMinor } from './statistics';
-
-/**
- * Lo que se pinta en el bloque de Deudas mientras la deuda real no existe.
- *
- * **Es un marcador de posición de INTERFAZ, decidido para F6.E, y nada más.**
- * No sale de ninguna consulta, no se deriva de nada y no entra en ningún
- * cálculo. La deuda real llega con F9, y hasta entonces el Modo Personal no
- * tiene dimensión de deuda: el vínculo que la traería —
- * `core.participant_user_link`— está vacío y sigue vacío hasta F10.
- *
- * Cuando F9 traiga el dato, lo único que cambia es **quién pasa `debt`**: la
- * estructura, el formato y la regla de color ya están aquí.
- */
-export const DEBT_PLACEHOLDER = '0';
 
 export type BalanceCardProps = {
   /** Exacto, en unidad mínima. `null` mientras no se pueda afirmar. */
@@ -36,13 +23,20 @@ export type BalanceCardProps = {
   readonly currencyCode: string;
   readonly currencyScale: number;
   /**
-   * La deuda neta, en unidad mínima y con signo. **Todavía nadie la pasa.**
+   * La deuda, ya resuelta a lo que se puede afirmar — ver
+   * [`homeDebt`](./debt-display.ts).
+   *
+   * **Es OBLIGATORIA a propósito, y antes no lo era.** Tenía un valor por
+   * defecto, nadie la pasaba, y el defecto se pintaba como si fuera un dato:
+   * primero un `'0'` que afirmaba un cero inexistente y después un `null` que
+   * dejaba la tarjeta en desconocido para siempre. Los dos fallos son el mismo,
+   * y sin valor por defecto ninguno de los dos se puede repetir sin que el
+   * compilador lo diga.
    *
    * Negativo = debes · positivo = te deben · cero = en paz. Es el mismo criterio
-   * de signo que usan los efectos de deuda en `core`, así que F9 podrá
-   * enchufarlo sin traducir nada.
+   * de signo que usan los efectos de deuda en `core`.
    */
-  readonly debt?: string;
+  readonly debt: DebtDisplay;
   /** Ajustar el saldo. La escritura llega en F6.F. */
   readonly onAdjust: () => void;
 };
@@ -53,9 +47,8 @@ export type BalanceCardProps = {
  * La semántica visual prevista, escrita ya para que F9 no tenga que decidirla
  * otra vez: **rojo si debes, verde si te deben, blanco si estás en paz**.
  *
- * No es lógica ficticia: se aplica al valor que la tarjeta tiene en la mano. Hoy
- * ese valor es el marcador de posición, que es cero, y por eso sale en blanco —
- * no porque el blanco esté escrito a mano en ningún sitio.
+ * No es lógica ficticia: se aplica al valor que la tarjeta tiene en la mano, y
+ * sólo cuando hay valor. Sin dato no se elige color, porque no se pinta cifra.
  *
  * Y el color **nunca va solo**: la cifra lleva su etiqueta «Deudas» encima y su
  * signo, que es lo que exige `design-direction.md` §8.
@@ -106,7 +99,7 @@ export function BalanceCard({
   amount,
   currencyCode,
   currencyScale,
-  debt = DEBT_PLACEHOLDER,
+  debt,
   onAdjust,
 }: BalanceCardProps) {
   const { t } = useTranslation();
@@ -118,8 +111,6 @@ export function BalanceCard({
     code: currencyCode,
     scale: currencyScale,
   });
-
-  const debtMinor = toMinor(debt);
 
   return (
     <View
@@ -161,10 +152,21 @@ export function BalanceCard({
            * `amountRow` y no `amountHero`: presencia suficiente para leerse como
            * una magnitud de la tarjeta, sin disputarle la jerarquía al
            * Disponible, que es la cifra que la tarjeta existe para responder.
+           *
+           * Y sin dato, EL MISMO marcador que el Disponible: `home.amountPending`
+           * en `textDisabled`. No es una convención nueva —es la que ya usaban
+           * el saldo y las dos tarjetas de flujo—, así que las cuatro cifras de
+           * la pantalla dicen «no se sabe» de la misma manera.
            */}
-          <ThemedText variant="amountRow" themeColor={debtTone(debtMinor)} numberOfLines={1}>
-            {format.money(money(debtMinor, definition))}
-          </ThemedText>
+          {debt.kind === 'unknown' ? (
+            <ThemedText variant="amountRow" themeColor="textDisabled">
+              {t('home.amountPending')}
+            </ThemedText>
+          ) : (
+            <ThemedText variant="amountRow" themeColor={debtTone(debt.minor)} numberOfLines={1}>
+              {format.money(money(debt.minor, definition))}
+            </ThemedText>
+          )}
         </GlassSurface>
       </View>
 

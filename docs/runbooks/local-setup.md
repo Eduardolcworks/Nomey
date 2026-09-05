@@ -158,6 +158,37 @@ Desde **Ubuntu**, en `/mnt/c/Proyectos/Nomey`:
 `status` debe listar Studio, REST, GraphQL y la URL de la base de datos, y
 detectar los contenedores **ya existentes** sin recrearlos.
 
+> ### Que `supabase start` termine bien NO demuestra que la frontera esté en pie
+>
+> **Medido en F8.A4.** El stack puede quedarse con Postgres, GoTrue y PostgREST
+> corriendo y el contenedor de **Kong parado**. En ese estado `supabase start`
+> sale con **código 0** — los contenedores que siguen vivos le bastan para darse
+> por levantado — y `54321` no contesta a nadie. Todo lo que entra por
+> `docker exec` funciona con normalidad, así que el problema no aparece hasta el
+> primer `curl`, muy lejos de su causa y con un `000` que no nombra el gateway.
+>
+> La comprobación real es el endpoint, no el código de salida:
+>
+> ```bash
+> curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:54321/auth/v1/health
+> docker ps --filter name=supabase_kong --format '{{.Names}} {{.Status}}'
+> ```
+>
+> `200` es la frontera sana; `000` es que no hay gateway. Los tres scripts que
+> hablan por HTTP —`http-boundary-check.sh`, `http-boundary-isolation.sh` y
+> `offline-taxonomy-probe.sh`— ya lo comprueban al arrancar con
+> `exigir_frontera_http`, de `scripts/local-db-guard.sh`, y abortan diciendo qué
+> falta. **Ninguna de esas guardas arregla nada**: no levanta, no reinicia y no
+> para contenedores. Recuperarlo es una decisión de quien mira, y lo mínimo que
+> lo resuelve es `docker start supabase_kong_Nomey`.
+>
+> El wrapper `scripts/supabase-cli.sh` **no** hace esta comprobación, y es
+> deliberado: es un paso a través que termina en `exec`, de modo que no puede
+> inspeccionar el resultado de un `start` sin dejar de serlo, y sus dos guardas
+> responden a otra pregunta — qué binario se ejecuta, no si el stack está sano.
+> Meterle un sondeo obligaría a tratar `start` como un caso especial dentro de
+> un comando genérico.
+
 ---
 
 ## 7 · Migraciones

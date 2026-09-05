@@ -8,6 +8,7 @@ import {
   CategoryCard,
   categorySlices,
   FlowCard,
+  homeDebt,
   INITIAL_INTERVAL,
   IntervalSelector,
   type IntervalKind,
@@ -15,6 +16,7 @@ import {
   isResolving,
   movementKind,
   MovementRow,
+  PERSONAL_DEBT_AMOUNTS,
   type ProjectedOperation,
   readyScope,
   resolveInterval,
@@ -442,10 +444,30 @@ export default function HomeScreen() {
             {greeting}
 
             <View style={styles.body}>
+              {/*
+               * ═══ LA DEUDA SALE DEL SNAPSHOT CARGADO, NO DE LA RED ═══
+               *
+               * `home.balance` es el hecho: `null` mientras la carga no ha
+               * terminado o si falló sin dejar snapshot, y una fila en cuanto
+               * llegó. **No es lo mismo que haber conexión**, y ésa es la
+               * distinción que importa aquí: un refresco posterior que falla
+               * conserva el snapshot anterior (`use-personal-home.ts`), así que
+               * la deuda no vuelve a ser desconocida por perder la red.
+               *
+               * Con el snapshot puesto, `homeDebt` resuelve la colección de
+               * deudas — hoy vacía por estructura, no por suposición — y eso es
+               * un cero CONOCIDO, que se pinta como cifra. Sin snapshot, el
+               * mismo marcador de no disponible que el Disponible de al lado.
+               */}
               <BalanceCard
                 amount={projected.balance}
                 currencyCode={ready.currencyCode}
                 currencyScale={ready.currencyScale}
+                debt={homeDebt(
+                  home.balance === null
+                    ? { loaded: false }
+                    : { loaded: true, amounts: PERSONAL_DEBT_AMOUNTS },
+                )}
                 onAdjust={editBalance}
               />
 

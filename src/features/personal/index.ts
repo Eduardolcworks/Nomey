@@ -10,6 +10,13 @@ export {
   systemCategoryKey,
 } from './category';
 export { CategoryCard } from './category-card';
+export {
+  type DebtDisplay,
+  type DebtSnapshot,
+  debtDisplay,
+  homeDebt,
+  PERSONAL_DEBT_AMOUNTS,
+} from './debt-display';
 export { EntryKindSelector } from './entry-kind-selector';
 export { FlowCard } from './flow-card';
 export {

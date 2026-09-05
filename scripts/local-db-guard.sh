@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 #
-# Guarda para los scripts que ESCRIBEN en la base.
+# Guardas para los scripts que trabajan contra el stack local.
 #
-# Se carga con `source`; no se ejecuta por su cuenta.
+# Se carga con `source`; no se ejecuta por su cuenta. Ofrece dos, y son
+# independientes: `exigir_base_local` responde a «¿es esta la base correcta?» y
+# `exigir_frontera_http` a «¿esta el gateway en pie?». Cada script carga la que
+# su trabajo necesita, y ninguna implica a la otra.
 #
 # **Por que existe.** Los scripts de concurrencia y el de frontera HTTP escriben
 # filas confirmadas y despues las retiran. Ejecutar cualquiera de ellos contra
@@ -109,4 +112,55 @@ exigir_base_local() {
   done
 
   return 0
+}
+
+# Se niega a continuar si la frontera HTTP no responde de verdad en 54321.
+#
+# **Por que hace falta una SEGUNDA guarda.** `exigir_base_local` demuestra que
+# se habla con el Postgres local, y lo hace por `docker exec`, que entra por
+# socket al contenedor de la base. Kong no aparece en esa prueba por ninguna
+# parte. Medido durante F8.A4: el stack puede tener Postgres, GoTrue y
+# PostgREST en pie con el contenedor de Kong parado, y en ese estado
+# `exigir_base_local` pasa, `supabase start` termina con **exito** —los
+# contenedores que quedaron vivos le bastan para darse por levantado— y el
+# primer `curl` del script falla mucho despues, con un 000 que no dice que
+# falta el gateway.
+#
+# Esta guarda es OPCIONAL a proposito. Los scripts de concurrencia trabajan por
+# `docker exec` y no tocan la frontera; obligarles a Kong seria pedirles una
+# dependencia que no tienen. La carga quien va a hablar HTTP.
+#
+# **Que prueba y que no.** Prueba que algo en 54321 enruta hasta GoTrue y
+# contesta 200: eso solo puede hacerlo el gateway con su ruta puesta. NO prueba
+# que PostgREST este sano —lo comprobara el propio script en su primera llamada,
+# donde el fallo ya es legible— ni intenta arreglar nada: no levanta, no
+# reinicia y no para ningun contenedor. Dice que falta y por que.
+exigir_frontera_http() {
+  local api="${1:-http://127.0.0.1:54321}"
+  local codigo
+
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "ABORTADO: falta curl en el PATH y sin el no se puede comprobar 54321" >&2
+    return 1
+  fi
+
+  codigo=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "${api}/auth/v1/health" 2>/dev/null || true)
+
+  if [ "${codigo}" = "200" ]; then
+    return 0
+  fi
+
+  echo "ABORTADO: la frontera HTTP no responde en ${api}" >&2
+  if [ "${codigo}" = "000" ]; then
+    echo "          No hay nadie escuchando: el gateway (Kong) no esta accesible." >&2
+    echo "          OJO: que 'supabase start' termine con exito NO demuestra que" >&2
+    echo "          lo este. Con el resto de contenedores vivos, la CLI se da por" >&2
+    echo "          levantada igual. Comprueba el contenedor del gateway:" >&2
+    echo "            docker ps --filter name=supabase_kong --format '{{.Names}} {{.Status}}'" >&2
+  else
+    echo "          Contesta ${codigo}, que no es lo que da la frontera sana." >&2
+    echo "          Algo escucha en ese puerto, pero no enruta como el gateway." >&2
+  fi
+  echo "          Ver docs/runbooks/local-setup.md" >&2
+  return 1
 }

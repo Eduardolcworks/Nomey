@@ -8,7 +8,9 @@
   },
   "scripts": {
     "start": "node scripts/with-variant.mjs development start",
-    "android": "node scripts/with-variant.mjs development start --android",
+    "android": "node scripts/android-reverse.mjs && node scripts/with-variant.mjs development start --android",
+    "android:reverse": "node scripts/android-reverse.mjs",
+    "android:reverse:check": "node scripts/android-reverse.mjs --check",
     "ios": "node scripts/with-variant.mjs development start --ios",
     "config:development": "node scripts/with-variant.mjs development config --type public",
     "config:staging": "node scripts/with-variant.mjs staging config --type public",

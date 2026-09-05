@@ -4,6 +4,7 @@ import AGENTS from '../../AGENTS.md?raw';
 import CI from '../../.github/workflows/ci.yml?raw';
 import PACKAGE_JSON from '../../package.json?raw';
 import ANDROID_CHECK from '../../scripts/android-project-check.mjs?raw';
+import ANDROID_REVERSE from '../../scripts/android-reverse.mjs?raw';
 import DERIVE from '../../scripts/derive-brand-assets.ps1?raw';
 import ICON_CHECK from '../../scripts/icon-geometry-check.mjs?raw';
 import RUNBOOK from '../../docs/runbooks/android-build.md?raw';
@@ -73,8 +74,21 @@ describe('el runbook es reproducible en otra máquina', () => {
   it('y no lleva ninguna credencial ni dirección de red', () => {
     expect(RUNBOOK).not.toMatch(/sb_publishable_[A-Za-z0-9_-]{8,}/);
     expect(RUNBOOK).not.toMatch(/sb_secret_[A-Za-z0-9_-]{8,}/);
-    // Ninguna IP salvo las documentales; la LAN de nadie entra aquí.
-    expect(RUNBOOK).not.toMatch(/\b(?:10|172|192)\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/);
+
+    /*
+     * Ninguna IP de red privada, porque ahí es donde acabaría la LAN de alguien
+     * y el documento dejaría de servir en otra máquina.
+     *
+     * **La única excepción es `10.0.2.2`, y se nombra en vez de relajar la
+     * regla.** No es la red de nadie: es la constante con la que el emulador de
+     * Android alcanza a su anfitrión, y aparece precisamente para explicar por
+     * qué Nomey NO la usa —sólo existe en el emulador, y un teléfono por cable
+     * no la resuelve—. `127.0.0.1` no entra en el patrón y es la dirección
+     * buena.
+     */
+    const EMULATOR_HOST_ALIAS = /10\.0\.2\.2/g;
+    const sinLaExcepcion = RUNBOOK.replace(EMULATOR_HOST_ALIAS, '<alias-del-emulador>');
+    expect(sinLaExcepcion).not.toMatch(/\b(?:10|172|192)\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/);
   });
 });
 
@@ -142,6 +156,60 @@ describe('la build de Android es propia, y no depende de Expo Go', () => {
     for (const line of lines) {
       expect(line, `«${line.trim()}»`).not.toMatch(/^\s*(npx |npm |node ).*Expo Go/);
     }
+  });
+});
+
+describe('el Android de Development alcanza el ordenador sin depender de la red', () => {
+  const REVERSE = ANDROID_REVERSE;
+  const PACKAGE = JSON.parse(PACKAGE_JSON) as { scripts: Record<string, string> };
+
+  it('revisa de verdad lo que dice revisar', () => {
+    expect(REVERSE).toBeTypeOf('string');
+    expect(REVERSE.length).toBeGreaterThan(1000);
+  });
+
+  it('el arranque de Android pone los túneles antes de Metro', () => {
+    // Si Metro arrancara primero, la aplicación cargaría y fallaría al hablar
+    // con la frontera, que es el síntoma lejano que esto existe para evitar.
+    expect(PACKAGE.scripts.android).toMatch(/^node scripts\/android-reverse\.mjs &&/);
+    expect(PACKAGE.scripts['android:reverse:check']).toContain('--check');
+  });
+
+  it('no lleva ninguna IP de red dentro: la dirección es loopback', () => {
+    /*
+     * Una IP de red local aquí reintroduciría exactamente el acoplamiento que
+     * el script existe para quitar. La misma excepción acotada que en el
+     * runbook: `10.0.2.2` aparece en la cabecera para explicar por qué NO se
+     * usa, y no es la red de nadie.
+     */
+    const sinLaExcepcion = REVERSE.replace(/10\.0\.2\.2/g, '<alias-del-emulador>');
+    expect(sinLaExcepcion).not.toMatch(/\b(?:10|172|192)\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/);
+    expect(REVERSE).toContain("'127.0.0.1'");
+  });
+
+  it('lee la .env pero no la escribe, y no imprime lo que hay dentro', () => {
+    /*
+     * La lee para saber a dónde apunta —si no es loopback, no hay nada que
+     * tunelar—. Escribirla convertiría el helper en algo que edita la
+     * configuración de alguien a su espalda, que es justo lo que se quería
+     * dejar de hacer en cada cambio de red.
+     */
+    expect(REVERSE).toContain("readFileSync('.env'");
+    expect(REVERSE).not.toMatch(/writeFileSync|appendFileSync/);
+    expect(REVERSE).not.toContain('PUBLISHABLE');
+  });
+
+  it('y no arranca ni para ningún servicio', () => {
+    // Diagnostica y configura túneles. Levantar el stack o matar Metro serían
+    // otro trabajo, y uno que nadie le ha pedido.
+    expect(REVERSE).not.toMatch(/docker\s+(start|stop|restart)/);
+    expect(REVERSE).not.toMatch(/supabase-cli\.sh/);
+  });
+
+  it('el runbook explica por qué loopback y descarta el alias del emulador', () => {
+    expect(RUNBOOK).toContain('http://127.0.0.1:54321');
+    expect(RUNBOOK).toContain('npm run android:reverse:check');
+    expect(RUNBOOK).toMatch(/sólo existe en el emulador/);
   });
 });
 

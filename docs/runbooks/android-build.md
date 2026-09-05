@@ -222,9 +222,44 @@ Es un artefacto dentro de un artefacto: no se versiona, no se comparte y se
 regenera. El APK que se entrega a alguien es otra cosa y llega en F8.A5.
 
 **Metro.** `run:android` deja el servidor arrancado al terminar. Si se cierra,
-se vuelve a levantar con `npm start`, que ya nombra la variante. En el emulador
-la conexión es automática; en un aparato físico por USB se necesita
-`adb reverse tcp:8081 tcp:8081`, y por LAN basta con estar en la misma red.
+se vuelve a levantar con `npm start`, que ya nombra la variante.
+
+### El aparato alcanza el ordenador por `127.0.0.1`, no por la red
+
+**La dirección del backend en Development es `http://127.0.0.1:54321`**, y no
+una IP de la red local. El túnel lo abre ADB:
+
+```bash
+npm run android              # configura los túneles y arranca Metro
+npm run android:reverse      # sólo los túneles
+npm run android:reverse:check   # sólo comprobar, sin tocar nada
+```
+
+`scripts/android-reverse.mjs` lee la `.env` **únicamente para saber a dónde
+apunta** —no imprime nada de dentro y no la modifica—, y abre el túnel del
+puerto de Supabase y el de Metro para el aparato conectado. Con varios
+conectados hay que elegir: `--device <serie>`.
+
+> **Por qué loopback y no una IP de red local.** Una IP de red local es
+> propiedad del sitio donde estás: al cambiar de Wi-Fi deja de resolver, y el
+> síntoma no aparece al compilar sino dentro de la aplicación, como un fallo de
+> red. Con `adb reverse` la dirección deja de depender de la red y **la `.env`
+> no vuelve a tocarse al cambiar de sitio**. Tampoco hace falta abrir puertos al
+> resto de la red ni tocar el cortafuegos.
+>
+> **Y por qué no `10.0.2.2`.** Es el alias que el emulador da a su anfitrión y
+> **sólo existe en el emulador**: un teléfono por cable no lo resuelve.
+> `127.0.0.1` con `adb reverse` sirve a los dos con una sola configuración.
+>
+> **Esto es de Development y de nadie más.** Staging y Producción no pasan por
+> Metro ni por este flujo; la configuración de Staging vive en el entorno EAS
+> `preview` y es de F8.A5.
+
+> **Un túnel se pierde solo, y sin avisar.** Al reconectar el aparato, al
+> reiniciarlo y al reiniciar el servidor de ADB. Por eso existe `--check`:
+> comprobado en F8.A4, retirar el túnel deja la pantalla con las cuatro cifras
+> en `—` y **ningún mensaje que nombre la causa**. El script sí la nombra, y
+> sale con código 1.
 
 ---
 
@@ -360,9 +395,90 @@ se pierde nada, porque no hay nada que perder: es un artefacto.
 
 ---
 
-## 12 · Lo que este runbook NO cubre
+## 12 · La validación funcional dentro de la build · F8.A4
 
-La validación **funcional** —alta, sesión, cola sin conexión, sincronización e
-incidencias dentro de la development build— es de **F8.A4**. Staging, su canal
-de EAS Update y el APK que se entrega a alguien, de **F8.A5**. Y todo lo de
-iOS, de **F8.B**.
+Reproduce dentro del binario propio la matriz que la Fase 7 validó en Expo Go
+—[`phase-7-handoff.md`](../architecture/phase-7-handoff.md) §4— sobre el
+emulador `Pixel_7` y el stack local, con **dos actores desechables**,
+`f8a4-alpha@nomey.test` y `f8a4-beta@nomey.test`, retirados al terminar.
+
+| Qué                                        | Resultado                                                                                    |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Alta, acceso y cierre en frío              | La sesión sobrevive por **SecureStore**; sin servidor sigue identificada                     |
+| Cierre de sesión                           | Vuelve a `Entrar`; la sesión siguiente no ve nada de la anterior                             |
+| Gasto e ingreso conectados                 | Cifras, filas, orden, categoría y donut, persistidos                                         |
+| Registro sin conexión                      | Proyección inmediata y sin marca de pendiente; sobrevive a `force-stop`                      |
+| Sincronización al volver el servidor       | Silenciosa y sin recargar nada; **ninguna cifra saltó**                                      |
+| Servidor, tras sincronizar                 | **3 operaciones, 3 claves.** Cero claves con más de una operación, cero conceptos duplicados |
+| Aislamiento entre actores                  | Ámbitos disjuntos; **cero ámbitos con efectos de dos actores**; cero fugas en pantalla       |
+| Incidencia ordinaria de ADR-029, `Sí`/`No` | Texto literal del ADR; `Sí` recreó la intención, `No` la resolvió sin llamar al servidor     |
+
+Tres cosas que conviene no volver a descubrir:
+
+- **Un rechazo terminal no quema la clave.** Medido: con la categoría dada de
+  baja en el servidor, la frontera respondió `CATEGORY_NOT_USABLE` y el censo se
+  quedó igual —mismas operaciones y **mismas claves**—, porque la reclamación de
+  ADR-011 §13 vive dentro de la misma transacción que el rechazo aborta. Pulsar
+  `Sí` tampoco creó ninguna: la intención nueva volvió a ser rechazada.
+- **El cliente retira la categoría al pasar de Gasto a Ingreso**, y no sólo la
+  oculta. Comprobado de extremo a extremo: el ingreso llegó al servidor con
+  **cero** filas de categoría, así que ADR-027 no depende de que la frontera lo
+  rechace.
+- **El globo «Tools» del dev-client se solapa con el botón de Perfil** —
+  `937–1005 × 213–281` sobre `903–1017 × 136–252`— y se lleva el toque. Es un
+  overlay del cliente de desarrollo, **no de Nomey**: no existe en una build de
+  Staging o de producción. Al pilotar por `adb`, toca la mitad libre del botón.
+
+### Un defecto de Nomey, encontrado aquí y corregido aquí
+
+**`Deudas` afirmaba `0,00 €` sin haberlo derivado de nada.** Se vio en el
+arranque en frío sin frontera, donde `Disponible`, `Ingresos` y `Gastos`
+degradan a `—` y el donut dice «Reparto no disponible» mientras `Deudas`
+publicaba una cifra. Al mirarlo, la causa resultó ser peor que el síntoma: no
+era una degradación mal hecha sino un `DEBT_PLACEHOLDER = '0'` de interfaz
+aplicado como parámetro por defecto, de modo que la cifra era falsa **siempre**,
+también conectada. Sólo se notó allí porque el contraste con los demás `—` la
+delató.
+
+Corregido en F8.A4. **Y la corrección obvia se quedaba corta**: quitar el
+marcador y dejar el valor por defecto en `null` cambia un cero permanente por un
+desconocido permanente, que es igualmente falso — la tarjeta seguía en `—`
+después de una carga correcta. La causa común de las dos versiones era el **valor
+por defecto**, que hacía que «nadie la pasa» pareciera correcto, así que la prop
+ya no tiene ninguno y el compilador obliga a cablearla.
+
+Lo que se pinta sale de `homeDebt`, en
+`src/features/personal/debt-display.ts`, sobre el snapshot que Inicio ya tiene:
+
+| Estado                               | Se ve                |
+| ------------------------------------ | -------------------- |
+| Cargando, o falló sin dejar snapshot | `—`                  |
+| Snapshot cargado y ninguna deuda     | `0,00 €`             |
+| Deuda a favor · en contra            | importe con su signo |
+
+**`loaded` es «llegó el dato», nunca «hay red»**: un refresco que falla sobre un
+snapshot conservado no vuelve a desconocer nada. Y **un texto ilegible es
+desconocido, nunca cero** — donde `toMinor` no sirve, porque devolver `0n` ante
+lo ilegible es correcto para un total de gastos y falso para una deuda.
+
+El cero de hoy es derivado y no supuesto: una dimensión de deuda sólo llega a un
+ámbito personal por `core.participant_user_link`, que no tiene ruta de escritura
+para el cliente ni para el escritor y está vacía hasta F10.
+
+Ocho regresiones en `tests/lib/debt-display.test.ts`, y comprobado en la build:
+sin túnel, **cuatro** `—`; repuesto y con la carga terminada, `Disponible`
+−18,00 €, `Gastos` −18,00 € y `Deudas` **`0,00 €`**. La recuperación de `—` a
+`0,00 €` ocurre al volver a Inicio, sin reiniciar.
+
+> **Ojo al probarlo por `adb`.** `useRefreshOnReturn` se dispara con el **foco de
+> ruta**, no con el primer plano de la aplicación: mandar la app a segundo plano
+> con `KEYCODE_HOME` y volver **no** refresca, porque Inicio nunca perdió el
+> foco. Para verlo hay que navegar a Grupos y volver, o arrancar en frío. No es
+> un fallo: es lo que ese hook dice que hace.
+
+---
+
+## 13 · Lo que este runbook NO cubre
+
+Staging, su canal de EAS Update y el APK que se entrega a alguien son de
+**F8.A5**. Y todo lo de iOS, de **F8.B**.
