@@ -26,7 +26,7 @@ export type SqlDatabase = {
    * Todo o nada.
    *
    * La cola sólo lo necesita en un sitio —la sustitución de una entrada
-   * rechazada por su intención nueva (ADR-028 §5)— y ahí es obligatorio: si se
+   * rechazada por su intención nueva (F07/ADR-001 §5)— y ahí es obligatorio: si se
    * insertara la nueva sin borrar la vieja quedarían dos, y al revés, ninguna.
    */
   withTransactionAsync(task: () => Promise<void>): Promise<void>;

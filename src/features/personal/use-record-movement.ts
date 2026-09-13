@@ -11,14 +11,14 @@ export type RecordStatus = 'idle' | 'saving' | 'saved' | 'failed';
  *
  * **Desde F7.D esto ya no da de alta.** El alta sale por la cola
  * (`useEntryQueue`), con su clave persistida antes de la primera petición y su
- * proyección optimista; lo que queda aquí es la corrección, que ADR-028 §4 deja
+ * proyección optimista; lo que queda aquí es la corrección, que F07/ADR-001 §4 deja
  * fuera de la cola a propósito —tiene CAS propio y una corrección encolada
  * podría quedar obsoleta antes de drenar—. Por eso `target` es obligatorio, y
  * por eso `personal-service` rechaza en compilación y en ejecución un payload
  * sin él.
  *
  * **La clave de idempotencia se genera antes del primer intento y se conserva**
- * (ADR-010): mientras la intención no cambie, un reintento tras un fallo de red
+ * (F03/ADR-007): mientras la intención no cambie, un reintento tras un fallo de red
  * lleva la misma clave y la frontera responde con `already_processed` en lugar
  * de escribir una segunda versión.
  *

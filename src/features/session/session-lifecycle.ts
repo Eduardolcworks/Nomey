@@ -68,7 +68,7 @@ export type LifecycleOptions = {
    *
    * **This exists so nobody adds a second `AppState` listener.** F7's sync
    * worker needs the same signal this lifecycle already listens for, and
-   * ADR-028 §12 is explicit that it must reuse this port rather than register
+   * F07/ADR-001 §12 is explicit that it must reuse this port rather than register
    * its own — two listeners for one event is how two mechanisms start
    * competing. Called only on the transition into `active`, never on every
    * change, and never after the returned teardown.

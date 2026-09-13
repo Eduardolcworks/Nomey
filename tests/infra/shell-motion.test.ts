@@ -7,6 +7,8 @@ import MOTION_RUNTIME_RAW from '../../src/ui/theme/motion-runtime.ts?raw';
 import GLASS_SURFACE_RAW from '../../src/ui/components/glass-surface.tsx?raw';
 import DOCK_TOKENS_RAW from '../../src/features/shell/dock.ts?raw';
 import TABS_LAYOUT_RAW from '../../src/app/(tabs)/_layout.tsx?raw';
+import ROOT_LAYOUT_RAW from '../../src/app/_layout.tsx?raw';
+import { Colors } from '../../src/ui/theme/colors';
 import { Motion } from '../../src/ui/theme/motion';
 import { Glass, MinGlassTintAlpha } from '../../src/ui/theme/elevation';
 
@@ -77,9 +79,16 @@ describe('los controles siguen haciendo lo que hacían', () => {
   });
 
   it('y no se ha colado navegación imperativa nueva', () => {
-    // El `+` navega a su ruta y las pestañas las cambia el navegador. Nada más
-    // debe empujar el historial desde el dock.
-    expect(TAB_BAR.match(/router\.\w+\(/g) ?? []).toHaveLength(1);
+    /*
+     * El `+` empuja DOS rutas y ninguna más: la de Personal y, desde F9, el
+     * selector de Grupos. Son las dos ramas de la misma decisión —a qué mundo
+     * se añade— y por eso el número sube de uno a dos y no queda abierto: las
+     * pestañas las cambia el navegador, y nada más debe empujar el historial
+     * desde el dock.
+     */
+    const empujes = TAB_BAR.match(/router\.\w+\(/g) ?? [];
+    expect(empujes).toHaveLength(2);
+    expect(new Set(empujes)).toEqual(new Set(['router.push(']));
     expect(TAB_BAR).not.toContain('router.replace');
   });
 
@@ -265,11 +274,30 @@ describe('la pantalla se mueve por el navegador, no alrededor de él', () => {
    * mano—, pero eso NO es una segunda fuente de verdad: es la primera. Lo que
    * se sigue prohibiendo es una copia del estado de navegación.
    */
-  it('sin pager, sin gestos y sin una segunda fuente de verdad', () => {
+  it('sin pager y sin gestos', () => {
     expect(TABS_LAYOUT).not.toContain('PagerView');
     expect(TABS_LAYOUT).not.toContain('GestureDetector');
-    expect(TABS_LAYOUT).not.toContain('useState');
-    expect(TABS_LAYOUT).not.toMatch(/const \[\w*([Tt]ab|[Ii]ndex|[Aa]ctive)/);
+  });
+
+  /**
+   * LA MEMORIA DE LA ÚLTIMA PESTAÑA NO ES UNA SEGUNDA VERDAD.
+   *
+   * `usePathname` no sirve sola: las ventanas son `transparentModal`, se apilan
+   * ENCIMA de la pestaña sin cambiarla, y la ruta activa sí cambia. Traducirla a
+   * un destino hacía que el dock se creyera en Inicio nada más abrir una ventana
+   * desde Grupos — con su etiqueta y su material cambiando a media animación.
+   *
+   * Lo que se sigue prohibiendo es una copia que pueda CONTRADECIR a la
+   * navegación. Ésta no puede: la ruta gana siempre que nombre una pestaña, y lo
+   * recordado sólo cubre el caso en el que no nombra ninguna.
+   */
+  it('la pestaña recordada la escribe la ruta, y sólo cuando la ruta calla', () => {
+    expect(TABS_LAYOUT).toContain('const tabRoute = tabRouteFrom(pathname);');
+    // La ruta gana: lo recordado es el respaldo, nunca lo primero que se mira.
+    expect(TABS_LAYOUT).toContain('const activeRoute = tabRoute ?? lastTab;');
+    // Y hay UN solo punto de escritura, alimentado por la ruta y por nada más.
+    expect(TABS_LAYOUT.match(/setLastTab\(/g) ?? []).toHaveLength(1);
+    expect(TABS_LAYOUT).toContain('if (tabRoute !== null && tabRoute !== lastTab)');
   });
 
   it('el interpolador se tipa contra el preset que sustituye', () => {
@@ -444,10 +472,18 @@ describe('el dock inferior se ve nítido', () => {
     const fondo = ALL_SOURCES.find((f) => f.path === 'features/shell/add-backdrop.tsx');
     expect(fondo?.text).toContain('BACKDROP_ENABLED = true');
     // El desenfoque lo pone el `Scrim`, que es donde vive desde el principio.
-    expect(fondo?.text).toContain('<Scrim target={target} />');
+    expect(fondo?.text).toContain('<Scrim target={target} intensity={intensity} />');
     const scrim = ALL_SOURCES.find((f) => f.path === 'ui/components/scrim.tsx');
     expect(scrim?.text).toContain('<BlurView');
-    expect(scrim?.text).toContain('intensity={70}');
+    /*
+     * La intensidad se fija por su constante y no por su número. Desde que la
+     * hoja de Grupos pide otro punto, el `Scrim` la recibe por `prop`: lo que
+     * esta guarda sostiene es que el DEFECTO sigue siendo el de estas ventanas
+     * —70, el revisado— y que quien no pide nada se queda con él.
+     */
+    expect(scrim?.text).toContain('intensity = BLUR_INTENSITY,');
+    expect(scrim?.text).toContain('intensity={intensity}');
+    expect(scrim?.text).toContain('export const BLUR_INTENSITY = 70;');
     expect(TABS_LAYOUT).toContain('<AddBackdrop target={blurTarget} />');
     expect(TABS_LAYOUT.indexOf('<NomeyDock')).toBeLessThan(TABS_LAYOUT.indexOf('<AddBackdrop'));
   });
@@ -497,7 +533,7 @@ describe('el objetivo del desenfoque en Android', () => {
   /** El objetivo lo pone quien sabe qué hay detrás, y viaja como prop. */
   it('el objetivo viene de fuera, no lo inventa el Scrim', () => {
     expect(SCRIM).toContain('target?: RefObject<View | null>');
-    expect(FONDO).toContain('<Scrim target={target} />');
+    expect(FONDO).toContain('<Scrim target={target} intensity={intensity} />');
     expect(LAYOUT).toContain('<AddBackdrop target={blurTarget} />');
   });
 
@@ -536,5 +572,56 @@ describe('el objetivo del desenfoque en Android', () => {
     expect(iOS).not.toContain('BlurTargetView');
     expect(android).toContain('<BlurTargetView ref={target}');
     expect(android).toMatch(/fill: \{\s*flex: 1,\s*\}/);
+  });
+});
+
+/**
+ * EL DESTELLO BLANCO AL CAMBIAR DE PESTAÑA, Y LO QUE LO EVITA.
+ *
+ * ═══════════ QUÉ SE MIDIÓ ═══════════
+ *
+ * Al pasar de Inicio a Grupos aparecía un fotograma gris claro a pantalla
+ * completa. Medido en el emulador con la transición ralentizada para poder
+ * muestrearla: de 16 capturas consecutivas, UNA tenía el **80,06 % de los
+ * píxeles por encima de L>60** y luminancia media 64,4, contra 19,6 en Inicio y
+ * 7,4 en Grupos. Con la corrección puesta y a la velocidad real, el peor
+ * fotograma de la transición baja a **4,67 %**, que es el valor de Inicio en
+ * reposo: ningún fotograma de la transición es más claro que las pantallas.
+ *
+ * La causa se aisló con dos sondas de color: pintando de verde
+ * `colors.background` del tema de navegación, el lavado salió verde entero. El
+ * color del destello ES ese token, y sin `ThemeProvider` react-navigation usa su
+ * tema por omisión, cuyo fondo es `rgb(242, 242, 242)`.
+ *
+ * Lo que se protege aquí no es el número, que depende del contenido: es que el
+ * tema siga declarado y siga siendo el negro de la aplicación. Sin eso el
+ * fotograma vuelve, y vuelve en silencio.
+ */
+describe('el fondo de la navegación', () => {
+  it('está declarado, y es el negro de Nomey', () => {
+    expect(ROOT_LAYOUT_RAW).toContain('<ThemeProvider value={NAVIGATION_THEME}>');
+    expect(ROOT_LAYOUT_RAW).toContain('background: Colors.dark.background');
+  });
+
+  it('parte de DarkTheme, no de un tema inventado ni del claro', () => {
+    /*
+     * `DarkTheme` trae `rgb(1, 1, 1)`, que NO es el fondo de la aplicación: un
+     * punto de diferencia es un canto visible. Por eso se hereda el tema oscuro
+     * y se sustituye sólo el fondo.
+     */
+    expect(ROOT_LAYOUT_RAW).toContain('...DarkTheme,');
+    expect(ROOT_LAYOUT_RAW).not.toContain('DefaultTheme');
+    expect(Colors.dark.background).not.toBe('rgb(1, 1, 1)');
+  });
+
+  it('y el destello NO se tapa con un retraso ni apagando la animación', () => {
+    /*
+     * La transición sigue siendo la de siempre: `shift` con su interpolador
+     * propio. Si alguien "arreglara" el destello quitando la animación o
+     * metiendo una capa negra temporal, esto lo diría.
+     */
+    expect(TABS_LAYOUT_RAW).toContain("animation: reduceMotion ? 'none' : 'shift'");
+    expect(TABS_LAYOUT_RAW).toContain('sceneStyleInterpolator: shiftScene');
+    expect(Motion.screen.duration).toBe(200);
   });
 });

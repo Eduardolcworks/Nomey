@@ -1,7 +1,7 @@
 /**
  * EL ESQUEMA LOCAL, VERSIONADO CON `PRAGMA user_version`.
  *
- * ADR-028 §5. Una lista de pasos, cada uno con el número de versión al que
+ * F07/ADR-001 §5. Una lista de pasos, cada uno con el número de versión al que
  * lleva, y una función pura que dice cuáles faltan. Que el plan sea puro es lo
  * que permite probarlo sin base de datos y, sobre todo, probar el caso que
  * nunca se prueba: **abrir una base escrita por una versión posterior**.
@@ -44,11 +44,11 @@ export const SCHEMA_STEPS: readonly string[] = [
   );
 
   -- El indice del worker: por actor, y en orden de creacion. El aislamiento de
-  -- ADR-028 §13 no es un filtro que se recuerde poner, es la primera columna.
+  -- F07/ADR-001 §13 no es un filtro que se recuerde poner, es la primera columna.
   create index if not exists queue_entry_actor_created
     on queue_entry (actor_id, created_at, client_operation_id);
 
-  -- El catalogo cacheado de ADR-028 §16. Un documento opaco por actor y clave:
+  -- El catalogo cacheado de F07/ADR-001 §16. Un documento opaco por actor y clave:
   -- que sean categorias lo sabe la feature, no esta capa. Es informacion de
   -- presentacion y seleccion, NUNCA una cache economica.
   create table if not exists catalogue_cache (
@@ -60,7 +60,7 @@ export const SCHEMA_STEPS: readonly string[] = [
   );
   `,
   /*
-   * PASO 2 · el contador durable de la reconciliacion (ADR-028 §9).
+   * PASO 2 · el contador durable de la reconciliacion (F07/ADR-001 §9).
    *
    * `confirm_seq` se asigna al confirmar desde un contador monotono de cliente,
    * y `snapshot.seq` es el valor de ese contador al arrancar un refresco. Los
@@ -79,7 +79,7 @@ export const SCHEMA_STEPS: readonly string[] = [
   );
   `,
   /*
-   * STEP 3 · the dispatch barrier (ADR-028 §9, read side).
+   * STEP 3 · the dispatch barrier (F07/ADR-001 §9, read side).
    *
    * `confirm_seq` answers "was this entry already confirmed when the query
    * started". It CANNOT answer "could the server already hold this entry", and

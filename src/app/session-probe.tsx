@@ -143,7 +143,7 @@ export default function SessionProbeScreen() {
     }
 
     /*
-     * 6 - the real session payload, which ADR-017 requires measured on a
+     * 6 - the real session payload, which F05/ADR-001 requires measured on a
      *     device before Phase 5 closes and which had no session to measure
      *     until F5.C produced one.
      *

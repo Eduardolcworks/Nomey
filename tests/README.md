@@ -37,7 +37,7 @@ un error significa comunicar a una persona real una deuda equivocada.
 `tests/vectors/` contiene ficheros **JSON**, no módulos TypeScript, y es
 deliberado: la implementación autoritativa del servidor deberá consumir **los
 mismos ficheros** para que cualquier divergencia entre las dos implementaciones
-salte, como exige ADR-002 §7.
+salte, como exige F01/ADR-001 §7.
 
 Reglas del formato:
 
@@ -85,9 +85,9 @@ qué es
   del pagador en USD: un importe original y DOS conversiones derivadas
 
 → por qué no pertenece a F3
-  ADR-003 §4 deja expresamente fuera de alcance el proveedor, la
+  F02/ADR-001 §4 deja expresamente fuera de alcance el proveedor, la
   granularidad, la regla de selección y qué ocurre si no hay tipo para una
-  fecha; ADR-009 §8 lo declara decisión de producto pendiente y añade que
+  fecha; F03/ADR-006 §8 lo declara decisión de producto pendiente y añade que
   la frontera de escritura NO tiene atribuida una resolución por catálogo.
   El servidor no tiene con qué resolverlo, y el tipo que aporte el cliente
   no es autoritativo.

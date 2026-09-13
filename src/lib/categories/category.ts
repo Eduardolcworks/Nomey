@@ -7,13 +7,13 @@ import type { MessageKey } from '@/lib/i18n';
  * F6.D que aquí se respeta: la lista publica sólo `category_id` y el nombre se
  * resuelve contra `api.category`. Es lo que hace que renombrar alcance al
  * histórico sin que nadie propague nada, y lo que permite que una categoría
- * dada de baja siga resolviendo su nombre y su icono (ADR-021).
+ * dada de baja siga resolviendo su nombre y su icono (F06/ADR-003).
  */
 /**
  * El catálogo **elegible** tal y como llega a una pantalla, con su ausencia.
  *
  * `unavailable` no es «está vacío»: es «no hay ninguna que ofrecer» —sin red y
- * sin catálogo guardado en este aparato (ADR-028 §16)—, que es un motivo
+ * sin catálogo guardado en este aparato (F07/ADR-001 §16)—, que es un motivo
  * distinto y se dice distinto. Quien lo carga vive en `features/`; esta forma
  * está aquí para que las dos pantallas que lo consumen hablen del mismo tipo sin
  * importarse entre ellas.
@@ -48,7 +48,7 @@ export type CategoryRow = {
  * en la base. Esto sólo dice qué claves sabe traducir esta versión de la app.
  *
  * **Las cinco retiradas siguen aquí a propósito.** Las tres de ingreso y las de
- * Suministros y Educación ya no se pueden elegir —ADR-027 las dio de baja
+ * Suministros y Educación ya no se pueden elegir —F06/ADR-009 las dio de baja
  * lógicamente, que no es lo mismo que borrarlas—, pero el gasto que las usó
  * sigue existiendo y hay que saber nombrarlo. Quitarlas de esta lista pintaría
  * ese histórico sin nombre.
@@ -117,7 +117,7 @@ export function indexCategories(rows: readonly CategoryRow[]): Map<string, Categ
 export type CategoryOption = {
   readonly id: string;
   readonly title: string;
-  /** La clave semántica de ADR-027, sin resolver: quien pinte elige plataforma. */
+  /** La clave semántica de F06/ADR-009, sin resolver: quien pinte elige plataforma. */
   readonly icon: string;
   readonly selected: boolean;
 };
@@ -136,7 +136,7 @@ export type CategoryOption = {
  * la categoría retirada de un gasto que ya la usaba sigue dependiendo de quién
  * arma el catálogo, y no de quién lo pinta.
  *
- * **Una fila sin nombre resoluble NO se ofrece.** ADR-021 es explícito en que
+ * **Una fila sin nombre resoluble NO se ofrece.** F06/ADR-003 es explícito en que
  * nunca se enseña un identificador ni una clave cruda, y en un menú del sistema
  * no hay dónde poner un aviso: la opción sencillamente no está.
  */
@@ -170,7 +170,7 @@ export function categoryOptions(
  * `core.category` no la enseña a nadie más. Ponerla en un gasto que otros ven
  * dejaría a los demás con un identificador que no pueden resolver —o forzaría a
  * copiar su nombre dentro de la versión del gasto, que es denormalizar
- * exactamente lo que ADR-021 evita para que renombrar alcance al histórico.
+ * exactamente lo que F06/ADR-003 evita para que renombrar alcance al histórico.
  *
  * **Se decide por la forma que la propia base garantiza.** El `CHECK`
  * `category_sistema_o_propia` hace que `message_key is not null` sea

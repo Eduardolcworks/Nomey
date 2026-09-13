@@ -26,3 +26,22 @@ export const DESTINATIONS: readonly Destination[] = [
 export function destinationFor(routeName: string): 'home' | 'groups' {
   return routeName === 'groups' ? 'groups' : 'home';
 }
+
+/**
+ * QUÉ PESTAÑA NOMBRA ESTA RUTA, O NINGUNA.
+ *
+ * **`null` para las ventanas, y ésa es toda la razón de existir.** `/add`,
+ * `/group-action` y `/create-group` son `transparentModal`: se apilan ENCIMA de
+ * la pestaña sin cambiarla, pero `usePathname` sí cambia. Traducir la ruta
+ * activa a un destino hacía que el dock creyera estar en Inicio en cuanto se
+ * abría una ventana desde Grupos — con su etiqueta y su material cambiando a
+ * mitad de una animación.
+ *
+ * Devolviendo `null` para esas rutas, quien llama conserva el último destino
+ * real. La identidad del botón deja de moverse con lo que haya encima.
+ */
+export function tabRouteFrom(pathname: string): 'index' | 'groups' | null {
+  if (pathname.startsWith('/groups')) return 'groups';
+  if (pathname === '/' || pathname.startsWith('/index')) return 'index';
+  return null;
+}

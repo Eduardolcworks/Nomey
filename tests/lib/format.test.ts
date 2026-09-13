@@ -107,7 +107,7 @@ describe('exactitud por encima de 2^53', () => {
   /**
    * El límite del problema. `Number.MAX_SAFE_INTEGER` es 9007199254740991, así
    * que a partir de ahí convertir a `number` pierde dígitos en silencio: es
-   * exactamente el fallo que ADR-003 existe para impedir.
+   * exactamente el fallo que F02/ADR-001 existe para impedir.
    */
   it('conserva todos los dígitos de un importe mayor que MAX_SAFE_INTEGER', () => {
     const huge = moneyFromMinorString('123456789012345678901', EUR);

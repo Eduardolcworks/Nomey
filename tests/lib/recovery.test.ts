@@ -445,7 +445,7 @@ describe('guardar la contraseña se reintenta en el mismo formulario', () => {
    * es la frase a mostrar en línea — y que un fallo deja el formulario listo
    * para otro envío en vez de terminar la transacción.
    */
-  function form(answers: Array<AuthErrorKey | null>) {
+  function form(answers: (AuthErrorKey | null)[]) {
     const run = createExclusiveRunner();
     const calls: string[] = [];
     let shown: AuthErrorKey | null = null;

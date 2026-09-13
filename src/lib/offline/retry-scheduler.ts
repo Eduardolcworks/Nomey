@@ -72,7 +72,7 @@ export type RetryScheduler = {
    * que lleve el `next_attempt_at`, así que el coordinador lo pasa aquí para
    * que compita con los de la cola por **el mismo y único temporizador**. Un
    * segundo temporizador para la base sería exactamente el mecanismo paralelo
-   * que ADR-028 §12 prohíbe.
+   * que F07/ADR-001 §12 prohíbe.
    */
   reschedule(actorId: string | null, external?: number | null): Promise<RescheduleResult>;
   /** Cancela. Nada queda armado. */

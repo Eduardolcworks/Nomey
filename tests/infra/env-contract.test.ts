@@ -10,7 +10,7 @@ import STAGING_VERIFY from '../../scripts/staging-env-verify.mjs?raw';
 import WRAPPER from '../../scripts/with-variant.mjs?raw';
 
 /**
- * El contrato de entorno de ADR-031, comprobado donde se puede romper.
+ * El contrato de entorno de F08/ADR-002, comprobado donde se puede romper.
  *
  * Son tres nombres y ni uno más — `APP_VARIANT` y las dos `EXPO_PUBLIC_` — y
  * la propiedad que los hace útiles no es que existan, sino que **cambiar de
@@ -72,7 +72,7 @@ describe('lo que no está versionado sigue sin estarlo', () => {
     expect(GITIGNORE).toMatch(/^!\.env\.example$/m);
   });
 
-  it('las carpetas nativas generadas siguen ignoradas — ADR-030', () => {
+  it('las carpetas nativas generadas siguen ignoradas — F08/ADR-001', () => {
     expect(GITIGNORE).toMatch(/^\/ios$/m);
     expect(GITIGNORE).toMatch(/^\/android$/m);
   });
@@ -81,7 +81,7 @@ describe('lo que no está versionado sigue sin estarlo', () => {
 describe('cambiar de entorno es configuración, nunca código', () => {
   it('ninguna capa del producto pregunta en qué entorno se ejecuta', () => {
     /*
-     * Es la mitad de ADR-031 §2, y la que se rompe sin querer: basta un
+     * Es la mitad de F08/ADR-002 §2, y la que se rompe sin querer: basta un
      * `if (variante === 'staging')` dentro de una feature para que staging deje
      * de ser un ensayo de producción y pase a ser otra aplicación. La variante
      * es una propiedad del BINARIO, resuelta en `app.config.ts` en tiempo de

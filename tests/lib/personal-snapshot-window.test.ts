@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync } from 'node:fs';
+import type { PersonalEntryPayload } from '../../src/lib/offline/command';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -23,7 +24,7 @@ import { openTestDatabase, type TestDatabase } from './offline-sqlite';
 /**
  * THE RACE BETWEEN A SEND AND A READ, with explicit gates and no timers.
  *
- * ADR-028 §9 proves retirement with a monotonic mark: `confirm_seq <=
+ * F07/ADR-001 §9 proves retirement with a monotonic mark: `confirm_seq <=
  * snapshot.seq`. That direction is sound. The converse is not, and it fails in
  * two different places — the second one is the reason this file exists.
  *
@@ -119,6 +120,10 @@ function server(startingBalance: bigint) {
           previous_version_id: null,
           version_no: 1,
           operation_created_at: '2026-09-03T21:40:00.000Z',
+          group_scope_id: null,
+          group_display_name: null,
+          your_share: null,
+          payment_counterpart: null,
         },
         ...state.operations,
       ];
@@ -177,7 +182,7 @@ function entry(over: { kind?: 'expense' | 'income'; amount?: string; actorId?: s
     actorId: over.actorId ?? ACTOR,
     scopeId: SCOPE,
     commandType: kind === 'income' ? 'personal_income.create' : 'personal_expense.create',
-    payload,
+    payload: payload as unknown as PersonalEntryPayload,
     currency: { definitionId: CURRENCY, code: 'EUR', scale: 2 },
     createdAt: `2026-09-03T21:40:${String(seq % 60).padStart(2, '0')}.000Z`,
   });
@@ -461,7 +466,7 @@ describe('5 · caída y reapertura DESPUÉS de escribir en el servidor', () => {
     // Reapertura.
     const second = await open(file);
     const row = await second.store.byId(ACTOR, local.clientOperationId);
-    // El estado se relee como `queued` (ADR-028 §6) y la marca sigue puesta.
+    // El estado se relee como `queued` (F07/ADR-001 §6) y la marca sigue puesta.
     expect(row?.state).toBe('queued');
     expect(row?.dispatchSeq).toBe(1);
     expect(row?.confirmSeq).toBeNull();

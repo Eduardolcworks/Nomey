@@ -3,7 +3,7 @@ import { fail } from '../errors';
 /**
  * Reparto por mayor resto, en enteros exactos.
  *
- * ADR-002 §5 fija el algoritmo:
+ * F01/ADR-001 §5 fija el algoritmo:
  *
  *   1. cuotas matemáticas
  *   2. truncar a unidades mínimas completas
@@ -11,7 +11,7 @@ import { fail } from '../errors';
  *   4. empate → prioridad al pagador
  *   5. si persiste → orden estable guardado con la operación
  *
- * ADR-003 T11 añade que **opera sobre una magnitud no negativa**: el signo
+ * F02/ADR-001 T11 añade que **opera sobre una magnitud no negativa**: el signo
  * financiero pertenece al efecto que usa el reparto, no a la asignación. Por
  * eso aquí no hay ningún operando negativo y no se depende del comportamiento
  * del módulo con negativos, que E6 midió que trunca hacia cero.

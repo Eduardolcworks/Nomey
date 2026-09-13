@@ -20,7 +20,7 @@ interface ConversionCase extends VectorCase {
 
 const cases = raw.cases as unknown as readonly ConversionCase[];
 
-describe('conversión exacta con un único redondeo · ADR-003 T12', () => {
+describe('conversión exacta con un único redondeo · F02/ADR-001 T12', () => {
   it.each(cases.map((item) => [title(item), item] as const))('%s', (_name, item) => {
     const run = () =>
       convert(

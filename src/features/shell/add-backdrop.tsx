@@ -30,23 +30,41 @@ import { Scrim } from '@/ui/components';
 
 type AddBackdropSignal = {
   readonly visible: boolean;
-  readonly show: () => void;
+  /**
+   * Enciende el fondo, opcionalmente con otro punto de desenfoque.
+   *
+   * **La intensidad viaja con la señal y no con la ventana**, porque quien
+   * dibuja el fondo es el árbol de las pestañas y la ventana está en otra ruta.
+   * Sin argumento queda el valor por defecto del `Scrim`, así que ninguna de
+   * las llamadas anteriores cambia.
+   */
+  readonly show: (intensity?: number) => void;
   readonly hide: () => void;
+  /** El punto pedido por quien encendió, o `undefined` para el de siempre. */
+  readonly intensity: number | undefined;
 };
 
 const AddBackdropContext = createContext<AddBackdropSignal | null>(null);
 
 export function AddBackdropProvider({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
+  const [intensity, setIntensity] = useState<number | undefined>(undefined);
 
-  const show = useCallback(() => {
+  const show = useCallback((requested?: number) => {
+    setIntensity(requested);
     setVisible(true);
   }, []);
   const hide = useCallback(() => {
     setVisible(false);
+    // Se suelta al apagar: si quedara puesta, la siguiente ventana que
+    // encendiera sin pedir nada heredaría el punto de la anterior.
+    setIntensity(undefined);
   }, []);
 
-  const value = useMemo(() => ({ visible, show, hide }), [visible, show, hide]);
+  const value = useMemo(
+    () => ({ visible, show, hide, intensity }),
+    [visible, show, hide, intensity],
+  );
 
   return <AddBackdropContext.Provider value={value}>{children}</AddBackdropContext.Provider>;
 }
@@ -58,7 +76,12 @@ export function AddBackdropProvider({ children }: { children: React.ReactNode })
  * los dos debería caerse porque alguien monte una pantalla suelta en un test o
  * en una historia: lo peor que pasa sin proveedor es que no haya desenfoque.
  */
-const INERT: AddBackdropSignal = { visible: false, show: () => {}, hide: () => {} };
+const INERT: AddBackdropSignal = {
+  visible: false,
+  show: () => {},
+  hide: () => {},
+  intensity: undefined,
+};
 
 export function useAddBackdrop(): AddBackdropSignal {
   return useContext(AddBackdropContext) ?? INERT;
@@ -90,7 +113,7 @@ export function useAddBackdrop(): AddBackdropSignal {
 const BACKDROP_ENABLED = true;
 
 export function AddBackdrop({ target }: { readonly target?: RefObject<View | null> }) {
-  const { visible } = useAddBackdrop();
+  const { visible, intensity } = useAddBackdrop();
 
   if (!BACKDROP_ENABLED || !visible) return null;
 
@@ -99,7 +122,7 @@ export function AddBackdrop({ target }: { readonly target?: RefObject<View | nul
       style={StyleSheet.absoluteFill}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants">
-      <Scrim target={target} />
+      <Scrim target={target} intensity={intensity} />
     </View>
   );
 }

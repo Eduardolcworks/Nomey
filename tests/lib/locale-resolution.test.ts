@@ -2,16 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DeviceLocale } from '../../src/lib/i18n/locales';
 
-const device = vi.hoisted(() => ({ locales: [] as DeviceLocale[] }));
-
-/**
- * `expo-localization` es un módulo nativo y bajo Vitest no existe. Se sustituye
- * por los cuatro campos de los que depende la resolución.
- */
-vi.mock('expo-localization', () => ({
-  getLocales: () => device.locales,
-}));
-
 import {
   deviceFormatTag,
   getFormatLocale,
@@ -21,6 +11,16 @@ import {
   setLanguagePreference,
 } from '../../src/lib/i18n/active-locale';
 import { composeFormatTag } from '../../src/lib/i18n/locales';
+
+const device = vi.hoisted(() => ({ locales: [] as DeviceLocale[] }));
+
+/**
+ * `expo-localization` es un módulo nativo y bajo Vitest no existe. Se sustituye
+ * por los cuatro campos de los que depende la resolución.
+ */
+vi.mock('expo-localization', () => ({
+  getLocales: () => device.locales,
+}));
 
 /**
  * Idioma e **idioma con región** son dos preguntas distintas, y el dispositivo

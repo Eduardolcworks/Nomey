@@ -1,3 +1,4 @@
+import type { PersonalEntryPayload } from '@/lib/offline';
 import { supabase } from '@/lib/supabase';
 
 import type { DateRange } from './interval';
@@ -5,6 +6,7 @@ import type { EntryPayload } from './movement-entry';
 import type { BalanceObservation, PersonalOperation, PersonalOperationVersion } from './movement';
 import { OPERATION_ORDER } from './movement';
 import type { EnsureScopeResult } from './personal-scope';
+import type { ExpenseShare } from './expense-share';
 import type { PersonalStatistics } from './statistics';
 
 /**
@@ -15,12 +17,12 @@ import type { PersonalStatistics } from './statistics';
  * de arriba quedan puras y comprobables.
  *
  * **Ninguna aritmética monetaria aquí.** Los importes viajan como texto
- * (ADR-008 §1) y salen de aquí como texto; quien los convierte a `bigint` es
+ * (F03/ADR-005 §1) y salen de aquí como texto; quien los convierte a `bigint` es
  * `statistics.toMinor`, y nadie los pasa por un `number`.
  *
  * **Y ninguna suma de saldo.** El `Disponible` lo deriva el servidor y los
  * totales del intervalo también: descargar movimientos para sumarlos es
- * justamente lo que ADR-025 y ADR-026 existen para evitar.
+ * justamente lo que F06/ADR-007 y F06/ADR-008 existen para evitar.
  */
 
 /** Cuántas operaciones trae una página. */
@@ -82,10 +84,47 @@ export async function fetchStatistics(range: DateRange): Promise<PersonalStatist
   return (data as unknown as PersonalStatistics | null) ?? null;
 }
 
+/**
+ * TODAS mis cuotas de gastos compartidos del intervalo, con su contexto.
+ *
+ * Es lo que el desplegable de Gastos añade a los gastos personales para
+ * explicar el total: las mismas filas que `api.personal_statistics` suma, por
+ * la misma función reducida del servidor y el mismo intervalo. Se piden ENTERAS,
+ * página a página hasta agotarlas —`max_rows` corta una respuesta en 1000 sin
+ * avisar—, porque un desglose parcial no explica nada; el total, en cambio, no
+ * depende de esto: lo agrega el servidor.
+ */
+export async function fetchExpenseShares(range: DateRange): Promise<readonly ExpenseShare[]> {
+  const rows: ExpenseShare[] = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .rpc('personal_expense_share', {
+        p_from: range.from ?? undefined,
+        p_to: range.to ?? undefined,
+      })
+      .order('effective_date', { ascending: false })
+      .order('effective_time', { ascending: false, nullsFirst: false })
+      .order('operation_created_at', { ascending: false })
+      .order('operation_id', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (error !== null) throw error;
+    const page = (data ?? []) as unknown as ExpenseShare[];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) return rows;
+  }
+}
+
 const OPERATION_COLUMNS =
   'operation_id,operation_class,scope_id,currency_definition_id,balance_amount,original_amount,' +
   'effective_date,effective_time,concept,category_id,target_balance,current_version_id,' +
-  'previous_version_id,version_no,operation_created_at';
+  'previous_version_id,version_no,operation_created_at,' +
+  /*
+   * Las tres del gasto compartido. Llegan `null` en todo lo demás, así que no
+   * hacen falta dos consultas ni una segunda superficie: es la misma fila.
+   */
+  'group_scope_id,group_display_name,your_share,' +
+  /* Y la contraparte de un pago registrado (F09/ADR-007). `null` en el resto. */
+  'payment_counterpart';
 
 /**
  * Una página de operaciones del intervalo, en el orden canónico.
@@ -176,7 +215,7 @@ export type CatalogueRow = {
   /**
    * Vigente o dada de baja. **Se publica y no se filtra aquí**: el histórico
    * necesita las retiradas para resolver su nombre, y sólo quien pinta un
-   * selector debe quitarlas (ADR-021 §7).
+   * selector debe quitarlas (F06/ADR-003 §7).
    */
   is_active: boolean;
 };
@@ -215,7 +254,7 @@ export type WriteResult = {
 
 /**
  * Un payload que CORRIGE una operación existente: lleva `operation_id` y
- * `expected_version_id`, y con ellos la frontera hace el CAS (ADR-011 §5).
+ * `expected_version_id`, y con ellos la frontera hace el CAS (F03/ADR-008 §5).
  *
  * Es el único que estas dos funciones aceptan desde F7.D. Un alta —el mismo
  * payload sin esos dos campos— sale por la cola y por `sendPersonalEntry`, y
@@ -236,7 +275,7 @@ export function isCorrection(payload: EntryPayload): payload is CorrectionPayloa
 }
 
 /**
- * LA GUARDA ESTRUCTURAL de ADR-028 §1: un alta no sale por la puerta directa.
+ * LA GUARDA ESTRUCTURAL de F07/ADR-001 §1: un alta no sale por la puerta directa.
  *
  * El tipo ya lo impide en compilación; esto lo impide en ejecución, para que un
  * `as` o un payload construido a mano tampoco puedan. Se lanza ANTES de tocar
@@ -244,7 +283,9 @@ export function isCorrection(payload: EntryPayload): payload is CorrectionPayloa
  */
 export class DirectCreationRefused extends Error {
   constructor(fn: string) {
-    super(`${fn}: un alta sólo sale por la cola (ADR-028 §1); la puerta directa es para corregir`);
+    super(
+      `${fn}: un alta sólo sale por la cola (F07/ADR-001 §1); la puerta directa es para corregir`,
+    );
     this.name = 'DirectCreationRefused';
   }
 }
@@ -258,7 +299,7 @@ function assertCorrection(payload: EntryPayload, fn: string): void {
  *
  * La categoría es obligatoria en el payload, y **la ausencia de fila no la
  * impide ninguna restricción del esquema**: quien la exige es esta frontera
- * más el cierre de las escrituras directas a `core` (ADR-027 §2). Omitirla
+ * más el cierre de las escrituras directas a `core` (F06/ADR-009 §2). Omitirla
  * devuelve `PAYLOAD_INVALID · 400`.
  */
 export async function recordPersonalExpense(payload: CorrectionPayload): Promise<WriteResult> {
@@ -274,7 +315,7 @@ export async function recordPersonalExpense(payload: CorrectionPayload): Promise
  * **Sin categoría, y no por omisión de esta función**: `category_id` no es un
  * campo admisible de esta clase, así que mandarlo se rechaza por FORMA del
  * payload antes de mirar a qué apunta. Es lo que `buildPayload` garantiza al
- * construirlo, y lo que ADR-027 §3 decidió.
+ * construirlo, y lo que F06/ADR-009 §3 decidió.
  */
 export async function recordPersonalIncome(payload: CorrectionPayload): Promise<WriteResult> {
   assertCorrection(payload, 'record_personal_income');
@@ -302,17 +343,17 @@ export async function recordPersonalIncome(payload: CorrectionPayload): Promise<
  * CORRECCIÓN —payload con `operation_id` y `expected_version_id`— y lo
  * comprueban en compilación (`CorrectionPayload`) y en ejecución
  * (`DirectCreationRefused`). Correcciones, anulaciones y ajustes siguen fuera
- * de la cola (ADR-028 §4).
+ * de la cola (F07/ADR-001 §4).
  *
  * Por qué el worker necesita su propia forma y no puede usar la de la pantalla:
- * la clasificación de ADR-028 §11 se decide con el estado HTTP, el código de
+ * la clasificación de F07/ADR-001 §11 se decide con el estado HTTP, el código de
  * frontera y el estado local de la sesión, y una excepción los pierde los tres.
  */
 
 /**
  * El envío que hace el worker, **sin lanzar y con el estado HTTP**.
  *
- * La clasificación de ADR-028 §11 se decide con el estado, el código de
+ * La clasificación de F07/ADR-001 §11 se decide con el estado, el código de
  * frontera y el estado local de la sesión; una excepción los perdería todos y
  * dejaría al worker adivinando. Por eso esto devuelve la respuesta cruda y
  * quien clasifica es `lib/offline/response.ts`, con el mapa medido.
@@ -329,7 +370,7 @@ export type RawWriteResponse = {
 
 export async function sendPersonalEntry(
   fn: 'record_personal_expense' | 'record_personal_income',
-  payload: Readonly<Record<string, string | number>>,
+  payload: PersonalEntryPayload,
   signal?: AbortSignal,
 ): Promise<RawWriteResponse> {
   /*
@@ -373,7 +414,7 @@ export async function sendPersonalEntry(
  * mismo comando. Esta pantalla usa siempre el objetivo, y por eso el tipo no
  * ofrece `delta`: lo que la persona sabe es cuánto tiene, no cuánto falta.
  *
- * **El delta lo deriva el servidor bajo lock y después del CAS** (ADR-022). Es
+ * **El delta lo deriva el servidor bajo lock y después del CAS** (F06/ADR-004). Es
  * lo que impide que la diferencia salga de una lectura que pudo quedarse vieja
  * entre que se abrió la ventana y se pulsó guardar.
  */
@@ -393,13 +434,13 @@ export type AdjustmentPayload = {
  *
  * **No modifica ningún movimiento ni escribe el saldo en ninguna parte.** El
  * saldo no es una fila que se pueda actualizar: se deriva de los efectos
- * vigentes (ADR-013). Lo que esto escribe es una operación de ajuste más, con
+ * vigentes (F03/ADR-010). Lo que esto escribe es una operación de ajuste más, con
  * su versión y su efecto de saldo, y el Disponible cambia porque cambia lo que
  * se deriva de ellos.
  *
  * **Y no cuenta como ingreso ni como gasto.** Un ajuste no produce dimensión
  * económica, así que `api.personal_statistics` lo deja fuera sin ninguna
- * cláusula que lo excluya (ADR-026): no engorda los totales del intervalo ni
+ * cláusula que lo excluya (F06/ADR-008): no engorda los totales del intervalo ni
  * aparece en el reparto por categoría.
  */
 export async function recordAdjustment(payload: AdjustmentPayload): Promise<WriteResult> {
@@ -426,14 +467,14 @@ export type AnnulPayload = {
 /**
  * Anula una operación. **Es la única forma de eliminar, y no borra nada.**
  *
- * ADR-024: escribe una versión de clase `annulment` SIN efectos y mueve
+ * F06/ADR-006: escribe una versión de clase `annulment` SIN efectos y mueve
  * `current_version_id` hasta ella. La operación y todas sus versiones
  * anteriores siguen donde estaban; lo que desaparece son sus efectos VIGENTES,
  * y por eso deja de contar en el saldo, en los totales del intervalo y en el
  * reparto por categoría **sin que nadie recalcule nada en el cliente**.
  *
  * **Una sola función para cualquier clase**, y no contradice «una función
- * pública por clase de operación» (ADR-009 §1): esa regla existe porque cada
+ * pública por clase de operación» (F03/ADR-006 §1): esa regla existe porque cada
  * clase deriva efectos distintos, y anular no deriva ninguno.
  *
  * **La anulación es TERMINAL en F6**: una operación anulada no admite versiones

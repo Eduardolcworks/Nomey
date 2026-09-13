@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync } from 'node:fs';
+import type { PersonalEntryPayload } from '../../src/lib/offline/command';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -78,7 +79,7 @@ function scratchFile(): string {
 describe('encolar antes de enviar', () => {
   it('deja la clave y el payload en disco, y sobrevive a cerrar la base', async () => {
     /*
-     * ES EL INVARIANTE 1 DE ADR-028, y el que hoy no se cumple: la clave vive en
+     * ES EL INVARIANTE 1 DE F07/ADR-001, y el que hoy no se cumple: la clave vive en
      * un `useRef` y muere con la hoja. Cerrar y reabrir la base es la versión
      * comprobable de «matar la app entre el envío y la respuesta».
      */
@@ -105,7 +106,7 @@ describe('encolar antes de enviar', () => {
     await store.enqueue(entry);
 
     const found = await store.byId(ACTOR_A, entry.clientOperationId);
-    expect(found?.payload.amount).toBe('9007199254740993');
+    expect((found?.payload as PersonalEntryPayload | undefined)?.amount).toBe('9007199254740993');
     db.close();
   });
 
@@ -333,7 +334,9 @@ describe('la sustitución es todo o nada', () => {
     expect(all[0].state).toBe('queued');
     expect(all[0].attempts).toBe(0);
     // El payload congelado viaja igual; lo que cambia es la clave.
-    expect(all[0].payload.amount).toBe(rejected.payload.amount);
+    expect((all[0].payload as PersonalEntryPayload).amount).toBe(
+      (rejected.payload as PersonalEntryPayload).amount,
+    );
     expect(all[0].clientOperationId).not.toBe(rejected.clientOperationId);
     db.close();
   });

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PersonalEntryPayload } from '../../src/lib/offline/command';
 
 import { migrate } from '../../src/lib/offline/migrations';
 import { newQueueEntry, type QueueEntry } from '../../src/lib/offline/queue-entry';
@@ -216,7 +217,7 @@ async function setup(script: (n: number) => TransportOutcome = (n) => OK(`op-${n
         // Un envío real tarda: sin esto, la concurrencia máxima sería 1 por
         // construcción y la afirmación no diría nada.
         await settle(3);
-        seen.push(String(payload.client_operation_id));
+        seen.push(String((payload as PersonalEntryPayload).client_operation_id));
         const outcome = script(calls);
         calls += 1;
         inFlight -= 1;
@@ -454,7 +455,7 @@ describe('la repetición vuelve a preguntar quién está dentro', () => {
     await settle();
 
     expect(t.seen).toEqual([primera.clientOperationId]);
-    // Conservada, aislada por actor, esperando a su misma cuenta (ADR-028 §13).
+    // Conservada, aislada por actor, esperando a su misma cuenta (F07/ADR-001 §13).
     const conservada = await t.real.byId(ACTOR_A, segunda.clientOperationId);
     expect(conservada?.state).toBe('queued');
     expect(conservada?.payload).toEqual(segunda.payload);

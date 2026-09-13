@@ -4,7 +4,7 @@
  * **Los importes exactos llegan del servidor y no se recalculan aquí.**
  * `api.personal_statistics` agrega en SQL, en unidad mínima y sin techo — la
  * alternativa, sumar en el cliente, quedó descartada porque `max_rows = 1000`
- * habría devuelto una cifra incompleta que no falla (ADR-026).
+ * habría devuelto una cifra incompleta que no falla (F06/ADR-008).
  *
  * Este módulo hace **una sola cosa** con esas cifras: el reparto. Y el reparto
  * es una razón de presentación, no un valor de registro, así que puede vivir en
@@ -96,7 +96,7 @@ export function splitTop(slices: readonly CategorySlice[]): {
 /**
  * Texto exacto de la frontera a unidad mínima.
  *
- * `BigInt` y no `Number`: ADR-008 §1 hace que los importes crucen como texto
+ * `BigInt` y no `Number`: F03/ADR-005 §1 hace que los importes crucen como texto
  * precisamente para que nadie los pase por un `double`, y deshacerlo aquí
  * anularía la medición de E11. Un texto ilegible vale `0n` en vez de reventar
  * la pantalla — un cero visible es diagnosticable, una pantalla en blanco no.

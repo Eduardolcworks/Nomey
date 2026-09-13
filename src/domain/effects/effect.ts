@@ -2,7 +2,7 @@ import type { ParticipantId, ScopeId } from '../ids';
 import type { Money } from '../money/money';
 
 /**
- * Clases contables de ADR-002 §3.
+ * Clases contables de F01/ADR-001 §3.
  *
  * **La clase no determina qué dimensiones toca el efecto.** Existe un `expense`
  * que no mueve saldo y un `settlement` que no toca caja. Por eso las
@@ -57,7 +57,7 @@ export function effect(input: {
 
 /**
  * Clases que alimentan estadísticas. **Lista de admitidos, no de excluidos**
- * (ADR-002 §4): una clase nueva queda fuera por defecto, de modo que un olvido
+ * (F01/ADR-001 §4): una clase nueva queda fuera por defecto, de modo que un olvido
  * produzca «falta un dato» y nunca «el dato miente».
  */
 const STATISTICAL_CLASSES: readonly AccountingClass[] = ['income', 'expense'];

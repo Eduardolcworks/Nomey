@@ -25,7 +25,7 @@ export function CategoryTrigger({
   size,
   castsShadow = true,
 }: {
-  /** La clave semántica de ADR-027, sin resolver. */
+  /** La clave semántica de F06/ADR-009, sin resolver. */
   readonly icon: string;
   /** Si hay categoría elegida: decide el tono del icono, no la forma. */
   readonly chosen: boolean;

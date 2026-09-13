@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { PersonalEntryPayload } from '../../src/lib/offline/command';
 
 import { migrate, SCHEMA_STEPS } from '../../src/lib/offline/migrations';
 import type { QueueStore } from '../../src/lib/offline/queue-store';
@@ -98,7 +99,7 @@ function workerOn(store: QueueStore, actorId: string, outcome: () => TransportOu
       store,
       transport: {
         async send(_type, payload) {
-          sent.push(String(payload.client_operation_id));
+          sent.push(String((payload as PersonalEntryPayload).client_operation_id));
           return outcome();
         },
       },
@@ -323,7 +324,7 @@ describe('los tres caminos de una base heredada, hasta el final', () => {
      * En disco la fila de B sigue literalmente `sending` — nadie la reparó, y
      * `recoverSending` lleva su predicado de actor. Se lee la columna cruda a
      * propósito: `byId` la devolvería como `queued`, que es la relectura de
-     * ADR-028 §6 y no dice nada de lo que hay escrito.
+     * F07/ADR-001 §6 y no dice nada de lo que hay escrito.
      */
     const crudas = await db.getAllAsync<{ client_operation_id: string; state: string }>(
       'select client_operation_id, state from queue_entry where actor_id = ? order by created_at',

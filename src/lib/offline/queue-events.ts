@@ -6,7 +6,7 @@
  * quien cambia una entrada lo dice aquí, y quien proyecta vuelve a leer la
  * cola—. **No transporta datos**: sólo de quién, cuál y a qué estado, para que
  * el oyente sepa si le toca releer o pedir un refresco autoritativo. El
- * contenido sigue viviendo únicamente en la entrada durable (ADR-028 §8).
+ * contenido sigue viviendo únicamente en la entrada durable (F07/ADR-001 §8).
  *
  * Un oyente que lanza no rompe al que anuncia: el anuncio sale del worker en
  * plena anotación, y una excepción ahí se contaría como fallo de la base.

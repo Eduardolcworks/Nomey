@@ -27,13 +27,22 @@ describe('el saludo de Inicio', () => {
     expect(Object.keys(en)).not.toContain('home.namePlaceholder');
   });
 
-  it('y ninguna cadena del catálogo dice «tu nombre»', () => {
-    // La regresión exacta: un saludo que finge conocer al usuario.
-    for (const value of Object.values(esES)) {
-      expect(value.toLowerCase()).not.toContain('tu nombre');
+  it('y ninguna cadena de Inicio dice «tu nombre»', () => {
+    // La regresión exacta: un saludo que finge conocer al usuario. Se acota a
+    // Inicio (`home.*`), que es donde un saludo puede fingir: en «¿Quién eres?»
+    // de una invitación (`groups.whoHint`, `groups.whoNewHint`) «tu nombre» es
+    // literal —se le pide a la persona que elija o escriba el suyo—, no un
+    // placeholder.
+    const home = (catalogue: Record<string, string>) =>
+      Object.entries(catalogue)
+        .filter(([key]) => key.startsWith('home.'))
+        .map(([, value]) => value.toLowerCase());
+    expect(home(esES).length).toBeGreaterThan(0);
+    for (const value of home(esES)) {
+      expect(value).not.toContain('tu nombre');
     }
-    for (const value of Object.values(en)) {
-      expect(value.toLowerCase()).not.toContain('your name');
+    for (const value of home(en)) {
+      expect(value).not.toContain('your name');
     }
   });
 

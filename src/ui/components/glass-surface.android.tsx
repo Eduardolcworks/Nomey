@@ -72,6 +72,7 @@ export function GlassSurface({
   // Se recoge para no romper a quien lo pasa, y no se mira.
   nativeEffect: _nativeEffect = true,
   castsShadow = true,
+  lens = 'full',
   clip = false,
   disabled = false,
   material = 'surface',
@@ -158,7 +159,7 @@ export function GlassSurface({
     <View
       style={[
         // 1 · HOST: el radio y TODA la proyección. Nada más.
-        { borderRadius: radius, boxShadow: proyeccion(estado, castsShadow, token.lens) },
+        { borderRadius: radius, boxShadow: proyeccion(estado, castsShadow, token.lens, lens) },
         clip ? styles.mask : null,
         style,
       ]}
@@ -209,7 +210,9 @@ function resolverEstado(depth: GlassSurfaceProps['depth'], disabled: boolean): E
  * - **las entradas `outset` de la lente del material**, que en el nivel `action`
  *   son el halo ámbar del `+`. Pertenecen a la acción y por eso se conservan,
  *   pero proyectan igual que cualquier otra sombra y no pueden quedarse en la
- *   vista del material sumándose a su borde.
+ *   vista del material sumándose a su borde. Con `lens="inner"` quien monta la
+ *   pieza declara que ahí no hay fondo del que separarse y esa mitad no se
+ *   emite; la `inset`, que es el brillo interior, sigue intacta en `haciaDentro`.
  *
  * **Una sola proyección oscura por estado.** `castShadow` filtra el token, que
  * tiene exactamente una entrada exterior por estado; el halo de color no cuenta
@@ -219,9 +222,11 @@ function proyeccion(
   estado: EstadoAndroid,
   casts: boolean,
   lens: readonly BoxShadowValue[] | undefined,
+  modo: NonNullable<GlassSurfaceProps['lens']>,
 ): BoxShadowValue[] {
   const oscura = casts && estado !== 'flat' ? outerHalf(TactileAndroid[estado]) : [];
-  return [...oscura, ...outerHalf(lens ?? [])];
+  const halo = modo === 'full' ? outerHalf(lens ?? []) : [];
+  return [...oscura, ...halo];
 }
 
 /**

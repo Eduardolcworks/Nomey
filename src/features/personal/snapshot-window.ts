@@ -1,7 +1,7 @@
 /**
  * WHEN A SERVER RESPONSE MAY BECOME THE BASE OF A PROJECTION.
  *
- * ADR-028 §9 states the retirement proof:
+ * F07/ADR-001 §9 states the retirement proof:
  *
  *     retired  ⇔  confirm_seq <= snapshot.seq
  *

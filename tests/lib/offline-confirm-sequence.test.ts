@@ -16,7 +16,7 @@ import type { ProgressChange, WorkerPorts } from '../../src/lib/offline/worker-p
 import { openTestDatabase, type TestDatabase } from './offline-sqlite';
 
 /**
- * LA SECUENCIA DE RECONCILIACIÓN ES DURABLE Y MONÓTONA (ADR-028 §9).
+ * LA SECUENCIA DE RECONCILIACIÓN ES DURABLE Y MONÓTONA (F07/ADR-001 §9).
  *
  * `confirm_seq` se compara con `snapshot.seq`, así que el contador tiene que
  * sobrevivir a la app y no puede venir del reloj ni deducirse de las entradas,

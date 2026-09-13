@@ -24,7 +24,7 @@ import type { SessionStatus, TransportOutcome } from './response';
  * Recibe **el payload congelado, tal cual**, y una señal de cancelación. No
  * construye nada, no valida nada y no elige función: el discriminante ya lo
  * decidió quien encoló, y traducirlo es trabajo del adaptador con un `switch`
- * exhaustivo (ADR-028 §3).
+ * exhaustivo (F07/ADR-001 §3).
  */
 export type QueueTransport = {
   send(
@@ -37,7 +37,7 @@ export type QueueTransport = {
 /**
  * El enlace del aparato. **Disparador y supresor, jamás una prueba.**
  *
- * ADR-028 §11: sin enlace no se intenta —no se gasta batería en un fallo
+ * F07/ADR-001 §11: sin enlace no se intenta —no se gasta batería en un fallo
  * seguro— pero **no se marca nada como fallido**. Que haya enlace no dice nada
  * sobre si Supabase contesta; eso sólo lo dice el transporte.
  */
@@ -51,7 +51,7 @@ export type Connectivity = {
 /**
  * Quién está dentro, ahora mismo.
  *
- * El worker **no lee, no copia y no guarda el token** (ADR-028 §13): sólo
+ * El worker **no lee, no copia y no guarda el token** (F07/ADR-001 §13): sólo
  * pregunta si hay sesión válida y de quién es. Quien adjunta el JWT y lo
  * refresca es el cliente de Supabase, como siempre.
  */
@@ -77,7 +77,7 @@ export type WorkerPorts = {
   /**
    * Cuánto se espera una petición antes de abortarla de verdad.
    *
-   * ADR-028 §17. Agotarlo **conserva la entrada y su clave**: si la petición
+   * F07/ADR-001 §17. Agotarlo **conserva la entrada y su clave**: si la petición
    * abandonada llegó a escribir, el reintento recibe `already_processed`.
    */
   readonly timeoutMs?: number;
@@ -104,7 +104,7 @@ export type WorkerPorts = {
    * Una entrada cambió de estado por una respuesta del servidor.
    *
    * Es lo que permite a la proyección de Inicio releer la cola y, al
-   * confirmarse algo, pedir un refresco autoritativo (ADR-028 §9). Lleva de
+   * confirmarse algo, pedir un refresco autoritativo (F07/ADR-001 §9). Lleva de
    * quién, cuál y a qué estado — nunca el payload. Es un observador: si lanza,
    * se ignora, porque un oyente roto no puede convertir una anotación correcta
    * en un fallo de la base.

@@ -3,7 +3,7 @@
  *
  * Es un proceso, no un estado de pantalla: montarlo y desmontarlo con una hoja
  * lo mataría en mitad de un envío, y tener uno por pantalla rompería «una sola
- * petición en vuelo» (ADR-028 §12). Por eso vive en este módulo, se crea
+ * petición en vuelo» (F07/ADR-001 §12). Por eso vive en este módulo, se crea
  * perezosamente y lo gobierna un único hook que la raíz monta dentro del
  * proveedor de sesión — `useQueueRuntime`, en `features/shell`.
  *
@@ -11,7 +11,7 @@
  * Desde F9 lo comparten Personal y Grupos, y las features no pueden importarse
  * entre sí: dejarlo en una de ellas habría obligado a la otra a montar un
  * segundo worker, una segunda persistencia y una segunda barrera, que es
- * exactamente lo que ADR-028 §12 prohíbe.
+ * exactamente lo que F07/ADR-001 §12 prohíbe.
  *
  * **Y por eso el transporte llega INYECTADO.** `lib/` no puede conocer a
  * ninguna feature, así que quién sabe traducir cada tipo de comando a una
@@ -56,7 +56,7 @@ import type { Connectivity, QueueTransport, SessionPort } from './worker-ports';
  *
  * **Sigue siendo un vocabulario cerrado**: el tipo obliga a cubrirlo entero, de
  * modo que añadir un comando no compila hasta que alguien decide qué función le
- * corresponde — que es exactamente la decisión que ADR-028 §3 no quiere que se
+ * corresponde — que es exactamente la decisión que F07/ADR-001 §3 no quiere que se
  * tome por descuido.
  */
 export type CommandHandler<K extends QueueCommandType = QueueCommandType> = (
@@ -156,7 +156,7 @@ export async function ensureWorker(handlers: CommandHandlers): Promise<WorkerHan
  * Despierta la cola desde fuera de React.
  *
  * Es el disparador de **vuelta a primer plano**, que llega por el `AppStatePort`
- * que F5.B ya tenía —ADR-028 §12 prohíbe un segundo listener—. Si el worker no
+ * que F5.B ya tenía —F07/ADR-001 §12 prohíbe un segundo listener—. Si el worker no
  * está creado, no lo crea: sin sesión no hay nada que enviar.
  */
 export function wakeQueue(): void {
@@ -164,7 +164,7 @@ export function wakeQueue(): void {
 }
 
 /**
- * THE READ BARRIER of ADR-028 §9, taken at one instant.
+ * THE READ BARRIER of F07/ADR-001 §9, taken at one instant.
  *
  * Read at the START of an authoritative refresh and again when its response
  * arrives; `snapshot-window.ts` decides what that pair allows. `confirmSeq` is
@@ -208,7 +208,7 @@ export function localQueueStatus(): LocalQueueStatus | null {
 /**
  * Cuántas intenciones de este actor están sin sincronizar.
  *
- * Para el aviso previo al cierre de sesión (ADR-028 §13): las entradas **se
+ * Para el aviso previo al cierre de sesión (F07/ADR-001 §13): las entradas **se
  * conservan**, aisladas por cuenta, y sólo podrán salir cuando esa misma cuenta
  * vuelva a entrar **en este aparato**. Devuelve `0` si no hay base o no hay
  * actor: el aviso no se enseña por sospecha.

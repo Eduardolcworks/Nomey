@@ -13,7 +13,7 @@ import type { CalendarDate } from '../../src/lib/format';
  * El intervalo que gobierna Inicio.
  *
  * Lo que se comprueba aquí no es aritmética de fechas por gusto: es que la
- * semántica que ADR-020 §3 fija —`effective_date` como eje de agrupación, y la
+ * semántica que F06/ADR-002 §3 fija —`effective_date` como eje de agrupación, y la
  * hora como reloj de pared que sólo ordena dentro del día— llega intacta a la
  * consulta. Un error de un día en un límite mueve movimientos de mes sin que
  * nada falle.
@@ -81,7 +81,7 @@ describe('todayInDeviceCalendar', () => {
   /**
    * **La fecha es la del calendario LOCAL, no la de UTC**, y es la decisión que
    * más caro sale equivocar: `effective_date` no lleva zona y el par
-   * fecha+hora es un reloj de pared (ADR-020 §3). Un movimiento registrado a
+   * fecha+hora es un reloj de pared (F06/ADR-002 §3). Un movimiento registrado a
    * las 23:00 en Madrid es del día 29 para su dueño, y en UTC ya es el 30.
    *
    * El instante elegido lo demuestra: 22:30 UTC del 29 es 00:30 del 30 en

@@ -40,7 +40,7 @@ function draft(over: Partial<EntryDraft> = {}): EntryDraft {
 
 describe('el importe se convierte sin pasar por un número', () => {
   /**
-   * Es el requisito de ADR-003 §1 llevado al teclado. `parseFloat('0.29') * 100`
+   * Es el requisito de F02/ADR-001 §1 llevado al teclado. `parseFloat('0.29') * 100`
    * da `28.999999999999996`, y ese céntimo perdido no lanza nada: aparece en el
    * saldo. Toda la conversión es texto y `bigint`.
    */
@@ -168,7 +168,7 @@ describe('el payload que cruza la frontera', () => {
   });
 
   /**
-   * **Nunca un número.** ADR-008 §1 no admite un `number` donde hay dinero, y
+   * **Nunca un número.** F03/ADR-005 §1 no admite un `number` donde hay dinero, y
    * un `1250` sin comillas sería exactamente eso.
    */
   it('el importe no sale como número bajo ningún concepto', () => {
@@ -202,7 +202,7 @@ describe('el payload que cruza la frontera', () => {
 describe('la fecha y la hora son de pared, no de UTC', () => {
   /**
    * Misma razón que `todayInDeviceCalendar`: el par fecha+hora es un reloj
-   * local (ADR-020 §3). Tomarlos en UTC movería una cena de las 22:30 al día
+   * local (F06/ADR-002 §3). Tomarlos en UTC movería una cena de las 22:30 al día
    * siguiente para media Europa, y no fallaría nada — simplemente aparecería
    * en el día que no es.
    */
@@ -252,7 +252,7 @@ describe('el payload de una corrección', () => {
     expect(alta).not.toHaveProperty('expected_version_id');
   });
 
-  /** Y el ingreso sigue sin categoría también al corregirse (ADR-027 §3). */
+  /** Y el ingreso sigue sin categoría también al corregirse (F06/ADR-009 §3). */
   it('un ingreso corregido tampoco lleva categoría', () => {
     const payload = buildPayload(
       draft({ kind: 'income', categoryId: 'cat-1' }),

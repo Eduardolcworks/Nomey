@@ -7,7 +7,7 @@ import {
 } from '../../src/lib/offline/command';
 
 /**
- * El discriminante cerrado y la forma del payload (ADR-028 §3, y §4 para el
+ * El discriminante cerrado y la forma del payload (F07/ADR-001 §3, y §4 para el
  * alcance).
  *
  * Lo que se comprueba aquí no es «que valide», sino las tres cosas que, mal
@@ -35,8 +35,20 @@ const INCOME = (() => {
 })();
 
 describe('el vocabulario cerrado', () => {
-  it('en F7 son exactamente dos, y ninguna de las que llevan CAS', () => {
-    expect([...QUEUE_COMMAND_TYPES]).toEqual(['personal_expense.create', 'personal_income.create']);
+  it('son TRES, y ninguna de las que llevan CAS', () => {
+    /*
+     * F7 tuvo dos; F9 añade `group.create` con la enmienda de F07/ADR-001 §3 y §4 en
+     * el mismo cambio. Cabe donde correcciones, anulaciones y ajustes no caben,
+     * y por la misma razón que los separaba: **no lleva CAS y no puede quedar
+     * obsoleta**. No corrige nada anterior, no tiene versión previa que comparar
+     * y su idempotencia es una clave, no un estado, así que un reintento es un
+     * replay y nunca un `VERSION_CONFLICT`.
+     */
+    expect([...QUEUE_COMMAND_TYPES]).toEqual([
+      'personal_expense.create',
+      'personal_income.create',
+      'group.create',
+    ]);
   });
 
   it.each([
@@ -59,7 +71,7 @@ describe('la forma del payload congelado', () => {
 
   it('EL IMPORTE NO PUEDE SER UN NÚMERO, ni siquiera uno entero', () => {
     /*
-     * Es la regla que ADR-003 §1 y ADR-008 §1 existen para sostener. Un `1230`
+     * Es la regla que F02/ADR-001 §1 y F03/ADR-005 §1 existen para sostener. Un `1230`
      * numérico aquí sobreviviría a SQLite sin romperse, pero admitirlo abre la
      * puerta al `12.30` de la línea siguiente, que ya no es 12,30.
      */
@@ -72,9 +84,11 @@ describe('la forma del payload congelado', () => {
     expect(payloadDefect('personal_expense.create', { ...EXPENSE, amount: '12.30' })).toBe(
       'amountNotExact',
     );
+    // La versión de contrato se comprueba antes que nada: es lo que decide qué
+    // forma se está validando, así que un 2,5 no llega ni a mirarse el resto.
     expect(
       payloadDefect('personal_expense.create', { ...EXPENSE, command_contract_version: 2.5 }),
-    ).toBe('inexactNumber');
+    ).toBe('badVersion');
   });
 
   it('rechaza importes que no son unidades mínimas positivas', () => {
@@ -88,7 +102,7 @@ describe('la forma del payload congelado', () => {
   it('UN INGRESO CON CATEGORÍA SE RECHAZA AL ENCOLAR', () => {
     /*
      * `category_id` no es un campo admisible del contrato de ingreso
-     * (ADR-027 §3): el servidor lo rechaza por FORMA. Detectarlo aquí convierte
+     * (F06/ADR-009 §3): el servidor lo rechaza por FORMA. Detectarlo aquí convierte
      * un fallo que llegaría al sincronizar, sin nadie mirando, en uno inmediato.
      */
     expect(

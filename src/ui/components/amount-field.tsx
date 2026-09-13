@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Keyboard, Platform, StyleSheet, TextInput, View } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import {
   type AmountEntry,
@@ -12,6 +13,7 @@ import {
   amountValue,
 } from './amount-entry';
 import { ThemedText } from './themed-text';
+import { useFigurePop } from '@/ui/theme/motion-runtime';
 
 /**
  * EL EDITOR MONETARIO, y hay uno solo en toda la aplicación.
@@ -94,6 +96,18 @@ export function AmountField({
    * La marca vive en una ref porque se escribe en un manejador y se lee en un
    * efecto —nunca en el render—, y el efecto no escribe estado.
    */
+  /*
+   * EL TOQUE SE ACUSA EN LA CIFRA: 1 → 1,20 → 1, como al pulsar y soltar un
+   * botón. Subida rápida y vuelta suave, sin rebote, unos 220 ms en total
+   * (`useFigurePop`, junto a `usePressScale`); los dos tramos respetan el ajuste
+   * de movimiento reducido del sistema. Se dispara en `onPressIn` del propio
+   * capturador —una vez por toque, nunca al escribir, y vuelve aunque el foco
+   * se quede— y sólo escala la cifra: una transformación, sin fondo, sin color
+   * y sin mover el layout. La moneda y el resto de la fila no participan.
+   */
+  const pop = useFigurePop(FIGURE_POP);
+  const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.scale.value }] }));
+
   const input = useRef<TextInput | null>(null);
   const pendingCaret = useRef(false);
   useEffect(() => {
@@ -105,7 +119,9 @@ export function AmountField({
 
   return (
     <View style={styles.amountSlot}>
-      <AmountFigure entry={showing} scale={scale} separator={separator} muted={muted} />
+      <Animated.View style={popStyle}>
+        <AmountFigure entry={showing} scale={scale} separator={separator} muted={muted} />
+      </Animated.View>
 
       {/*
        * EL CAMPO ES UN CAPTURADOR DE TECLADO, no la cifra.
@@ -136,6 +152,7 @@ export function AmountField({
           }
         }}
         ref={input}
+        onPressIn={pop.onPressIn}
         keyboardType="decimal-pad"
         caretHidden
         selectionColor="transparent"
@@ -250,6 +267,9 @@ function AmountFigure({
  * sería cambiar algo aprobado por un problema que no tiene.
  */
 const invisible = Platform.select({ android: { opacity: 0 }, default: undefined });
+
+/** Cuánto crece la cifra al tocarla. Un poco por encima de uno, y vuelve. */
+const FIGURE_POP = 1.2;
 
 const styles = StyleSheet.create({
   amountSlot: {

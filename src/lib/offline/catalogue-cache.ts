@@ -1,10 +1,10 @@
 /**
  * UN CATÁLOGO CACHEADO, POR ACTOR Y POR CLAVE.
  *
- * ADR-028 §16: el catálogo visible se guarda tras cada carga correcta, porque
+ * F07/ADR-001 §16: el catálogo visible se guarda tras cada carga correcta, porque
  * un gasto exige `category_id` y sin él no hay nada que encolar. **Es
  * información de presentación y selección, no una caché económica**, y por eso
- * no toca la tercera capa de ADR-013 §1, que sigue vacía.
+ * no toca la tercera capa de F03/ADR-010 §1, que sigue vacía.
  *
  * **Aquí el documento es opaco.** `lib/` no puede importar de `features/` y
  * tampoco debe saber qué es una categoría: guarda una cadena por

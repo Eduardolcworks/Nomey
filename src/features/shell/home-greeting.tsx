@@ -1,10 +1,7 @@
-import { StyleSheet, View } from 'react-native';
-
 import { useTranslation } from '@/lib/i18n';
-import { ThemedText } from '@/ui/components';
-import { Spacing } from '@/ui/theme';
 
 import { ScopeSwitch } from './scope-switch';
+import { ScreenTitle } from './screen-title';
 
 /**
  * A quién se saluda y de quién es el dinero, en una sola fila.
@@ -19,6 +16,10 @@ import { ScopeSwitch } from './scope-switch';
  * no dice de quién es el dinero, y el selector sin el saludo queda como un
  * control suelto encima de las cifras. Separarlos —fijando uno y desplazando el
  * otro— es exactamente el defecto que esta composición evita.
+ *
+ * **La geometría ya no vive aquí**, sino en [`ScreenTitle`](./screen-title.tsx),
+ * que es la misma fila que usa Grupos. Esto se queda con lo único que es de
+ * Inicio: qué texto se dice y qué va a la derecha.
  */
 export type HomeGreetingProps = {
   /**
@@ -40,34 +41,10 @@ export function HomeGreeting({ name }: HomeGreetingProps) {
   const { t } = useTranslation();
 
   return (
-    <View style={styles.greeting}>
-      <ThemedText variant="title" style={styles.text} numberOfLines={1}>
-        {name === null || name === undefined || name === ''
-          ? t('home.greetingPlain')
-          : t('home.greeting', { name })}
-      </ThemedText>
-      <ScopeSwitch />
-    </View>
+    <ScreenTitle trailing={<ScopeSwitch />}>
+      {name === null || name === undefined || name === ''
+        ? t('home.greetingPlain')
+        : t('home.greeting', { name })}
+    </ScreenTitle>
   );
 }
-
-const styles = StyleSheet.create({
-  /**
-   * El relleno lateral es el mismo que traía la cabecera cuando esto vivía
-   * dentro de ella, y el `paddingBottom` es el que separaba la cabecera de
-   * `Disponible`. Los trae esta fila porque entra en un contenedor que no pone
-   * márgenes propios: sumados a los del contenedor, el saludo se metería hacia
-   * dentro y la distancia hasta la primera tarjeta crecería.
-   */
-  greeting: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-  },
-  text: {
-    flexShrink: 1,
-  },
-});

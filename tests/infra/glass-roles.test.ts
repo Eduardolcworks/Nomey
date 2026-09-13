@@ -49,10 +49,73 @@ function code(relative: string): string {
 const CONTROLES: readonly (readonly [string, number, string])[] = [
   ['ui/components/glass-pressable.tsx', 1, 'el primitive de los botones de cristal'],
   ['features/personal/movement-fields.tsx', 1, 'la superficie del concepto'],
-  ['features/personal/category-trigger.tsx', 1, 'el círculo de categoría'],
-  ['features/personal/entry-kind-selector.tsx', 1, 'la pista del selector − / + / ⇄'],
+  /*
+   * El círculo de categoría. Bajó a `ui/` cuando el alta de un gasto compartido
+   * necesitó el mismo botón: sólo dependía de `ui/`, así que la mudanza no le
+   * cambió ni un token.
+   */
+  ['ui/components/category-trigger.tsx', 1, 'el círculo de categoría'],
+  /*
+   * La pista del selector de clase. Bajó a `ui/` cuando el alta de un gasto
+   * compartido necesitó el mismo control con dos opciones en vez de tres: una
+   * feature no puede leer de otra. Lo que se quedó arriba son las clases, sus
+   * glifos y sus tonos, que no pintan superficie ninguna.
+   */
+  ['ui/components/kind-selector.tsx', 1, 'la pista del selector de clase'],
   ['features/shell/scope-switch.tsx', 1, 'el selector Personal/Pareja'],
   ['features/shell/nomey-tab-bar.tsx', 2, 'las dos ACCIONES del dock'],
+  /*
+   * Los emblemas de la hoja de Grupos. Renuncian por el mismo motivo que el `+`
+   * del que salen: no son superficies que contengan nada, son la marca de una
+   * acción — y aquí, además, ni siquiera se pulsan. La tarjeta entera es el
+   * botón; el disco es su emblema.
+   */
+  [
+    'features/groups/group-action-sheet.tsx',
+    1,
+    'el emblema de la hoja, escrito una vez y pintado dos',
+  ],
+  /* Únete (F09/ADR-004): el emblema de la tarjeta del QR, el oblongo «Pegar
+   * enlace» que se pulsa, y el avión redondo que envía. */
+  ['features/groups/join-panel.tsx', 3, 'el emblema del QR, «Pegar enlace» y el avión'],
+  /*
+   * El formulario de crear grupo. Tres superficies y las tres son controles:
+   * el disco del emoji —el mismo emblema de la hoja, aquí sí pulsable—, el
+   * campo del nombre y las dos filas de participante: la del creador, que se
+   * lee y no se escribe, y la editable, escrita una vez y pintada tantas veces
+   * como participantes se añadan.
+   */
+  ['features/groups/group-form.tsx', 4, 'el emoji, el nombre y las dos filas de participante'],
+  /* El campo de divisa: la cabecera que se pulsa, y su estado de carga. */
+  ['features/groups/currency-field.tsx', 3, 'el campo de divisa: bloqueado, abierto y cargando'],
+  /* El buscador del selector de emojis. Se toca y se escribe en él. */
+  ['features/groups/emoji-picker.tsx', 1, 'el buscador del teclado de emojis'],
+  /*
+   * El `+` de la pantalla interior de un grupo. Es el MISMO material que la
+   * acción del dock —de ahí la misma renuncia— y desde F9 es un control de
+   * verdad: abre la ventana de añadir gasto compartido.
+   *
+   * Está clasificado aquí y no en ESTRUCTURA porque no contiene nada: es la
+   * acción. Si la pieza se retira, la entrada se retira con ella.
+   */
+  ['app/group/[id].tsx', 1, 'el  de gasto compartido'],
+  /*
+   * El oblongo que despliega un menú. Un control, y de los que más se pulsan de
+   * la ventana: el pagador y el método salen los dos de esta misma pieza.
+   */
+  ['ui/components/menu-pill.tsx', 1, 'el oblongo de pagador y de método'],
+  /* El campo de concepto de un gasto compartido, hermano del de Personal. */
+  ['features/groups/shared-expense-fields.tsx', 1, 'la superficie del concepto'],
+  /*
+   * Lo que cada participante DECLARA cuando el método lo pide: sus partes o su
+   * importe. Es un campo, escrito una vez y pintado tantas veces como personas
+   * participen. La tarjeta que lo contiene NO renuncia: eso es estructura.
+   */
+  [
+    'features/groups/split-participants-card.tsx',
+    2,
+    'el control −/+ de partes y el oblongo de la cuota',
+  ],
 ];
 
 /**

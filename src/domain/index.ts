@@ -22,12 +22,14 @@ export {
   zeroMoney,
 } from './money/money';
 export { divideRoundHalfAwayFromZero } from './money/rounding';
+export { fromMinorUnits, toMinorUnits } from './money/parse';
 export type { ExchangeRate } from './money/exchange-rate';
 export { exchangeRate, exchangeRateFromStrings } from './money/exchange-rate';
 export { convert } from './money/convert';
 
 export type { Share, SplitInput, SplitMethod } from './split/split';
 export { sharesTotal, splitExpense } from './split/split';
+export { allocateByLargestRemainder } from './split/largest-remainder';
 
 export type { AccountingClass, DebtImpact, EconomicImpact, Effect } from './effects/effect';
 export {

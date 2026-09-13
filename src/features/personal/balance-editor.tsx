@@ -16,7 +16,7 @@ import { useTranslation } from '@/lib/i18n';
  * Editar el Disponible: una cifra y nada más.
  *
  * **Fijar el saldo NO es registrar un ingreso.** Lo que se escribe es cuánto
- * hay, y el servidor deriva la diferencia y la asienta como un ajuste (ADR-022).
+ * hay, y el servidor deriva la diferencia y la asienta como un ajuste (F06/ADR-004).
  * Por eso aquí no hay concepto, ni categoría, ni clase, ni fecha: ninguna de
  * esas cosas pertenece a la frase «mi saldo debe ser X», y ofrecerlas sería
  * pedir datos que el comando no lleva.

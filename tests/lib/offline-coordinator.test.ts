@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PersonalEntryPayload } from '../../src/lib/offline/command';
 
 import { migrate } from '../../src/lib/offline/migrations';
 import { newQueueEntry, type QueueEntry } from '../../src/lib/offline/queue-entry';
@@ -164,7 +165,7 @@ async function setup(
     store,
     transport: {
       async send(_type, payload) {
-        seen.push(String(payload.client_operation_id));
+        seen.push(String((payload as PersonalEntryPayload).client_operation_id));
         const outcome = script(calls);
         calls += 1;
         return outcome;

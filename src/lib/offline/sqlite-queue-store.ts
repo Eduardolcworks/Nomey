@@ -8,7 +8,7 @@
  *
  * - **`actor_id = ?` está en TODAS las cláusulas**, incluidas las de escritura
  *   y la de reparación. No hay ningún camino que lea o mueva la entrada de otra
- *   cuenta (ADR-028 §13).
+ *   cuenta (F07/ADR-001 §13).
  * - **Ningún `UPDATE` toca la mitad de intención.** `markProgress` enumera sus
  *   columnas una a una; no hay un `set` genérico al que se le pueda colar
  *   `payload`.
@@ -60,7 +60,7 @@ const INSERT = `insert into queue_entry (${COLUMNS})
   values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
 /**
- * The states a projection still paints (ADR-028 §6). A terminal entry is NOT
+ * The states a projection still paints (F07/ADR-001 §6). A terminal entry is NOT
  * here on purpose: its projection is withdrawn, so it cannot be counted twice
  * and it is not a read hazard however uncertain its result may be.
  */

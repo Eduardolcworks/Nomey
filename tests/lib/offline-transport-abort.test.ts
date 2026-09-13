@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createQueueTransport } from '../../src/features/personal/queue-transport';
+import { personalCommandHandlers } from '../../src/features/personal/queue-transport';
 import type { RawWriteResponse } from '../../src/features/personal/personal-service';
 
 /**
@@ -45,7 +45,7 @@ describe('la señal llega a la petición', () => {
     );
     const controller = new AbortController();
 
-    await createQueueTransport(send).send('personal_expense.create', PAYLOAD, controller.signal);
+    await personalCommandHandlers(send)['personal_expense.create'](PAYLOAD, controller.signal);
 
     expect(send).toHaveBeenCalledTimes(1);
     expect(vista).toBe(controller.signal);
@@ -67,10 +67,10 @@ describe('la señal llega a la petición', () => {
       }),
     );
     const controller = new AbortController();
-    const transport = createQueueTransport(send);
+    const transport = personalCommandHandlers(send);
 
-    await transport.send('personal_expense.create', PAYLOAD, controller.signal);
-    await transport.send('personal_income.create', PAYLOAD, controller.signal);
+    await transport['personal_expense.create'](PAYLOAD, controller.signal);
+    await transport['personal_income.create'](PAYLOAD, controller.signal);
 
     expect(send.mock.calls.map((call) => call[0])).toEqual([
       'record_personal_expense',
@@ -87,8 +87,7 @@ describe('la señal llega a la petición', () => {
       return { status: 200, code: null, envelope: null };
     });
 
-    await createQueueTransport(send).send(
-      'personal_expense.create',
+    await personalCommandHandlers(send)['personal_expense.create'](
       PAYLOAD,
       new AbortController().signal,
     );
@@ -114,8 +113,7 @@ describe('al vencer el plazo', () => {
       });
 
     const controller = new AbortController();
-    const pending = createQueueTransport(send).send(
-      'personal_expense.create',
+    const pending = personalCommandHandlers(send)['personal_expense.create'](
       PAYLOAD,
       controller.signal,
     );
@@ -139,8 +137,7 @@ describe('al vencer el plazo', () => {
     controller.abort();
     const send = () => Promise.reject(new DOMException('Aborted', 'AbortError'));
 
-    const outcome = await createQueueTransport(send).send(
-      'personal_expense.create',
+    const outcome = await personalCommandHandlers(send)['personal_expense.create'](
       PAYLOAD,
       controller.signal,
     );
@@ -151,8 +148,7 @@ describe('al vencer el plazo', () => {
   it('un fallo de red sin abortar se distingue del plazo', async () => {
     const send = () => Promise.reject(new TypeError('Network request failed'));
 
-    const outcome = await createQueueTransport(send).send(
-      'personal_expense.create',
+    const outcome = await personalCommandHandlers(send)['personal_expense.create'](
       PAYLOAD,
       new AbortController().signal,
     );
@@ -167,8 +163,7 @@ describe('al vencer el plazo', () => {
       envelope: null,
     });
 
-    const outcome = await createQueueTransport(send).send(
-      'personal_expense.create',
+    const outcome = await personalCommandHandlers(send)['personal_expense.create'](
       PAYLOAD,
       new AbortController().signal,
     );

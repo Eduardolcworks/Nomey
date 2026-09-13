@@ -32,7 +32,7 @@ export const CIRCLE = 52;
  * desactivarse.** Un control gris afirma «esto existe para los ingresos y ahora
  * no se puede», y lo cierto es lo contrario: `category_id` no es un campo
  * admisible de esa clase y mandarlo se rechaza por FORMA del payload
- * (ADR-027 §3). Un control apagado describiría un permiso; su ausencia describe
+ * (F06/ADR-009 §3). Un control apagado describiría un permiso; su ausencia describe
  * el contrato.
  */
 export function MovementFields({

@@ -54,6 +54,22 @@ export type GlassSurfaceProps = ViewProps & {
    */
   castsShadow?: boolean;
   /**
+   * Si la LENTE del material proyecta también hacia fuera. `'full'` por defecto.
+   *
+   * **Es el mismo corte que `castsShadow`, aplicado a la otra lista.** La lente
+   * de un nivel mezcla brillos interiores con un halo que sí sale del contorno
+   * —la del `+` es `Glass.action.lens`—, y `'inner'` se queda con las capas
+   * `inset` usando `innerHalf`. No reescribe ningún valor ni inventa una segunda
+   * lente: filtra la que hay, igual que `castsShadow` hace con la del estado.
+   *
+   * **Por qué hace falta.** Ese halo es lo que hace que el `+` del dock lea como
+   * luz sostenida sobre el fondo negro, y ahí está aprobado. Dentro de una
+   * tarjeta no hay fondo que separar: el resplandor se derrama sobre el relleno y
+   * el disco deja de leerse como una pieza para leerse como una bombilla. Los
+   * emblemas de la hoja de Grupos son los únicos que lo piden.
+   */
+  lens?: 'full' | 'inner';
+  /**
    * Clips whatever it contains to its own rounded shape. Defaults to `false`.
    *
    * **A mask, not a style.** Without it an opaque child that fills the box

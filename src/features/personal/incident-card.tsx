@@ -13,7 +13,7 @@ import { type Incident, incidentMessage } from './incidents';
  * ONE INCIDENT, SAID IN THE PERSON'S WORDS.
  *
  * A sentence about their money and the choices they have. Nothing else reaches
- * this component: no state, no code, no key — ADR-028 §15 keeps §11's taxonomy
+ * this component: no state, no code, no key — F07/ADR-001 §15 keeps §11's taxonomy
  * off the screen, and the two visible forms are all there is.
  *
  * **The amount goes through the shared formatter and the category through the
@@ -22,7 +22,7 @@ import { type Incident, incidentMessage } from './incidents';
  * as minor units under the definition the entry froze, exactly as it was
  * captured, and `formatMoney` is what turns it into a locale string.
  *
- * **An income has no category, and none is invented** (ADR-027): its sentence
+ * **An income has no category, and none is invented** (F06/ADR-009): its sentence
  * simply has no place for one.
  */
 export function IncidentCard({
@@ -54,7 +54,7 @@ export function IncidentCard({
       currencyDefinition({
         // The definition the entry froze, never the scope's current one: under a
         // changed base currency they differ, and reading it with the new scale
-        // would restate the amount (ADR-003 §7).
+        // would restate the amount (F02/ADR-001 §7).
         id: `${incident.currencyCode}:${String(incident.currencyScale)}`,
         code: incident.currencyCode,
         scale: incident.currencyScale,
@@ -113,7 +113,7 @@ export function IncidentCard({
           /*
            * Never `Sí` here. For a movement that might already exist, a new key
            * is duplicated money; `Revisar` sends the person to look first
-           * (ADR-029 §2). The exceptional form is the one ADR-003 §7 demands.
+           * (F07/ADR-002 §2). The exceptional form is the one F02/ADR-001 §7 demands.
            */
           <>
             <ActionButton

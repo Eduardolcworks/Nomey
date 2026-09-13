@@ -3,7 +3,7 @@
  *
  * Que SQLite falle —disco lleno, base bloqueada, fichero corrupto, el módulo
  * nativo caído— es un fallo **del cliente**, no una respuesta del servidor, y
- * por eso no pasa por la clasificación de ADR-028 §11 ni produce un código de
+ * por eso no pasa por la clasificación de F07/ADR-001 §11 ni produce un código de
  * frontera. Lo que hace es más humilde: la pasada se interrumpe, **ninguna
  * entrada cambia de estado por ello**, y el coordinador vuelve a intentar la
  * infraestructura con su backoff.
@@ -18,7 +18,7 @@
  *
  * **Lo que se guarda del error es el nombre y, si lo trae, un `code`.** Nunca
  * el mensaje: el de SQLite puede llevar fragmentos de SQL, y aunque los valores
- * viajan como parámetros y no aparecen en él, ADR-028 §19 pide no registrar
+ * viajan como parámetros y no aparecen en él, F07/ADR-001 §19 pide no registrar
  * nada que pueda acercarse a un importe o a un concepto. Con el nombre y la
  * etapa basta para saber qué se rompió; con la clave, para saber a quién le
  * pasó.
@@ -37,7 +37,7 @@
  *
  * `record` es la etapa delicada: la petición ya salió y el servidor **pudo
  * haber escrito**. La fila conserva su clave y queda `sending` en disco, que
- * ADR-028 §6 relee siempre como `queued`: se reenviará igual, y el servidor
+ * F07/ADR-001 §6 relee siempre como `queued`: se reenviará igual, y el servidor
  * contestará `already_processed` si aquello llegó. Ni se distingue ni se
  * intenta.
  */

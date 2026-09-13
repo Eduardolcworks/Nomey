@@ -3,7 +3,7 @@ import type { CalendarDate } from '@/lib/format';
 /**
  * El intervalo que gobierna Inicio, traducido a fechas de calendario.
  *
- * **La semántica no se inventa aquí: la fija ADR-020 §3.** `effective_date` es
+ * **La semántica no se inventa aquí: la fija F06/ADR-002 §3.** `effective_date` es
  * «el eje de agrupación por día, mes y año», con esas palabras, y
  * `effective_time` es un reloj de pared local que sólo ordena *dentro* del día.
  * De ahí se siguen las dos reglas de este módulo:
@@ -60,7 +60,7 @@ function lastDayOfMonth(year: number, month: number): number {
  *
  * Y esto es una decisión con consecuencia, así que se dice: `effective_date` no
  * tiene zona horaria y el par fecha+hora es un reloj de pared local
- * (ADR-020 §3). Comparar esa fecha contra el calendario **UTC** movería el día
+ * (F06/ADR-002 §3). Comparar esa fecha contra el calendario **UTC** movería el día
  * para media Europa después de las 22:00, y el movimiento que alguien acaba de
  * registrar «hoy» dejaría de aparecer en `Día`. No fallaría nada: simplemente
  * faltaría.

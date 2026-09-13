@@ -1,9 +1,9 @@
 /**
  * EL WORKER: toma una entrada, la envía, y anota lo que pasó.
  *
- * ADR-028 §12. Serie a propósito —**una petición en vuelo** y FIFO por actor—
+ * F07/ADR-001 §12. Serie a propósito —**una petición en vuelo** y FIFO por actor—
  * porque el servidor ya serializa los ámbitos bajo un orden ascendente de locks
- * (ADR-022): el paralelismo sobre el mismo ámbito no compra nada, y un worker
+ * (F06/ADR-004): el paralelismo sobre el mismo ámbito no compra nada, y un worker
  * serie hace deterministas las afirmaciones de orden.
  *
  * **Lo que nunca hace, y es lo que impide duplicar dinero:**
@@ -166,10 +166,10 @@ export function createSyncWorker(ports: WorkerPorts): SyncWorker {
    * **`confirmed` no es enviable, aunque tampoco sea terminal.** La distinción
    * importa y confundirla reenvía en bucle una operación ya escrita: `pending`
    * devuelve todo lo no terminal porque la proyección de F7.D necesita seguir
-   * pintando lo confirmado hasta reconciliar (ADR-028 §9), pero para el worker
+   * pintando lo confirmado hasta reconciliar (F07/ADR-001 §9), pero para el worker
    * eso ya está hecho.
    *
-   * `sending` tampoco aparece aquí: el store la relee como `queued` (ADR-028
+   * `sending` tampoco aparece aquí: el store la relee como `queued` (F07/ADR-001
    * §6), y dentro de una pasada no puede haber otra en vuelo.
    */
   function nextEntry(pending: readonly QueueEntry[]): QueueEntry | 'empty' | 'notDue' {
@@ -205,7 +205,7 @@ export function createSyncWorker(ports: WorkerPorts): SyncWorker {
     if (classification.state === 'confirmed' && outcome.kind === 'ok') {
       /*
        * EL `confirm_seq` SE TOMA DEL CURSOR DURABLE y se escribe junto al
-       * `result_operation_id`, en la misma sentencia (ADR-028 §9). Si el
+       * `result_operation_id`, en la misma sentencia (F07/ADR-001 §9). Si el
        * proceso muere entre avanzar el cursor y anotar, la fila queda
        * `sending`, se reenvía con su clave, recibe `already_processed` y toma
        * un número nuevo: el cursor sólo crece, que es lo único que importa.
@@ -234,7 +234,7 @@ export function createSyncWorker(ports: WorkerPorts): SyncWorker {
          *
          * Con el post-incremento, el primer reintento salía con techo de 2 s en
          * vez de 1 s y la serie quedaba corrida: 2, 4, 8, 16 en lugar de
-         * 1, 2, 4, 8, que es lo que fija ADR-028 §12. Y el primer reintento
+         * 1, 2, 4, 8, que es lo que fija F07/ADR-001 §12. Y el primer reintento
          * dejaba de ser determinista, porque su techo ya no coincidía con el
          * suelo.
          *
@@ -287,7 +287,7 @@ export function createSyncWorker(ports: WorkerPorts): SyncWorker {
      * concreta, no la segunda de dos.
      *
      * **Aquí no llega ninguna `sending`.** El store la relee siempre como
-     * `queued` (ADR-028 §6, en `rowToEntry`), así que una fila que quedó en
+     * `queued` (F07/ADR-001 §6, en `rowToEntry`), así que una fila que quedó en
      * disco a medias —por un proceso que murió en pleno envío, o por una
      * anotación que SQLite no pudo escribir después de la respuesta— entra en
      * esta pasada como `queued`, con su misma clave, y se reenvía. Es seguro
@@ -464,7 +464,7 @@ export function createSyncWorker(ports: WorkerPorts): SyncWorker {
 /**
  * Un reintento manual, y lo único que hace es **adelantar el plazo**.
  *
- * ADR-028 §12: sobre una entrada cuyo resultado es desconocido, nunca se crea
+ * F07/ADR-001 §12: sobre una entrada cuyo resultado es desconocido, nunca se crea
  * otra entrada ni otra clave, porque el servidor pudo haberla ejecutado. Sobre
  * una terminal no hay reintento de ninguna clase — eso es §15 y es F7.E.
  */

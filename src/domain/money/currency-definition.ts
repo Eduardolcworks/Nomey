@@ -8,7 +8,7 @@ import { fail } from '../errors';
  * interpreta. No implica UUID, ni entero, ni el código ISO, y no condiciona la
  * representación física que se elija al diseñar el esquema.
  *
- * ADR-003 §3: la unidad de identidad monetaria no es el código visible.
+ * F02/ADR-001 §3: la unidad de identidad monetaria no es el código visible.
  */
 export type CurrencyDefinitionId = Brand<string, 'CurrencyDefinitionId'>;
 
@@ -86,7 +86,7 @@ export function assertCurrencyDefinitionCoherent(
 /**
  * Igualdad de definiciones monetarias: **solo por identidad**.
  *
- * Compartir código ISO no basta, y es justamente el error que ADR-003 §3
+ * Compartir código ISO no basta, y es justamente el error que F02/ADR-001 §3
  * existe para impedir. Compartir identidad con metadatos distintos tampoco es
  * igualdad: es una contradicción, y lanza.
  */

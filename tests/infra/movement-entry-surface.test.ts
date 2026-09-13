@@ -43,18 +43,29 @@ const ADD = file('app/add.tsx');
 const VENTANA = file('ui/components/sheet-window.tsx');
 const VENTANA_CODE = code('ui/components/sheet-window.tsx');
 /*
- * **Y el editor monetario a `features/personal/amount-field.tsx`.** Lo comparten
- * las tres superficies que piden una cifra; extraerlo es lo que evita un
- * segundo parser que se comporte distinto.
+ * **Y el editor monetario a `ui/components/amount-field.tsx`.** Lo comparten
+ * las CUATRO superficies que piden una cifra —las tres de Personal y el alta de
+ * un gasto compartido—; extraerlo es lo que evita un segundo parser que se
+ * comporte distinto. Bajó a `ui/` cuando llegó la cuarta: una feature no puede
+ * importar de otra, así que compartirlo exigía ponerlo por debajo de las dos.
  */
-const CAMPO = file('features/personal/amount-field.tsx');
+const RUNTIME = code('ui/theme/motion-runtime.ts');
+const CAMPO = file('ui/components/amount-field.tsx');
+/**
+ * **Y el adaptador que le pone los textos y el patrón regional de Personal.**
+ *
+ * La composición no puede leer de `lib/` —vive en `ui/`—, así que el símbolo de
+ * la moneda, el separador decimal y los dos textos llegan resueltos desde aquí.
+ * Es lo único que quedó en la feature, y estas guardas lo comprueban ahí.
+ */
+const ADAPTADOR = code('features/personal/amount-sheet.tsx');
 /*
  * **La composición compartida por «Editar disponible» y «Editar movimiento».**
  * Compartir `SheetWindow` no las hacía iguales: el armazón era común y el
  * interior no. La fila del importe, el control de moneda, el aviso y el CTA
  * viven ahora en un solo sitio, y estas guardas lo comprueban ahí.
  */
-const HOJA = code('features/personal/amount-sheet.tsx');
+const HOJA = code('ui/components/amount-sheet.tsx');
 /*
  * **Corregir un movimiento es su propia pantalla**, no un modo del alta: las
  * dos hacen cosas distintas y comparten las PIEZAS —la composición, los
@@ -63,12 +74,34 @@ const HOJA = code('features/personal/amount-sheet.tsx');
 const EDICION = code('features/personal/movement-editor.tsx');
 const MENU = code('features/personal/category-menu.tsx');
 const MENU_IOS = code('features/personal/category-menu.ios.tsx');
-const TRIGGER = code('features/personal/category-trigger.tsx');
+/*
+ * **El círculo de categoría se mudó a `ui/components/category-trigger.tsx`.** Lo
+ * montan el alta de un movimiento personal y el alta de un gasto compartido, y
+ * una feature no puede leer de otra. Sólo dependía de `ui/`, así que la mudanza
+ * es un cambio de sitio y nada más: sus guardas siguen siendo éstas.
+ */
+const TRIGGER = code('ui/components/category-trigger.tsx');
 const CAMPOS = code('features/personal/movement-fields.tsx');
 const BORRADOR = code('features/personal/use-movement-draft.ts');
 const FORM = file('features/personal/movement-form.tsx');
-const SELECTOR = file('features/personal/entry-kind-selector.tsx');
-const PICKERS = file('features/personal/entry-pickers.tsx');
+/*
+ * **El control se mudó a `ui/components/kind-selector.tsx`.** Lo montan el alta
+ * de un movimiento personal —tres clases— y el alta de un gasto compartido —dos—,
+ * y una feature no puede leer de otra. En `entry-kind-selector.tsx` se quedó lo
+ * único que era de Personal: QUÉ clases hay, con qué glifo y de qué color.
+ *
+ * Las guardas del control miran el primero; las del catálogo, el segundo.
+ */
+const SELECTOR = file('ui/components/kind-selector.tsx');
+const CLASES = file('features/personal/entry-kind-selector.tsx');
+/*
+ * **La hoja del calendario se mudó a `ui/components/date-sheet.tsx`.** La montan
+ * el alta de un movimiento personal y el alta de un gasto compartido, y una
+ * feature no puede leer de otra. Lo que se quedó en `entry-pickers.tsx` son los
+ * tres textos y la conversión `Date` ↔ `CalendarDate`, que es lo único que era
+ * de esta pantalla; las guardas del control siguen aquí, sobre su nuevo sitio.
+ */
+const PICKERS = file('ui/components/date-sheet.tsx');
 const ENTRY = code('features/personal/movement-entry.ts');
 /** 9999 sobre 58 puntos de alto se recortaba a esto en iOS. */
 const CTA_RADIO_ESPERADO = 58 / 2;
@@ -168,7 +201,15 @@ describe('la ventana se presenta sobre Inicio, no en lugar de Inicio', () => {
    * sin atenuar.
    */
   it('la ventana entra desde abajo, y el velo no viaja con ella', () => {
-    expect(VENTANA).toContain('entering={SLIDE_IN}');
+    /*
+     * Con `fall`, no con `entering`: una animación de layout y una
+     * transformación animada sobre la misma vista son dos dueños de su
+     * posición, y con un cambio de altura durante la entrada separaban lo
+     * dibujado de lo tocable (medido en iOS: «Guardar» caía en el velo).
+     */
+    expect(VENTANA).not.toMatch(/entering={/);
+    expect(VENTANA).toContain('useSharedValue(screenHeight)');
+    expect(VENTANA).toContain('fall.value = withSpring(0, SPRING)');
     expect(file('app/_layout.tsx')).toContain("animation: 'fade'");
     expect(file('app/_layout.tsx')).not.toContain('slide_from_bottom');
   });
@@ -206,7 +247,7 @@ describe('el selector de clase', () => {
   it('el estado no depende sólo del color', () => {
     expect(SELECTOR).toContain('accessibilityState={{ selected: active, disabled }}');
     expect(SELECTOR).toContain('scale:');
-    expect(SELECTOR).toContain('GLYPH[kind]');
+    expect(CLASES).toContain('GLYPH[kind]');
   });
 
   /**
@@ -216,9 +257,10 @@ describe('el selector de clase', () => {
    * afirma la forma que lo impide.
    */
   it('el elegido lleva relleno sólido, no una superficie translúcida', () => {
-    expect(SELECTOR).toContain('backgroundColor: tone[value]');
+    expect(SELECTOR).toContain('backgroundColor: chosen?.tone');
+    expect(CLASES).toContain('tone: Record<EntryKind, string>');
     // La pista sigue siendo vidrio; el indicador ya no.
-    expect(code('features/personal/entry-kind-selector.tsx')).not.toMatch(
+    expect(code('ui/components/kind-selector.tsx')).not.toMatch(
       /<GlassSurface[^>]*styles\.indicator/s,
     );
   });
@@ -234,13 +276,13 @@ describe('el selector de clase', () => {
 
   it('las tres tienen nombre accesible, del catálogo', () => {
     for (const key of ['entry.kindExpense', 'entry.kindIncome', 'entry.kindTransfer']) {
-      expect(SELECTOR, key).toContain(key);
+      expect(CLASES, key).toContain(key);
     }
   });
 
   it('el azul es un token medido, no un literal suelto', () => {
-    expect(SELECTOR).toContain('theme.neutralFlow');
-    expect(code('features/personal/entry-kind-selector.tsx')).not.toMatch(/#[0-9A-Fa-f]{6}/);
+    expect(CLASES).toContain('theme.neutralFlow');
+    expect(code('ui/components/kind-selector.tsx')).not.toMatch(/#[0-9A-Fa-f]{6}/);
   });
 });
 
@@ -299,7 +341,7 @@ describe('el acabado de la ventana', () => {
 
   /** Y `Guardar` se separa con una distancia declarada, no empujado al canto. */
   it('Guardar se separa por spacing, no por un empuje al fondo', () => {
-    const codigo = code('features/personal/amount-sheet.tsx');
+    const codigo = code('ui/components/amount-sheet.tsx');
     expect(codigo).not.toContain("marginTop: 'auto'");
     expect(/footer: \{([^}]*)\}/.exec(codigo)?.[1]).toContain('paddingTop: Spacing.xl');
     expect(/sheet: \{([^}]*)\}/.exec(codigo)?.[1]).not.toContain('flex: 1');
@@ -370,9 +412,9 @@ describe('el acabado de la ventana', () => {
   });
 
   it('el símbolo de moneda va después del importe', () => {
-    const cuerpo = code('features/personal/amount-sheet.tsx');
+    const cuerpo = code('ui/components/amount-sheet.tsx');
     const importe = cuerpo.indexOf('<AmountField');
-    const moneda = cuerpo.indexOf("t('entry.currencyLabel'");
+    const moneda = cuerpo.indexOf('label={currencyLabel}');
     expect(importe).toBeGreaterThan(-1);
     expect(moneda).toBeGreaterThan(importe);
   });
@@ -417,7 +459,7 @@ describe('la categoría es del gasto, y en el ingreso no está', () => {
    * **Desaparece; no se desactiva.** Un control gris afirmaría «esto existe
    * para los ingresos y ahora no se puede», y lo cierto es lo contrario:
    * `category_id` no es un campo admisible de esa clase y mandarlo se rechaza
-   * por FORMA del payload (ADR-027 §3).
+   * por FORMA del payload (F06/ADR-009 §3).
    */
   it('el círculo sólo se monta cuando la clase lo usa', () => {
     expect(CAMPOS).toContain('{usesCategory(kind) ? (');
@@ -435,7 +477,7 @@ describe('la categoría es del gasto, y en el ingreso no está', () => {
   /**
    * El selector ofrece sólo lo vigente. `api.category` publica también las
    * dadas de baja —el histórico las necesita— y filtrar es de quien pinta un
-   * selector, nunca de la vista (ADR-021 §7).
+   * selector, nunca de la vista (F06/ADR-003 §7).
    */
   it('sólo se ofrecen categorías vigentes', () => {
     expect(code('features/personal/use-entry-categories.ts')).toContain('row.is_active');
@@ -493,7 +535,15 @@ describe('los selectores son los del sistema', () => {
     const scrim = code('ui/components/scrim.tsx');
     expect(scrim).toContain("from 'expo-blur'");
     expect(scrim).toContain('<BlurView');
-    expect(scrim).toContain('intensity={70}');
+    /*
+     * La intensidad se fija por su constante y no por su número. Desde que la
+     * hoja de Grupos pide otro punto, el `Scrim` la recibe por `prop`: lo que
+     * esta guarda sostiene es que el DEFECTO sigue siendo el de estas ventanas
+     * —70, el revisado— y que quien no pide nada se queda con él.
+     */
+    expect(scrim).toContain('intensity = BLUR_INTENSITY,');
+    expect(scrim).toContain('intensity={intensity}');
+    expect(scrim).toContain('export const BLUR_INTENSITY = 70;');
     // Y Android no se queda con el relleno semitransparente por defecto.
     expect(scrim).toContain('dimezisBlurViewSdk31Plus');
   });
@@ -520,7 +570,9 @@ describe('los selectores son los del sistema', () => {
    */
   it('el fondo lo dibujan las pestañas, no la ruta de la ventana', () => {
     expect(code('app/(tabs)/_layout.tsx')).toContain('<AddBackdrop target={blurTarget} />');
-    expect(code('features/shell/add-backdrop.tsx')).toContain('<Scrim target={target} />');
+    expect(code('features/shell/add-backdrop.tsx')).toContain(
+      '<Scrim target={target} intensity={intensity} />',
+    );
     expect(ADD).not.toContain('Scrim');
   });
 
@@ -562,7 +614,14 @@ describe('los selectores son los del sistema', () => {
   /** Se enciende antes de navegar y se apaga al desmontarse la ruta. */
   it('se enciende antes de abrir y se apaga cuando la ruta se va', () => {
     const dock = code('features/shell/nomey-tab-bar.tsx');
-    expect(dock.indexOf('backdrop.show()')).toBeLessThan(dock.indexOf('router.push'));
+    /*
+     * Acotado a SU rama. Desde que el `+` bifurca por destino hay dos llamadas y
+     * dos `router.push`, y un `indexOf` suelto compararía la de Personal con la
+     * de Grupos y pasaría —o fallaría— por el orden en que están escritas.
+     */
+    const personal = dock.indexOf("router.push({ pathname: '/add'");
+    expect(dock.lastIndexOf('backdrop.show();', personal)).toBeGreaterThan(-1);
+    expect(dock.lastIndexOf('backdrop.show();', personal)).toBeLessThan(personal);
     // Al desmontarse, no al pulsar cerrar: durante la salida el desenfoque
     // sigue puesto, y así no se ve un fotograma de Inicio nítido.
     expect(ADD).toContain('useEffect(() => hideBackdrop, [hideBackdrop])');
@@ -630,25 +689,26 @@ describe('los selectores son los del sistema', () => {
    */
   it('el traslado se dibuja con un símbolo, no con un carácter', () => {
     expect(code('features/personal/entry-kind-selector.tsx')).not.toContain('⇄');
-    expect(SELECTOR).toContain("ios: 'arrow.left.arrow.right'");
+    expect(code('ui/components/kind-selector.tsx')).not.toContain('⇄');
+    expect(CLASES).toContain("ios: 'arrow.left.arrow.right'");
   });
 
   /**
    * Y los TRES con pareja de plataforma. Una cadena suelta es un nombre de SF
    * Symbol: fuera de iOS `Icon` cae en su recuadro de respaldo, así que dejar
    * dos sin pareja habría puesto en Android dos huecos y una flecha. Es el
-   * mismo defecto que ADR-027 corrigió en las categorías.
+   * mismo defecto que F06/ADR-009 corrigió en las categorías.
    */
   it('y los tres glifos llevan su pareja iOS/Android', () => {
     for (const android of ['remove', 'add', 'swap_horiz']) {
-      expect(SELECTOR, android).toContain(`android: '${android}'`);
+      expect(CLASES, android).toContain(`android: '${android}'`);
     }
     // Ninguno con el mismo tamaño distinto: los tres se piden a 22.
     expect(SELECTOR).toContain('size={22}');
   });
 
   it('no se presentan con el BottomSheet de @expo/ui', () => {
-    expect(code('features/personal/entry-pickers.tsx')).not.toContain('BottomSheet');
+    expect(code('ui/components/date-sheet.tsx')).not.toContain('BottomSheet');
   });
 
   it('sino con el Modal del núcleo, que acepta vistas de React Native', () => {
@@ -937,7 +997,7 @@ describe('la profundidad de los controles de la ventana', () => {
   const OBLONGOS = [
     // El concepto y la pista del selector de clase: los dos oblongos.
     ['features/personal/movement-fields.tsx', 'conceptBox'],
-    ['features/personal/entry-kind-selector.tsx', 'styles.track'],
+    ['ui/components/kind-selector.tsx', 'styles.track'],
   ] as const;
 
   it('los oblongos son la referencia, y siguen en `well`', () => {
@@ -1036,7 +1096,7 @@ describe('el dinero no se convierte en número por el camino', () => {
    */
   it('los enteros y los céntimos se componen en un solo texto', () => {
     expect(FORM).not.toContain("flexDirection: 'row',\n    alignItems: 'baseline'");
-    expect(CAMPO).toContain('minimumFractionDigits: scale');
+    expect(ADAPTADOR).toContain('minimumFractionDigits: scale');
     // La tirada pequeña NO lleva caja de línea propia: hereda la del padre, que
     // es lo que la deja sobre la misma base.
     expect(CAMPO).toMatch(/amountDecimals: \{[^}]*\}/);
@@ -1068,7 +1128,7 @@ describe('el dinero no se convierte en número por el camino', () => {
    * de ésas a la cifra le quedarían 55 puntos de los 279 útiles.
    */
   it('la cifra va centrada, con un contrapeso que lo garantiza', () => {
-    const fuente = code('features/personal/amount-sheet.tsx');
+    const fuente = code('ui/components/amount-sheet.tsx');
     expect(fuente).toContain('styles.currencyGutter');
     // Acotado a la hoja de estilos: el tipo de las props también declara un
     // campo `currency`, y ahí no hay anchuras que comparar.
@@ -1081,7 +1141,7 @@ describe('el dinero no se convierte en número por el camino', () => {
   });
 
   it('y el texto de la cifra también', () => {
-    const estilo = /amount: \{([^}]*)\}/.exec(code('features/personal/amount-field.tsx'))?.[1];
+    const estilo = /amount: \{([^}]*)\}/.exec(code('ui/components/amount-field.tsx'))?.[1];
     expect(estilo).toContain("textAlign: 'center'");
     // El cuerpo de la pasada anterior se conserva: aquí sólo cambió la
     // alineación, no el tamaño.
@@ -1090,7 +1150,7 @@ describe('el dinero no se convierte en número por el camino', () => {
 
   /** Con el entero al doble que los decimales, que es la jerarquía pedida. */
   it('y el entero dobla en cuerpo a los decimales', () => {
-    const codigo = code('features/personal/amount-field.tsx');
+    const codigo = code('ui/components/amount-field.tsx');
     const entero = Number(/amount: \{[^}]*fontSize: (\d+)/.exec(codigo)?.[1]);
     const decimal = Number(/amountDecimals: \{[^}]*fontSize: (\d+)/.exec(codigo)?.[1]);
 
@@ -1100,14 +1160,17 @@ describe('el dinero no se convierte en número por el camino', () => {
 
   /** Una cifra larga encoge en vez de salirse: no hay sitio infinito. */
   it('una cantidad larga se ajusta en vez de desbordar', () => {
-    expect(code('features/personal/amount-field.tsx')).toContain('adjustsFontSizeToFit');
+    expect(code('ui/components/amount-field.tsx')).toContain('adjustsFontSizeToFit');
   });
 
   it('y la cifra se dibuja sin saber qué moneda es', () => {
     // La cifra recibe el estado del editor y la escala, y nada más: ni el
     // código de la moneda ni un símbolo. Lo que se dibuje sale de ahí.
     expect(CAMPO).toContain('<AmountFigure entry={showing} scale={scale}');
-    expect(CAMPO).toContain('minimumFractionDigits: scale');
+    // Ni siquiera el separador lo deduce: llega resuelto desde arriba.
+    expect(CAMPO).toContain('separator={separator}');
+    expect(CAMPO).not.toContain('currencySymbol');
+    expect(ADAPTADOR).toContain('minimumFractionDigits: scale');
   });
 
   /**
@@ -1122,7 +1185,7 @@ describe('el dinero no se convierte en número por el camino', () => {
   it('el campo captura el teclado sin enseñar cursor', () => {
     // Sobre el CODIGO, no sobre la prosa: la nota de arriba explica por que el
     // cursor no se ve, y esa explicacion no es la propiedad.
-    const codigo = code('features/personal/amount-field.tsx');
+    const codigo = code('ui/components/amount-field.tsx');
     expect(codigo).toContain('caretHidden');
     expect(codigo).toContain('selectionColor="transparent"');
     expect(codigo).toContain("color: 'transparent'");
@@ -1165,12 +1228,17 @@ describe('el dinero no se convierte en número por el camino', () => {
   /** La cifra visible sale del modelo, no del texto crudo del campo. */
   it('lo que se pinta viene del modelo, no del campo', () => {
     expect(CAMPO).toContain('amountParts(entry, scale)');
-    expect(CAMPO).toContain('applyAmountInput(entry, next, scale)');
+    // El campo pasa por `amountFieldStep`, que reduce con `applyAmountInput` y
+    // ademas fija el cursor al final tras sustituir una precargada (iOS).
+    expect(CAMPO).toContain('amountFieldStep({ entry, pinToEnd: false }, next, scale)');
+    expect(CAMPO).toContain('input.current?.setSelection(target.start, target.end)');
+    // Y NUNCA como prop controlada: medido en el iPhone, bloqueaba el toque en Guardar.
+    expect(CAMPO).not.toContain('selection={');
   });
 
   it('la escala viene de la moneda del ámbito, nunca fijada a dos', () => {
     expect(FORM).toContain('scope?.currencyScale');
-    expect(HOJA).toContain('currencySymbol(locale');
+    expect(ADAPTADOR).toContain('currencySymbol(format.locale');
     expect(code('features/personal/movement-form.tsx')).not.toContain("'€'");
   });
 });
@@ -1370,7 +1438,7 @@ describe('tocar dentro de la ventana no la cierra', () => {
  * «Editar movimiento»—, así que se arreglan una vez.
  */
 describe('el importe no se pinta dos veces', () => {
-  const CAMPO_CODE = code('features/personal/amount-field.tsx');
+  const CAMPO_CODE = code('ui/components/amount-field.tsx');
 
   /**
    * **HAY DOS VISTAS DIBUJANDO LA MISMA CIFRA, y es el diseño.** La composición
@@ -1527,7 +1595,7 @@ describe('el CTA en cada uno de sus estados', () => {
     expect(SUPERFICIE).toContain('clip = false');
     const conMascara = FILES.filter((f) => /\bclip\b/.test(code(f.path))).map((f) => f.path);
     expect(conMascara.sort()).toEqual([
-      'features/personal/amount-sheet.tsx',
+      'ui/components/amount-sheet.tsx',
       'ui/components/glass-pressable.tsx',
       'ui/components/glass-surface-props.ts',
       'ui/components/glass-surface.android.tsx',
@@ -1538,7 +1606,7 @@ describe('el CTA en cada uno de sus estados', () => {
   /** Y los tres CTA salen de la misma pieza: no hay uno por ventana. */
   it('las tres ventanas usan el mismo CTA', () => {
     const propios = FILES.filter((f) => code(f.path).includes('export function SaveButton'));
-    expect(propios.map((f) => f.path)).toEqual(['features/personal/amount-sheet.tsx']);
+    expect(propios.map((f) => f.path)).toEqual(['ui/components/amount-sheet.tsx']);
     for (const ventana of [
       'features/personal/movement-form.tsx',
       'features/personal/balance-editor.tsx',
@@ -1658,6 +1726,33 @@ describe('el material de Android', () => {
   it('iOS conserva su composición en una sola vista', () => {
     expect(SUPERFICIE).not.toContain('styles.material');
     expect(SUPERFICIE).toContain('return casts ? Tactile[depth] : innerShading(depth);');
-    expect(SUPERFICIE).toContain('...(token.lens ?? [])');
+    expect(SUPERFICIE).toContain('...lensShadow(token.lens, lens)');
+  });
+});
+
+describe('el toque sobre la cifra se acusa con una escala breve, y nada más', () => {
+  it('crece y vuelve en onPressIn del capturador: una vez por toque, nunca al escribir', () => {
+    // El valor exacto es una prueba visual en curso: aquí sólo que existe y es > 1.
+    expect(CAMPO).toMatch(/const FIGURE_POP = 1\.\d+;/);
+    expect(CAMPO).toContain('const pop = useFigurePop(FIGURE_POP);');
+    expect(CAMPO).toContain('onPressIn={pop.onPressIn}');
+    expect(CAMPO).not.toContain('onChangeText={pop');
+    // Sólo la cifra: la transformación envuelve a AmountFigure y a nada más.
+    expect(CAMPO).toMatch(
+      /<Animated\.View style=\{popStyle\}>\s*<AmountFigure[\s\S]*?\/>\s*<\/Animated\.View>/,
+    );
+    expect(CAMPO).toContain('transform: [{ scale: pop.scale.value }]');
+    // Sin fondo, borde, halo ni color; el fondo de foco anterior se retiró.
+    expect(CAMPO).not.toContain('GlassSurface');
+    expect(CAMPO).not.toContain('focusGround');
+    expect(CAMPO).not.toContain('setFocused');
+    // Subida rápida (90 ms) y vuelta suave (130 ms) sin muelle; ambos tramos
+    // respetan movimiento reducido por el mismo `timing` del sistema.
+    expect(RUNTIME).toContain(
+      'scale.value = withSequence(withTiming(scaleTo, PRESS), withTiming(1, FIGURE_RETURN));',
+    );
+    expect(RUNTIME).toContain('...timing(130),');
+    expect(RUNTIME).toContain('easing: Easing.out(Easing.quad),');
+    expect(RUNTIME).toContain('reduceMotion: ReduceMotion.System');
   });
 });

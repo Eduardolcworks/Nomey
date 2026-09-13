@@ -28,7 +28,7 @@ describe('éxito y replay', () => {
   });
 
   it('200 con already_processed true TAMBIÉN confirma', () => {
-    // Es el caso que ADR-010 existe para producir: el reintento de algo que ya
+    // Es el caso que F03/ADR-007 existe para producir: el reintento de algo que ya
     // se escribió no es un error ni un duplicado, es la confirmación.
     const c = clasificar({ kind: 'ok', operationId: 'op-1', alreadyProcessed: true });
     expect(c.state).toBe('confirmed');
