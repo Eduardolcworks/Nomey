@@ -1,7 +1,7 @@
 # E20 · Las políticas RLS del writer durante la secuencia autoritativa
 
 > **Esto es evidencia, no norma.** Mide comportamiento de PostgreSQL bajo el
-> writer de [ADR-009](../../docs/adr/ADR-009-authoritative-write-boundary.md)
+> writer de [F03/ADR-006](../../docs/adr/F03/ADR-006-authoritative-write-boundary.md)
 > §5. **No decide nada**: las decisiones viven en `docs/adr/`.
 >
 > **NO ES UNA MIGRACIÓN.** Ningún fichero de este directorio debe convertirse
@@ -9,7 +9,7 @@
 
 ## La incertidumbre que existe para responder
 
-[ADR-013](../../docs/adr/ADR-013-persisted-vs-derived.md) §10 dejó
+[F03/ADR-010](../../docs/adr/F03/ADR-010-persisted-vs-derived.md) §10 dejó
 deliberadamente abierto un punto, y sólo uno:
 
 > **El `WITH CHECK` definitivo del writer sobre los efectos no se fija aquí.**
@@ -24,29 +24,29 @@ La pregunta, en su forma operativa:
 > información de `operation` / `operation_version` insertada **en esa misma
 > transacción**?
 
-Lo que ADR-013 §10 ya había fijado y **no** se remide aquí: políticas separadas
+Lo que F03/ADR-010 §10 ya había fijado y **no** se remide aquí: políticas separadas
 por comando y por rol · el cliente sin grants ni políticas de escritura ·
 autorización funcional como primera barrera y RLS como segunda · `operation` y
 `operation_version` sin ámbito · ninguna política aplicable a `PUBLIC` ·
 ninguna política `RESTRICTIVE` · y que **el aislamiento por ámbito no puede ser
-el predicado de `effect`**, porque ADR-002 §10 permite efectos sobre el ámbito
+el predicado de `effect`**, porque F01/ADR-001 §10 permite efectos sobre el ámbito
 de otro.
 
 ## Qué contiene el montaje
 
 Una maqueta de juguete de `operation`, `operation_version` y `effect` con la
-forma estructural de ADR-011 §4 y ADR-013 §2, §3 y §8 —incluida la FK compuesta
+forma estructural de F03/ADR-008 §4 y F03/ADR-010 §2, §3 y §8 —incluida la FK compuesta
 diferible del puntero— **sin ninguna columna de negocio**: no se mide
 contabilidad, se miden políticas.
 
-| Pieza                               | Por qué está                                                                               |
-| ----------------------------------- | ------------------------------------------------------------------------------------------ |
-| `e20_writer`                        | `NOLOGIN`, `NOBYPASSRLS`, `NOSUPERUSER`, **no propietario** de las tablas                  |
-| `e20_sec.request_actor_id()`        | Equivalente reducido del helper de ADR-009 §3: `STABLE`, `SECURITY INVOKER`, falla cerrado |
-| `e20_api.run_sequence(...)`         | La frontera autoritativa: `SECURITY DEFINER`, propiedad del writer, `search_path = ''`     |
-| `e20_api.run_correction(...)`       | La corrección: V(n) nueva, efecto y **movimiento del puntero**                             |
-| Políticas candidatas                | Separadas por comando, todas `TO e20_writer`                                               |
-| `GRANT UPDATE (current_version_id)` | El estrechamiento por columna, que **no** es una política                                  |
+| Pieza                               | Por qué está                                                                                   |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `e20_writer`                        | `NOLOGIN`, `NOBYPASSRLS`, `NOSUPERUSER`, **no propietario** de las tablas                      |
+| `e20_sec.request_actor_id()`        | Equivalente reducido del helper de F03/ADR-006 §3: `STABLE`, `SECURITY INVOKER`, falla cerrado |
+| `e20_api.run_sequence(...)`         | La frontera autoritativa: `SECURITY DEFINER`, propiedad del writer, `search_path = ''`         |
+| `e20_api.run_correction(...)`       | La corrección: V(n) nueva, efecto y **movimiento del puntero**                                 |
+| Políticas candidatas                | Separadas por comando, todas `TO e20_writer`                                                   |
+| `GRANT UPDATE (current_version_id)` | El estrechamiento por columna, que **no** es una política                                      |
 
 > **La frontera de la maqueta NO valida que la atribución coincida con el
 > actor.** La real sí lo hace (primera barrera). Se omite **a propósito** para
@@ -130,7 +130,7 @@ Hechos medidos. **No son recomendaciones**, y no deben leerse como tales.
 | **A6** | El rol cliente escribiendo y leyendo `e20_core` directamente | **`42501 permission denied for schema`** en ambos      |
 
 La RLS detiene A2 y A3 **con la autorización funcional deliberadamente
-ausente**. Es la segunda barrera de ADR-009 §6 funcionando sola.
+ausente**. Es la segunda barrera de F03/ADR-006 §6 funcionando sola.
 
 ### B · El `WITH CHECK` de `effect` — la pregunta central
 
@@ -144,15 +144,15 @@ with check (
 )
 ```
 
-| Caso   | Escritura intentada                                             | Resultado                                     |
-| ------ | --------------------------------------------------------------- | --------------------------------------------- |
-| **B1** | Efecto sobre una versión insertada **en la misma transacción**  | **ACEPTADO**                                  |
-| **B2** | Efecto sobre una versión **comprometida de otro actor**         | **`42501`**                                   |
-| **B3** | Efecto sobre una versión **propia ya comprometida**             | **ACEPTADO**                                  |
-| **B4** | Efecto sobre un **ámbito ajeno**, colgando de versión propia    | **ACEPTADO**                                  |
-| **B5** | B3 **sin la política de `SELECT`** del writer sobre la versión  | **`42501`** — el `WITH CHECK` se vuelve falso |
-| **B6** | B3 **sin el `GRANT SELECT`** sobre la versión                   | **`42501 permission denied for table`**       |
-| **B7** | El predicado por **ámbito** que ADR-013 descarta, repitiendo B4 | **`42501`** — rechaza una escritura legítima  |
+| Caso   | Escritura intentada                                                 | Resultado                                     |
+| ------ | ------------------------------------------------------------------- | --------------------------------------------- |
+| **B1** | Efecto sobre una versión insertada **en la misma transacción**      | **ACEPTADO**                                  |
+| **B2** | Efecto sobre una versión **comprometida de otro actor**             | **`42501`**                                   |
+| **B3** | Efecto sobre una versión **propia ya comprometida**                 | **ACEPTADO**                                  |
+| **B4** | Efecto sobre un **ámbito ajeno**, colgando de versión propia        | **ACEPTADO**                                  |
+| **B5** | B3 **sin la política de `SELECT`** del writer sobre la versión      | **`42501`** — el `WITH CHECK` se vuelve falso |
+| **B6** | B3 **sin el `GRANT SELECT`** sobre la versión                       | **`42501 permission denied for table`**       |
+| **B7** | El predicado por **ámbito** que F03/ADR-010 descarta, repitiendo B4 | **`42501`** — rechaza una escritura legítima  |
 
 **Cuatro hechos, en orden de importancia:**
 
@@ -163,8 +163,8 @@ with check (
 2. **Discrimina de verdad** (B2 frente a B3): no es `WITH CHECK (true)`
    disfrazado, y lo que separa no es «misma transacción» sino **misma
    atribución**.
-3. **Acepta lo que ADR-002 §10 exige aceptar** (B4) y el predicado por ámbito
-   **no** (B7). Queda medido por qué ADR-013 §10 lo descartaba.
+3. **Acepta lo que F01/ADR-001 §10 exige aceptar** (B4) y el predicado por ámbito
+   **no** (B7). Queda medido por qué F03/ADR-010 §10 lo descartaba.
 4. **Ese subselect pasa por los grants y por la RLS del rol que escribe** (B5,
    B6). La política de `SELECT` del writer sobre `operation_version` **no es
    sólo de lectura: es portante del `WITH CHECK` de `effect`**. Retirarla no
@@ -207,7 +207,7 @@ with check (
 4. **El `WITH CHECK` omitido de un `UPDATE` sí existe: es el `USING`** (C7).
 
 > El punto 2 es el hallazgo más peligroso del experimento. El protocolo de
-> serialización de la deuda de ADR-013 §11 empieza por **«adquirir el lock»**.
+> serialización de la deuda de F03/ADR-010 §11 empieza por **«adquirir el lock»**.
 > Si la política de `UPDATE` del writer falta o no cubre la fila, ese paso
 > **no bloquea nada y no avisa**: la transacción continúa, lee, valida y
 > escribe sobre datos que creía haber protegido. Es exactamente el modo de
@@ -250,7 +250,7 @@ de seguridad** — y además contradiría `data-model.md` §7, que ya decía que
 corrige **cualquier integrante** con derecho a ello.
 
 > **Decisión tomada, fijada en
-> [ADR-013](../../docs/adr/ADR-013-persisted-vs-derived.md) §10.** La autoría
+> [F03/ADR-010](../../docs/adr/F03/ADR-010-persisted-vs-derived.md) §10.** La autoría
 > original **no** concede exclusividad sobre las correcciones. El derecho a
 > corregir es **funcional y contextual al ámbito**, se resuelve en la frontera
 > autoritativa, y **ninguna política del writer deriva de
@@ -278,12 +278,12 @@ La decisión de producto dice que Beto, funcionalmente autorizado, puede corregi
 la V1 que creó Ana. **Pero construir V2 exige leer V1**, y las fuentes lo piden
 explícitamente, no por conveniencia:
 
-| Dato de V2                       | Por qué exige leer V1                              |
-| -------------------------------- | -------------------------------------------------- |
-| `version_no`                     | La frontera **calcula el siguiente** (ADR-011 §12) |
-| FX congelado heredado            | La corrección **hereda** el de V1 (ADR-013 §6)     |
-| Intención declarada no corregida | **Se conserva** la no corregida (ADR-013 §7)       |
-| Reparto anterior                 | Cuelga de `(versión, ámbito)` (ADR-013 §5)         |
+| Dato de V2                       | Por qué exige leer V1                                  |
+| -------------------------------- | ------------------------------------------------------ |
+| `version_no`                     | La frontera **calcula el siguiente** (F03/ADR-008 §12) |
+| FX congelado heredado            | La corrección **hereda** el de V1 (F03/ADR-010 §6)     |
+| Intención declarada no corregida | **Se conserva** la no corregida (F03/ADR-010 §7)       |
+| Reparto anterior                 | Cuelga de `(versión, ámbito)` (F03/ADR-010 §5)         |
 
 `supersedes_version_id` es la excepción: sale del puntero, que vive en la
 operación.
@@ -317,7 +317,7 @@ operación.
 
 **Esto describe lo que se midió que funciona.** La decisión que fija estos
 predicados está en
-[ADR-013](../../docs/adr/ADR-013-persisted-vs-derived.md) §10; los nombres
+[F03/ADR-010](../../docs/adr/F03/ADR-010-persisted-vs-derived.md) §10; los nombres
 físicos siguen perteneciendo a la migración.
 
 | Relación            | Comando  | Predicado medido que funciona                        | Nota                                                              |
@@ -373,12 +373,12 @@ Lo que **no** garantiza, y sigue viviendo en otras capas:
 - **No mide concurrencia ni rendimiento.** C4b describe el comportamiento del
   bloqueo bajo RLS; **no** ejecuta dos transacciones a la vez ni reproduce el
   sobrepago de E15.
-- **No mide las políticas de lectura del rol cliente** de ADR-013 §10, que son
+- **No mide las políticas de lectura del rol cliente** de F03/ADR-010 §10, que son
   de otro rol y otro camino.
 - **No toca `client_command`**, ni la idempotencia, ni la canonicalización.
 - **No decide quién puede corregir una operación ajena.** §E midió que la
   elección de predicado **depende** de esa regla; la regla la fijó la decisión
-  de producto recogida en ADR-013 §10, no este experimento.
+  de producto recogida en F03/ADR-010 §10, no este experimento.
 - **No mide la autorización funcional del ámbito**, que es la primera barrera y
   vive en la frontera autoritativa.
 - **No mide la resolución del FX, el claim de participantes ni `btree_gist`.**
@@ -388,28 +388,28 @@ Lo que **no** garantiza, y sigue viviendo en otras capas:
 
 ## Qué decisión existente precisa
 
-**Precisa [ADR-013](../../docs/adr/ADR-013-persisted-vs-derived.md) §10** en el
+**Precisa [F03/ADR-010](../../docs/adr/F03/ADR-010-persisted-vs-derived.md) §10** en el
 único punto que ese ADR dejó abierto, y **no lo contradice en nada**:
 
 - confirma que el predicado por **ámbito** no sirve (B7), que era lo único que
-  ADR-013 §10 daba por fijado sobre `effect`;
+  F03/ADR-010 §10 daba por fijado sobre `effect`;
 - confirma que **la separación por comando y por rol es necesaria**: el
   predicado de `effect` es insatisfacible en los pasos 1 y 2, donde todavía no
   hay efectos, y las políticas no son diferibles;
 - **añade** que las políticas de `SELECT` del writer son portantes de la
-  escritura, cosa que ADR-013 no afirmaba.
+  escritura, cosa que F03/ADR-010 no afirmaba.
 
-**Precisa [ADR-009](../../docs/adr/ADR-009-authoritative-write-boundary.md) §6**
+**Precisa [F03/ADR-006](../../docs/adr/F03/ADR-006-authoritative-write-boundary.md) §6**
 —la RLS como segunda barrera— mostrándola deteniendo escrituras con la primera
 barrera deliberadamente ausente (A2, A3).
 
-**Toca [ADR-013](../../docs/adr/ADR-013-persisted-vs-derived.md) §11** sin
+**Toca [F03/ADR-010](../../docs/adr/F03/ADR-010-persisted-vs-derived.md) §11** sin
 contradecirlo: el paso 2 del protocolo —«adquirir el lock»— **depende de una
-política de `UPDATE` que ADR-013 no menciona**, y su ausencia es silenciosa
+política de `UPDATE` que F03/ADR-010 no menciona**, y su ausencia es silenciosa
 (C4b).
 
 **Planteó**, sin resolverlo por su cuenta, **quién puede corregir una operación
-que no creó** (§E). La decisión de producto está tomada y fijada en ADR-013 §10:
+que no creó** (§E). La decisión de producto está tomada y fijada en F03/ADR-010 §10:
 la autoría original no concede exclusividad, el derecho a corregir es funcional
 y contextual al ámbito, y **ninguna política del writer deriva de
 `operation.created_by`**.

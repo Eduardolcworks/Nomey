@@ -1,14 +1,14 @@
 # E11 · Sondeo de la frontera de datos
 
 Evidencia reproducible del experimento que
-[ADR-003](../../docs/adr/ADR-003-money-representation.md) exigía como puerta de
+[F02/ADR-001](../../docs/adr/F02/ADR-001-money-representation.md) exigía como puerta de
 aceptación: cómo sobreviven los tipos numéricos al recorrido
 
 ```
 PostgreSQL  ->  PostgREST  ->  supabase-js  ->  TypeScript
 ```
 
-El resultado normativo está en **§10 de ADR-003**. Aquí vive solo lo necesario
+El resultado normativo está en **§10 de F02/ADR-001**. Aquí vive solo lo necesario
 para volver a obtenerlo.
 
 > **No forma parte del esquema de Nomey.** Vive fuera de `supabase/migrations/`
@@ -136,7 +136,7 @@ Termina imprimiendo los objetos `e11*` que quedan. **Debe devolver cero filas.**
 
 ## Versiones de la ejecución registrada
 
-Las que sostienen el resultado de §10 de ADR-003.
+Las que sostienen el resultado de §10 de F02/ADR-001.
 
 | Componente               | Versión               |
 | ------------------------ | --------------------- |
@@ -157,7 +157,7 @@ igual; la serialización no depende del rol.
 ## Configuración
 
 **No se modificó `config.toml`.** El experimento mide la frontera **por defecto**
-que deja `supabase init`, que es lo que ADR-003 necesitaba saber. Los `GRANT` del
+que deja `supabase init`, que es lo que F02/ADR-001 necesitaba saber. Los `GRANT` del
 sondeo son explícitos únicamente para controlar el experimento; **no expresan
 ninguna estrategia de privilegios para Nomey**.
 

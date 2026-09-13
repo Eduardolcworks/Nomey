@@ -2,7 +2,7 @@
 
 > **Esto es evidencia, no norma.** Mide comportamiento real de PostgreSQL bajo
 > el stack local. **No decide nada**: la decisión vive en
-> [ADR-019](../../docs/adr/ADR-019-personal-provisioning.md).
+> [F06/ADR-001](../../docs/adr/F06/ADR-001-personal-provisioning.md).
 >
 > **NO ES UNA MIGRACIÓN.** Ningún fichero de este directorio debe convertirse en
 > una, igual que `supabase/e11`–`e20`.

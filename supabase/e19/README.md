@@ -47,7 +47,7 @@ de ámbitos distintos. Así, una consulta correcta devuelve **una** fila y las d
 formas de equivocarse producen cifras distintas y reconocibles.
 
 Las columnas monetarias son `BIGINT` solo para parecerse al modelo real: E19
-**no toca** la frontera textual de [ADR-008](../../docs/adr/ADR-008-exact-data-boundary.md),
+**no toca** la frontera textual de [F03/ADR-005](../../docs/adr/F03/ADR-005-exact-data-boundary.md),
 que cerró E14.
 
 ## Archivos
@@ -254,7 +254,7 @@ falla con `cannot ALTER TABLE because it has pending trigger events`. Con el
 puntero de vigencia declarado `DEFERRABLE`, eso significa que **todo el DDL debe
 completarse antes de insertar datos**; por eso este sondeo usa dos
 transacciones. Es de la misma familia que la trampa de borrado que ya recogía
-[ADR-011](../../docs/adr/ADR-011-operation-version-model.md).
+[F03/ADR-008](../../docs/adr/F03/ADR-008-operation-version-model.md).
 
 ## Versiones de la ejecución registrada
 
