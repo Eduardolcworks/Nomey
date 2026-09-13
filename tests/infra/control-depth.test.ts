@@ -324,7 +324,7 @@ describe('el split deja la ruta iOS congelada', () => {
    */
   it('compone rim, estado y lente en una sola lista sobre una sola vista', () => {
     expect(ios).toContain(
-      '...rimShadow(rim, token.highlight),\n        ...depthShadow(depth, castsShadow),\n        ...(token.lens ?? []),',
+      '...rimShadow(rim, token.highlight),\n        ...depthShadow(depth, castsShadow),\n        ...lensShadow(token.lens, lens),',
     );
     expect(ios).toContain('return casts ? Tactile[depth] : innerShading(depth);');
     // Ninguna capa hija: el árbol es la vista y sus hijos, como antes.

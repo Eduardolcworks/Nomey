@@ -1,7 +1,7 @@
 /**
  * PERSISTIR UNA INTENCIÓN, y decir la verdad sobre si quedó persistida.
  *
- * Los pasos 1 a 3 de ADR-028 §1 —construir y validar el payload UNA vez,
+ * Los pasos 1 a 3 de F07/ADR-001 §1 —construir y validar el payload UNA vez,
  * asociarle la clave, escribir clave y payload atómicamente— viven aquí, fuera
  * del hook, por dos motivos. El primero es que así se prueban contra un SQLite
  * real y **con la base fallando**, que el hook no permite en Vitest porque
@@ -49,7 +49,7 @@ export async function persistEntry(
      *
      * Con ella, persistir **es** resolver: `replace` inserta la nueva y borra la
      * vieja dentro de una sola transacción, así que no hay ningún instante con
-     * las dos ni con ninguna (ADR-028 §15, ADR-029 §4). Sin ella, un alta
+     * las dos ni con ninguna (F07/ADR-001 §15, F07/ADR-002 §4). Sin ella, un alta
      * corriente: sólo se inserta.
      */
     readonly replacing?: string | null;
@@ -83,7 +83,7 @@ export async function persistEntry(
     else await store.replace(input.actorId, replacing, entry);
   } catch {
     /*
-     * La inserción es una sola sentencia (ADR-028 §7): o está entera o no está.
+     * La inserción es una sola sentencia (F07/ADR-001 §7): o está entera o no está.
      * Lo que no se puede saber desde aquí es CUÁL de las dos, así que se dice
      * lo único honesto —no quedó demostrada— y quien llama no cierra la hoja.
      * Qué error fue no se guarda: podría arrastrar el SQL, y §19 pide no

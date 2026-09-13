@@ -25,7 +25,7 @@ import { type PlatformSymbol } from './symbols';
 
 /**
  * El vocabulario semántico de iconos, que es lo que guarda `core.category.icon`
- * desde ADR-027 — con un `CHECK` que lo hace cumplir.
+ * desde F06/ADR-009 — con un `CHECK` que lo hace cumplir.
  *
  * **La base guarda la IDENTIDAD, no la representación.** Antes guardaba el
  * nombre de un SF Symbol, y eso convertía una decisión de iOS en el contrato
@@ -197,7 +197,7 @@ function hash(value: string): number {
  * En los dos casos es **estable por categoría y ciego al ranking**: depende del
  * identificador y de nada más, así que «Transporte» no cambia de color al
  * gastar más en otra cosa. Y es estable entre entornos, porque los UUID de
- * sistema son v5 reproducibles y ADR-019 prohíbe regenerarlos.
+ * sistema son v5 reproducibles y F06/ADR-001 prohíbe regenerarlos.
  */
 export function categoryColour(categoryId: string): string {
   return OFFICIAL_COLOURS[categoryId] ?? CategoryPalette[hash(categoryId) % CategoryPalette.length];

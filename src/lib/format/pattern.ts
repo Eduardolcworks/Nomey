@@ -5,7 +5,7 @@ import type { FormatLocale } from '../i18n/locales';
  *
  * **The problem.** `Intl.NumberFormat.format` takes a `number`, and a Nomey
  * amount is a `bigint` of minor units. Above 2^53 that conversion drops digits
- * silently, which is the failure ADR-003 exists to prevent - a wrong figure
+ * silently, which is the failure F02/ADR-001 exists to prevent - a wrong figure
  * that never throws. So the amount is never handed to `Intl` at all: `Intl` is
  * asked what the locale *looks like*, and the digits are supplied from the
  * `bigint`.

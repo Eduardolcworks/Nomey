@@ -146,7 +146,7 @@ r=$(saldo | trim)
   || fallo "saldo final ${r} y deberia ser 10000 (sin lock salen 8000)"
 
 # El segundo ajuste deriva delta CERO, que es lo correcto y se conserva:
-# ADR-013 §8 no prohibe los importes cero.
+# F03/ADR-010 §8 no prohibe los importes cero.
 n=$("${DBQ[@]}" <<SQL 2>/dev/null
 select count(*) from core.current_effect e
   join core.operation o on o.current_version_id = e.operation_version_id

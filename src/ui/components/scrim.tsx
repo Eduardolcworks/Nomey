@@ -41,11 +41,53 @@ import { Platform, StyleSheet, View } from 'react-native';
  * esta pieza, que no puede saberlo. Y **el fondo nunca es su propio objetivo**:
  * se desenfocaría a sí mismo.
  */
-export function Scrim({ target }: { readonly target?: RefObject<View | null> }) {
+/**
+ * EL PUNTO DE SIEMPRE: el de las ventanas de Personal, aprobadas así.
+ *
+ * Era un literal dentro del componente y ahora es una constante con nombre.
+ * **El valor no cambia**, y esa es la mitad importante: pasar la intensidad por
+ * `prop` existe para que una ventana concreta pueda pedir otra cosa, no para
+ * mover el defecto por debajo de lo que ya está revisado.
+ *
+ * Lo que sí se midió aquí es su límite. Comparando la misma zona con la ventana
+ * cerrada y abierta, la energía de borde del texto de detrás baja a 0,51× pero
+ * la luminancia baja a 0,67×, así que la nitidez RELATIVA sólo cae a 0,75×: a
+ * este punto una ventana que tapa casi toda la pantalla se lee bien, y una
+ * superficie que deja dos tercios de fondo a la vista no separa lo suficiente.
+ * De ahí `SHEET_BLUR_INTENSITY`, y de ahí que no se toque este número.
+ */
+export const BLUR_INTENSITY = 70;
+
+/**
+ * El punto de una ventana que sólo cubre PARTE de la pantalla.
+ *
+ * Una ventana centrada tapa casi todo, así que puede desenfocar fuerte: lo poco
+ * que asoma sólo tiene que dejar de competir. Una hoja inferior ocupa un tercio
+ * y deja dos detrás, y ahí el fondo tiene que seguir reconociéndose — el título,
+ * el estado vacío, sus controles — o la pantalla parece haberse apagado.
+ *
+ * Medido entre los dos extremos sobre el mismo estado de Grupos, comparando
+ * cerrado contra abierto en la zona del texto blanco de detrás: a 100 la
+ * luminancia del texto caía a 0,53× y su energía de borde a 0,29×, que es lo
+ * que hacía desaparecer las letras; a 70 la nitidez relativa apenas se movía y
+ * se leía como oscurecimiento. Éste es el punto intermedio, y vive aquí —y no
+ * en la feature— porque `features/` no puede importarse entre sí y quien
+ * enciende el fondo es el dock.
+ */
+export const SHEET_BLUR_INTENSITY = 85;
+
+export function Scrim({
+  target,
+  intensity = BLUR_INTENSITY,
+}: {
+  readonly target?: RefObject<View | null>;
+  /** El punto de desenfoque de ESTA ventana. Por defecto, el de siempre. */
+  readonly intensity?: number;
+}) {
   return (
     <View style={styles.canvas} pointerEvents="none">
       <BlurView
-        intensity={70}
+        intensity={intensity}
         tint="dark"
         /*
          * `blurMethod` y no `experimentalBlurMethod`: el segundo está marcado

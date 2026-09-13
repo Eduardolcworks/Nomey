@@ -63,3 +63,27 @@ export function monthNames(locale: FormatLocale, width: 'short' | 'long' = 'long
     formatter.format(new Date(Date.UTC(2026, index, 1))),
   );
 }
+
+/**
+ * LA HORA DE PARED DE UN INSTANTE, como `HH:MM` del calendario del aparato.
+ *
+ * Es el reloj LOCAL, igual que `effective_date`: el par fecha+hora es un reloj
+ * de pared sin zona (F06/ADR-002 §3), y por eso sale de `getHours`/`getMinutes` y
+ * no de UTC. Minutos y no segundos: es la precisión que el contrato guarda y
+ * la que una persona elige.
+ *
+ * Vive en `lib/format` porque la usan dos features —el movimiento personal y
+ * el gasto compartido— que no pueden importarse entre sí.
+ */
+export function clockTimeOf(value: Date): `${string}:${string}` {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(value.getHours())}:${pad(value.getMinutes())}`;
+}
+
+/** Un `Date` de hoy a la hora `HH:MM` dada, para sembrar un selector de hora. */
+export function dateAtClockTime(time: string, base: Date = new Date()): Date {
+  const [hours, minutes] = time.split(':').map(Number);
+  const out = new Date(base);
+  out.setHours(hours ?? 0, minutes ?? 0, 0, 0);
+  return out;
+}

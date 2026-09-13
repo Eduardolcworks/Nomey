@@ -1,5 +1,5 @@
 /**
- * EL BACKOFF DE ADR-028 §12, con su suelo.
+ * EL BACKOFF DE F07/ADR-001 §12, con su suelo.
  *
  * ```
  * techo   = min(base · 2^intentos, tope)

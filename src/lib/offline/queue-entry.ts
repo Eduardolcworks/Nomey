@@ -1,7 +1,7 @@
 /**
  * LA ENTRADA DE COLA: dos mitades, y sólo una muta.
  *
- * ADR-028 §1. La mitad de **intención** es inmutable desde que se escribe —es
+ * F07/ADR-001 §1. La mitad de **intención** es inmutable desde que se escribe —es
  * el comando que la persona declaró— y la de **progreso** es lo único que el
  * worker toca. Separarlas en el tipo es lo que hace que «modificar el payload»
  * no sea una operación que exista.
@@ -20,7 +20,7 @@ import { isQueueCommandType, type FrozenPayload, type QueueCommandType } from '.
 export const QUEUE_SCHEMA_VERSION = 1;
 
 /**
- * Los ocho estados de ADR-028 §6.
+ * Los ocho estados de F07/ADR-001 §6.
  *
  * **`sending` no se lee nunca del disco.** Al abrir la base se repara a
  * `queued`, y la lectura vuelve a mapearlo por si acaso: el cliente no puede
@@ -28,7 +28,7 @@ export const QUEUE_SCHEMA_VERSION = 1;
  * seguro sólo porque el servidor es idempotente.
  *
  * Los tres terminales son **internos**: la interfaz no los nombra ni los
- * distingue entre sí (ADR-028 §15).
+ * distingue entre sí (F07/ADR-001 §15).
  */
 export type QueueEntryState =
   | 'queued'
@@ -53,7 +53,7 @@ export function isTerminal(state: QueueEntryState): boolean {
  * No es redundante con `payload.currency_definition_id`: aquélla es la
  * identidad que viaja a la frontera, y ésta añade el código y la escala, que
  * son lo que permite **pintar** el importe sin red. Y las dos juntas son la
- * prueba documental del conflicto de ADR-003 §7 cuando la moneda base se mueve
+ * prueba documental del conflicto de F02/ADR-001 §7 cuando la moneda base se mueve
  * bajo una operación ya capturada.
  */
 export type MoneySnapshot = {
@@ -82,7 +82,7 @@ export type QueueIntent = {
  *
  * Las cuatro últimas columnas son de F7.C —taxonomía, backoff y reconciliación—
  * y en F7.B **nunca se escriben con otra cosa que su valor inicial**. Existen
- * ya para que F7.C no necesite una migración por algo que ADR-028 §1 ya había
+ * ya para que F7.C no necesite una migración por algo que F07/ADR-001 §1 ya había
  * enumerado.
  */
 export type QueueProgress = {
@@ -180,7 +180,7 @@ const STATES: readonly string[] = [
  * misma decisión: una fila que esta versión no entiende no se ejecuta y no
  * tumba la cola entera.
  *
- * 1. `command_type` fuera del vocabulario cerrado (ADR-028 §3);
+ * 1. `command_type` fuera del vocabulario cerrado (F07/ADR-001 §3);
  * 2. `schema_version` posterior a la que conoce esta app;
  * 3. `payload` que no es JSON, o un `state` que no existe.
  *

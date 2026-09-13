@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   type AmountEntry,
   amountComplete,
+  amountFieldSelection,
+  amountFieldStep,
+  type AmountFieldState,
   amountEntryFromMinor,
   amountParts,
   amountTones,
@@ -475,5 +478,139 @@ describe('un importe precargado se puede volver a escribir', () => {
 
   it('la regla del tercer decimal sigue en pie para lo tecleado', () => {
     expect(visto(escribir(EMPTY_AMOUNT, '12,539'))).toBe('12,53');
+  });
+});
+
+/**
+ * ═══════════ LA SECUENCIA REAL DEL CAMPO EN iOS, no el reductor ideal ═══════════
+ *
+ * Reproduce lo que hace el teléfono: la persona toca la cifra en un punto, el
+ * teclado inserta AHÍ, el nativo entrega el texto, JavaScript contesta con el
+ * texto controlado, y React Native recoloca el cursor **relativo al final del
+ * texto anterior** (`RCTBaseTextInputView setAttributedText:`). Con ese modelo
+ * el fallo del iPhone se reproduce —10 → «1», «2» → 21— y la corrección se
+ * comprueba en la misma secuencia.
+ */
+describe('el campo en iOS: texto, cursor y sustitución de la precargada', () => {
+  /** La regla de React Native para iOS al aplicar un texto controlado distinto. */
+  const iosCaretAfterJsUpdate = (oldText: string, oldCaret: number, newText: string) => {
+    const offsetFromEnd = oldText.length - oldCaret;
+    return Math.max(0, Math.min(newText.length, newText.length - offsetFromEnd));
+  };
+
+  type Phone = { state: AmountFieldState; text: string; caret: number };
+
+  const open = (entry: AmountEntry): Phone => ({
+    state: { entry, pinToEnd: false },
+    text: amountValue(entry),
+    caret: amountValue(entry).length,
+  });
+  const tap = (phone: Phone, at: number): Phone => ({ ...phone, caret: at });
+  const type = (phone: Phone, ch: string, scale = 2): Phone => {
+    // 1 · el teclado inserta en el cursor y el nativo entrega el texto
+    const nativeText = phone.text.slice(0, phone.caret) + ch + phone.text.slice(phone.caret);
+    let caret = phone.caret + 1;
+    // 2 · JavaScript reduce y contesta con el texto controlado
+    const state = amountFieldStep(phone.state, nativeText, scale);
+    const controlled = amountValue(state.entry);
+    let text = nativeText;
+    if (controlled !== nativeText) {
+      // 3 · React Native aplica el texto y recoloca el cursor relativo al final
+      caret = iosCaretAfterJsUpdate(nativeText, caret, controlled);
+      text = controlled;
+    }
+    // 4 · si el campo declaró `selection`, el nativo la aplica y lo confirma
+    const selection = amountFieldSelection(state);
+    let next = state;
+    if (selection !== undefined) {
+      caret = selection.start;
+      next = { ...state, pinToEnd: false };
+    }
+    return { state: next, text, caret };
+  };
+  const backspace = (phone: Phone, scale = 2): Phone => {
+    const nativeText = phone.text.slice(0, phone.caret - 1) + phone.text.slice(phone.caret);
+    const state = amountFieldStep(phone.state, nativeText, scale);
+    const controlled = amountValue(state.entry);
+    return { state, text: controlled, caret: controlled.length };
+  };
+
+  const seeded = (minor: string) => amountEntryFromMinor(minor, 2);
+
+  it('SIN la corrección, la regla del cursor produce el fallo del iPhone: 10 → «1», «2» → 21', () => {
+    // El mismo recorrido, pero ignorando la selección que el campo declara.
+    let entry: AmountEntry = seeded('1000');
+    let text = amountValue(entry); // 10.00: los céntimos completos, como los siembra Personal
+    let caret = 0; // la persona tocó la cifra por delante
+    const nativo1 = text.slice(0, caret) + '1' + text.slice(caret); // 110
+    entry = applyAmountInput(entry, nativo1, 2);
+    expect(amountValue(entry)).toBe('1');
+    caret = iosCaretAfterJsUpdate(nativo1, caret + 1, '1'); // relativo al final: 0
+    expect(caret).toBe(0);
+    text = '1';
+    const nativo2 = text.slice(0, caret) + '2' + text.slice(caret); // 21
+    entry = applyAmountInput(entry, nativo2, 2);
+    expect(amountValue(entry)).toBe('21'); // <- el fallo, reproducido
+  });
+
+  it('10 → tocar al principio, en medio o al final → «1», «2» → 12', () => {
+    for (const at of [0, 1, 2]) {
+      let phone = tap(open(seeded('1000')), at);
+      phone = type(phone, '1');
+      expect(amountValue(phone.state.entry)).toBe('1');
+      phone = type(phone, '2');
+      expect(amountValue(phone.state.entry)).toBe('12');
+      expect(phone.caret).toBe(2);
+    }
+  });
+
+  it('35 → «1», «2», «3» → 123 desde cualquier punto, y luego el orden natural', () => {
+    for (const at of [0, 1, 2]) {
+      let phone = tap(open(seeded('3500')), at);
+      for (const ch of ['1', '2', '3']) phone = type(phone, ch);
+      expect(amountValue(phone.state.entry)).toBe('123');
+      // Tras sustituir, el cursor es de la persona: sigue al final y añade.
+      phone = type(phone, '4');
+      expect(amountValue(phone.state.entry)).toBe('1234');
+    }
+  });
+
+  it('el cursor se fija al final UNA vez, y se suelta al confirmarse', () => {
+    let phone = tap(open(seeded('1000')), 0);
+    const afterFirst = amountFieldStep(phone.state, '1' + phone.text, 2);
+    expect(afterFirst.pinToEnd).toBe(true);
+    expect(amountFieldSelection(afterFirst)).toEqual({ start: 1, end: 1 });
+    phone = type(phone, '1');
+    // Confirmada: ya no se declara selección, y la siguiente tecla no la pide.
+    expect(phone.state.pinToEnd).toBe(false);
+    expect(amountFieldSelection(phone.state)).toBeUndefined();
+    expect(amountFieldStep(phone.state, '12', 2).pinToEnd).toBe(false);
+  });
+
+  it('borrado y decimales después de sustituir siguen el contrato de siempre', () => {
+    let phone = tap(open(seeded('1000')), 1);
+    phone = type(phone, '1');
+    phone = type(phone, '2');
+    phone = type(phone, ',');
+    phone = type(phone, '5');
+    expect(amountValue(phone.state.entry)).toBe('12.5');
+    phone = backspace(phone);
+    expect(amountValue(phone.state.entry)).toBe('12.');
+    phone = backspace(phone);
+    expect(amountValue(phone.state.entry)).toBe('1');
+  });
+
+  it('sin tocar el campo, la precargada sigue siendo el importe: 10', () => {
+    const phone = open(seeded('1000'));
+    expect(amountValue(phone.state.entry)).toBe('10.00');
+    expect(phone.state.entry.seeded).toBe(true);
+    expect(amountFieldSelection(phone.state)).toBeUndefined();
+  });
+
+  it('Personal comparte el editor: la misma secuencia con `amountEntryFromMinor`', () => {
+    let phone = tap(open(amountEntryFromMinor('2500', 2)), 0);
+    phone = type(phone, '4');
+    phone = type(phone, '2');
+    expect(amountValue(phone.state.entry)).toBe('42');
   });
 });

@@ -4,7 +4,7 @@ import { fail } from '../errors';
  * Redondeo normativo: **half away from zero**, definido sobre la magnitud
  * absoluta y aplicando el signo después.
  *
- * ADR-003 T10. Definirlo sobre la magnitud y no sobre el valor con signo es
+ * F02/ADR-001 T10. Definirlo sobre la magnitud y no sobre el valor con signo es
  * deliberado: elimina la dependencia del comportamiento de la división entera
  * con operandos negativos, que varía entre lenguajes y que E6 midió que trunca
  * hacia cero en `BigInt`.

@@ -404,7 +404,7 @@ describe('los cinco casos de arranque', () => {
    * `auth-js` deja el almacenamiento VACÍO por su cuenta. Para este módulo es
    * indistinguible de «no había sesión», y esa indistinguibilidad es correcta:
    * el resultado que el producto exige —descartarla y acabar en Login— es el
-   * mismo. Nomey no escribe una segunda purga; la posee ADR-017.
+   * mismo. Nomey no escribe una segunda purga; la posee F05/ADR-001.
    */
   it('una sesión persistida inválida acaba en `signed-out`, nunca en `unavailable`', () => {
     const h = harness();

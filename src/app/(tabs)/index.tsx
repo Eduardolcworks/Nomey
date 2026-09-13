@@ -8,6 +8,7 @@ import {
   CategoryCard,
   categorySlices,
   FlowCard,
+  type DebtSnapshot,
   homeDebt,
   INITIAL_INTERVAL,
   IntervalSelector,
@@ -15,20 +16,28 @@ import {
   isReconciled,
   isResolving,
   movementKind,
+  type ExpenseLine,
+  expenseLines,
   MovementRow,
-  PERSONAL_DEBT_AMOUNTS,
+  ShareRow,
+  shareKey,
   type ProjectedOperation,
   readyScope,
   resolveInterval,
   todayInDeviceCalendar,
   useAnnulMovement,
-  useIncidents,
   usePersonalHome,
   usePersonalScope,
   useProjectedHome,
 } from '@/features/personal';
+import {
+  positionAcross,
+  type ProjectedGroup,
+  type ReopenedDebt,
+  useGroups,
+} from '@/features/groups';
 import { useSession } from '@/features/session';
-import { AppTopBar, DOCK_HEIGHT, HomeGreeting, useAddBackdrop, useScope } from '@/features/shell';
+import { DOCK_HEIGHT, HomeGreeting, useAddBackdrop, useScope } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
 import {
   EmptyState,
@@ -84,7 +93,7 @@ export default function HomeScreen() {
 
   /*
    * La identidad va a los hooks porque la copia local del catálogo y el ámbito
-   * de respaldo se guardan POR CUENTA (ADR-028 §13, §16). La ruta es quien la
+   * de respaldo se guardan POR CUENTA (F07/ADR-001 §13, §16). La ruta es quien la
    * tiene: `features/` no puede importar `features/`, así que Inicio es el
    * único sitio que ve la sesión y el Modo Personal a la vez — el mismo motivo
    * por el que `ScopeProvider` recibe la identidad desde `app/_layout.tsx`.
@@ -102,7 +111,7 @@ export default function HomeScreen() {
   /*
    * El intervalo se resuelve contra el calendario DEL DISPOSITIVO, no contra
    * UTC: `effective_date` no tiene zona y el par fecha+hora es un reloj de
-   * pared local (ADR-020 §3). Con UTC, después de las 22:00 en España un
+   * pared local (F06/ADR-002 §3). Con UTC, después de las 22:00 en España un
    * movimiento de hoy dejaría de aparecer en `Día`, y no fallaría nada.
    */
   const today = todayInDeviceCalendar();
@@ -122,7 +131,7 @@ export default function HomeScreen() {
   const home = usePersonalHome(ready !== null && personal, range, actorId);
 
   /*
-   * LO QUE SE PINTA ES LA PROYECCIÓN, no el snapshot (ADR-028 §8): el saldo,
+   * LO QUE SE PINTA ES LA PROYECCIÓN, no el snapshot (F07/ADR-001 §8): el saldo,
    * los totales, el reparto y la lista salen de UNA función pura que suma al
    * snapshot del servidor las intenciones locales todavía no reconciliadas, con
    * las mismas funciones de dominio que reproduce la frontera. Un movimiento
@@ -133,13 +142,30 @@ export default function HomeScreen() {
   const projected = useProjectedHome(home, ready, range, actorId);
 
   /*
-   * The bell's dot. The queue's terminal entries ARE the incidents (ADR-028
-   * §15), so this is a read of the same rows and not a second store; the route
-   * hands the answer to the shell, which may not import this feature.
+   * ══════════ LAS DEUDAS DE INICIO SALEN DE LOS GRUPOS ══════════
+   *
+   * **Y por eso se leen AQUI y no dentro de Personal.** Una deuda del actor
+   * no vive en su ambito personal: vive en el ambito de cada grupo, atribuida
+   * por `core.participant_user_link`. `features/personal` no puede importar
+   * `features/groups` —la frontera de `AGENTS.md` lo prohibe y con razon: no
+   * son el mismo dominio—, asi que quien las junta es la ruta, que es el unico
+   * sitio que ya conoce a los dos.
+   *
+   * **Es la MISMA lectura que pinta las tarjetas de Grupos**, no una segunda:
+   * `net_position` de `api.group_summary`, la misma columna que el interior
+   * del grupo enseña. Tres pantallas, un hecho. Con tres formulas distintas
+   * habria tres saldos y ninguna forma de saber cual miente.
    */
-  const incidents = useIncidents(actorId);
+  const groups = useGroups(actorId, state.status);
 
   useRefreshOnReturn(home.refresh);
+  /*
+   * **El mismo mecanismo de refresco que ya existia**, no uno nuevo: al volver
+   * a Inicio y al recuperar foco. Sin esto, registrar un gasto compartido y
+   * volver dejaria la deuda anterior en pantalla, que es una cifra caducada
+   * presentada como actual.
+   */
+  useRefreshOnReturn(groups.refresh);
 
   const greetingName = state.status === 'signed-in' ? state.identity.displayName : null;
 
@@ -154,7 +180,7 @@ export default function HomeScreen() {
    *
    *   fila (gesto o acción accesible)
    *     -> confirmación
-   *       -> anulación canónica  (api.annul_operation, ADR-024)
+   *       -> anulación canónica  (api.annul_operation, F06/ADR-006)
    *         -> refresco de Inicio
    *
    * **La ruta orquesta y no escribe**, igual que con «Añadir movimiento»: el
@@ -170,7 +196,7 @@ export default function HomeScreen() {
   const annulling = useAnnulMovement();
 
   /*
-   * LOS DOS BLOQUEOS TEMPORALES DE ADR-028 §10, explicados y no mudos.
+   * LOS DOS BLOQUEOS TEMPORALES DE F07/ADR-001 §10, explicados y no mudos.
    *
    * Una fila que todavía no tiene versión vigente no puede corregirse ni
    * anularse —no hay CAS que enviar—, y mientras haya intenciones sin
@@ -188,38 +214,47 @@ export default function HomeScreen() {
       rowBlocked();
       return;
     }
-    Alert.alert(t('home.deleteMovement'), t('home.deleteMovementBody'), [
-      { text: t('action.cancel'), style: 'cancel' },
-      {
-        text: t('action.delete'),
-        style: 'destructive',
-        onPress: () => {
-          void annulling.annul(operation).then((done) => {
-            /*
-             * **El refresco es lo único que hace desaparecer la fila.** No se
-             * recalcula nada aquí: se vuelve a pedir todo a las superficies de
-             * lectura, y el movimiento ya no sale porque su versión vigente es
-             * una anulación sin efectos. Saldo, totales del intervalo y reparto
-             * por categoría se rehacen con el mismo viaje.
-             */
-            if (done) {
-              home.refresh();
-              return;
-            }
+    Alert.alert(
+      t('home.deleteMovement'),
+      /* Un pago de grupo: se dice qué vuelve a estar pendiente (F09/ADR-007 C4). */
+      t(
+        operation.operation_class === 'group_payment'
+          ? 'home.deletePaymentBody'
+          : 'home.deleteMovementBody',
+      ),
+      [
+        { text: t('action.cancel'), style: 'cancel' },
+        {
+          text: t('action.delete'),
+          style: 'destructive',
+          onPress: () => {
+            void annulling.annul(operation).then((done) => {
+              /*
+               * **El refresco es lo único que hace desaparecer la fila.** No se
+               * recalcula nada aquí: se vuelve a pedir todo a las superficies de
+               * lectura, y el movimiento ya no sale porque su versión vigente es
+               * una anulación sin efectos. Saldo, totales del intervalo y reparto
+               * por categoría se rehacen con el mismo viaje.
+               */
+              if (done) {
+                home.refresh();
+                return;
+              }
 
-            /*
-             * Y si falla, el movimiento sigue donde estaba y se dice en
-             * castellano, no con el código de la frontera. Se puede reintentar
-             * sin más: la clave de idempotencia es la misma, así que un
-             * segundo intento del mismo comando no puede escribir dos veces.
-             */
-            Alert.alert(t('home.deleteFailedTitle'), t('home.deleteFailedBody'), [
-              { text: t('action.understood') },
-            ]);
-          });
+              /*
+               * Y si falla, el movimiento sigue donde estaba y se dice en
+               * castellano, no con el código de la frontera. Se puede reintentar
+               * sin más: la clave de idempotencia es la misma, así que un
+               * segundo intento del mismo comando no puede escribir dos veces.
+               */
+              Alert.alert(t('home.deleteFailedTitle'), t('home.deleteFailedBody'), [
+                { text: t('action.understood') },
+              ]);
+            });
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   /*
@@ -260,7 +295,7 @@ export default function HomeScreen() {
         categoryId: operation.category_id ?? '',
         date: operation.effective_date,
         // Sin hora registrada se deja vacía: un nulo NO significa medianoche
-        // (ADR-020 §3), y rellenarlo inventaría un hecho.
+        // (F06/ADR-002 §3), y rellenarlo inventaría un hecho.
         time: operation.effective_time === null ? '' : operation.effective_time.slice(0, 5),
       },
     });
@@ -286,7 +321,7 @@ export default function HomeScreen() {
     backdrop.show();
     router.push({
       pathname: '/edit-balance',
-      // El Disponible CONFIRMADO, nunca el proyectado (ADR-028 §10). Con el
+      // El Disponible CONFIRMADO, nunca el proyectado (F07/ADR-001 §10). Con el
       // bloqueo de arriba los dos coinciden, y aun así se manda el del servidor.
       params: { current: home.balance?.amount ?? '' },
     });
@@ -313,10 +348,36 @@ export default function HomeScreen() {
       ? []
       : categorySlices(projected.statistics.categories, projected.statistics.expense_total);
 
+  /*
+   * INGRESOS son ingresos: los PAGOS RECIBIDOS de un grupo (F09/ADR-007) no entran
+   * ni en la lista ni en el total —una liquidación no es renta (AGENTS.md
+   * §2)—; viven en Movimientos recientes como «Pago recibido», con su
+   * contraparte, su orden y su anulación. El pago hecho tampoco es gasto.
+   */
   const income = projected.operations.filter((op) => movementKind(op.operation_class) === 'income');
-  const expenses = projected.operations.filter(
+  /*
+   * ═══════ EL DESPLEGABLE DE GASTOS EXPLICA SU TOTAL ═══════
+   *
+   * **La causa de que no cuadrara**: reutilizaba la lectura de Movimientos
+   * recientes, que explica la CAJA. Un gasto compartido pagado por otro no
+   * mueve mi caja y no salía; uno pagado por mí salía por lo que adelanté, no
+   * por mi cuota. El total y el diagrama, en cambio, son la CUOTA ECONÓMICA
+   * (`api.personal_statistics`), pague quien pague. Movimientos recientes no
+   * cambia: sigue siendo caja, y mi pago de 20 sigue ahí como 20.
+   *
+   * El desglose son dos fuentes, y las dos son lecturas de las mismas
+   * operaciones: los gastos personales de la proyección —con su fila local y
+   * su reconciliación, como siempre— y MIS CUOTAS de gastos compartidos
+   * (`home.shares`, de `api.personal_expense_share`: exactamente las filas que
+   * el total suma, del mismo intervalo, cargadas en la misma ventana quieta).
+   * Cada operación es su propia fila; se mezclan en el orden cronológico de la
+   * lista. Ingresos, ajustes, liquidaciones y la fila de CAJA del compartido
+   * quedan fuera: aquí la cifra es la cuota, una sola vez.
+   */
+  const personalExpenses = projected.operations.filter(
     (op) => movementKind(op.operation_class) === 'expense',
   );
+  const expenses = expenseLines(personalExpenses, home.shares);
 
   /**
    * Una de las dos tarjetas de flujo, cerrada o abierta.
@@ -327,9 +388,9 @@ export default function HomeScreen() {
    * atrás en cuanto una de las dos formas cambiara.
    */
   const flowCard = (kind: 'income' | 'expense') => {
-    const rows = kind === 'income' ? income : expenses;
+    const rows = kind === 'income' ? income : personalExpenses;
     // `null` cuando no hay estadísticas confirmadas: la tarjeta enseña el
-    // marcador, no un cero ni una suma local (ADR-028 §8).
+    // marcador, no un cero ni una suma local (F07/ADR-001 §8).
     const total =
       projected.statistics === null
         ? null
@@ -344,19 +405,40 @@ export default function HomeScreen() {
         total={total}
         currencyCode={ready?.currencyCode ?? ''}
         currencyScale={ready?.currencyScale ?? 2}
-        count={rows.length}
+        count={kind === 'income' ? rows.length : expenses.length}
         expanded={openFlow === kind}
         onToggle={() => setOpenFlow((current) => (current === kind ? null : kind))}>
-        <MovementGroup
-          operations={rows}
-          home={home}
-          openMovement={openMovement}
-          onToggleMovement={toggleMovement}
-          onEdit={editMovement}
-          onDelete={deleteMovement}
-          deleting={annulling.pending}
-          emptyLabel={t(kind === 'income' ? 'home.noIncome' : 'home.noExpenses')}
-        />
+        {kind === 'income' ? (
+          <MovementGroup
+            operations={rows}
+            home={home}
+            openMovement={openMovement}
+            onToggleMovement={toggleMovement}
+            onEdit={editMovement}
+            onDelete={deleteMovement}
+            deleting={annulling.pending}
+            emptyLabel={t('home.noIncome')}
+          />
+        ) : (
+          <ExpenseGroup
+            lines={expenses}
+            more={
+              // Las personales llegan por páginas, las de Movimientos recientes:
+              // si quedan, se dice aquí también y se cargan por la misma puerta.
+              // Las cuotas vienen enteras, así que no cuentan como pendientes.
+              projected.operations.length < projected.total
+                ? { remaining: projected.total - projected.operations.length }
+                : null
+            }
+            home={home}
+            openMovement={openMovement}
+            onToggleMovement={toggleMovement}
+            onEdit={editMovement}
+            onDelete={deleteMovement}
+            deleting={annulling.pending}
+            emptyLabel={t('home.noExpenses')}
+          />
+        )}
       </FlowCard>
     );
   };
@@ -382,16 +464,17 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.screen}>
-      <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-        {/*
-         * LA BARRA SUPERIOR, FUERA DEL SCROLL Y EN LAS CUATRO RAMAS.
-         *
-         * Es lo único de arriba que no se mueve. Va aquí y no dentro de cada
-         * rama porque no depende de ninguna: identifica la aplicación, y eso no
-         * cambia porque el ámbito esté provisionándose o haya fallado.
-         */}
-        <AppTopBar alerts={incidents.unresolved > 0} />
-
+      {/*
+       * LA BARRA SUPERIOR YA NO SE MONTA AQUÍ, y tampoco el inset superior.
+       *
+       * Vivía en esta pantalla «en las cuatro ramas», y era correcto mientras
+       * la pantalla era la unidad de composición. Dejó de serlo al ver que
+       * viajaba con la transición entre pestañas: una barra que identifica la
+       * aplicación no puede deslizarse fuera de ella. Ahora la monta UNA vez el
+       * layout de pestañas, por encima del navegador, y consume él el área
+       * segura de arriba; esta pantalla sólo pide los laterales.
+       */}
+      <SafeAreaView style={styles.screen} edges={['left', 'right']}>
         {!personal ? (
           <>
             {greeting}
@@ -445,29 +528,24 @@ export default function HomeScreen() {
 
             <View style={styles.body}>
               {/*
-               * ═══ LA DEUDA SALE DEL SNAPSHOT CARGADO, NO DE LA RED ═══
+               * ═══ LA DEUDA SALE DE LOS GRUPOS, NO DEL SNAPSHOT PERSONAL ═══
                *
-               * `home.balance` es el hecho: `null` mientras la carga no ha
-               * terminado o si falló sin dejar snapshot, y una fila en cuanto
-               * llegó. **No es lo mismo que haber conexión**, y ésa es la
-               * distinción que importa aquí: un refresco posterior que falla
-               * conserva el snapshot anterior (`use-personal-home.ts`), así que
-               * la deuda no vuelve a ser desconocida por perder la red.
+               * Aquí se leía `home.balance` y se pasaba una colección vacía
+               * constante, así que la tarjeta decía `0,00 €` **siempre**: con
+               * deudas y sin ellas. Era correcto mientras nada producía
+               * dimensión de deuda; desde que hay gastos compartidos es una
+               * cifra contable falsa que no falla por ningún sitio.
                *
-               * Con el snapshot puesto, `homeDebt` resuelve la colección de
-               * deudas — hoy vacía por estructura, no por suposición — y eso es
-               * un cero CONOCIDO, que se pinta como cifra. Sin snapshot, el
-               * mismo marcador de no disponible que el Disponible de al lado.
+               * Ahora el hecho es la posición neta del actor en TODOS sus
+               * grupos, y las tres respuestas siguen separadas: cargando o sin
+               * lectura es desconocido, sin grupos o compensado es un cero
+               * CONOCIDO, y una posición real se pinta con su signo.
                */}
               <BalanceCard
                 amount={projected.balance}
                 currencyCode={ready.currencyCode}
                 currencyScale={ready.currencyScale}
-                debt={homeDebt(
-                  home.balance === null
-                    ? { loaded: false }
-                    : { loaded: true, amounts: PERSONAL_DEBT_AMOUNTS },
-                )}
+                debt={homeDebt(debtSnapshot(groups.groups, groups.reopened, groups.loading, ready))}
                 onAdjust={editBalance}
               />
 
@@ -486,7 +564,7 @@ export default function HomeScreen() {
                *
                * Lo que queda en su lugar no es una cifra inventada. El saldo,
                * los totales y el reparto siguen siendo lo que se pueda
-               * demostrar —el snapshot conservado, o `—` si no lo hay (ADR-028
+               * demostrar —el snapshot conservado, o `—` si no lo hay (F07/ADR-001
                * §8)— y las intenciones locales se pintan encima. La carga
                * inicial sigue teniendo su indicador, porque esperar y fallar no
                * son lo mismo.
@@ -555,7 +633,7 @@ export default function HomeScreen() {
                              * La clave de render es la de la proyección: una
                              * fila local se pinta con su clave de cliente y la
                              * del servidor que la sustituye la hereda, así que
-                             * la confirmación no remonta nada (ADR-028 §9).
+                             * la confirmación no remonta nada (F07/ADR-001 §9).
                              */
                             key={operation.render_key}
                             operation={operation}
@@ -564,7 +642,7 @@ export default function HomeScreen() {
                             /*
                              * THE ROW'S CURRENCY, not the scope's. They coincide
                              * except when the base moved underneath an already
-                             * captured entry (ADR-003 §7, ADR-028 §14): that row
+                             * captured entry (F02/ADR-001 §7, F07/ADR-001 §14): that row
                              * keeps its amount and its currency, and painting it
                              * with the new scale would reinterpret the amount.
                              */
@@ -665,6 +743,89 @@ function MovementGroup({
 }
 
 /**
+ * EL DESGLOSE DE GASTOS: gastos personales y cuotas compartidas, mezclados en
+ * el orden de la lista. Cada línea con su fila: la personal es la MISMA
+ * `MovementRow` de Movimientos recientes —con editar, eliminar, proyección
+ * local y reconciliación—; la cuota es `ShareRow`, que se lee y no se toca.
+ * El estado de despliegue es el mismo de la pantalla: una fila abierta a la
+ * vez, con claves que no pueden chocar (`shareKey` lleva prefijo).
+ */
+function ExpenseGroup({
+  lines,
+  more,
+  home,
+  openMovement,
+  onToggleMovement,
+  onEdit,
+  onDelete,
+  deleting,
+  emptyLabel,
+}: {
+  lines: readonly ExpenseLine<ProjectedOperation>[];
+  /** Operaciones del intervalo aún no cargadas, si las hay. */
+  more: { readonly remaining: number } | null;
+  home: ReturnType<typeof usePersonalHome>;
+  openMovement: string | null;
+  onToggleMovement: (id: string) => void;
+  onEdit: (operation: ProjectedOperation) => void;
+  onDelete: (operation: ProjectedOperation) => void;
+  deleting: string | null;
+  emptyLabel: string;
+}) {
+  if (lines.length === 0) {
+    return (
+      <ThemedText variant="bodySmall" themeColor="textTertiary" style={styles.empty}>
+        {emptyLabel}
+      </ThemedText>
+    );
+  }
+
+  const row = (line: ExpenseLine<ProjectedOperation>) => {
+    if (line.kind === 'personal') {
+      const operation = line.operation;
+      return (
+        <MovementRow
+          key={operation.render_key}
+          operation={operation}
+          previous={versionOf(operation, home)}
+          categories={home.categories}
+          currencyCode={operation.currency_code}
+          currencyScale={operation.currency_scale}
+          expanded={openMovement === operation.render_key}
+          onToggle={() => onToggleMovement(operation.render_key)}
+          onEdit={() => {
+            onEdit(operation);
+          }}
+          onDelete={() => {
+            onDelete(operation);
+          }}
+          deleting={deleting === operation.operation_id}
+        />
+      );
+    }
+    const key = shareKey(line.share);
+    return (
+      <ShareRow
+        key={key}
+        share={line.share}
+        categories={home.categories}
+        expanded={openMovement === key}
+        onToggle={() => onToggleMovement(key)}
+      />
+    );
+  };
+
+  return (
+    <View>
+      {lines.map(row)}
+      {more === null ? null : (
+        <MoreRow remaining={more.remaining} loading={home.loadingMore} onPress={home.loadMore} />
+      )}
+    </View>
+  );
+}
+
+/**
  * Cuántas quedan, dicho en voz alta.
  *
  * Una lista paginada que no dice que lo está invita a leerla como completa. Las
@@ -690,6 +851,53 @@ function MoreRow({
       action={{ label: t('home.loadMore'), onPress }}
     />
   );
+}
+
+/**
+ * Lo que se puede AFIRMAR sobre las deudas del actor, a partir de sus grupos.
+ *
+ * Vive en la ruta porque junta dos features que no se pueden importar entre
+ * si, y es pura: recibe lo leido y devuelve el contrato que `homeDebt` sabe
+ * resolver. No consulta nada.
+ *
+ * **Tres entradas producen desconocido, y ninguna produce cero por defecto:**
+ * que el ambito personal aun no este resuelto —sin su definicion monetaria no
+ * hay con que comparar—, que la lectura de grupos siga en su primer viaje, y
+ * que `positionAcross` no pueda afirmar el agregado —una posicion sin leer, o
+ * un grupo en otra divisa con saldo vivo—.
+ *
+ * Con las tres resueltas, el neto viaja como UN importe y no como la lista de
+ * los grupos: `homeDebt` los sumaria igual, pero la compensacion ya la hizo
+ * quien conoce las divisas, y volver a exponer los sumandos invitaria a
+ * sumarlos otra vez sin ese filtro.
+ */
+function debtSnapshot(
+  groups: readonly ProjectedGroup[],
+  reopened: readonly ReopenedDebt[] | null,
+  loading: boolean,
+  ready: { readonly currencyDefinitionId: string } | null,
+): DebtSnapshot {
+  if (ready === null || loading || reopened === null) return { loaded: false };
+
+  const net = positionAcross(groups, ready.currencyDefinitionId);
+  if (net.kind === 'unavailable') return { loaded: false };
+
+  /*
+   * Y LA DEUDA REABIERTA de los grupos de los que ya no soy miembro (F09/ADR-007
+   * C6): quien salio no tiene posicion por membresia, pero lo que su pago
+   * anulado volvio a dejar pendiente es suyo y se suma aqui, con el mismo
+   * filtro de divisa que las posiciones.
+   */
+  let total = net.minor;
+  for (const one of reopened) {
+    if (one.currencyDefinitionId === ready.currencyDefinitionId) {
+      total += BigInt(one.amountMinor);
+    } else if (BigInt(one.amountMinor) !== 0n) {
+      return { loaded: false };
+    }
+  }
+
+  return { loaded: true, amounts: [total.toString()] };
 }
 
 const styles = StyleSheet.create({

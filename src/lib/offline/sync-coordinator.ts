@@ -31,7 +31,7 @@
  *
  * ═══ CUANDO LO QUE FALLA ES LA BASE, Y NO EL SERVIDOR ═══
  *
- * Un fallo de SQLite no es una respuesta y no pasa por ADR-028 §11: no mueve
+ * Un fallo de SQLite no es una respuesta y no pasa por F07/ADR-001 §11: no mueve
  * ninguna entrada, no crea claves y no abre la puerta directa. Lo que hace el
  * coordinador es tratarlo como lo que es —la infraestructura del cliente no
  * está disponible ahora— y volver a intentarla con el **mismo** backoff, el

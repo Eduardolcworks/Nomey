@@ -8,14 +8,14 @@ import { feedsStatistics } from './effect';
 /**
  * Saldo derivado de un ámbito.
  *
- * **Se deriva, no se almacena.** ADR-002 §7 y `data-model.md` §7: saldos y
+ * **Se deriva, no se almacena.** F01/ADR-001 §7 y `data-model.md` §7: saldos y
  * estadísticas salen de la versión vigente de cada operación. Un saldo
  * guardado sería una segunda fuente de verdad.
  *
  * `currency` es obligatorio: sin efectos no hay de dónde deducir la definición
  * monetaria del cero, y suponerla sería agregación silenciosa. Si algún efecto
  * pertenece a otra definición, `sumMoney` falla con `MONEY_CURRENCY_MISMATCH`,
- * que es exactamente lo que ADR-003 §3 exige.
+ * que es exactamente lo que F02/ADR-001 §3 exige.
  */
 export function deriveBalance(
   effects: readonly Effect[],

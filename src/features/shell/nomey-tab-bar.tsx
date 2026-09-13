@@ -5,7 +5,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTranslation } from '@/lib/i18n';
-import { GlassSurface, Icon, ThemedText } from '@/ui/components';
+import { GlassSurface, Icon, SHEET_BLUR_INTENSITY, ThemedText } from '@/ui/components';
 import { emphasisDepth, EmphasisRim, Motion, Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 import { DESTINATIONS, type Destination, destinationFor } from './destinations';
@@ -274,6 +274,27 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
        * de Inicio nítido detrás de ella.
        */
       onPress={() => {
+        /*
+         * EL DESTINO DECIDE QUÉ VENTANA, no sólo cómo se llama el botón.
+         *
+         * Antes esto navegaba SIEMPRE a `/add` —el alta de un movimiento
+         * personal— y lo único que cambiaba con el destino era la etiqueta
+         * accesible: en Grupos abría el alta de Personal con otro nombre. No
+         * fallaba nada, simplemente hacía otra cosa.
+         *
+         * Personal conserva su ruta y sus parámetros exactamente como estaban.
+         */
+        if (destination === 'groups') {
+          /*
+           * La hoja de Grupos pide MENOS desenfoque que las ventanas de
+           * Personal, y no por gusto: cubre sólo el tercio inferior, así que
+           * detrás queda pantalla de sobra que tiene que seguir reconociéndose.
+           * Una ventana centrada tapa casi todo y puede permitirse más.
+           */
+          backdrop.show(SHEET_BLUR_INTENSITY);
+          router.push('/group-action');
+          return;
+        }
         backdrop.show();
         router.push({ pathname: '/add', params: { from: destination } });
       }}
@@ -285,6 +306,22 @@ function AddButton({ activeRoute }: { activeRoute: string }) {
             level="action"
             depth={pressed ? 'pressed' : 'flat'}
             radius={Radius.full}
+            /*
+             * EL HALO SÓLO EN GRUPOS, y la decisión la toma el DESTINO.
+             *
+             * La lente de `action` mezcla dos brillos interiores con una capa
+             * que proyecta hacia fuera. Medido en el emulador, esa capa es
+             * idéntica en las dos pestañas —croma 9,12 · 6,9 · 5,3 a r=80, 90 y
+             * 100 en ambas—; lo que cambia es el fondo sobre el que cae. Sobre
+             * el negro de Grupos lee como luz sostenida y está aprobada; sobre
+             * el contenido de Inicio se derrama y ensucia.
+             *
+             * **Ni el token ni el defecto de `GlassSurface` se tocan**: se pide
+             * `inner` aquí, y sólo para un destino. Y se decide por
+             * `destination`, que sale de la última pestaña REAL y no de la ruta
+             * activa — una ventana encima cambia la ruta y no cambia la pestaña.
+             */
+            lens={destination === 'home' ? 'inner' : 'full'}
             /* La acción principal. Un control, y el más pulsado de la app. */
             nativeEffect={false}
             style={styles.addSurface}>

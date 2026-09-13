@@ -12,13 +12,13 @@ Escrita el **2026-08-27**, al cerrar la Fase 3 con `main` en `3787901`.
 
 ## Las cinco categorías
 
-| Categoría      | Significa                                                                  |
-| -------------- | -------------------------------------------------------------------------- |
-| **Persistido** | Hay una relación física en `core` que lo almacena                          |
-| **Derivable**  | Se calcula de lo persistido. **No hay caché económica en v1** (ADR-013 §1) |
-| **Proyección** | Existe como vista o función de lectura, hoy                                |
-| **Runtime**    | Vive en la frontera autoritativa o en la RLS; no es un dato almacenado     |
-| **Aplazado**   | Decidido que **no** pertenece a F3, con su fase o decisión de destino      |
+| Categoría      | Significa                                                                      |
+| -------------- | ------------------------------------------------------------------------------ |
+| **Persistido** | Hay una relación física en `core` que lo almacena                              |
+| **Derivable**  | Se calcula de lo persistido. **No hay caché económica en v1** (F03/ADR-010 §1) |
+| **Proyección** | Existe como vista o función de lectura, hoy                                    |
+| **Runtime**    | Vive en la frontera autoritativa o en la RLS; no es un dato almacenado         |
+| **Aplazado**   | Decidido que **no** pertenece a F3, con su fase o decisión de destino          |
 
 **Lo aplazado no se implementa aquí.** Cada entrada dice qué es, por qué no es de
 F3, y dónde queda.
@@ -27,33 +27,33 @@ F3, y dónde queda.
 
 ## 1 · Operación y efecto (§1)
 
-| Concepto                                       | Categoría      | Dónde                                               |
-| ---------------------------------------------- | -------------- | --------------------------------------------------- |
-| Operación: identidad, clase, autoría, instante | **Persistido** | `core.operation`                                    |
-| Versión inmutable y su linaje                  | **Persistido** | `core.operation_version`                            |
-| Vigencia                                       | **Persistido** | `operation.current_version_id` (ADR-013 §4)         |
-| Efecto y sus tres dimensiones                  | **Persistido** | `core.effect` — saldo · económica · deuda           |
-| Ámbito, clase contable, moneda del efecto      | **Persistido** | Cabecera de `core.effect`                           |
-| Efectos que cuentan económicamente             | **Proyección** | `core.current_effect` (ADR-013 §9)                  |
-| Visibilidad de un efecto                       | **Runtime**    | RLS por membresía del ámbito; no es columna         |
-| Aplicación inmediata, sin estados intermedios  | **Runtime**    | Una transacción por operación (ADR-009 §7)          |
-| Concepto y hora de un movimiento               | **Persistido** | `core.movement_detail` + `effective_time` (ADR-020) |
-| Categoría de un gasto                          | **Persistido** | `core.expense_category`, por versión (ADR-027)      |
-| Catálogo de categorías, sistema y propias      | **Persistido** | `core.category` (ADR-021)                           |
+| Concepto                                       | Categoría      | Dónde                                                   |
+| ---------------------------------------------- | -------------- | ------------------------------------------------------- |
+| Operación: identidad, clase, autoría, instante | **Persistido** | `core.operation`                                        |
+| Versión inmutable y su linaje                  | **Persistido** | `core.operation_version`                                |
+| Vigencia                                       | **Persistido** | `operation.current_version_id` (F03/ADR-010 §4)         |
+| Efecto y sus tres dimensiones                  | **Persistido** | `core.effect` — saldo · económica · deuda               |
+| Ámbito, clase contable, moneda del efecto      | **Persistido** | Cabecera de `core.effect`                               |
+| Efectos que cuentan económicamente             | **Proyección** | `core.current_effect` (F03/ADR-010 §9)                  |
+| Visibilidad de un efecto                       | **Runtime**    | RLS por membresía del ámbito; no es columna             |
+| Aplicación inmediata, sin estados intermedios  | **Runtime**    | Una transacción por operación (F03/ADR-006 §7)          |
+| Concepto y hora de un movimiento               | **Persistido** | `core.movement_detail` + `effective_time` (F06/ADR-002) |
+| Categoría de un gasto                          | **Persistido** | `core.expense_category`, por versión (F06/ADR-009)      |
+| Catálogo de categorías, sistema y propias      | **Persistido** | `core.category` (F06/ADR-003)                           |
 
 ---
 
 ## 2 · Ámbitos financieros (§2)
 
-| Concepto                                        | Categoría      | Dónde                                                 |
-| ----------------------------------------------- | -------------- | ----------------------------------------------------- |
-| Los tres ámbitos                                | **Persistido** | `core.scope.kind`, vocabulario cerrado                |
-| Propiedad durable del Modo Personal             | **Persistido** | `core.scope.owner_user_id` (ADR-016)                  |
-| Moneda base del ámbito                          | **Persistido** | `core.scope.base_currency_definition_id`              |
-| Inmutabilidad de la moneda base tras la 1.ª op. | **Runtime**    | Estructural: FK compuesta de `core.effect`            |
-| Saldo de un ámbito                              | **Derivable**  | Suma de `balance_amount` sobre la proyección canónica |
-| Estadísticas por ámbito                         | **Derivable**  | Solo `ingreso` y `gasto`, lista de admitidos          |
-| `Disponible actual` · `Disponible tras saldar`  | **Derivable**  | ADR-013 §1: derivados sin excepción, sin caché en v1  |
+| Concepto                                        | Categoría      | Dónde                                                    |
+| ----------------------------------------------- | -------------- | -------------------------------------------------------- |
+| Los tres ámbitos                                | **Persistido** | `core.scope.kind`, vocabulario cerrado                   |
+| Propiedad durable del Modo Personal             | **Persistido** | `core.scope.owner_user_id` (F03/ADR-013)                 |
+| Moneda base del ámbito                          | **Persistido** | `core.scope.base_currency_definition_id`                 |
+| Inmutabilidad de la moneda base tras la 1.ª op. | **Runtime**    | Estructural: FK compuesta de `core.effect`               |
+| Saldo de un ámbito                              | **Derivable**  | Suma de `balance_amount` sobre la proyección canónica    |
+| Estadísticas por ámbito                         | **Derivable**  | Solo `ingreso` y `gasto`, lista de admitidos             |
+| `Disponible actual` · `Disponible tras saldar`  | **Derivable**  | F03/ADR-010 §1: derivados sin excepción, sin caché en v1 |
 
 > **Ninguno de los derivados tiene vista todavía, y es deliberado.** El handoff
 > §11 bis lo decidió: su API pertenece a las fases que los consumen, y F3 solo
@@ -83,7 +83,7 @@ Quedan en las fases de Grupo y de Modo Pareja, por migración.
 **RESUELTO en la Fase 6.B.** `api.record_personal_income` es la octava función:
 saldo positivo y económica positiva sin participante, con sus vectores
 compartidos. Como se anticipó, el vocabulario abierto no exigió cambiar nada de
-lo migrado — [ADR-020](../adr/ADR-020-version-content-and-time.md).
+lo migrado — [F06/ADR-002](../adr/F06/ADR-002-version-content-and-time.md).
 
 ---
 
@@ -107,7 +107,7 @@ explícitamente, y no por omisión. → Queda en la fase de Modo Pareja, que deb
 traer el estado del ámbito, la bilateralidad y el reparto final.
 
 > **El modelo ya lo soporta sin cambios**: `scope.kind` incluye `couple`, y el
-> reparto final reutiliza `exact_amounts` (ADR-013 §5). Lo que falta es
+> reparto final reutiliza `exact_amounts` (F03/ADR-010 §5). Lo que falta es
 > **producto**, no estructura.
 
 ---
@@ -135,13 +135,13 @@ traer el estado del ámbito, la bilateralidad y el reparto final.
 | Membresía activa        | **Persistido** | `core.membership`, presencia pura                      |
 | Elegibilidad histórica  | **Persistido** | `core.participant_period`                              |
 | Participante histórico  | **Derivable**  | Los efectos apuntan al participante; permanece siempre |
-| Reclamación retroactiva | **Proyección** | `api.claimed_dimension()` (ADR-016)                    |
+| Reclamación retroactiva | **Proyección** | `api.claimed_dimension()` (F03/ADR-013)                |
 
 **Aplazado — el mecanismo de claim.**
 Qué constituye prueba de autorización para vincular un participante con una
 cuenta: token de un solo uso, invitación verificada, aprobación de un miembro, o
 una combinación. También la revocación, el _unlink_ y la fusión de participantes.
-→ No es de F3: ADR-012 fija el **invariante** —el claim exige prueba— y delega
+→ No es de F3: F03/ADR-009 fija el **invariante** —el claim exige prueba— y delega
 expresamente el mecanismo. → Queda en **F10**, sobre relaciones que ya existen.
 `core.participant_user_link` no tiene ruta de escritura por eso.
 
@@ -161,20 +161,20 @@ abierto en el handoff §11, sin fase asignada.
 | Contrato de derivación de cada versión | **Persistido** | `operation_version.economic_rules_version`   |
 | Solo cuenta la versión vigente         | **Proyección** | `core.current_effect`                        |
 | Quién puede corregir                   | **Runtime**    | Membresía actual del ámbito (§7, 2026-08-26) |
-| El predecesor es la vigente anterior   | **Runtime**    | Sale de la fila bloqueada (ADR-011 §11)      |
+| El predecesor es la vigente anterior   | **Runtime**    | Sale de la fila bloqueada (F03/ADR-008 §11)  |
 | Elegibilidad en la fecha efectiva      | **Runtime**    | `sec.assert_participant_eligible`            |
 
 **Aplazado — previsualización de una corrección.**
-ADR-013 §7 exige poder mostrar el resultado nuevo antes de confirmarlo. → No es
+F03/ADR-010 §7 exige poder mostrar el resultado nuevo antes de confirmarlo. → No es
 de F3: es una capacidad de **cliente**, y F3 no construye pantallas.
 `src/domain/` ya conserva el cálculo para hacerlo sin conexión. → Queda en la
 fase que construya la pantalla de corrección.
 
 ~~**Aplazado — anulación o revocación de una operación.**~~
-**RESUELTO en la Fase 6.C** por [ADR-024](../adr/ADR-024-annulment.md): una
+**RESUELTO en la Fase 6.C** por [F06/ADR-006](../adr/F06/ADR-006-annulment.md): una
 **versión nueva sin efectos**, con `current_version_id` como única autoridad de
 vigencia y **sin borrar nada**. **El `UNIQUE (operation_id, supersedes_version_id)`
-sigue sin añadirse**, y a propósito: ADR-011 §11 reservó ese invariante a la
+sigue sin añadirse**, y a propósito: F03/ADR-008 §11 reservó ese invariante a la
 frontera autoritativa, donde hoy lo garantizan el lock y el CAS.
 
 ---
@@ -204,18 +204,18 @@ Ver §4 de este documento: Modo Pareja.
 
 | Concepto                                 | Categoría      | Dónde                                          |
 | ---------------------------------------- | -------------- | ---------------------------------------------- |
-| Definición monetaria e identidad estable | **Persistido** | `core.currency_definition` (ADR-004)           |
+| Definición monetaria e identidad estable | **Persistido** | `core.currency_definition` (F03/ADR-001)       |
 | Importe original autoritativo            | **Persistido** | `operation_version.original_amount`            |
 | Importes derivados por ámbito            | **Persistido** | `core.effect`, en la moneda base del ámbito    |
-| Conversión congelada por valor           | **Persistido** | `core.frozen_conversion` (ADR-015)             |
+| Conversión congelada por valor           | **Persistido** | `core.frozen_conversion` (F03/ADR-012)         |
 | Importe convertido                       | **Derivable**  | No se persiste: se reproduce de sus entradas   |
 | Agregación solo con la misma definición  | **Runtime**    | Estructural: FK compuesta de moneda del ámbito |
 | El residuo de redondeo no genera efecto  | **Runtime**    | Una sola conversión, y el cálculo después      |
 
 **Aplazado — resolución autoritativa del FX.** _(punto 3 del cierre)_
 Qué catálogo, qué proveedor, qué granularidad, qué regla de selección y qué
-ocurre si no hay tipo exacto para una fecha. → No es de F3: **ADR-003 §4 lo deja
-expresamente fuera de alcance y ADR-009 §8 lo declara decisión de producto
+ocurre si no hay tipo exacto para una fecha. → No es de F3: **F02/ADR-001 §4 lo deja
+expresamente fuera de alcance y F03/ADR-006 §8 lo declara decisión de producto
 pendiente**, añadiendo que este ADR «no atribuye a la frontera de escritura una
 resolución automática por catálogo». El servidor **no tiene con qué resolverla**,
 y el tipo que aporte el cliente no es autoritativo. → Queda como decisión de
@@ -229,10 +229,10 @@ devuelven `CURRENCY_CONVERSION_UNSUPPORTED · 422` sin escribir nada.
 > regla, no antes.
 
 ~~**Aplazado — siembra del catálogo de definiciones monetarias.**~~
-**RESUELTO en la Fase 6.A** por [ADR-019](../adr/ADR-019-personal-provisioning.md)
+**RESUELTO en la Fase 6.A** por [F06/ADR-001](../adr/F06/ADR-001-personal-provisioning.md)
 §9: veinte definiciones sembradas por migración, con **identidades UUID fijas y
 reproducibles** entre local, CI y producción. La escala sale de los minor units de
-ISO 4217, que es la fuente que ADR-003 §3 designa, y **no** de una API externa.
+ISO 4217, que es la fuente que F02/ADR-001 §3 designa, y **no** de una API externa.
 
 **Aplazado — conflicto por configuración monetaria anterior.**
 Una operación creada bajo otra configuración «entra en conflicto y requiere
@@ -251,11 +251,11 @@ es un hecho contable. Además, la creación de un participante y su vínculo dep
 del mecanismo de claim, que es F10. → Queda en **F9** y **F10**.
 
 **El Modo Personal ya no está aquí: lo resolvió la Fase 6.A.**
-[ADR-019](../adr/ADR-019-personal-provisioning.md) trae `api.ensure_personal_scope`,
+[F06/ADR-001](../adr/F06/ADR-001-personal-provisioning.md) trae `api.ensure_personal_scope`,
 que crea el ámbito **y su membresía en la misma transacción**, bajo un tercer rol
 `nomey_provisioner` con la barrera RLS acotada al actor. **No crea participante**,
 y eso es una decisión: los efectos personales llevan participante legítimamente
-nulo y la atribución es por propiedad (ADR-016). Añadirlo en F10 sería aditivo.
+nulo y la atribución es por propiedad (F03/ADR-013). Añadirlo en F10 sería aditivo.
 
 > **Consecuencia que conviene no olvidar:** las tres clases de 7b siguen sin ser
 > alcanzables de extremo a extremo por un cliente real, porque necesitan un Grupo
@@ -264,8 +264,8 @@ nulo y la atribución es por propiedad (ADR-016). Añadirlo en F10 sería aditiv
 
 > **Y un detalle que costó un fallo descubrir:** la **membresía del propio Modo
 > Personal no es redundante con la propiedad**. `owner_user_id` es atribución
-> económica durable (ADR-016) y `core.membership` es autorización actual
-> (ADR-007); la RLS de lectura se resuelve por membresía, así que sin esa fila el
+> económica durable (F03/ADR-013) y `core.membership` es autorización actual
+> (F03/ADR-004); la RLS de lectura se resuelve por membresía, así que sin esa fila el
 > dueño no ve sus propios efectos. **El provisioning crea las dos**, y un check lo
 > comprueba por separado.
 
@@ -281,7 +281,7 @@ nulo y la atribución es por propiedad (ADR-016). Añadirlo en F10 sería aditiv
 
 **Aplazado — idempotencia de recurrencias, importaciones y backend.**
 `core.client_command` es la unidad del **origen cliente**. → No es de F3:
-**ADR-010 lo deja expresamente abierto**, y un origen distinto necesita su propia
+**F03/ADR-007 lo deja expresamente abierto**, y un origen distinto necesita su propia
 garantía, no la misma relación. → Queda sin fase asignada; añadirla es aditivo y
 no altera `core.client_command`.
 

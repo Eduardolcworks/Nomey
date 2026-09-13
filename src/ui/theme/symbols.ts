@@ -9,7 +9,7 @@ import type { SymbolViewProps } from 'expo-symbols';
  * y el icono cae en el recuadro de respaldo. Compila, pasa los tipos, se ve
  * perfecto en el iPhone y deja media aplicación sin iconos en el emulador.
  *
- * Es exactamente el defecto que ADR-027 corrigió en las categorías — la base
+ * Es exactamente el defecto que F06/ADR-009 corrigió en las categorías — la base
  * guarda una clave semántica y el cliente resuelve el par— y que el resto de la
  * interfaz seguía teniendo, porque nadie lo había mirado fuera de iOS.
  *
@@ -34,6 +34,7 @@ export const Symbols = {
   home: { ios: 'house', android: 'home' },
   groups: { ios: 'person.2', android: 'groups' },
   add: { ios: 'plus', android: 'add' },
+  remove: { ios: 'minus', android: 'remove' },
   back: { ios: 'chevron.left', android: 'chevron_left' },
   forward: { ios: 'chevron.right', android: 'chevron_right' },
   expand: { ios: 'chevron.down', android: 'expand_more' },
@@ -44,12 +45,30 @@ export const Symbols = {
   profile: { ios: 'person.crop.circle', android: 'account_circle' },
   person: { ios: 'person.fill', android: 'person' },
   camera: { ios: 'camera.fill', android: 'photo_camera' },
+  /** Unirse a un grupo. Material lo llama `qr_code`; Apple, `qrcode`. */
+  qr: { ios: 'qrcode', android: 'qr_code' },
+  /** Mandar lo escrito: el avión de papel del enlace de invitación. */
+  send: { ios: 'paperplane.fill', android: 'send' },
+  /**
+   * Compartir. Apple usa la caja con la flecha saliendo; Material tiene DOS
+   * —`share`, los tres nodos unidos, y `ios_share`, una copia del de Apple—.
+   * Se toma `share`, que es el que un aparato Android reconoce como propio:
+   * `ios_share` en Android sería el gesto de la otra plataforma dibujado aquí.
+   */
+  share: { ios: 'square.and.arrow.up', android: 'share' },
 
   // Acciones
   edit: { ios: 'pencil', android: 'edit' },
+  /** Lo que se ve y no se puede cambiar: la divisa de un grupo ya creado. */
+  lock: { ios: 'lock', android: 'lock' },
   close: { ios: 'xmark', android: 'close' },
+  search: { ios: 'magnifyingglass', android: 'search' },
   confirm: { ios: 'checkmark', android: 'check' },
   delete: { ios: 'trash', android: 'delete' },
+  /** Salir de un grupo (F09/ADR-003): una puerta, no una papelera. */
+  leave: { ios: 'rectangle.portrait.and.arrow.right', android: 'logout' },
+  /** Deshacer la propia reclamación (F09/ADR-006): una vuelta atrás, no una salida. */
+  undo: { ios: 'arrow.uturn.backward', android: 'undo' },
   calendar: { ios: 'calendar', android: 'calendar_month' },
   reveal: { ios: 'eye', android: 'visibility' },
   conceal: { ios: 'eye.slash', android: 'visibility_off' },
@@ -58,7 +77,19 @@ export const Symbols = {
   incoming: { ios: 'arrow.down.left', android: 'south_west' },
   outgoing: { ios: 'arrow.up.right', android: 'north_east' },
   transfer: { ios: 'arrow.left.arrow.right', android: 'swap_horiz' },
+  /** De quien paga a quien cobra, en una fila de pago sugerido. */
+  arrowRight: { ios: 'arrow.right', android: 'arrow_forward' },
   breakdown: { ios: 'chart.pie', android: 'pie_chart' },
+
+  // Listados: acotar y ordenar. Son DOS preguntas distintas y por eso son dos
+  // controles: filtrar quita filas, ordenar sólo las recoloca.
+  //
+  // El embudo de Apple es `line.3.horizontal.decrease` —tres rayas que menguan—
+  // y el de Material, `filter_alt`; el de ordenar, `arrow.up.arrow.down` frente
+  // a `swap_vert`. Ninguno de los cuatro es la traducción literal del otro, que
+  // es exactamente por lo que este fichero existe.
+  filter: { ios: 'line.3.horizontal.decrease', android: 'filter_alt' },
+  sort: { ios: 'arrow.up.arrow.down', android: 'swap_vert' },
 
   // Estados vacíos y avisos
   empty: { ios: 'tray', android: 'inbox' },

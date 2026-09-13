@@ -9,8 +9,9 @@ import { StyleSheet, View } from 'react-native';
 
 import { categoryOptions } from './category';
 import type { CategoryMenuProps } from './category-menu-props';
-import { CategoryTrigger } from './category-trigger';
+
 import { useTranslation } from '@/lib/i18n';
+import { CategoryTrigger } from '@/ui/components';
 import { castShadow, Radius } from '@/ui/theme';
 import { categorySymbol } from '@/ui/theme/category-palette';
 
@@ -81,7 +82,8 @@ export function CategoryMenu({
         style={[StyleSheet.absoluteFill, styles.sombra, { boxShadow: castShadow('well') }]}
       />
 
-      <Host matchContents colorScheme="dark">
+      {/* `ignoreSafeArea`: la posición la pone React Native — ver `option-menu.ios.tsx`. */}
+      <Host matchContents colorScheme="dark" ignoreSafeArea="all">
         <Menu
           /*
            * LA ETIQUETA ES EL CÍRCULO, que es lo que devuelve la transición

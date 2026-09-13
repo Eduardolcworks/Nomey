@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import APP_CONFIG from '../../app.config.ts?raw';
 
 /**
- * Las tres variantes de ADR-031, leídas del fuente que las produce.
+ * Las tres variantes de F08/ADR-002, leídas del fuente que las produce.
  *
  * **Qué cubre esto y qué no.** Aquí se comprueba lo que está ESCRITO en
  * `app.config.ts`: la tabla, el valor por defecto, el fallo ante un valor
@@ -44,7 +44,7 @@ const IDENTITY = {
   },
 } as const;
 
-describe('la tabla de variantes es la de ADR-031 §1', () => {
+describe('la tabla de variantes es la de F08/ADR-002 §1', () => {
   it('declara exactamente tres, y ninguna cuarta', () => {
     expect(APP_CONFIG).toMatch(/type VariantName = 'development' \| 'staging' \| 'production';/);
     const declared = APP_CONFIG.match(/^ {2}(development|staging|production): \{$/gm);
@@ -67,7 +67,7 @@ describe('la tabla de variantes es la de ADR-031 §1', () => {
 
   it('no repite ningún esquema, porque el enlace profundo lleva el recovery', () => {
     // Con un esquema compartido el sistema elige ganador, y lo que se estaría
-    // enrutando es un enlace de recuperación de contraseña - ADR-018.
+    // enrutando es un enlace de recuperación de contraseña - F05/ADR-002.
     const schemes = Object.values(IDENTITY).map((one) => one.scheme);
     expect(new Set(schemes).size).toBe(schemes.length);
   });

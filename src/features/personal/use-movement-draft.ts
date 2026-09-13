@@ -58,7 +58,7 @@ export type MovementDraft = {
  * vacío, hoy y la hora de ahora. Presente, la versión vigente que se corrige —
  * y **su importe SÍ es el borrador**, porque corregir parte de lo que había.
  * @param hasCategories si hay catálogo del que elegir. `false` sólo cuando se
- * SABE que no lo hay —sin red y sin copia local (ADR-028 §16)—; entonces el
+ * SABE que no lo hay —sin red y sin copia local (F07/ADR-001 §16)—; entonces el
  * gasto se bloquea con `noCategories` y su explicación. Un ingreso no lo mira.
  */
 export function useMovementDraft(
@@ -87,7 +87,7 @@ export function useMovementDraft(
   /*
    * **La hora se conserva, no se reinventa.** Al corregir se mantiene la de la
    * versión que se corrige: la hora efectiva es un hecho del movimiento
-   * (ADR-020 §3), no del momento en que alguien lo corrige.
+   * (F06/ADR-002 §3), no del momento en que alguien lo corrige.
    */
   const [time] = useState(() => initial?.time ?? currentClockTime());
   const [picking, setPicking] = useState<'date' | null>(null);

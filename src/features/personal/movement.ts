@@ -7,7 +7,7 @@ import { toMinor } from './statistics';
  * obligación de F6.D avisa expresamente:
  *
  *   `balance_amount`   FIRMADO. Lo que la operación mueve en el saldo
- *   `original_amount`  El importe DECLARADO de la versión (ADR-013 §3)
+ *   `original_amount`  El importe DECLARADO de la versión (F03/ADR-010 §3)
  */
 export type PersonalOperation = {
   readonly operation_id: string;
@@ -25,6 +25,32 @@ export type PersonalOperation = {
   readonly previous_version_id: string | null;
   readonly version_no: number;
   readonly operation_created_at: string;
+  /**
+   * EL GRUPO DEL QUE VIENE, cuando la operación es un gasto compartido.
+   *
+   * `null` en todo lo demás. Sin esto la fila sería un gasto de 15,00 € que
+   * nadie recuerda haber hecho: la salida de caja es real y suya, pero el hecho
+   * que la explica ocurrió en otro sitio.
+   */
+  readonly group_scope_id: string | null;
+  readonly group_display_name: string | null;
+  /**
+   * MI PARTE ECONÓMICA de ese gasto, en unidades menores y sin signo.
+   *
+   * **No es lo que salió de la cuenta.** Pagué 15,00 y consumí 5,00; la
+   * diferencia es lo que me deben. Son tres hechos distintos y `AGENTS.md` §2
+   * existe para que no se sustituyan entre sí, así que viajan en tres campos.
+   *
+   * Sale de `sec.is_my_participant` sobre el vínculo real, nunca de dividir el
+   * total ni de suponer que quien registró es quien consumió.
+   */
+  readonly your_share: string | null;
+  /**
+   * LA CONTRAPARTE de un pago registrado en un grupo (F09/ADR-007): a quién pagué
+   * o quién me pagó, por su nombre en ese grupo. `null` en todo lo demás. El
+   * signo de `balance_amount` dice cuál de las dos cosas fue.
+   */
+  readonly payment_counterpart: string | null;
 };
 
 /** Una versión, de `api.personal_operation_version`. */
@@ -61,12 +87,32 @@ export type BalanceObservation = {
  * en dos columnas distintas, y `AGENTS.md` ya registra que confundirlos costó
  * corregir fixtures.
  */
-export type MovementKind = 'income' | 'expense' | 'adjustment';
+export type MovementKind = 'income' | 'expense' | 'adjustment' | 'shared' | 'payment';
 
 export function movementKind(operationClass: string): MovementKind | null {
   if (operationClass === 'personal_income') return 'income';
   if (operationClass === 'personal_expense') return 'expense';
   if (operationClass === 'adjustment') return 'adjustment';
+  /*
+   * EL GASTO COMPARTIDO QUE YO PAGUÉ. Una clase más en la lista, y una clase
+   * que **no se puede tratar como un gasto personal**.
+   *
+   * Aparece aquí porque el ámbito personal del pagador lleva su salida de caja
+   * —el escritor la asienta derivándola de `core.participant_user_link`, nunca
+   * del autor—, así que es dinero suyo que salió y esconderlo dejaría el
+   * Disponible sin explicación. Pero es **la misma operación del grupo vista
+   * desde otro sitio**, no una segunda: su corrección y su anulación pasan por
+   * la frontera del grupo, y `canEdit`/`canAnnul` la dejan fuera a propósito.
+   */
+  if (operationClass === 'group_expense') return 'shared';
+  /*
+   * EL PAGO REGISTRADO EN UN GRUPO (F09/ADR-007): una transferencia hecha fuera de
+   * la app que cerró una obligación. Mueve mi caja —salió si pagué, entró si
+   * cobré— y no es gasto económico ni ingreso: una liquidación no es renta
+   * (AGENTS.md §2). Se puede anular desde aquí, porque su autorización es de
+   * las dos partes, tengan o no membresía; no se edita.
+   */
+  if (operationClass === 'group_payment') return 'payment';
   return null;
 }
 
@@ -89,7 +135,7 @@ export function movementKind(operationClass: string): MovementKind | null {
  */
 export function canAnnul(operation: PersonalOperation): boolean {
   const kind = movementKind(operation.operation_class);
-  return kind === 'income' || kind === 'expense';
+  return kind === 'income' || kind === 'expense' || kind === 'payment';
 }
 
 /**
@@ -97,21 +143,24 @@ export function canAnnul(operation: PersonalOperation): boolean {
  *
  * Existe porque el historial no puede publicar un importe firmado: los efectos
  * de una versión superada están en `core.effect`, que ninguna vista puede leer
- * (ADR-013 §9). Así que la línea tachada del «Editado» sólo tiene
+ * (F03/ADR-010 §9). Así que la línea tachada del «Editado» sólo tiene
  * `original_amount`, y el signo lo pone aquí.
  *
  * **Es seguro hacerlo por clase** porque todas las versiones de una operación
  * son de la misma clase: lo garantiza la guarda `OPERATION_CLASS_MISMATCH` de
- * ADR-020. Y es comprobable: para la versión vigente el resultado tiene que
+ * F06/ADR-002. Y es comprobable: para la versión vigente el resultado tiene que
  * coincidir EXACTAMENTE con `balance_amount`, que sí viene firmado del
  * servidor. Si algún día dejaran de coincidir, esta función miente.
  */
 export function displayMinor(kind: MovementKind, originalAmount: string): bigint {
   const minor = toMinor(originalAmount);
-  // Un gasto se declara en positivo y se muestra en negativo. Un ingreso y un
-  // ajuste ya vienen con el signo que se muestra —el delta de un ajuste puede
-  // ser negativo, y `core.operation_version` no lo restringe.
-  return kind === 'expense' ? -minor : minor;
+  // Un gasto se declara en positivo y se muestra en negativo, y el compartido
+  // es una salida igual que él. Un ingreso y un ajuste ya vienen con el signo
+  // que se muestra —el delta de un ajuste puede ser negativo, y
+  // `core.operation_version` no lo restringe.
+  // Un pago no tiene versión anterior que tachar (no se edita): su signo
+  // vigente lo trae `balance_amount`, así que aquí va la magnitud declarada.
+  return kind === 'expense' || kind === 'shared' ? -minor : minor;
 }
 
 /**
@@ -142,7 +191,7 @@ export function canEdit(operation: PersonalOperation): boolean {
  * que se declaró y `balance_amount` es el efecto que el servidor asentó para
  * llegar hasta él, así que su diferencia es lo que había. Las dos cifras
  * pertenecen a la MISMA versión canónica, y el delta lo derivó el servidor
- * **bajo lock y después del CAS** (ADR-022) — no de una lectura que pudiera
+ * **bajo lock y después del CAS** (F06/ADR-004) — no de una lectura que pudiera
  * quedarse vieja.
  *
  * Por eso corresponde al instante de ESE ajuste y no al de ahora. El
@@ -188,8 +237,19 @@ export function amountTone(
   operation: PersonalOperation,
 ): 'text' | 'textSecondary' | 'positive' | 'negative' {
   const kind = movementKind(operation.operation_class);
-  if (kind === 'expense') return 'text';
+  /*
+   * El compartido va como un gasto ordinario: salida de caja, sin rojo. El
+   * rojo de Nomey es de la deuda, y la deuda de este gasto no está en esta
+   * cifra —está en Deudas, con el signo contrario.
+   */
+  if (kind === 'expense' || kind === 'shared') return 'text';
   if (kind === 'income') return 'positive';
+  /*
+   * El pago va como una salida ordinaria si lo hice yo, y como una entrada si
+   * me lo hicieron: no es renta, pero tampoco es deuda —la deuda es lo que
+   * cerró—, así que no lleva el rojo.
+   */
+  if (kind === 'payment') return toMinor(operation.balance_amount) < 0n ? 'text' : 'positive';
 
   if (kind === 'adjustment') {
     /*
@@ -219,7 +279,7 @@ export function isEdited(operation: PersonalOperation): boolean {
 /**
  * Las dos formas del ajuste, y `null` para lo que no es un ajuste.
  *
- * El discriminante es `target_balance`, tal como ADR-022 §1 las define. No se
+ * El discriminante es `target_balance`, tal como F06/ADR-004 §1 las define. No se
  * inventa concepto ni categoría para ninguna de las dos.
  */
 export function adjustmentForm(operation: PersonalOperation): 'target' | 'delta' | null {
@@ -250,7 +310,7 @@ export function compareOperations(a: PersonalOperation, b: PersonalOperation): n
   if (a.effective_date !== b.effective_date) return a.effective_date < b.effective_date ? 1 : -1;
 
   // Nulo va al final, que es lo que `nulls last` hace en el servidor. Un nulo
-  // significa «sin hora registrada» y NUNCA medianoche (ADR-020 §3), así que no
+  // significa «sin hora registrada» y NUNCA medianoche (F06/ADR-002 §3), así que no
   // se sustituye por `00:00` para poder compararlo.
   if (a.effective_time !== b.effective_time) {
     if (a.effective_time === null) return 1;
@@ -279,7 +339,7 @@ export function operationsOfKind(
  *
  * **Una consulta por página, nunca una por fila.** Es la obligación que F6.D
  * dejó escrita, y la razón por la que la lista publica `previous_version_id` en
- * vez de dejar que el cliente reste uno a `version_no` — ADR-011 §11 nunca hizo
+ * vez de dejar que el cliente reste uno a `version_no` — F03/ADR-008 §11 nunca hizo
  * estructural que el predecesor sea la versión anterior.
  */
 export function previousVersionIds(operations: readonly PersonalOperation[]): string[] {

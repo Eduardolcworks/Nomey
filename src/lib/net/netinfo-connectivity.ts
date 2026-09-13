@@ -6,7 +6,7 @@
  * comprobable sin el módulo nativo y para poder afirmar en un test que nadie
  * más lo importa.
  *
- * **NetInfo dispara y suprime; jamás demuestra** (ADR-028 §11). Que haya enlace
+ * **NetInfo dispara y suprime; jamás demuestra** (F07/ADR-001 §11). Que haya enlace
  * no dice nada sobre si Supabase contesta, y por eso la clasificación de una
  * respuesta no lo consulta nunca: sale del transporte o de la frontera.
  *

@@ -1,7 +1,7 @@
 /**
  * El identificador que hace idempotente un comando monetario.
  *
- * ADR-010 lo define como un UUID que **genera el cliente antes del primer
+ * F03/ADR-007 lo define como un UUID que **genera el cliente antes del primer
  * intento** y que el servidor compara por `(actor, client_operation_id)` sobre
  * todas las clases de operación. Aquí sólo se genera; quién lo conserva entre
  * reintentos es de quien construye la intención.

@@ -35,7 +35,7 @@
  * constructor reads the global when it runs.
  *
  * A local shim - defining a `protocol` setter on React Native's `URL.prototype`
- * - was considered and rejected in ADR-017: it would depend on that class's
+ * - was considered and rejected in F05/ADR-001: it would depend on that class's
  * private `_url` field, and it would patch the single member we happened to
  * trip over while leaving the rest of an approximate `URL` underneath a library
  * that keeps using it.

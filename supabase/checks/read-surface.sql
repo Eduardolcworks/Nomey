@@ -155,9 +155,14 @@ begin
   end if;
 
   -- A7 · ADR-008 §1: ningun importe cruza `api` como numero JSON.
+  -- Una excepcion, y nombrada: `group_operation.total_order` es el importe como
+  -- entero SOLO para ordenar y acotar en el servidor (migracion 20260908130000);
+  -- el cliente nunca lo lee como cifra —lee `total_amount`, texto—. Cualquier
+  -- otra columna bigint sigue siendo un fallo.
   select count(*) into v_n
   from information_schema.columns
-  where table_schema = 'api' and data_type = 'bigint';
+  where table_schema = 'api' and data_type = 'bigint'
+    and not (table_name = 'group_operation' and column_name = 'total_order');
   if v_n <> 0 then
     fallos := array_append(fallos, format('A7: %s columnas de api son bigint y se degradarian al parsearse', v_n));
   end if;

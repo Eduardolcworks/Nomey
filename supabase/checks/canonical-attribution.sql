@@ -152,9 +152,14 @@ begin
 
   -- A9 · BIGINT NO CRUZA `api`. ADR-008 §1: los valores exactos salen como
   -- texto, porque E11 midio que la degradacion la produce JSON.parse.
+  -- Una excepcion, y nombrada: `group_operation.total_order` es el importe como
+  -- entero SOLO para ordenar y acotar en el servidor (migracion 20260908130000);
+  -- el cliente nunca lo lee como cifra —lee `total_amount`, texto—. Cualquier
+  -- otra columna bigint sigue siendo un fallo.
   select count(*) into v_n
   from information_schema.columns
-  where table_schema = 'api' and data_type = 'bigint';
+  where table_schema = 'api' and data_type = 'bigint'
+    and not (table_name = 'group_operation' and column_name = 'total_order');
   if v_n <> 0 then
     fallos := array_append(fallos, format('A9: %s columnas de api son bigint y cruzarian como numero JSON', v_n));
   end if;
@@ -556,16 +561,20 @@ begin
   set local role authenticated;
   perform set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
 
-  -- E1 · A recupera exactamente TRES dimensiones, sin ser miembro de G.
+  -- E1 · A, con vinculo y SIN membresia en G, recupera UNA dimension: su
+  -- cuota economica. La deuda se atribuye por vinculo Y membresia desde
+  -- ADR-034 (migracion 20260911120000 §3): quien no es miembro no lee pares
+  -- del grupo; lo que un pago anulado le reabra llega por la excepcion C6 de
+  -- ADR-038 (sec.my_reopened_debt), que aqui no aplica: no hay pagos.
   select count(*) into v_n from api.claimed_dimension();
-  if v_n <> 3 then
-    fallos := array_append(fallos, format('E1: A recupera %s dimensiones y deberian ser 3', v_n));
+  if v_n <> 1 then
+    fallos := array_append(fallos, format('E1: A sin membresia recupera %s dimensiones y deberia ser 1 (solo la economica; la deuda exige membresia, ADR-034)', v_n));
   end if;
 
   -- E2 · la economica de PA, de la version VIGENTE.
   select amount into v_eco from api.claimed_dimension() where dimension = 'economic';
   if v_eco is distinct from '3000' then
-    fallos := array_append(fallos, format('E2: la economica reclamada es % y deberia ser 3000 (la de V2, no la de V1)', coalesce(v_eco,'NULA')));
+    fallos := array_append(fallos, format('E2: la economica reclamada es %s y deberia ser 3000 (la de V2, no la de V1)', coalesce(v_eco,'NULA')));
   end if;
 
   -- E2b · la de V1 (5000) NO aparece: la proyeccion canonica ya la excluyo.
@@ -573,24 +582,44 @@ begin
     fallos := array_append(fallos, 'E2c: aparece el importe de la version SUPERADA');
   end if;
 
-  -- E3 · deuda como DEUDOR, en negativo.
-  select amount into v_deudor from api.claimed_dimension()
-   where dimension = 'debt' and amount like '-%';
-  if v_deudor is distinct from '-3000' then
-    fallos := array_append(fallos, format('E3: la deuda como deudor es % y deberia ser -3000', coalesce(v_deudor,'NULA')));
+  -- E3/E4 · sin membresia, ninguna deuda: ni como deudor ni como acreedor.
+  if exists (select 1 from api.claimed_dimension() where dimension = 'debt') then
+    fallos := array_append(fallos, 'E3: A sin membresia obtiene deuda del grupo (ADR-034: la deuda exige membresia)');
   end if;
 
-  -- E4 · deuda como ACREEDOR, en positivo.
-  select amount into v_acreedor from api.claimed_dimension()
-   where dimension = 'debt' and amount not like '-%';
-  if v_acreedor is distinct from '1000' then
-    fallos := array_append(fallos, format('E4: la deuda como acreedor es % y deberia ser 1000', coalesce(v_acreedor,'NULA')));
+  -- E3b/E4b · POSITIVO · con membresia, las dos deudas llegan con su signo:
+  -- -3000 como deudor de PA->PB y +1000 como acreedor de PC->PA. Se da y se
+  -- retira aqui mismo para que E6..E9 sigan midiendo el caso sin membresia.
+  reset role;
+  insert into core.membership (scope_id,user_id) values ('a0000000-0000-4000-8000-0000000000f1','11111111-1111-4111-8111-111111111111');
+  set local role authenticated;
+  perform set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
+  select count(*) into v_n from api.claimed_dimension();
+  if v_n <> 3 then
+    fallos := array_append(fallos, format('E3b: A con membresia recupera %s dimensiones y deberian ser 3', v_n));
   end if;
+  select amount into v_deudor from api.claimed_dimension() where dimension = 'debt' and amount like '-%';
+  if v_deudor is distinct from '-3000' then
+    fallos := array_append(fallos, format('E3c: la deuda como deudor es %s y deberia ser -3000', coalesce(v_deudor,'NULA')));
+  end if;
+  select amount into v_acreedor from api.claimed_dimension() where dimension = 'debt' and amount not like '-%';
+  if v_acreedor is distinct from '1000' then
+    fallos := array_append(fallos, format('E4: la deuda como acreedor es %s y deberia ser 1000', coalesce(v_acreedor,'NULA')));
+  end if;
+  for r in select * from api.claimed_dimension() loop
+    if r.effective_date <> date '2025-03-10' then
+      fallos := array_append(fallos, format('E4b: fecha %s en vez de la efectiva original 2025-03-10', r.effective_date));
+    end if;
+  end loop;
+  reset role;
+  delete from core.membership where scope_id = 'a0000000-0000-4000-8000-0000000000f1' and user_id = '11111111-1111-4111-8111-111111111111';
+  set local role authenticated;
+  perform set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
 
   -- E5 · FECHAS ORIGINALES, pese a que el vinculo se creo hoy.
   for r in select * from api.claimed_dimension() loop
     if r.effective_date <> date '2025-03-10' then
-      fallos := array_append(fallos, format('E5: fecha % en vez de la efectiva original 2025-03-10', r.effective_date));
+      fallos := array_append(fallos, format('E5: fecha %s en vez de la efectiva original 2025-03-10', r.effective_date));
     end if;
   end loop;
 
@@ -653,7 +682,7 @@ begin
   if array_length(fallos, 1) is not null then
     raise exception E'FALLOS DEL CLAIM RETROACTIVO:\n  - %', array_to_string(fallos, E'\n  - ');
   end if;
-  raise notice 'OK · E · claim retroactivo sin membresia, con fechas originales y sin fuga en la fila mixta';
+  raise notice 'OK · E · claim retroactivo: la cuota sin membresia, la deuda con ella (ADR-034), fechas originales y sin fuga en la fila mixta';
 end
 $claim$;
 
@@ -732,17 +761,22 @@ begin
      and user_id = '11111111-1111-4111-8111-111111111111';
 
   ----------------------------------------- perder la membresia no borra ----
-  -- B pierde la membresia de G. Su historial reclamado debe SEGUIR ahi: es
-  -- justo lo que la frontera existe para garantizar.
+  -- B pierde la membresia de G. Su CUOTA reclamada debe SEGUIR ahi —es justo
+  -- lo que la frontera existe para garantizar—; sus DEUDAS del grupo dejan de
+  -- leerse por aqui (ADR-034: la deuda exige membresia; lo reabierto por un
+  -- pago anulado llegaria por la excepcion C6 de ADR-038).
   delete from core.membership
    where scope_id = 'a0000000-0000-4000-8000-0000000000f1'
      and user_id = '22222222-2222-4222-8222-222222222222';
 
   set local role authenticated;
   perform set_config('request.jwt.claims','{"sub":"22222222-2222-4222-8222-222222222222"}',true);
-  select count(*) into v_n from api.claimed_dimension();
-  if v_n <> 3 then
-    fallos := array_append(fallos, format('G2: tras perder la membresia B recupera %s dimensiones y deberian seguir siendo 3', v_n));
+  select count(*) into v_n from api.claimed_dimension() where dimension = 'economic';
+  if v_n <> 1 then
+    fallos := array_append(fallos, format('G2: tras perder la membresia B recupera %s cuotas economicas y deberia seguir siendo 1', v_n));
+  end if;
+  if exists (select 1 from api.claimed_dimension() where dimension = 'debt') then
+    fallos := array_append(fallos, 'G2c: tras perder la membresia B sigue leyendo deuda del grupo (ADR-034)');
   end if;
   select count(*) into v_n from api.chk_current
    where scope_id = 'a0000000-0000-4000-8000-0000000000f1';

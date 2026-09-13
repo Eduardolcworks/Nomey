@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  debtDisplay,
-  homeDebt,
-  PERSONAL_DEBT_AMOUNTS,
-} from '../../src/features/personal/debt-display';
+import { debtDisplay, homeDebt } from '../../src/features/personal/debt-display';
 
 /**
  * Una deuda desconocida no es una deuda de cero.
@@ -65,7 +61,7 @@ describe('qué se puede afirmar sobre la deuda', () => {
   });
 
   it('no pierde precisión con importes por encima de 2^53', () => {
-    // ADR-008 §1 hace que los importes crucen como texto justamente para esto.
+    // F03/ADR-005 §1 hace que los importes crucen como texto justamente para esto.
     expect(debtDisplay('9007199254740993')).toEqual({
       kind: 'amount',
       minor: 9007199254740993n,
@@ -98,11 +94,6 @@ describe('la deuda que Inicio resuelve del snapshot', () => {
 
   it('snapshot cargado y colección de deudas vacía → cero CONOCIDO', () => {
     expect(homeDebt({ loaded: true, amounts: [] })).toEqual({ kind: 'amount', minor: 0n });
-    // Y es exactamente el caso del alcance funcional de hoy.
-    expect(homeDebt({ loaded: true, amounts: PERSONAL_DEBT_AMOUNTS })).toEqual({
-      kind: 'amount',
-      minor: 0n,
-    });
   });
 
   it('deuda conocida positiva → importe positivo, y te deben', () => {
@@ -148,9 +139,21 @@ describe('la deuda que Inicio resuelve del snapshot', () => {
     });
   });
 
-  it('la colección del alcance actual está vacía, y por eso el cero es conocido', () => {
-    // Si alguien la rellenara con un valor de relleno, el cero dejaría de ser
-    // derivado y volvería a ser una afirmación.
-    expect(PERSONAL_DEBT_AMOUNTS).toEqual([]);
+  /**
+   * **Esta prueba sustituye a la que fijaba `PERSONAL_DEBT_AMOUNTS`.**
+   *
+   * Aquella comprobaba que la colección constante seguía vacía, y con eso
+   * defendía que el cero de la tarjeta era derivado. Dejó de defenderlo en
+   * cuanto F9 empezó a producir deudas reales: la constante seguía vacía, la
+   * prueba seguía en verde, y la tarjeta afirmaba `0,00 €` sobre deudas vivas.
+   * Era una prueba que fijaba el estado del producto, no una propiedad.
+   *
+   * Lo que sí es propiedad, y es lo que se comprueba ahora: **la colección
+   * vacía significa cero y la ausencia de colección significa desconocido**.
+   * Eso vale con deudas y sin ellas, hoy y en F10.
+   */
+  it('vacío es cero conocido; sin snapshot es desconocido, y nunca al revés', () => {
+    expect(homeDebt({ loaded: true, amounts: [] })).toEqual({ kind: 'amount', minor: 0n });
+    expect(homeDebt({ loaded: false })).toEqual({ kind: 'unknown' });
   });
 });

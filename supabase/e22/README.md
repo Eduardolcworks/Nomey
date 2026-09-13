@@ -58,7 +58,7 @@ leyeron 120,00 y las dos restaron 20,00.
 > serialización, no deduplicación.
 
 Es la razón por la que el delta **no puede calcularlo el cliente**, más allá del
-argumento de ADR-002 §7 de que sería enviar un resultado en vez de una
+argumento de F01/ADR-001 §7 de que sería enviar un resultado en vez de una
 intención.
 
 ## R2 · Dos gastos simultáneos observando su propio resultado
@@ -85,7 +85,7 @@ lado, ambas pueden observar 100,00 y ninguna acertar.
 > convierte toda escritura de saldo en una lectura, y por tanto la que obliga a
 > que **las siete clases que producen saldo** participen en el mismo protocolo.
 > Con solo el ajuste bloqueando, R2 sigue ocurriendo — que es la «serialización
-> parcial» que ADR-013 §11 declara equivalente a no serializar nada.
+> parcial» que F03/ADR-010 §11 declara equivalente a no serializar nada.
 
 ## Un detalle del propio experimento, que costó una repetición
 

@@ -9,7 +9,7 @@ import { newClientOperationId } from '@/lib/id';
  *
  * Misma disciplina que `useRecordMovement`, porque el riesgo es el mismo con el
  * signo cambiado: **la clave de idempotencia se genera antes del primer intento
- * y se conserva** (ADR-010), así que un reintento tras un fallo de red lleva la
+ * y se conserva** (F03/ADR-007), así que un reintento tras un fallo de red lleva la
  * misma clave y la frontera responde `already_processed` en vez de escribir una
  * segunda versión.
  *

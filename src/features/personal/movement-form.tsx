@@ -23,21 +23,21 @@ export type MovementFormScope = {
  * Desde F7.D guardar no envía nada: **persiste** la intención con su clave en
  * SQLite (`useEntryQueue`), y sólo si eso quedó demostrado se cierra la hoja.
  * La proyección de Inicio pinta el movimiento de inmediato y el worker lo envía
- * por detrás; con red o sin ella, la hoja se comporta igual (ADR-028 §1, §8).
+ * por detrás; con red o sin ella, la hoja se comporta igual (F07/ADR-001 §1, §8).
  * Si la base falla, la hoja y el borrador se quedan y se dice: no se intenta
  * una petición directa para salvarlo.
  *
  * **Corregir uno existente es otra pantalla** —`MovementEditor`— y sigue
- * enviando directamente con su CAS: ADR-028 §4 deja las correcciones fuera de
+ * enviando directamente con su CAS: F07/ADR-001 §4 deja las correcciones fuera de
  * la cola. Lo que las dos comparten son las piezas: la composición, los campos
  * y el borrador.
  *
  * **La categoría desaparece cuando la clase es un ingreso; no se desactiva.**
- * Es la consecuencia visual de ADR-027 §3: `category_id` no es un campo
+ * Es la consecuencia visual de F06/ADR-009 §3: `category_id` no es un campo
  * admisible de esa clase y mandarlo se rechaza por FORMA del payload. Un
  * control desactivado describiría un permiso; su ausencia describe el contrato.
  *
- * **Sin red y sin catálogo previo, el gasto se bloquea y se explica** (ADR-028
+ * **Sin red y sin catálogo previo, el gasto se bloquea y se explica** (F07/ADR-001
  * §16): no se inventa una categoría ni se encola un gasto sin ella. El ingreso
  * no se bloquea por eso, porque no la lleva.
  *
@@ -60,7 +60,7 @@ export function MovementForm({
   /**
    * Con qué llega la hoja rellena, cuando se abre desde `Revisar`.
    *
-   * **El importe no viene nunca** (ADR-029 §3): el de la entrada en conflicto
+   * **El importe no viene nunca** (F07/ADR-002 §3): el de la entrada en conflicto
    * pertenece a otra definición monetaria, y traerlo lo convertiría en doce de
    * algo distinto sin que nadie hubiera convertido nada.
    */

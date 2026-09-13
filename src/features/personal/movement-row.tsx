@@ -127,6 +127,11 @@ export function MovementRow({
    * y con el objetivo declarado cuando lo hay. `target_balance` es intención
    * —lo que la persona dijo tener— y por eso puede escribirse en la etiqueta.
    */
+  /*
+   * El pago tampoco tiene concepto: su línea dice a quién se pagó o quién
+   * pagó, por el signo de la caja y la contraparte que el servidor resolvió.
+   */
+  const counterpart = operation.payment_counterpart ?? t('home.sharedPayerUnknown');
   const title =
     form === 'target' && operation.target_balance !== null
       ? t('home.adjustedTo', {
@@ -134,7 +139,11 @@ export function MovementRow({
         })
       : form === 'delta'
         ? t('home.adjustmentManual')
-        : (operation.concept ?? t('home.movement'));
+        : kind === 'payment'
+          ? t(toMinor(operation.balance_amount) < 0n ? 'home.paymentTo' : 'home.paymentFrom', {
+              name: counterpart,
+            })
+          : (operation.concept ?? t('home.movement'));
 
   /*
    * El icono. Un ingreso NO tiene categoria, asi que no hay icono de categoria
@@ -144,7 +153,7 @@ export function MovementRow({
   /*
    * **Los tres van como pareja `{ ios, android }`, no como cadena suelta.** Un
    * nombre a secas es un SF Symbol: fuera de iOS no resuelve y la fila cae en
-   * el recuadro genérico. Es exactamente el defecto que ADR-027 corrigió en las
+   * el recuadro genérico. Es exactamente el defecto que F06/ADR-009 corrigió en las
    * categorías, y estas tres se habían quedado fuera.
    *
    * El ajuste lleva deslizadores —regular una magnitud— y no una flecha: no es
@@ -153,11 +162,13 @@ export function MovementRow({
   const symbol =
     kind === 'adjustment'
       ? { ios: 'slider.horizontal.3', android: 'tune' }
-      : kind === 'income'
-        ? { ios: 'arrow.down.left', android: 'south_west' }
-        : iconKey === null
-          ? { ios: 'arrow.up.right', android: 'north_east' }
-          : categorySymbol(iconKey);
+      : kind === 'payment'
+        ? { ios: 'arrow.left.arrow.right', android: 'swap_horiz' }
+        : kind === 'income'
+          ? { ios: 'arrow.down.left', android: 'south_west' }
+          : iconKey === null
+            ? { ios: 'arrow.up.right', android: 'north_east' }
+            : categorySymbol(iconKey);
 
   /*
    * **Un ingreso no lleva segunda linea, y no deja hueco.** No tiene categoria
@@ -167,10 +178,21 @@ export function MovementRow({
    */
   const categoryLabel = categoryName(category, t);
 
+  /*
+   * **El compartido dice de qué grupo viene, y eso desplaza a la categoría.**
+   *
+   * En una fila hay sitio para una segunda línea, y de las dos cosas que se
+   * podrían decir la que falta es el grupo: sin él, quien mira ve una salida de
+   * 15,00 € que no recuerda haber hecho: la categoría no lo explica y el icono
+   * ya la enseña. La categoría sigue estando —en el grupo, donde el gasto vive
+   * de verdad—.
+   */
   const subtitle =
     kind === 'income' || kind === 'adjustment'
       ? null
-      : (categoryLabel ?? t('home.categoryUnknown'));
+      : kind === 'shared' || kind === 'payment'
+        ? (operation.group_display_name ?? t('home.sharedGroupUnknown'))
+        : (categoryLabel ?? t('home.categoryUnknown'));
 
   /*
    * EL COLOR DE LA CATEGORÍA, y sólo cuando hay categoría que colorear.
@@ -184,7 +206,7 @@ export function MovementRow({
    * clave esta versión no conoce se nombra «desconocida»; darle color sería
    * derivarlo de un identificador que no sabemos leer. Y una retirada del
    * catálogo activo sí se colorea, porque su histórico sigue resolviendo
-   * nombre e icono — que es justo lo que ADR-021 protege.
+   * nombre e icono — que es justo lo que F06/ADR-003 protege.
    *
    * **El color no identifica solo.** El icono y el nombre siguen ahí; esto
    * añade una tercera señal, no sustituye a las otras dos.
@@ -202,8 +224,15 @@ export function MovementRow({
    * igual que el icono y el nombre — que nunca estuvieron tras una prop. Dejarlo
    * opcional hacía representable justamente el defecto que apareció.
    */
+  /*
+   * **El compartido tambien.** Su categoria es real —la del gasto del grupo,
+   * resuelta contra el mismo catalogo por su identificador— y desde que su
+   * cuota entra en las estadisticas, el sector del donut y esta fila tienen
+   * que ser del mismo color por la misma razon que un gasto personal: nadie
+   * los sincroniza, es la misma funcion sobre la misma identidad.
+   */
   const tint =
-    kind === 'expense' && category !== undefined && categoryLabel !== null
+    (kind === 'expense' || kind === 'shared') && category !== undefined && categoryLabel !== null
       ? categoryColour(category.id)
       : null;
 
@@ -295,32 +324,51 @@ export function MovementRow({
           </View>
 
           <View style={styles.amounts}>
-            <View style={styles.currentLine}>
-              <ThemedText variant="amountRow" themeColor={amountTone(operation)} numberOfLines={1}>
-                {format.money(amount, { sign: 'always' })}
-              </ThemedText>
-              {isEdited(operation) ? (
-                // «Editado» es TEXTO, no un color ni un punto: es el refuerzo no
-                // cromático que exige design-direction.md §8, y además es lo que
-                // un lector de pantalla puede anunciar.
-                <ThemedText variant="caption" themeColor="textTertiary">
-                  {t('home.edited')}
-                </ThemedText>
-              ) : null}
-            </View>
+            {/*
+             * LA CIFRA VIGENTE VA SOLA EN SU LÍNEA, pegada al borde derecho —
+             * la misma composición que la fila de un grupo, aprobada allí
+             * primero. «Editado» iba a su izquierda, en la misma fila, y le
+             * robaba el sitio donde se busca la cifra.
+             */}
+            <ThemedText variant="amountRow" themeColor={amountTone(operation)} numberOfLines={1}>
+              {format.money(amount, { sign: 'always' })}
+            </ThemedText>
 
-            {previousShown === null ? null : (
-              <ThemedText
-                variant="caption"
-                themeColor="textDisabled"
-                numberOfLines={1}
-                accessibilityLabel={t('home.previousAmount', {
-                  amount: format.money(previousShown, { sign: 'always' }),
-                })}
-                style={styles.struck}>
-                {format.money(previousShown, { sign: 'always' })}
-              </ThemedText>
-            )}
+            {/*
+             * LA LÍNEA DE ABAJO: lo anterior tachado y «Editado», juntos porque
+             * cuentan lo mismo desde dos ángulos. Con cambio de importe salen
+             * los dos; con una edición que no lo tocó, sólo la palabra. El
+             * criterio de `previousShown` no cambia.
+             *
+             * «Editado» es TEXTO, no un color ni un punto: es el refuerzo no
+             * cromático que exige design-direction.md §8, y además es lo que
+             * un lector de pantalla puede anunciar.
+             */}
+            {isEdited(operation) || previousShown !== null ? (
+              <View style={styles.historyLine}>
+                {previousShown === null ? null : (
+                  <ThemedText
+                    variant="caption"
+                    themeColor="textDisabled"
+                    numberOfLines={1}
+                    accessibilityLabel={t('home.previousAmount', {
+                      amount: format.money(previousShown, { sign: 'always' }),
+                    })}
+                    style={[styles.struck, styles.shrinkable]}>
+                    {format.money(previousShown, { sign: 'always' })}
+                  </ThemedText>
+                )}
+                {isEdited(operation) ? (
+                  <ThemedText
+                    variant="caption"
+                    themeColor="textTertiary"
+                    numberOfLines={1}
+                    style={styles.shrinkable}>
+                    {t('home.edited')}
+                  </ThemedText>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         </Pressable>
 
@@ -333,6 +381,62 @@ export function MovementRow({
             {operation.effective_time === null ? null : (
               <Detail label={t('home.detailTime')} value={operation.effective_time.slice(0, 5)} />
             )}
+
+            {/*
+             * ══════ LAS TRES CIFRAS DE UN GASTO COMPARTIDO, SIN MEZCLARLAS ══════
+             *
+             * `AGENTS.md` §2 lo dice como invariante y aquí es literal: lo que
+             * salió de la cuenta, lo que consumí y lo que me deben son **tres
+             * hechos**, no tres formatos del mismo. La fila cerrada enseña el
+             * primero —es el que mueve el Disponible—; el desplegable añade el
+             * segundo. El tercero no se repite aquí: vive en Deudas y en el
+             * grupo, y decirlo tres veces invitaría a sumarlo dos.
+             *
+             * **«Tu parte» falta cuando no la hay.** Pagar sin participar en el
+             * reparto es legítimo, y entonces la cuota no es cero: no existe.
+             * Un `0,00 €` ahí afirmaría un consumo que nadie tuvo.
+             */}
+            {kind === 'payment' ? (
+              <>
+                <Detail
+                  label={t('home.detailGroup')}
+                  value={operation.group_display_name ?? t('home.sharedGroupUnknown')}
+                />
+                <Detail label={t('home.detailCounterpart')} value={counterpart} />
+                {/* Un pago no se edita (F09/ADR-007): se elimina y se registra otro. */}
+                <ThemedText variant="caption" themeColor="textTertiary">
+                  {t('home.paymentNotEditable')}
+                </ThemedText>
+              </>
+            ) : null}
+            {kind === 'shared' ? (
+              <>
+                <Detail
+                  label={t('home.detailGroup')}
+                  value={operation.group_display_name ?? t('home.sharedGroupUnknown')}
+                />
+                <Detail
+                  label={t('home.detailPaid')}
+                  value={format.money(money(toMinor(operation.original_amount), definition))}
+                />
+                {operation.your_share === null ? null : (
+                  <Detail
+                    label={t('home.detailYourShare')}
+                    value={format.money(money(toMinor(operation.your_share), definition))}
+                  />
+                )}
+                {/*
+                 * **Y se dice por qué no hay botones.** Sin esta línea, un
+                 * desplegable sin lápiz ni papelera parece una pantalla a
+                 * medias; con ella, es una regla: la operación es del grupo y
+                 * se corrige donde vive. `canEdit`/`canAnnul` ya la dejaban
+                 * fuera por clase, así que esto explica lo que ya ocurría.
+                 */}
+                <ThemedText variant="caption" themeColor="textTertiary">
+                  {t('home.sharedManagedInGroup')}
+                </ThemedText>
+              </>
+            ) : null}
             {/*
              * **AQUÍ IBA EL SALDO OBSERVADO, y se ha retirado de la interfaz.**
              *
@@ -343,7 +447,7 @@ export function MovementRow({
              *
              * Y quitar sólo la nota habría sido peor que quitar las dos cosas.
              * La observación se toma en el INSTANTE en que se escribe la versión
-             * (ADR-023 §5), así que desde que se puede corregir un movimiento
+             * (F06/ADR-005 §5), así que desde que se puede corregir un movimiento
              * desde aquí, corregir hoy uno de hace tres meses observa el saldo DE
              * HOY. La nota era lo único que lo advertía: sin ella, la cifra
              * seguiría ahí, etiquetada como el saldo tras aquel movimiento, y
@@ -436,10 +540,17 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 1,
   },
-  currentLine: {
+  /** Importe anterior y «Editado», a la derecha y en fila, como en Grupos. */
+  historyLine: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: Spacing.xs,
+    maxWidth: '100%',
+  },
+  /** Lo que cede cuando no cabe es este texto, nunca la cifra de arriba. */
+  shrinkable: {
+    flexShrink: 1,
   },
   struck: {
     textDecorationLine: 'line-through',

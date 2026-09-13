@@ -35,9 +35,9 @@ El tercer pilar del producto: registrar un gasto ordinario en un recorrido
 que **no duplique dinero jamás**.
 
 La decisión que lo sostiene entera es
-[ADR-028](../adr/ADR-028-offline-command-queue-and-optimistic-projection.md), con
+[F07/ADR-001](../adr/F07/ADR-001-offline-command-queue-and-optimistic-projection.md), con
 dos precisiones posteriores en
-[ADR-029](../adr/ADR-029-incident-labels-and-review-destination.md).
+[F07/ADR-002](../adr/F07/ADR-002-incident-labels-and-review-destination.md).
 
 > **«En el orden de cinco segundos» era el concepto, no un umbral.** El roadmap
 > lo dice desde el cierre: cronometrarlo habría medido el teclado del aparato,
@@ -59,7 +59,7 @@ aplique: si el resultado es desconocido, se reintenta con la misma clave.
 
 `expo-sqlite`, migrada con `PRAGMA user_version`, aislada por actor en **todas**
 las sentencias. La clave de idempotencia se persiste **antes del primer
-intento**, que es lo que [ADR-010](../adr/ADR-010-client-operation-idempotency.md)
+intento**, que es lo que [F03/ADR-007](../adr/F03/ADR-007-client-operation-idempotency.md)
 exigía y no se cumplía.
 
 ### F7.C · El worker
@@ -88,7 +88,7 @@ Tres correcciones de calado salieron de la revisión de este bloque:
   sentencia que `state = 'sending'`, y nunca borrado mientras la entrada vive.
   Una respuesta remota sólo es base si su ventana fue quieta.
 - **Una definición monetaria distinta no borra la fila.** Se pinta con su
-  importe y su moneda, y no entra en ningún agregado (ADR-028 §14).
+  importe y su moneda, y no entra en ningún agregado (F07/ADR-001 §14).
 - **Un refresco fallido no destruye una base válida.** Lo que califica un bloque
   como base es haber salido de una ventana quieta, no que el último intento
   funcionara.
@@ -135,7 +135,7 @@ el mecanismo de `scripts/http-boundary-check.sh`:
   destino: F8.B**, junto con la cuenta de Apple y la firma, y es puerta
   obligatoria antes de F14.
 - **La idempotencia de recurrencias, importaciones y operaciones de backend
-  sigue abierta.** ADR-010 y ADR-028 cerraron **el origen cliente** y nada más.
+  sigue abierta.** F03/ADR-007 y F07/ADR-001 cerraron **el origen cliente** y nada más.
 - **Un drenaje largo retrasa la base.** Cada envío mueve el contador, así que
   con varias entradas encoladas Inicio no incorpora nada del servidor hasta que
   la cola queda quieta. Es la elección conservadora y está medida.
@@ -153,7 +153,7 @@ el mecanismo de `scripts/http-boundary-check.sh`:
   exige App Groups y código nativo, y es de F16.
 - **Notificaciones push.** La campana es una notificación **interna**: no hay
   integración nativa ni permiso que pedir.
-- **Correcciones y anulaciones encoladas.** Siguen fuera de la cola (ADR-028
+- **Correcciones y anulaciones encoladas.** Siguen fuera de la cola (F07/ADR-001
   §4): tienen CAS propio y una corrección encolada podría quedar obsoleta antes
   de drenar.
 - **Conversión monetaria.** Un conflicto se revisa, no se convierte: el FX

@@ -10,7 +10,7 @@ interface RoundingCase extends VectorCase {
 
 const cases = raw.cases as unknown as readonly RoundingCase[];
 
-describe('redondeo half away from zero · ADR-003 T10', () => {
+describe('redondeo half away from zero · F02/ADR-001 T10', () => {
   it.each(cases.map((item) => [title(item), item] as const))('%s', (_name, item) => {
     const result = divideRoundHalfAwayFromZero(
       BigInt(item.given.numerator),

@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
-import { type MessageKey, useTranslation } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n';
 import { IconButton, ThemedText } from '@/ui/components';
 import { Spacing, Symbols } from '@/ui/theme';
 
@@ -19,9 +19,12 @@ const MARK = require('../../../assets/splash/splash-icon.png') as number;
  * leerlas en un rodeo por la barra de pestañas, y rompería una regla que si no
  * se explica en una frase — tu cuenta y tus avisos viven arriba a la derecha.
  *
- * Sólo cambia el lado izquierdo: Inicio lleva la marca, el nombre y la firma,
- * porque es donde la aplicación se presenta; Grupos lleva su título de sección,
- * porque a esas alturas ya se sabe en qué app se está.
+ * **Y el lado izquierdo ya no cambia.** Llevó un título de sección alternativo
+ * para Grupos, y eso hacía dos cabeceras distintas para dos destinos del mismo
+ * nivel: entrar en Grupos borraba la marca y ponía el nombre de la sección en su
+ * sitio. Ahora la marca es la misma en los dos, y el nombre del destino baja a
+ * la fila de contenido —[`ScreenTitle`](./screen-title.tsx)—, que es la misma
+ * que Inicio usa para el saludo. Una composición, no dos.
  *
  * **Y aquí NO va el saludo.** Estuvo en el mismo componente, y con él dentro
  * sólo había dos opciones, las dos malas: o se quedaba todo fijo arriba, o se
@@ -31,7 +34,6 @@ const MARK = require('../../../assets/splash/splash-icon.png') as number;
  * pertenece al contenido de Inicio y sube con él.
  */
 export type AppTopBarProps = {
-  title?: MessageKey;
   /**
    * Whether the bell has something unresolved behind it.
    *
@@ -43,32 +45,28 @@ export type AppTopBarProps = {
   alerts?: boolean;
 };
 
-export function AppTopBar({ title, alerts = false }: AppTopBarProps) {
+export function AppTopBar({ alerts = false }: AppTopBarProps) {
   const { t } = useTranslation();
   const router = useRouter();
 
   return (
     <View style={styles.bar}>
       <View style={styles.row}>
-        {title === undefined ? (
-          <View style={styles.brand}>
-            <Image source={MARK} style={styles.mark} contentFit="contain" />
-            <View>
-              <ThemedText variant="heading">Nomey</ThemedText>
-              {/*
-               * The signature, and deliberately quiet: two roles down from the
-               * wordmark and in tertiary grey, which still measures 6.1:1 on
-               * the ground. It reads as a maker's mark rather than as a second
-               * title competing with the first.
-               */}
-              <ThemedText variant="caption" themeColor="textTertiary" style={styles.signature}>
-                {t('brand.signature')}
-              </ThemedText>
-            </View>
+        <View style={styles.brand}>
+          <Image source={MARK} style={styles.mark} contentFit="contain" />
+          <View>
+            <ThemedText variant="heading">Nomey</ThemedText>
+            {/*
+             * The signature, and deliberately quiet: two roles down from the
+             * wordmark and in tertiary grey, which still measures 6.1:1 on
+             * the ground. It reads as a maker's mark rather than as a second
+             * title competing with the first.
+             */}
+            <ThemedText variant="caption" themeColor="textTertiary" style={styles.signature}>
+              {t('brand.signature')}
+            </ThemedText>
           </View>
-        ) : (
-          <ThemedText variant="title">{t(title)}</ThemedText>
-        )}
+        </View>
 
         <View style={styles.actions}>
           <IconButton

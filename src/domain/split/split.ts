@@ -5,7 +5,7 @@ import { money, sumMoney } from '../money/money';
 import { allocateByLargestRemainder } from './largest-remainder';
 
 /**
- * Métodos de reparto de ADR-002 §5. Se conservan **intención y resultado**: el
+ * Métodos de reparto de F01/ADR-001 §5. Se conservan **intención y resultado**: el
  * método forma parte de la operación, porque un 30/30/30/30 no distingue «a
  * partes iguales entre cuatro» de «cuatro importes fijos», y esa diferencia
  * decide si una corrección posterior recalcula.
@@ -39,7 +39,7 @@ export interface SplitInput {
  * Ver `data-model.md` §5.
  *
  * El total llega **ya convertido** a la moneda del ámbito: convertir una vez y
- * repartir después es lo que garantiza que la suma cuadre (ADR-003 §5).
+ * repartir después es lo que garantiza que la suma cuadre (F02/ADR-001 §5).
  */
 export function splitExpense(input: SplitInput): Share[] {
   const { total, participants, payer, method } = input;
@@ -130,7 +130,7 @@ function allocate(
 
       const declared = method.amounts.reduce((acc, amount) => acc + amount, 0n);
       if (declared !== total.minor) {
-        // Sin corrección silenciosa (ADR-002 §5).
+        // Sin corrección silenciosa (F01/ADR-001 §5).
         fail(
           'SPLIT_EXACT_AMOUNTS_MISMATCH',
           `Los importes declarados suman ${declared.toString()} y el total es ${total.minor.toString()}`,
@@ -144,7 +144,7 @@ function allocate(
 
 /**
  * Prioridad de desempate: el pagador primero, después el orden estable
- * guardado con la operación (ADR-002 §5, pasos 4 y 5).
+ * guardado con la operación (F01/ADR-001 §5, pasos 4 y 5).
  */
 function tieBreakPriority(count: number, payerIndex: number): number[] {
   return Array.from({ length: count }, (_, index) => (index === payerIndex ? -1 : index));

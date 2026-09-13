@@ -16,7 +16,7 @@ export const BLOCKER_HINT: Record<EntryBlocker, MessageKey> = {
    *
    * No dice «elige una categoría», que sería mentira sobre un selector vacío:
    * dice qué hace falta —conectarse una vez— porque una categoría no se
-   * inventa (ADR-028 §16).
+   * inventa (F07/ADR-001 §16).
    */
   noCategories: 'entry.categoriesOffline',
   amountMissing: 'entry.amountHint',

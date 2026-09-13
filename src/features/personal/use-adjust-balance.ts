@@ -11,7 +11,7 @@ export type AdjustStatus = 'idle' | 'saving' | 'failed';
  * Fijar el Disponible, una vez, aunque se pulse dos veces.
  *
  * **Declara el saldo, no la diferencia.** Se manda `target_balance` y el
- * servidor deriva el delta **bajo lock y después del CAS** (ADR-022): es la
+ * servidor deriva el delta **bajo lock y después del CAS** (F06/ADR-004): es la
  * única forma de que la diferencia no salga de una lectura que pudo quedarse
  * vieja entre que se abrió la ventana y se pulsó guardar. El cliente no resta
  * nada, y no debe.
@@ -19,7 +19,7 @@ export type AdjustStatus = 'idle' | 'saving' | 'failed';
  * **La fecha y la hora son las de AHORA.** «Mi saldo debe ser X» es una frase
  * sobre el presente; esta pantalla no reconstruye un saldo histórico y por eso
  * no tiene selector de fecha. Se toman del reloj local y no de UTC, por lo
- * mismo que en el alta: el par fecha+hora es un reloj de pared (ADR-020 §3).
+ * mismo que en el alta: el par fecha+hora es un reloj de pared (F06/ADR-002 §3).
  *
  * **Misma disciplina de idempotencia que el alta y la anulación**: la clave se
  * genera antes del primer intento y se conserva mientras la intención no

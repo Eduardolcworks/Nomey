@@ -23,6 +23,7 @@ export {
   resolveMessageLocale,
 } from './locales';
 export type { MessageKey } from './messages';
+export { pluralCategory, type PluralCategory } from './plural';
 export { translate, type TranslationParams } from './translate';
 export {
   useFormatLocale,

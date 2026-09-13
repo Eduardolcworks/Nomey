@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CATEGORY_CACHE_KEY, parseCategories, rememberCategories } from './category-cache';
 import type { CategoryRow } from './category';
 import { indexCategories } from './category';
+import type { ExpenseShare } from './expense-share';
 import { type DateRange, rangeKey } from './interval';
 import type { BalanceObservation, PersonalOperation, PersonalOperationVersion } from './movement';
 import { indexObservations, indexVersions, previousVersionIds } from './movement';
@@ -10,15 +11,15 @@ import {
   fetchBalance,
   fetchCategories,
   fetchObservations,
+  fetchExpenseShares,
   fetchOperations,
   fetchStatistics,
   fetchVersions,
   PAGE_SIZE,
 } from './personal-service';
-import { isProjecting, readBarrier } from './queue-runtime';
+import { isProjecting, readBarrier, offlineCatalogueCache } from '@/lib/offline';
 import { inQuietWindow, type QuietWindowPorts } from './snapshot-window';
 import type { PersonalStatistics } from './statistics';
-import { offlineCatalogueCache } from '@/lib/offline';
 
 /**
  * Los datos de Inicio, y el plan de consultas que los trae.
@@ -43,7 +44,7 @@ import { offlineCatalogueCache } from '@/lib/offline';
  * duplicados» que hace falta, sin caché.
  *
  * **Y hay una escritura local que no es una consulta**: tras cargar el catálogo
- * se guarda una copia para cuando no haya red (ADR-028 §16). Va **después** de
+ * se guarda una copia para cuando no haya red (F07/ADR-001 §16). Va **después** de
  * pintar, **no se espera** y **no puede fallar hacia fuera**; el servidor sigue
  * siendo la autoridad y esto es auxiliar. `actorId` está aquí por eso: el
  * documento se guarda **por cuenta**, y al cambiar de identidad el efecto vuelve
@@ -65,6 +66,13 @@ export type PersonalHome = {
   readonly operations: readonly PersonalOperation[];
   /** Cuántas hay en el intervalo, que puede ser más de las cargadas. */
   readonly total: number;
+  /**
+   * Mis cuotas de gastos compartidos del intervalo, ENTERAS: las filas que el
+   * total de Gastos suma y que Movimientos recientes —caja— no tiene. Cargadas
+   * en la misma ventana quieta que las estadísticas, así que reconcilian con
+   * ellas por construcción.
+   */
+  readonly shares: readonly ExpenseShare[];
   readonly categories: ReadonlyMap<string, CategoryRow>;
   readonly versions: ReadonlyMap<string, PersonalOperationVersion>;
   readonly observations: ReadonlyMap<string, BalanceObservation>;
@@ -74,7 +82,7 @@ export type PersonalHome = {
   readonly ensureObservations: () => void;
   readonly refresh: () => void;
   /**
-   * `snapshot.seq` de ADR-028 §9, por parte: el valor del contador durable de
+   * `snapshot.seq` de F07/ADR-001 §9, por parte: el valor del contador durable de
    * reconciliación en el instante en que ARRANCÓ la consulta que trajo cada
    * una. El saldo y el bloque del intervalo se piden por separado y el segundo
    * se repite al cambiar de intervalo, así que cada uno lleva el suyo; quien
@@ -94,6 +102,7 @@ type Loaded = {
   readonly statistics: PersonalStatistics | null;
   readonly operations: PersonalOperation[];
   readonly total: number;
+  readonly shares: readonly ExpenseShare[];
   readonly versions: Map<string, PersonalOperationVersion>;
   readonly seq: number | null;
 };
@@ -123,6 +132,7 @@ function windowPorts(actorId: string): QuietWindowPorts {
 const EMPTY_VERSIONS: ReadonlyMap<string, PersonalOperationVersion> = new Map();
 const EMPTY_OBSERVATIONS: ReadonlyMap<string, BalanceObservation> = new Map();
 const EMPTY_OPERATIONS: readonly PersonalOperation[] = [];
+const EMPTY_SHARES: readonly ExpenseShare[] = [];
 
 export function usePersonalHome(ready: boolean, range: DateRange, actorId: string): PersonalHome {
   const key = rangeKey(range);
@@ -181,7 +191,7 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
     let answered = false;
 
     /*
-     * EL CATÁLOGO GUARDADO, A LA VEZ QUE LA RED (ADR-028 §16). Sin conexión, la
+     * EL CATÁLOGO GUARDADO, A LA VEZ QUE LA RED (F07/ADR-001 §16). Sin conexión, la
      * fila de un gasto local necesita el nombre y el icono de su categoría, y el
      * servidor no va a contestar —o va a tardar mucho en rendirse—. La copia
      * de la última carga completa nombra igual; si la red contesta, manda ella
@@ -202,7 +212,7 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
     void (async () => {
       try {
         /*
-         * ADR-028 §9: the barrier is read BEFORE the query runs and again when
+         * F07/ADR-001 §9: the barrier is read BEFORE the query runs and again when
          * the response lands, to tell whether the window was quiet. If it was
          * not, the BALANCE is not committed — it would be a base nobody can say
          * whether the server already charged — and the attempt is retried. The
@@ -223,7 +233,7 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
          * LA CACHÉ VA DESPUÉS, APARTE, Y NO PUEDE ROMPER NADA.
          *
          * Es la escritura del catálogo que F7.C necesitará para dejar registrar
-         * un gasto sin conexión (ADR-028 §16). Tres cosas la hacen segura:
+         * un gasto sin conexión (F07/ADR-001 §16). Tres cosas la hacen segura:
          *
          * - **Va después de pintar.** La pantalla ya tiene sus categorías, en su
          *   orden y con sus colores; esto no toca `indexCategories` ni lo que se
@@ -284,21 +294,22 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
            * la lista no depende de las estadísticas. Encadenarlas duplicaría la
            * latencia sin ganar nada.
            */
-          const [statistics, page] = await Promise.all([
+          const [statistics, page, shares] = await Promise.all([
             fetchStatistics(range),
             fetchOperations(range, 0, PAGE_SIZE),
+            fetchExpenseShares(range),
           ]);
           // Las versiones anteriores SÓLO si alguna fila las tiene, y en UNA
           // consulta para toda la página. Nunca una por fila.
           const versions = indexVersions(await fetchVersions(previousVersionIds(page.rows)));
-          return { statistics, page, versions };
+          return { statistics, page, shares, versions };
         });
         if (cancelled) return;
         if (window.kind !== 'base') {
           supersede(attempt);
           return;
         }
-        const { statistics, page, versions } = window.value;
+        const { statistics, page, shares, versions } = window.value;
 
         // Un refresco parcial o cancelado no llega aquí: sólo el completo fija
         // el snapshot y su `seq`, que es lo único que puede retirar proyecciones.
@@ -307,6 +318,7 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
           statistics,
           operations: page.rows,
           total: page.total,
+          shares,
           versions,
           seq: window.seq,
         });
@@ -395,7 +407,7 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
       } catch {
         // Una observación que no llega no rompe la pantalla: el movimiento se
         // despliega igual y esa línea no se pinta. No es una cifra de la que
-        // dependa nada — es ilustrativa por definición (ADR-023).
+        // dependa nada — es ilustrativa por definición (F06/ADR-005).
         observationsAsked.current = null;
       }
     })();
@@ -414,6 +426,7 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
       statistics: current?.statistics ?? null,
       operations,
       total,
+      shares: current?.shares ?? EMPTY_SHARES,
       categories,
       versions: current?.versions ?? EMPTY_VERSIONS,
       observations: observations?.token === pageToken ? observations.map : EMPTY_OBSERVATIONS,

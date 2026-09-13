@@ -3,7 +3,7 @@ import { fail } from '../errors';
 /**
  * Un tipo de cambio exacto.
  *
- * **No es un `Money`** (ADR-003 §4): es un decimal exacto propio, representado
+ * **No es un `Money`** (F02/ADR-001 §4): es un decimal exacto propio, representado
  * como coeficiente entero sobre una potencia de diez.
  *
  *     0,862034781245  ->  { coefficient: 862034781245n, scale: 12 }
@@ -52,7 +52,7 @@ export function exchangeRateFromStrings(coefficient: string, scale: number): Exc
 /**
  * La cota máxima admitida para la escala **no se valida aquí**.
  *
- * ADR-003 §4 exige que exista una cota declarada pero deja su número al diseño
+ * F02/ADR-001 §4 exige que exista una cota declarada pero deja su número al diseño
  * del esquema. Validarla es una responsabilidad de la persistencia, no de la
  * aritmética.
  */

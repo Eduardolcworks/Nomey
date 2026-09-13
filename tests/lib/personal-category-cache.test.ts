@@ -28,7 +28,7 @@ describe('ida y vuelta', () => {
   it('conserva las filas tal cual, incluidas las dadas de baja', () => {
     /*
      * Las retiradas se guardan a propósito: un gasto de hace un año usó
-     * Suministros y hay que saber nombrarlo (ADR-021 §7). Quien pinta el
+     * Suministros y hay que saber nombrarlo (F06/ADR-003 §7). Quien pinta el
      * selector es quien las filtra, no quien las guarda.
      */
     expect(parseCategories(serializeCategories(ROWS))).toEqual(ROWS);

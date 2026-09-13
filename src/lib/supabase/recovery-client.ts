@@ -41,7 +41,7 @@
  *   `PASSWORD_RECOVERY`, `USER_UPDATED` and `SIGNED_OUT` cannot reach the
  *   session provider at all.
  *
- * ADR-017 is untouched and still governs the ordinary session. This is not an
+ * F05/ADR-001 is untouched and still governs the ordinary session. This is not an
  * exception to it: nothing here is persisted, so there is nothing for a
  * persistence policy to have an opinion about.
  */

@@ -4,7 +4,7 @@ import {
   publishQueueChange,
   queueListenerCount,
   subscribeQueueChanges,
-} from '../../src/features/personal/queue-events';
+} from '../../src/lib/offline/queue-events';
 
 describe('los cambios de la cola se anuncian sin transportar contenido', () => {
   it('entrega a cada oyente y deja de hacerlo al cancelar', () => {

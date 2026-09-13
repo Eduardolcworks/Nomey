@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableMethods,
@@ -7,7 +7,7 @@ import Animated, { type SharedValue, useAnimatedStyle } from 'react-native-reani
 
 import { Icon } from './icon';
 import { DELETE_ACTION_SIZE, DELETE_ACTION_WIDTH, deleteActionOffset } from './swipe-geometry';
-import { Radius, Symbols, useTheme } from '@/ui/theme';
+import { type PlatformSymbol, Radius, Symbols, useTheme } from '@/ui/theme';
 
 /**
  * Una fila que descubre una acción destructiva al deslizarla hacia la
@@ -50,6 +50,18 @@ import { Radius, Symbols, useTheme } from '@/ui/theme';
  * así que quien lo use recibe la misma acción por otro camino: esta pieza no lo
  * resuelve —no sabe qué envuelve— pero lo exige de quien la usa, con
  * `accessibilityActions` sobre la fila.
+ *
+ * **SÓLO UNA FILA QUEDA ABIERTA A LA VEZ.** Abrir una cierra la anterior, esté
+ * en la lista que esté: dos controles rojos descubiertos a la vez son dos
+ * formas de tocar el que no era. La coordinación es un registro de módulo
+ * —la abierta, y nada más— y no un contexto, porque no hay nada que
+ * proveer: la fila que se abre avisa, y la que estaba abierta se cierra.
+ *
+ * **La acción no siempre es una papelera.** El icono llega como prop, con la
+ * papelera por defecto; salir de un grupo descubre el mismo control rojo con
+ * el símbolo de salida. El tratamiento —rojo, cuadrado, con confirmación
+ * después— es el mismo, porque lo que lo justifica es el mismo: una acción
+ * destructiva que no se ejecuta por deslizar.
  */
 export type SwipeToDeleteProps = {
   /** El texto de la acción. Llega como prop: `ui/` no lee el catálogo. */
@@ -64,11 +76,45 @@ export type SwipeToDeleteProps = {
   readonly enabled: boolean;
   /** Mientras se está eliminando, el control no vuelve a dispararse. */
   readonly busy?: boolean;
+  /** El símbolo del control. La papelera si no se dice otra cosa. */
+  readonly icon?: PlatformSymbol;
   readonly children: React.ReactNode;
 };
 
-export function SwipeToDelete({ label, onDelete, enabled, busy, children }: SwipeToDeleteProps) {
+/**
+ * LA FILA ABIERTA, si hay alguna. Un registro de módulo: la que se abre se
+ * anota y cierra a la anterior; la que se cierra o se desmonta se borra si
+ * era ella. Nunca hay dos.
+ */
+let openSwipeable: SwipeableMethods | null = null;
+
+function noteOpen(next: SwipeableMethods): void {
+  if (openSwipeable !== null && openSwipeable !== next) openSwipeable.close();
+  openSwipeable = next;
+}
+
+function noteClosed(one: SwipeableMethods): void {
+  if (openSwipeable === one) openSwipeable = null;
+}
+
+export function SwipeToDelete({
+  label,
+  onDelete,
+  enabled,
+  busy,
+  icon = Symbols.delete,
+  children,
+}: SwipeToDeleteProps) {
   const swipeable = useRef<SwipeableMethods>(null);
+
+  // Al desmontarse abierta —la fila desaparece tras eliminarla, o la lista se
+  // rehace— deja de ser «la abierta»: si no, cerraría a un fantasma.
+  useEffect(
+    () => () => {
+      if (swipeable.current !== null) noteClosed(swipeable.current);
+    },
+    [],
+  );
 
   if (!enabled) return <>{children}</>;
 
@@ -82,10 +128,17 @@ export function SwipeToDelete({ label, onDelete, enabled, busy, children }: Swip
       // Sin rebasar la posición abierta: el control queda del tamaño que es, y
       // el gesto no se acerca al borde de la pantalla.
       overshootRight={false}
+      onSwipeableWillOpen={() => {
+        if (swipeable.current !== null) noteOpen(swipeable.current);
+      }}
+      onSwipeableClose={() => {
+        if (swipeable.current !== null) noteClosed(swipeable.current);
+      }}
       renderRightActions={(_progress, drag) => (
         <DeleteAction
           drag={drag}
           label={label}
+          icon={icon}
           busy={busy}
           onPress={() => {
             // Se cierra ANTES de avisar. Si no, la fila se queda abierta
@@ -109,11 +162,13 @@ export function SwipeToDelete({ label, onDelete, enabled, busy, children }: Swip
 function DeleteAction({
   drag,
   label,
+  icon,
   busy,
   onPress,
 }: {
   readonly drag: SharedValue<number>;
   readonly label: string;
+  readonly icon: PlatformSymbol;
   readonly busy?: boolean;
   readonly onPress: () => void;
 }) {
@@ -160,7 +215,7 @@ function DeleteAction({
               styles.surface,
               { backgroundColor: theme.negative, opacity: pressed || busy === true ? 0.7 : 1 },
             ]}>
-            <Icon name={Symbols.delete} size={20} colour={theme.background} />
+            <Icon name={icon} size={20} colour={theme.background} />
           </View>
         )}
       </Pressable>

@@ -44,7 +44,27 @@ export type ActionButtonProps = {
    * ninguno de los dos casos.
    */
   material?: 'control';
+  /**
+   * La indicación accesible, cuando la etiqueta no basta.
+   *
+   * El sistema la anuncia DESPUÉS del nombre y tras una pausa, así que dice
+   * para qué sirve el botón —o por qué no está disponible— sin alargar el
+   * nombre. Opcional: la mayoría de acciones se explican con su etiqueta.
+   */
+  hint?: string;
   style?: ViewStyle;
+  /**
+   * `compact`: el mismo oblongo —materiales, tono, radio— en un cuerpo más
+   * bajo, para vivir dentro de una fila junto a una cifra. Lo que se ve mide
+   * 32; lo que se toca sigue siendo 44, por `hitSlop`.
+   */
+  size?: 'regular' | 'compact';
+  /**
+   * Un botón que despliega o pliega algo: se anuncia con
+   * `accessibilityState.expanded`, para que quien no ve la pantalla sepa en
+   * qué estado está. Sin él, el botón es una acción y no un conmutador.
+   */
+  expanded?: boolean;
 };
 
 /**
@@ -71,7 +91,10 @@ export function ActionButton({
   disabled = false,
   busy = false,
   material,
+  hint,
   style,
+  size = 'regular',
+  expanded,
 }: ActionButtonProps) {
   const theme = useTheme();
   const brand = tone === 'brand';
@@ -82,9 +105,11 @@ export function ActionButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled, busy }}
+      accessibilityHint={hint}
+      accessibilityState={{ disabled, busy, expanded }}
       disabled={disabled}
       onPress={onPress}
+      hitSlop={size === 'compact' ? COMPACT_HIT_SLOP : undefined}
       style={({ pressed }) => {
         /*
          * El estado táctil, resuelto UNA vez. Lo leen el fondo de la vista y la
@@ -101,6 +126,7 @@ export function ActionButton({
            */
           return [
             styles.button,
+            size === 'compact' ? styles.compact : null,
             {
               backgroundColor: pressed ? theme.accentPressed : theme.accent,
               borderColor: 'transparent',
@@ -112,6 +138,7 @@ export function ActionButton({
 
         return [
           styles.button,
+          size === 'compact' ? styles.compact : null,
           {
             backgroundColor: pressed
               ? theme.surfaceSunken
@@ -148,8 +175,9 @@ export function ActionButton({
             <DepthLayer state={estado(pressed, primary)} radius={Radius.full} />
           )}
           <ThemedText
-            variant="label"
-            themeColor={disabled ? 'textDisabled' : brand ? 'onAccent' : 'text'}>
+            variant={size === 'compact' ? 'caption' : 'label'}
+            themeColor={disabled ? 'textDisabled' : brand ? 'onAccent' : 'text'}
+            numberOfLines={1}>
             {label}
           </ThemedText>
         </>
@@ -169,6 +197,9 @@ function estado(pressed: boolean, primary: boolean): TactileState {
   return primary ? 'selected' : 'raised';
 }
 
+/** Lo que le falta a 32 de alto para tocarse como 44. */
+const COMPACT_HIT_SLOP = { top: 6, bottom: 6, left: 4, right: 4 };
+
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
@@ -177,5 +208,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: Radius.full,
+  },
+  /** El cuerpo compacto: más bajo y más estrecho; nada más cambia. */
+  compact: {
+    minHeight: 32,
+    paddingHorizontal: Spacing.md,
+    flexShrink: 0,
   },
 });

@@ -16,17 +16,17 @@ import { offlineCatalogueCache } from '@/lib/offline';
  * `api.category` publica también las dadas de baja, y con razón: el histórico
  * necesita resolver el nombre y el icono de una categoría retirada. Quien
  * filtra por `is_active` es la superficie que pinta un selector, nunca la vista
- * ni la RLS (ADR-021 §7) — filtrar allí haría imposible lo primero.
+ * ni la RLS (F06/ADR-003 §7) — filtrar allí haría imposible lo primero.
  *
  * Ofrecer una retirada aquí terminaría en `CATEGORY_NOT_USABLE · 422` con el
  * formulario ya relleno, que es un error de contrato disfrazado de error de la
  * persona.
  *
  * **Sin red, el respaldo es el catálogo guardado en la última carga completa**
- * (ADR-028 §16), filtrado igual. Y si tampoco lo hay —nunca se cargó en este
+ * (F07/ADR-001 §16), filtrado igual. Y si tampoco lo hay —nunca se cargó en este
  * aparato— no se inventa ninguna categoría: `unavailable` se pone a `true`,
  * `blockerFor` bloquea el gasto con `noCategories` y la hoja explica qué hace
- * falta. Un ingreso no mira esto, porque no lleva categoría (ADR-027 §3).
+ * falta. Un ingreso no mira esto, porque no lleva categoría (F06/ADR-009 §3).
  */
 export type EntryCategories = {
   readonly rows: readonly CategoryRow[];
@@ -49,7 +49,7 @@ async function cachedCategories(actorId: string): Promise<CachedCategory[] | nul
 
 /**
  * @param actorId el `sub` de la sesión, o cadena vacía si no hay. El catálogo
- * cacheado está aislado por cuenta (ADR-028 §13), y sin actor no se lee.
+ * cacheado está aislado por cuenta (F07/ADR-001 §13), y sin actor no se lee.
  */
 export function useEntryCategories(actorId: string): EntryCategories {
   const [state, setState] = useState<EntryCategories>(LOADING);
@@ -88,7 +88,7 @@ export function useEntryCategories(actorId: string): EntryCategories {
  *
  * `useEntryCategories` filtra por `is_active` porque pinta un selector, y
  * ofrecer una categoría retirada acabaría en `CATEGORY_NOT_USABLE · 422`. Pero
- * **nombrar es lo contrario**: ADR-021 §7 conserva las retiradas justamente
+ * **nombrar es lo contrario**: F06/ADR-003 §7 conserva las retiradas justamente
  * para que el histórico sepa decir cómo se llamaban, y un gasto de hace un año
  * quedaría sin nombre si se filtrasen aquí.
  *
@@ -96,7 +96,7 @@ export function useEntryCategories(actorId: string): EntryCategories {
  * dar de baja decía «en sin categoría» en lugar de su nombre. Es el mismo
  * catálogo sin filtrar que la lista de movimientos usa desde F6.D.
  *
- * Con el respaldo local detrás, así que sin red también nombra (ADR-028 §16).
+ * Con el respaldo local detrás, así que sin red también nombra (F07/ADR-001 §16).
  */
 export function useCategoryNames(actorId: string): ReadonlyMap<string, CategoryRow> {
   const [rows, setRows] = useState<readonly CategoryRow[]>([]);

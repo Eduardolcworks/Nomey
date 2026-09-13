@@ -1,7 +1,15 @@
 import { GlassView } from 'expo-glass-effect';
 import { StyleSheet, View, type BoxShadowValue } from 'react-native';
 
-import { Glass, innerShading, Radius, RimBlur, Tactile, type TactileState } from '@/ui/theme';
+import {
+  Glass,
+  innerHalf,
+  innerShading,
+  Radius,
+  RimBlur,
+  Tactile,
+  type TactileState,
+} from '@/ui/theme';
 
 import type { GlassRim, GlassSurfaceProps } from './glass-surface-props';
 import { useNativeGlass } from './use-native-glass';
@@ -54,6 +62,7 @@ export function GlassSurface({
   radius = Radius.lg,
   nativeEffect = true,
   castsShadow = true,
+  lens = 'full',
   clip = false,
   // Deshabilitado se dice aquí con la opacidad de quien llama, como siempre.
   // Sólo Android lo mira, y por eso este parámetro se recoge y no se usa.
@@ -85,7 +94,7 @@ export function GlassSurface({
       boxShadow: [
         ...rimShadow(rim, token.highlight),
         ...depthShadow(depth, castsShadow),
-        ...(token.lens ?? []),
+        ...lensShadow(token.lens, lens),
       ],
       ...(clip ? { overflow: 'hidden' as const } : {}),
     },
@@ -110,6 +119,21 @@ export function GlassSurface({
       {children}
     </GlassView>
   );
+}
+
+/**
+ * La lente del material, entera o sólo por dentro.
+ *
+ * El mismo filtro que separa las dos mitades de un estado táctil, aplicado a la
+ * otra lista que las mezcla. Es un reparto, nunca un segundo juego de números:
+ * el halo que se deja fuera es exactamente la capa que ya estaba escrita.
+ */
+function lensShadow(
+  layers: readonly BoxShadowValue[] | undefined,
+  mode: 'full' | 'inner',
+): readonly BoxShadowValue[] {
+  if (layers === undefined) return [];
+  return mode === 'full' ? layers : innerHalf(layers);
 }
 
 /**

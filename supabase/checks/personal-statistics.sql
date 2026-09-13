@@ -633,6 +633,105 @@ begin
 end
 $g$;
 
+
+-- ====== M · MI CUOTA DE UN GASTO COMPARTIDO CUENTA UNA VEZ, EN SU CATEGORIA ==
+--
+-- Pago 20,00 entre dos: consumo 10,00. Ni los 20,00 de caja ni los 10,00 de
+-- deuda entran; y si paga OTRO y yo participo, mi cuota entra igual. El
+-- desglose sigue sumando exactamente el total, con correccion y anulacion.
+do $m$
+declare
+  fallos text[] := '{}';
+  v_eur  uuid := '830e6f7e-2e33-564e-9ea3-f6c2023af1fe';
+  v_ua   uuid := 'da000000-0000-4000-8000-000000000001';
+  v_g    uuid := 'db000000-0000-4000-8000-000000000010';
+  v_pa   uuid := 'db000000-0000-4000-8000-0000000000f1';
+  v_p1   uuid := 'dd000000-0000-4000-8000-000000000031';
+  v_p2   uuid := 'dd000000-0000-4000-8000-000000000032';
+  v_cat  uuid;
+  v_out  jsonb;
+  v_st   jsonb;
+  v_op   uuid;
+  v_ver  uuid;
+  v_suma bigint;
+begin
+  perform set_config('role', 'postgres', true);
+  select id into v_cat from core.category where message_key = 'category.expense.dining' and owner_user_id is null;
+  insert into core.scope (id, kind, base_currency_definition_id, owner_user_id) values (v_pa, 'personal', v_eur, v_ua);
+  insert into core.membership (scope_id, user_id) values (v_pa, v_ua);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_ua::text)::text, true);
+  perform set_config('role', 'authenticated', true);
+  perform api.create_group(jsonb_build_object(
+    'client_command_id', 'dc000000-0000-4000-8000-000000000020'::uuid, 'command_contract_version', 1,
+    'client_group_id', v_g, 'display_name', 'Cena M', 'emoji', 'GRP', 'currency_definition_id', v_eur,
+    'creator_participant_id', v_p1, 'creator_display_name', 'Edu',
+    'participants', jsonb_build_array(jsonb_build_object('client_participant_id', v_p2, 'display_name', 'Ana'))));
+
+  -- M1 · pago yo 20,00 entre dos: mi consumo es 10,00 y solo 10,00
+  v_out := api.record_group_expense(jsonb_build_object(
+    'client_operation_id', 'de000000-0000-4000-8000-000000000041'::uuid, 'command_contract_version', 1,
+    'scope_id', v_g, 'currency_definition_id', v_eur, 'total', '2000',
+    'effective_date', current_date::text, 'concept', 'Cena', 'category_id', v_cat,
+    'payer_participant_id', v_p1, 'participants', jsonb_build_array(v_p1, v_p2),
+    'split_method', jsonb_build_object('kind', 'equal')));
+  v_op := (v_out ->> 'operation_id')::uuid;
+  v_st := api.personal_statistics(null, null);
+  if (v_st ->> 'expense_total') <> '1000' then fallos := array_append(fallos, 'M1 expense_total ' || (v_st ->> 'expense_total') || ' y no 1000'); end if;
+  if (select c ->> 'expense_total' from jsonb_array_elements(v_st -> 'categories') c where (c ->> 'category_id')::uuid = v_cat) <> '1000' then
+    fallos := array_append(fallos, 'M1b la categoria no lleva 1000'); end if;
+
+  -- M2 · paga OTRO 40,00 entre dos: mi cuota (20,00) entra igual, sin caja mia
+  perform api.record_group_expense(jsonb_build_object(
+    'client_operation_id', 'de000000-0000-4000-8000-000000000042'::uuid, 'command_contract_version', 1,
+    'scope_id', v_g, 'currency_definition_id', v_eur, 'total', '4000',
+    'effective_date', current_date::text, 'concept', 'Paga Ana', 'category_id', v_cat,
+    'payer_participant_id', v_p2, 'participants', jsonb_build_array(v_p1, v_p2),
+    'split_method', jsonb_build_object('kind', 'equal')));
+  v_st := api.personal_statistics(null, null);
+  if (v_st ->> 'expense_total') <> '3000' then fallos := array_append(fallos, 'M2 expense_total ' || (v_st ->> 'expense_total') || ' y no 3000'); end if;
+  if (select balance_amount from api.personal_balance) <> '-2000' then fallos := array_append(fallos, 'M2b la caja se movio por un gasto que pago otro'); end if;
+
+  -- M3 · el desglose suma EXACTAMENTE el total, con las dos fuentes mezcladas
+  select sum((c ->> 'expense_total')::bigint) into v_suma from jsonb_array_elements(v_st -> 'categories') c;
+  if v_suma <> (v_st ->> 'expense_total')::bigint then fallos := array_append(fallos, 'M3 desglose ' || v_suma || ' <> total'); end if;
+
+  -- M4 · corregir el primero a 30,00 -> mi cuota 15,00; total 3500
+  perform set_config('role', 'postgres', true);
+  select current_version_id into v_ver from core.operation where id = v_op;
+  perform set_config('role', 'authenticated', true);
+  perform api.record_group_expense(jsonb_build_object(
+    'client_operation_id', 'de000000-0000-4000-8000-000000000043'::uuid, 'command_contract_version', 1,
+    'operation_id', v_op, 'expected_version_id', v_ver,
+    'scope_id', v_g, 'currency_definition_id', v_eur, 'total', '3000',
+    'effective_date', current_date::text, 'concept', 'Cena', 'category_id', v_cat,
+    'payer_participant_id', v_p1, 'participants', jsonb_build_array(v_p1, v_p2),
+    'split_method', jsonb_build_object('kind', 'equal')));
+  v_st := api.personal_statistics(null, null);
+  if (v_st ->> 'expense_total') <> '3500' then fallos := array_append(fallos, 'M4 tras corregir ' || (v_st ->> 'expense_total') || ' y no 3500'); end if;
+
+  -- M5 · anular el primero -> solo queda mi cuota del que pago Ana: 2000
+  perform set_config('role', 'postgres', true);
+  select current_version_id into v_ver from core.operation where id = v_op;
+  perform set_config('role', 'authenticated', true);
+  perform api.annul_operation(jsonb_build_object(
+    'client_operation_id', 'de000000-0000-4000-8000-000000000044'::uuid, 'command_contract_version', 2,
+    'operation_id', v_op, 'expected_version_id', v_ver));
+  v_st := api.personal_statistics(null, null);
+  if (v_st ->> 'expense_total') <> '2000' then fallos := array_append(fallos, 'M5 tras anular ' || (v_st ->> 'expense_total') || ' y no 2000'); end if;
+  select sum((c ->> 'expense_total')::bigint) into v_suma from jsonb_array_elements(v_st -> 'categories') c;
+  if v_suma <> 2000 then fallos := array_append(fallos, 'M5b desglose ' || v_suma); end if;
+
+  -- M6 · fuera del intervalo, nada
+  v_st := api.personal_statistics((current_date + 1)::date, (current_date + 2)::date);
+  if (v_st ->> 'expense_total') <> '0' then fallos := array_append(fallos, 'M6 el intervalo no acota la cuota'); end if;
+
+  if array_length(fallos, 1) is not null then
+    raise exception E'M · cuota compartida en estadisticas:\n%', array_to_string(fallos, E'\n');
+  end if;
+  raise notice 'OK · M · mi cuota de un gasto compartido cuenta una vez, en su categoria, pague quien pague';
+end
+$m$;
+
 rollback;
 
 \echo 'personal-statistics: OK'

@@ -1,7 +1,7 @@
 /**
  * AN INCIDENT IS A TERMINAL QUEUE ENTRY, READ OUT LOUD.
  *
- * ADR-028 §15 settled where these live: **the queue's own terminal state is the
+ * F07/ADR-001 §15 settled where these live: **the queue's own terminal state is the
  * durable source**, with no second store, no counter and no badge on the list —
  * the bell is the only entrance. So this module stores nothing. It turns an
  * entry the worker already parked into the two things a person needs: a
@@ -25,7 +25,7 @@
  *                                                   [ Revisar ]  [ Descartar ]
  *
  * The affirmative label is `Sí` and not `Reintentar`
- * ([ADR-029](../../../docs/adr/ADR-029-incident-labels-and-review-destination.md)):
+ * ([F07/ADR-002](../../../docs/adr/F07/ADR-002-incident-labels-and-review-destination.md)):
  * the sentence already asks a question, so the buttons answer it, and
  * "retry" belonged to the vocabulary §15 forbids while describing something the
  * app does not do — nothing is retried, a new intention is created.
@@ -34,6 +34,7 @@
  * exist, and a new key over an operation that might exist is duplicated money.
  */
 
+import { personalPayloadOf } from '@/lib/offline/command';
 import { newQueueEntry, type QueueEntry } from '@/lib/offline/queue-entry';
 import type { MessageKey } from '@/lib/i18n';
 
@@ -41,7 +42,7 @@ import type { MessageKey } from '@/lib/i18n';
 export type IncidentForm = 'ordinary' | 'exceptional';
 
 /**
- * Where `Revisar` goes, per ADR-029 §2. One visible label, two destinations,
+ * Where `Revisar` goes, per F07/ADR-002 §2. One visible label, two destinations,
  * because the risk is opposite and the distinction stays internal.
  */
 export type ReviewDestination =
@@ -63,7 +64,7 @@ export type Incident = {
   readonly amountMinor: string;
   readonly currencyCode: string;
   readonly currencyScale: number;
-  /** `null` for an income, which has no category (ADR-027). Never invented. */
+  /** `null` for an income, which has no category (F06/ADR-009). Never invented. */
   readonly categoryId: string | null;
   /** What the person wrote. Carried so `Revisar` can prefill without asking again. */
   readonly concept: string | null;
@@ -93,7 +94,7 @@ type Group = {
    * The income sentence when a concept exists.
    *
    * Two incomes of the same amount are otherwise indistinguishable — an income
-   * carries no category (ADR-027), so the concept is the only thing that says
+   * carries no category (F06/ADR-009), so the concept is the only thing that says
    * WHICH one this was. It is the frozen concept of the entry, never rebuilt.
    */
   readonly incomeNamed: MessageKey;
@@ -169,6 +170,11 @@ export function incidentOf(entry: QueueEntry): Incident | null {
   }
   const kind = entry.commandType === 'personal_income.create' ? 'income' : 'expense';
 
+  // Estrechado por el tipo de comando: una creacion de grupo no es un
+  // movimiento y no tiene ninguno de estos campos.
+  const movimiento = personalPayloadOf(entry.commandType, entry.payload);
+  if (movimiento === null) return null;
+
   return {
     clientOperationId: entry.clientOperationId,
     actorId: entry.actorId,
@@ -176,12 +182,12 @@ export function incidentOf(entry: QueueEntry): Incident | null {
     reviewDestination:
       form === 'ordinary' ? null : entry.state === 'conflict' ? 'sheet' : 'movements',
     kind,
-    amountMinor: String(entry.payload.amount),
+    amountMinor: String(movimiento.amount),
     currencyCode: entry.currency.code,
     currencyScale: entry.currency.scale,
-    categoryId: kind === 'expense' ? text(entry.payload.category_id) : null,
-    concept: text(entry.payload.concept),
-    effectiveDate: String(entry.payload.effective_date),
+    categoryId: kind === 'expense' ? text(movimiento.category_id) : null,
+    concept: text(movimiento.concept),
+    effectiveDate: String(movimiento.effective_date),
     createdAt: entry.createdAt,
   };
 }

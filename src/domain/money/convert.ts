@@ -12,7 +12,7 @@ function powerOfTen(exponent: number): bigint {
 /**
  * Convierte un importe a otra definición monetaria.
  *
- * ADR-003 T12: el resultado previo al redondeo se mantiene como **cociente
+ * F02/ADR-001 T12: el resultado previo al redondeo se mantiene como **cociente
  * racional exacto**, y solo al producir las unidades mínimas del destino se
  * aplica el redondeo (T10). **Un único redondeo, al final.**
  *
@@ -34,7 +34,7 @@ export function convert(amount: Money, target: CurrencyDefinition, rate: Exchang
 }
 
 /**
- * El residuo descartado por el redondeo **no genera ningún efecto** (ADR-003
+ * El residuo descartado por el redondeo **no genera ningún efecto** (F02/ADR-001
  * §5). No se expone como valor de dominio a propósito: exponerlo invitaría a
  * compensarlo, y compensarlo sería representar un movimiento que no ocurrió.
  */

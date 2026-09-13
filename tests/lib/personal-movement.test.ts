@@ -4,6 +4,8 @@ import {
   adjustmentForm,
   adjustmentPreviousBalance,
   amountTone,
+  canAnnul,
+  canEdit,
   type BalanceObservation,
   compareOperations,
   displayMinor,
@@ -36,6 +38,10 @@ function operation(overrides: Partial<PersonalOperation> = {}): PersonalOperatio
     previous_version_id: 'v1',
     version_no: 2,
     operation_created_at: '2026-08-29T10:00:00Z',
+    group_scope_id: null,
+    group_display_name: null,
+    your_share: null,
+    payment_counterpart: null,
     ...overrides,
   };
 }
@@ -49,13 +55,73 @@ describe('movementKind', () => {
 
   /**
    * Una clase que esta versión no sabe representar devuelve `null` en vez de
-   * caer en un caso por defecto. Hoy no llega ninguna —la lista blanca de F6.D
-   * lo impide— y cuando F9 amplíe el contrato, quien lo haga tendrá que pasar
-   * por aquí en vez de que aparezca pintada como si fuera un gasto.
+   * caer en un caso por defecto. **La propiedad es esa, y sigue intacta**; lo
+   * que ha cambiado es qué clases se saben representar.
+   *
+   * `group_expense` estaba aquí, y esta prueba avisaba por escrito de que
+   * ampliar el contrato pasaría por este punto. Ha pasado: ahora tiene su
+   * propio tipo —`shared`— en vez de caer en el caso por defecto, que era
+   * exactamente lo que había que evitar.
    */
   it('una clase futura no se disfraza de otra cosa', () => {
     expect(movementKind('internal_transfer')).toBeNull();
-    expect(movementKind('group_expense')).toBeNull();
+    expect(movementKind('debt_settlement')).toBeNull();
+  });
+
+  it('el gasto compartido tiene tipo propio, no el de un gasto personal', () => {
+    expect(movementKind('group_expense')).toBe('shared');
+  });
+});
+
+/**
+ * EL GASTO COMPARTIDO NO SE EDITA NI SE ANULA DESDE PERSONAL.
+ *
+ * **No es una decisión de pantalla: es de qué operación es.** La fila que
+ * Inicio enseña es la MISMA operación del grupo vista desde el ámbito del
+ * pagador, así que corregirla es corregir el gasto compartido —con su reparto,
+ * sus cuotas y sus deudas— y eso pasa por `record_group_expense` con su
+ * `expected_version_id`, nunca por `record_personal_expense`. Ofrecer aquí el
+ * lápiz llevaría a una frontera que no sabe representar ese gasto.
+ *
+ * Se decide por CLASE, que es lo que ya hacían las dos funciones: no hubo que
+ * añadir ninguna condición, y esta prueba fija que sigue siendo así.
+ */
+describe('lo que Personal NO ofrece sobre un gasto compartido', () => {
+  const compartido = operation({
+    operation_class: 'group_expense',
+    concept: 'Cerves',
+    original_amount: '1500',
+    balance_amount: '-1500',
+    group_scope_id: 'scope-grupo',
+    group_display_name: 'Viaje Brasil',
+    your_share: '500',
+  });
+
+  it('ni editar ni eliminar', () => {
+    expect(canEdit(compartido)).toBe(false);
+    expect(canAnnul(compartido)).toBe(false);
+  });
+
+  it('pero un gasto personal sigue ofreciendo las dos', () => {
+    expect(canEdit(operation())).toBe(true);
+    expect(canAnnul(operation())).toBe(true);
+  });
+
+  /**
+   * Los tres importes son TRES HECHOS y no tres formatos de uno.
+   * Pagué 15,00, consumí 5,00, me deben 10,00. La fila enseña el primero
+   * —es el que mueve el Disponible— y el segundo aparte; el tercero vive en
+   * Deudas y no se repite aquí, para que nadie lo sume dos veces.
+   */
+  it('la salida de caja y la parte económica no se confunden', () => {
+    expect(compartido.balance_amount).toBe('-1500');
+    expect(compartido.your_share).toBe('500');
+    expect(displayMinor('shared', compartido.original_amount)).toBe(-1500n);
+  });
+
+  it('y su importe no va en rojo: la salida es una salida, no una deuda', () => {
+    expect(amountTone(compartido)).toBe('text');
+    expect(amountTone(operation())).toBe('text');
   });
 });
 
@@ -139,7 +205,7 @@ describe('displayMinor', () => {
    *
    * El historial no puede publicar un importe firmado: los efectos de una
    * versión superada están en `core.effect`, que ninguna vista puede leer
-   * (ADR-013 §9). Así que la línea tachada se pinta aplicando el signo por
+   * (F03/ADR-010 §9). Así que la línea tachada se pinta aplicando el signo por
    * clase a `original_amount`.
    *
    * Que eso sea correcto se comprueba contra la versión VIGENTE, donde sí
@@ -185,7 +251,7 @@ describe('displayMinor', () => {
 
 describe('isEdited y adjustmentForm', () => {
   /**
-   * El discriminante es `previous_version_id`, no `version_no - 1`: ADR-011 §11
+   * El discriminante es `previous_version_id`, no `version_no - 1`: F03/ADR-008 §11
    * no hizo estructural que el predecesor sea la versión anterior, así que
    * restar uno sería una suposición.
    */
@@ -224,7 +290,7 @@ describe('el orden de la lista', () => {
   /**
    * Nulo va al final, igual que `nulls last` en el servidor. **No se sustituye
    * por `00:00`**: nulo significa «sin hora registrada» y nunca medianoche
-   * (ADR-020 §3), y rellenarlo pondría esos movimientos los primeros del día
+   * (F06/ADR-002 §3), y rellenarlo pondría esos movimientos los primeros del día
    * por accidente.
    */
   it('un movimiento sin hora va después de los que la tienen, no antes', () => {
@@ -245,11 +311,17 @@ describe('el orden de la lista', () => {
       operation_id: 'aaa',
       effective_time: '09:00',
       operation_created_at: '2026-08-29T08:00:00Z',
+      group_scope_id: null,
+      group_display_name: null,
+      your_share: null,
     });
     const b = operation({
       operation_id: 'bbb',
       effective_time: '09:00',
       operation_created_at: '2026-08-29T09:00:00Z',
+      group_scope_id: null,
+      group_display_name: null,
+      your_share: null,
     });
     expect([a, b].sort(compareOperations).map((o) => o.operation_id)).toEqual(['bbb', 'aaa']);
 
@@ -353,7 +425,7 @@ describe('indexVersions', () => {
  *
  * De la propia operación: el objetivo declarado menos el efecto que el
  * servidor asentó para llegar a él. Las dos cifras son de la MISMA versión
- * canónica y el delta se derivó **bajo lock y después del CAS** (ADR-022), así
+ * canónica y el delta se derivó **bajo lock y después del CAS** (F06/ADR-004), así
  * que la resta describe el instante de ESE ajuste — no el de ahora, ni el que
  * enseñe Inicio, ni una observación tomada después.
  */
@@ -400,5 +472,68 @@ describe('adjustmentPreviousBalance', () => {
       adjustmentPreviousBalance(operation({ operation_class: 'personal_expense' })),
     ).toBeNull();
     expect(adjustmentPreviousBalance(operation({ operation_class: 'personal_income' }))).toBeNull();
+  });
+});
+
+/**
+ * PERSONALES Y COMPARTIDOS, EN UN SOLO ORDEN: fecha y hora efectivas, desc.
+ *
+ * El mismo criterio que el servidor —`OPERATION_ORDER`—: la hora ordena dentro
+ * del día, los que no la tienen van al final, y el desempate es estable.
+ * Cena de grupo (21:30) → gasto personal (22:00) → café de grupo (22:15)
+ * registrados en ese orden se leen como café → personal → cena.
+ */
+describe('el orden cronológico mixto', () => {
+  const op = (id: string, cls: string, date: string, time: string | null, created: string) =>
+    operation({
+      operation_id: id,
+      operation_class: cls,
+      effective_date: date,
+      effective_time: time,
+      operation_created_at: created,
+    });
+
+  it('café de grupo → personal → cena de grupo, por hora y no por registro', () => {
+    const cena = op('a', 'group_expense', '2026-09-10', '21:30:00', '2026-09-10T19:31:00Z');
+    const personal = op('b', 'personal_expense', '2026-09-10', '22:00:00', '2026-09-10T20:01:00Z');
+    const cafe = op('c', 'group_expense', '2026-09-10', '22:15:00', '2026-09-10T20:16:00Z');
+    expect([cena, personal, cafe].sort(compareOperations).map((one) => one.operation_id)).toEqual([
+      'c',
+      'b',
+      'a',
+    ]);
+  });
+
+  it('una hora anterior elegida a mano ocupa su sitio aunque se registrara después', () => {
+    const tarde = op('a', 'personal_expense', '2026-09-10', '22:00:00', '2026-09-10T20:00:00Z');
+    const temprano = op('b', 'group_expense', '2026-09-10', '09:00:00', '2026-09-10T21:00:00Z');
+    expect([temprano, tarde].sort(compareOperations).map((one) => one.operation_id)).toEqual([
+      'a',
+      'b',
+    ]);
+  });
+
+  it('el día manda sobre la hora, y un histórico sin hora cierra su día', () => {
+    const ayerTarde = op('a', 'group_expense', '2026-09-09', '23:59:00', '2026-09-09T22:00:00Z');
+    const hoySinHora = op('b', 'group_expense', '2026-09-10', null, '2026-09-10T08:00:00Z');
+    const hoyTemprano = op(
+      'c',
+      'personal_expense',
+      '2026-09-10',
+      '07:00:00',
+      '2026-09-10T05:00:00Z',
+    );
+    expect(
+      [ayerTarde, hoySinHora, hoyTemprano].sort(compareOperations).map((one) => one.operation_id),
+    ).toEqual(['c', 'b', 'a']);
+  });
+
+  it('un empate exacto se desempata por registro y después por identidad, siempre igual', () => {
+    const x = op('x', 'group_expense', '2026-09-10', '12:00:00', '2026-09-10T10:00:00Z');
+    const y = op('y', 'personal_expense', '2026-09-10', '12:00:00', '2026-09-10T10:00:00Z');
+    const uno = [x, y].sort(compareOperations).map((one) => one.operation_id);
+    const otro = [y, x].sort(compareOperations).map((one) => one.operation_id);
+    expect(uno).toEqual(otro);
+    expect(uno).toEqual(['y', 'x']);
   });
 });

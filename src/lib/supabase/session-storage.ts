@@ -4,7 +4,7 @@
  *
  * This file is the only place that names `expo-secure-store`. The auth library
  * above it sees three methods and knows nothing about chunks, manifests or
- * keychain accessibility - ADR-017.
+ * keychain accessibility - F05/ADR-001.
  */
 import * as SecureStore from 'expo-secure-store';
 

@@ -9,7 +9,7 @@ import {
 } from '../../src/lib/offline/backoff';
 
 /**
- * El backoff de ADR-028 §12.
+ * El backoff de F07/ADR-001 §12.
  *
  * Con el RNG inyectado se pueden fijar los DOS extremos en vez de comprobar que
  * el resultado «parece razonable», que es lo que haría un test con

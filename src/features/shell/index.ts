@@ -1,12 +1,13 @@
 export { BlurTarget } from './blur-target';
 export { AddBackdrop, AddBackdropProvider, useAddBackdrop } from './add-backdrop';
 export { AppTopBar, type AppTopBarProps } from './app-top-bar';
-export { DESTINATIONS, type Destination, destinationFor } from './destinations';
+export { DESTINATIONS, type Destination, destinationFor, tabRouteFrom } from './destinations';
 export { DOCK, DOCK_HEIGHT } from './dock';
 export { EditWindow } from './edit-window';
 export { HomeGreeting, type HomeGreetingProps } from './home-greeting';
 export { NomeyDock } from './nomey-tab-bar';
 export { PlaceholderScreen } from './placeholder-screen';
+export { ScreenTitle, type ScreenTitleProps } from './screen-title';
 export { ScopeSwitch } from './scope-switch';
 export {
   INITIAL_SCOPE,
@@ -17,3 +18,4 @@ export {
   SCOPES,
   useScope,
 } from './scope-context';
+export { useQueueRuntime } from './queue-runtime';

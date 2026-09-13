@@ -14,13 +14,13 @@
  *    como primer parámetro, salvo `enqueue`, donde viaja dentro de la propia
  *    entrada — y `replace`, que recibe los dos, comprueba que coincidan.
  *
- * ADR-028 §13 exige que las entradas de una cuenta no sean visibles ni
+ * F07/ADR-001 §13 exige que las entradas de una cuenta no sean visibles ni
  * enviables bajo otra. Un puerto con un «dame todo» dejaría esa garantía a que
  * cada llamante se acuerde; aquí no hay forma de escribir la llamada insegura.
  *
  * Lo que este puerto **no** tiene, a propósito: ninguna operación que modifique
  * la mitad de intención de una entrada. El payload congelado no se edita
- * (ADR-028 §1); lo que existe es crear otra entrada.
+ * (F07/ADR-001 §1); lo que existe es crear otra entrada.
  */
 
 import type { QueueEntry, QueueProgress } from './queue-entry';
@@ -53,7 +53,7 @@ export type QueueStore = {
   /**
    * Escribe la entrada. **Una sola sentencia, y antes de cualquier petición.**
    *
-   * Es la operación que cumple ADR-010 §1: cuando esto vuelve, el
+   * Es la operación que cumple F03/ADR-007 §1: cuando esto vuelve, el
    * `client_operation_id` y el payload están en disco, así que un cierre
    * forzado a partir de aquí no puede producir una intención nueva.
    */
@@ -77,7 +77,7 @@ export type QueueStore = {
   /**
    * Sustituye una entrada por otra, **todo o nada**.
    *
-   * Es la única operación de varias filas de toda la cola (ADR-028 §5), y la
+   * Es la única operación de varias filas de toda la cola (F07/ADR-001 §5), y la
    * usa el `Reintentar` de §15: crear la intención nueva y borrar la rechazada
    * tienen que ocurrir juntas, o quedarían dos entradas del mismo gasto o
    * ninguna.
@@ -104,7 +104,7 @@ export type QueueStore = {
 
   /**
    * El siguiente valor del contador de reconciliación del actor, **avanzándolo
-   * en disco** (ADR-028 §9). Monótono entre reinicios: vive en su propia tabla
+   * en disco** (F07/ADR-001 §9). Monótono entre reinicios: vive en su propia tabla
    * y nunca se deriva de las entradas, que se podan.
    */
   nextConfirmSeq(actorId: string): Promise<number>;
@@ -126,7 +126,7 @@ export type QueueStore = {
   markDispatched(actorId: string, clientOperationId: string, dispatchSeq: number): Promise<void>;
 
   /**
-   * THE READ BARRIER of ADR-028 §9, in one read.
+   * THE READ BARRIER of F07/ADR-001 §9, in one read.
    *
    * `confirmSeq` reconciles — it says which entries the server already had when
    * a query started. The other two decide whether a response may be TRUSTED at

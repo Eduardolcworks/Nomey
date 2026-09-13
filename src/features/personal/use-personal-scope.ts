@@ -37,7 +37,7 @@ import { offlineCatalogueCache } from '@/lib/offline';
  * cuenta, así que el último resultado correcto se guarda por actor y se usa
  * cuando la llamada falla. Sin él, la hoja de alta no sabría dónde cae el
  * movimiento y un arranque en frío sin red no podría pintar las intenciones
- * locales — que es justo lo que ADR-028 §8 exige que se vea. El respaldo es
+ * locales — que es justo lo que F07/ADR-001 §8 exige que se vea. El respaldo es
  * SOLO respaldo: mientras hay red, manda el servidor, y lo que él devuelve es
  * lo que se guarda.
  *
@@ -52,7 +52,7 @@ import { offlineCatalogueCache } from '@/lib/offline';
  * commit—, así que entrar con otra cuenta monta este hook de cero.
  *
  * @param actorId el `sub` de la sesión, o cadena vacía si no hay. El respaldo
- * está aislado por cuenta (ADR-028 §13): sin actor no se lee ni se escribe.
+ * está aislado por cuenta (F07/ADR-001 §13): sin actor no se lee ni se escribe.
  */
 export function usePersonalScope(actorId: string): {
   state: PersonalScopeState;

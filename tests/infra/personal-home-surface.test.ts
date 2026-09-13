@@ -65,7 +65,12 @@ const VENTANA_EDICION = code('features/shell/edit-window.tsx');
  * interior no. La fila del importe, el control de moneda, el aviso y el CTA
  * viven ahora en un solo sitio, y estas guardas lo comprueban ahí.
  */
-const HOJA = code('features/personal/amount-sheet.tsx');
+const HOJA = code('ui/components/amount-sheet.tsx');
+/**
+ * Y el adaptador de Personal: los textos y el patrón regional que la
+ * composición no puede resolver desde `ui/`, porque allí no se lee `lib/`.
+ */
+const ADAPTADOR = code('features/personal/amount-sheet.tsx');
 /*
  * **Corregir un movimiento es su propia pantalla**, no un modo del alta: las
  * dos hacen cosas distintas y comparten las PIEZAS —la composición, los
@@ -79,7 +84,7 @@ const CARD_CODE = code('features/personal/balance-card.tsx');
 describe('de dónde salen las cifras', () => {
   /**
    * **El saldo lo deriva el servidor.** Descargar movimientos para sumarlos es
-   * exactamente lo que ADR-025 existe para evitar, y con `max_rows = 1000`
+   * exactamente lo que F06/ADR-007 existe para evitar, y con `max_rows = 1000`
    * daría además una cifra incompleta que no falla.
    */
   it('el saldo viene de api.personal_balance', () => {
@@ -172,7 +177,7 @@ describe('no hay N+1', () => {
    * cambia al cambiar de intervalo, así que la propiedad que este test protege
    * sigue en pie; lo que sí hace es volver a correr el efecto al cambiar de
    * cuenta, que es exactamente lo que hace falta para que la copia local del
-   * catálogo se guarde bajo la identidad correcta (ADR-028 §13). Y `supersede`
+   * catálogo se guarde bajo la identidad correcta (F07/ADR-001 §13). Y `supersede`
    * entró con F7.D: es estable —`useCallback` sin dependencias— así que tampoco
    * puede disparar el efecto. Lo que **no** puede aparecer aquí es `key` ni
    * `range`.
@@ -379,6 +384,31 @@ describe('estados y accesibilidad', () => {
   });
 
   /**
+   * **La misma composición que la fila de un grupo, aprobada allí primero.**
+   * La cifra vigente va sola en su línea, pegada al borde derecho; debajo, el
+   * importe anterior tachado y «Editado» en fila. «Editado» ya no comparte
+   * línea con la cifra: le robaba el sitio donde se la busca.
+   */
+  it('y «Editado» va debajo de la cifra, con lo anterior tachado, como en Grupos', () => {
+    const fila = file('features/personal/movement-row.tsx');
+    const grupo = file('features/groups/group-movement-row.tsx');
+    expect(fila).not.toContain('currentLine');
+    const cifra = fila.indexOf('variant="amountRow"');
+    const historia = fila.indexOf('<View style={styles.historyLine}>');
+    expect(cifra).toBeGreaterThan(-1);
+    expect(historia).toBeGreaterThan(cifra);
+    expect(fila.slice(historia)).toContain("t('home.edited')");
+    expect(fila.slice(historia)).toContain('style={[styles.struck, styles.shrinkable]}');
+    // El mismo estilo de línea de historia en las dos filas, literal.
+    const estilo = (code: string) =>
+      code.slice(
+        code.indexOf('historyLine: {'),
+        code.indexOf('},', code.indexOf('historyLine: {')),
+      );
+    expect(estilo(fila)).toBe(estilo(grupo));
+  });
+
+  /**
    * **Inicio llega entero hasta las píldoras.**
    *
    * Llevaba un `FadeEdge` de `DOCK_HEIGHT` —128 puntos de bandas hasta el negro
@@ -494,12 +524,19 @@ describe('la tarjeta de Disponible', () => {
    * de otro sistema. La jerarquía la da la cifra, no el fondo.
    */
   it('la tarjeta usa el mismo fondo que las demás y el glass queda para el sub-bloque', () => {
-    // La TARJETA es plana y oscura como Ingresos/Gastos o Categorías. El glass
-    // aparece una sola vez, y dentro: es el sub-bloque de Deudas.
+    // La TARJETA es plana y oscura como Ingresos/Gastos o Categorías.
     expect(CARD).toContain('backgroundColor: homeCardSurface(theme.surface)');
     expect(CARD).toContain('borderColor: theme.border');
-    // Una sola apertura: el glass aparece exactamente una vez, y es el oblongo.
-    expect(CARD.match(/<GlassSurface/g)).toHaveLength(1);
+    /*
+     * El glass sigue apareciendo una sola vez y sigue siendo el oblongo — lo que
+     * cambió en F9 es dónde vive. Grupos necesita exactamente la misma pieza y
+     * las features no se importan entre sí, así que el material se extrajo al
+     * primitivo neutral `AmountPlate`. La tarjeta ya no abre ningún cristal por
+     * su cuenta.
+     */
+    expect(CARD).not.toContain('<GlassSurface');
+    expect(CARD.match(/<AmountPlate/g)).toHaveLength(1);
+    expect(code('ui/components/amount-plate.tsx').match(/<GlassSurface/g)).toHaveLength(1);
   });
 
   /**
@@ -508,13 +545,15 @@ describe('la tarjeta de Disponible', () => {
    * responden, y éste no responde a nada.
    */
   it('la deuda vive en un sub-bloque que contiene y no parece un control', () => {
-    expect(CARD).toContain('depth="flat"');
-    expect(CARD).toContain('radius={Radius.md}');
-    // Ni interactivo ni anunciado como tal.
-    // Sobre el CÓDIGO: el comentario explica que NO lleva `Pressable`.
-    const source = code('features/personal/balance-card.tsx');
-    expect(source).not.toContain('Pressable');
-    expect(source).not.toContain('accessibilityRole');
+    const oblongo = code('ui/components/amount-plate.tsx');
+    expect(oblongo).toContain('depth="flat"');
+    expect(oblongo).toContain('radius={Radius.md}');
+    expect(oblongo).toContain('level="regular"');
+    // Ni interactivo ni anunciado como tal, ni en la tarjeta ni en el primitivo.
+    for (const fuente of [code('features/personal/balance-card.tsx'), oblongo]) {
+      expect(fuente).not.toContain('Pressable');
+      expect(fuente).not.toContain('accessibilityRole');
+    }
   });
 
   /** La etiqueta manda sobre la cifra: va encima, y las dos a la izquierda. */
@@ -533,7 +572,14 @@ describe('la tarjeta de Disponible', () => {
     expect(CARD).toContain("alignItems: 'flex-start'");
     expect(CARD).toContain('const LABEL_ALIGN');
     expect(CARD).toMatch(/paddingTop: LABEL_ALIGN/);
-    expect(CARD).toMatch(/paddingVertical: LABEL_ALIGN/);
+    /*
+     * La compensación sigue valiendo porque el relleno vertical del oblongo no
+     * ha cambiado al mudarse: `LABEL_ALIGN` es `Spacing.sm`, y es exactamente lo
+     * que el primitivo pone en su tamaño `regular`. Si alguien cambiara uno sin
+     * el otro, las dos etiquetas dejarían de leerse a la misma altura.
+     */
+    expect(code('ui/components/amount-plate.tsx')).toContain('paddingVertical: Spacing.sm');
+    expect(CARD).toContain('const LABEL_ALIGN = Spacing.sm');
   });
 
   /**
@@ -618,22 +664,32 @@ describe('la tarjeta de Disponible', () => {
   });
 
   /**
-   * **Y el estado que decide es el snapshot, no la conectividad.**
+   * **Y el estado que decide es lo LEÍDO, no la conectividad.**
    *
-   * `home.balance` es `null` mientras la carga no ha terminado o si falló sin
-   * dejar snapshot, y una fila en cuanto llegó — y **se conserva** cuando un
-   * refresco posterior falla. Sustituirlo por `isOnline` o por el estado de red
-   * devolvería la tarjeta a desconocido por perder la cobertura, teniendo el
-   * dato en la mano.
+   * Esta prueba fijaba el cableado anterior: `home.balance` como testigo y
+   * `PERSONAL_DEBT_AMOUNTS` como colección. Los dos han dejado de valer, y por
+   * el mismo motivo: la deuda del actor **no vive en su ámbito personal**, así
+   * que el snapshot de Personal no dice nada sobre ella. Vive en los ámbitos de
+   * sus grupos, atribuida por el vínculo, y quien la lee es `useGroups`.
+   *
+   * Lo que defiende sigue siendo lo mismo: que el cero salga de una lectura
+   * terminada y no de la cobertura. Sustituir el testigo por `isOnline`
+   * devolvería la tarjeta a desconocido por perder la red teniendo el dato.
    */
-  it('el cero conocido se deriva del snapshot cargado, nunca de la red', () => {
+  it('el cero conocido se deriva de la lectura de grupos, nunca de la red', () => {
     expect(HOME).toContain('homeDebt(');
-    expect(HOME).toMatch(/home\.balance === null\s*\?\s*\{ loaded: false \}/);
-    expect(HOME).toContain('{ loaded: true, amounts: PERSONAL_DEBT_AMOUNTS }');
+    expect(HOME).toContain('debtSnapshot(groups.groups, groups.reopened, groups.loading, ready)');
+    // El marcador constante se retiró: no puede volver por la puerta de atrás.
+    expect(HOME).not.toContain('PERSONAL_DEBT_AMOUNTS');
 
-    // El cableado de la deuda no mira la red por ninguna vía.
-    const wiring = HOME.slice(HOME.indexOf('homeDebt('), HOME.indexOf('onAdjust={editBalance}'));
-    expect(wiring).not.toMatch(/isOnline|isConnected|netinfo|status === 'error'/i);
+    // Y el puente entre las dos features no mira la red por ninguna vía.
+    const puente = HOME.slice(HOME.indexOf('function debtSnapshot('));
+    expect(puente).not.toMatch(/isOnline|isConnected|netinfo|status === 'error'/i);
+    // Sin ámbito resuelto o sin lectura, DESCONOCIDO. Nunca un cero.
+    expect(puente).toMatch(
+      /ready === null \|\| loading \|\| reopened === null\) return \{ loaded: false \}/,
+    );
+    expect(puente).toMatch(/'unavailable'\) return \{ loaded: false \}/);
   });
 
   /**
@@ -935,17 +991,29 @@ describe('la tarjeta de categorías', () => {
  * en el aparato.
  */
 describe('la barra superior se queda, el saludo sube', () => {
-  it('la barra superior vive FUERA del ScrollView', () => {
-    const home = code('app/(tabs)/index.tsx');
-    expect(home.indexOf('<AppTopBar ')).toBeGreaterThan(0);
-    expect(home.indexOf('<AppTopBar ')).toBeLessThan(home.indexOf('<ScrollView'));
-
-    // Y no se ha colado dentro del contenido desplazable.
-    const scroll = home.slice(home.indexOf('<ScrollView'), home.indexOf('</ScrollView>'));
-    expect(scroll).not.toContain('AppTopBar');
-
-    // Está una sola vez, por encima de las cuatro ramas: no depende de ninguna.
-    expect(home.match(/<AppTopBar/g) ?? []).toHaveLength(1);
+  /**
+   * **La barra ya no vive en la pantalla: vive en el layout de pestañas.**
+   *
+   * Esta prueba fijaba que la barra estuviera en Inicio fuera del scroll, y era
+   * lo correcto mientras la pantalla era la unidad de composición. Dejó de
+   * serlo al ver que la barra VIAJABA con la transición entre pestañas: el
+   * navegador anima la escena entera, y la barra era parte de la escena. Ahora
+   * la monta el layout una sola vez, por encima de `<Tabs>`, y ninguna pestaña
+   * la vuelve a montar — que es lo que la deja quieta.
+   */
+  it('la barra superior vive FUERA del navegador, en el layout, y una sola vez', () => {
+    const layout = code('app/(tabs)/_layout.tsx');
+    expect(layout.indexOf('<AppTopBar ')).toBeGreaterThan(0);
+    expect(layout.indexOf('<AppTopBar ')).toBeLessThan(layout.indexOf('<Tabs'));
+    expect(layout.match(/<AppTopBar /g) ?? []).toHaveLength(1);
+    // Ninguna pestaña la monta por su cuenta: dos barras serían dos animaciones.
+    expect(code('app/(tabs)/index.tsx')).not.toContain('<AppTopBar');
+    expect(code('app/(tabs)/groups.tsx')).not.toContain('<AppTopBar');
+    // Y no como capa absoluta que tape otra: va en flujo, hermana del navegador.
+    const cabecera = layout.slice(layout.indexOf('<BlurTarget'), layout.indexOf('<Tabs'));
+    expect(cabecera).not.toContain('absolute');
+    // La protección de sesión sigue explícita: sin sesión, sin campana.
+    expect(cabecera).toContain('isSignedIn(state) ?');
   });
 
   it('y el saludo con el selector vive DENTRO', () => {
@@ -989,10 +1057,36 @@ describe('la barra superior se queda, el saludo sube', () => {
    * Cuando se desplaza uno se desplaza el otro, porque son la misma fila.
    */
   it('el saludo y el selector están en el mismo bloque', () => {
+    /*
+     * Desde F9 la fila la pone `ScreenTitle`, que es la misma que usa Grupos, y
+     * el selector entra por su `trailing`. Siguen siendo UN bloque —el mismo
+     * elemento— y no dos piezas que coinciden; lo que ha cambiado es quién es
+     * dueño de la geometría.
+     */
     const saludo = code('features/shell/home-greeting.tsx');
     expect(saludo).toContain('home.greeting');
-    expect(saludo).toContain('<ScopeSwitch />');
-    expect(saludo.indexOf('home.greeting')).toBeLessThan(saludo.indexOf('<ScopeSwitch'));
+    expect(saludo).toContain('<ScreenTitle trailing={<ScopeSwitch />}>');
+    expect(saludo).toContain('</ScreenTitle>');
+  });
+
+  /**
+   * **Y la fila es UNA, compartida por los dos destinos raíz.** Es lo que impide
+   * que el nivel jerárquico, la tipografía o los márgenes se separen: cambiar
+   * esa fila cambia Inicio y Grupos a la vez.
+   */
+  it('Inicio y Grupos comparten la MISMA fila de título', () => {
+    const fila = FILES.filter((f) => f.text.includes('export function ScreenTitle')).map(
+      (f) => f.path,
+    );
+    expect(fila).toEqual(['features/shell/screen-title.tsx']);
+
+    expect(code('features/shell/home-greeting.tsx')).toContain('<ScreenTitle');
+    expect(code('app/(tabs)/groups.tsx')).toContain('<ScreenTitle>');
+
+    // El título va en el mismo rol tipográfico en los dos, porque es el mismo nodo.
+    const titulo = code('features/shell/screen-title.tsx');
+    expect(titulo).toContain('variant="title"');
+    expect(titulo.match(/<ThemedText/g) ?? []).toHaveLength(1);
   });
 
   /** Una sola implementación de cada pieza, en toda la aplicación. */
@@ -1019,8 +1113,16 @@ describe('la barra superior se queda, el saludo sube', () => {
     // La usan los dos destinos raíz, con la misma implementación, y desde F7.E
     // los dos le pasan el aviso de la campana: un indicador que sólo estuviera
     // en uno haría depender de la pestaña el encontrar algo sin resolver.
-    expect(code('app/(tabs)/groups.tsx')).toContain('<AppTopBar title="groups.title" alerts=');
-    expect(code('app/(tabs)/index.tsx')).toContain('<AppTopBar alerts=');
+    /*
+     * **La misma llamada en los dos, sin título.** La barra llevó un título de
+     * sección alternativo para Grupos, y eso eran dos cabeceras distintas para
+     * dos destinos del mismo nivel: entrar en Grupos borraba la marca. Desde F9
+     * la barra no acepta título y el nombre del destino baja a `ScreenTitle`.
+     */
+    expect(barra).not.toContain('title');
+    expect(code('app/(tabs)/_layout.tsx')).toContain('<AppTopBar alerts=');
+    // Y «Grupos» se dice una sola vez en esa pantalla.
+    expect((code('app/(tabs)/groups.tsx').match(/groups.title/g) ?? []).length).toBe(1);
   });
 
   /**
@@ -1054,12 +1156,18 @@ describe('la barra superior se queda, el saludo sube', () => {
    * envuelve la barra y el scroll, así que la barra queda bajo el notch donde
    * estaba y nadie suma un inset por su cuenta.
    */
-  it('el inset superior lo pone el área segura, una sola vez', () => {
-    const home = code('app/(tabs)/index.tsx');
-    expect(home.indexOf('<SafeAreaView')).toBeLessThan(home.indexOf('<AppTopBar'));
-    expect(home).toContain("edges={['top', 'left', 'right']}");
-    expect(home.match(/edges=/g) ?? []).toHaveLength(1);
-    expect(home).not.toContain('insets.top');
+  it('el inset superior lo pone el área segura, una sola vez — en el layout', () => {
+    const layout = code('app/(tabs)/_layout.tsx');
+    expect(layout.indexOf('<SafeAreaView')).toBeLessThan(layout.indexOf('<AppTopBar'));
+    expect(layout).toContain("edges={['top', 'left', 'right']}");
+    // Y las pestañas piden SÓLO los laterales: sumar el de arriba otra vez
+    // bajaría el contenido un inset entero por debajo de la barra.
+    for (const pantalla of ['app/(tabs)/index.tsx', 'app/(tabs)/groups.tsx']) {
+      const home = code(pantalla);
+      expect(home).toContain("edges={['left', 'right']}");
+      expect(home).not.toContain("edges={['top'");
+      expect(home).not.toContain('insets.top');
+    }
     expect(code('features/shell/app-top-bar.tsx')).not.toContain('insets');
   });
 
@@ -1085,7 +1193,7 @@ describe('la barra superior se queda, el saludo sube', () => {
     expect(cuerpo).toContain('gap: Spacing.lg');
 
     // Cada pieza de arriba, con su relleno propio y el mismo que tenían juntas.
-    for (const pieza of ['features/shell/app-top-bar.tsx', 'features/shell/home-greeting.tsx']) {
+    for (const pieza of ['features/shell/app-top-bar.tsx', 'features/shell/screen-title.tsx']) {
       expect(code(pieza), pieza).toContain('paddingHorizontal: Spacing.lg');
       expect(code(pieza), pieza).toContain('paddingBottom: Spacing.md');
     }
@@ -1233,8 +1341,8 @@ describe('eliminar un movimiento', () => {
 
   /** Y pulsar la papelera abre confirmación antes de escribir nada. */
   it('pulsar eliminar abre confirmación con acción destructiva', () => {
-    expect(HOME_CODE).toContain(
-      "Alert.alert(t('home.deleteMovement'), t('home.deleteMovementBody')",
+    expect(HOME_CODE).toMatch(
+      /Alert\.alert\(\s*t\('home\.deleteMovement'\),[\s\S]*?'home\.deletePaymentBody'\s*:\s*'home\.deleteMovementBody'/,
     );
     expect(HOME_CODE).toContain("style: 'cancel'");
     expect(HOME_CODE).toContain("style: 'destructive'");
@@ -1335,7 +1443,7 @@ describe('eliminar un movimiento', () => {
  * Decía «Observación del sistema al registrar esta versión»: vocabulario del
  * modelo, no del dinero de nadie. Se fue con la fila que anotaba, y no sólo la
  * nota — la observación se toma en el instante en que se escribe la versión
- * (ADR-023 §5), así que desde que se puede corregir desde aquí, corregir hoy un
+ * (F06/ADR-005 §5), así que desde que se puede corregir desde aquí, corregir hoy un
  * movimiento de hace meses observaría el saldo DE HOY. La nota era lo único que
  * lo advertía.
  */
@@ -1457,8 +1565,8 @@ describe('editar el Disponible', () => {
 
   /** La moneda se enseña y no se cambia: dice que no cambia, no lo finge. */
   it('la moneda no es editable', () => {
-    expect(HOJA).toContain('currencySymbol(');
-    expect(HOJA).toContain("t('entry.currencyFixed')");
+    expect(ADAPTADOR).toContain('currencySymbol(');
+    expect(ADAPTADOR).toContain("t('entry.currencyFixed')");
     // El símbolo sale del ámbito, no de un estado: no hay nada que cambiar.
     expect(EDITOR).toContain('scope.currencyCode');
     expect(EDITOR).not.toContain('setCurrencyCode');
@@ -1524,7 +1632,7 @@ describe('editar el Disponible', () => {
   /**
    * **Un ajuste no es un ingreso ni un gasto**, y eso no se decide aquí: no
    * produce dimensión económica, así que `api.personal_statistics` lo deja
-   * fuera sin ninguna cláusula que lo excluya (ADR-026).
+   * fuera sin ninguna cláusula que lo excluya (F06/ADR-008).
    */
   it('el ajuste no toca estadísticas ni categorías desde el cliente', () => {
     for (const fuente of [AJUSTE, EDITOR, RUTA_SALDO]) {
@@ -1678,14 +1786,22 @@ describe('el ajuste en Movimientos recientes', () => {
    * **Enseñarlo no le da dimensión económica.** Sigue fuera de los totales del
    * intervalo y del reparto por categoría, y eso lo decide el modelo: un
    * ajuste no produce efecto económico, así que `api.personal_statistics` lo
-   * deja fuera sin ninguna cláusula que lo excluya (ADR-026).
+   * deja fuera sin ninguna cláusula que lo excluya (F06/ADR-008).
    */
   it('sigue fuera de ingresos, gastos y categorías', () => {
     // Los desplegables de flujo filtran por clase, y el ajuste no es ninguna.
     expect(HOME_CODE).toContain("movementKind(op.operation_class) === 'income'");
-    expect(HOME_CODE).toContain("movementKind(op.operation_class) === 'expense'");
+    /*
+     * El desplegable de Gastos son los gastos personales de la proyección MÁS
+     * mis cuotas de gastos compartidos (`home.shares`), mezclados en el orden
+     * de la lista: ni ingresos, ni ajustes, ni liquidaciones, ni la fila de
+     * CAJA del compartido (`shared`), que es la de Movimientos recientes.
+     */
+    expect(HOME_CODE).toContain("(op) => movementKind(op.operation_class) === 'expense'");
+    expect(HOME_CODE).toContain('const expenses = expenseLines(personalExpenses, home.shares);');
+    expect(HOME_CODE).not.toContain("kind === 'expense' || kind === 'shared'");
     // Y el reparto sigue saliendo de las estadísticas —las del servidor más la
-    // proyección local (ADR-028 §8)—, nunca de sumar la lista.
+    // proyección local (F07/ADR-001 §8)—, nunca de sumar la lista.
     expect(HOME_CODE).toContain('categorySlices(projected.statistics.categories');
     expect(HOME_CODE).not.toContain("'adjustment'");
   });
@@ -1717,7 +1833,7 @@ describe('el ajuste en Movimientos recientes', () => {
  * importe anterior SÍ es el borrador, porque corregir parte de lo que había.
  */
 describe('el saldo actual es referencia', () => {
-  const CAMPO = code('features/personal/amount-field.tsx');
+  const CAMPO = code('ui/components/amount-field.tsx');
 
   /** El borrador empieza vacío. El saldo actual no lo inicializa. */
   it('el editor arranca vacío y el saldo actual no lo inicializa', () => {
@@ -1763,7 +1879,12 @@ describe('el saldo actual es referencia', () => {
   it('el campo lleva el borrador, no la referencia', () => {
     expect(CAMPO).toContain('value={amountValue(entry)}');
     expect(CAMPO).not.toContain('value={amountValue(reference)}');
-    expect(CAMPO).toContain('applyAmountInput(entry, next, scale)');
+    // El campo pasa por `amountFieldStep`, que reduce con `applyAmountInput` y
+    // ademas fija el cursor al final tras sustituir una precargada (iOS).
+    expect(CAMPO).toContain('amountFieldStep({ entry, pinToEnd: false }, next, scale)');
+    expect(CAMPO).toContain('input.current?.setSelection(target.start, target.end)');
+    // Y NUNCA como prop controlada: medido en el iPhone, bloqueaba el toque en Guardar.
+    expect(CAMPO).not.toContain('selection={');
   });
 
   /**
@@ -1794,8 +1915,8 @@ describe('el saldo actual es referencia', () => {
   /** Y sigue habiendo un solo editor monetario. */
   it('no hay un segundo parser ni un segundo editor', () => {
     const editores = FILES.filter((f) => f.text.includes('export function AmountField'));
-    expect(editores.map((f) => f.path)).toEqual(['features/personal/amount-field.tsx']);
-    for (const fuente of [EDITOR, code('features/personal/amount-field.tsx')]) {
+    expect(editores.map((f) => f.path)).toEqual(['ui/components/amount-field.tsx']);
+    for (const fuente of [EDITOR, code('ui/components/amount-field.tsx')]) {
       expect(fuente).not.toContain('parseFloat');
       expect(fuente).not.toContain('parseInt');
     }
@@ -2134,7 +2255,15 @@ describe('las dos rutas de edición comparten la ventana', () => {
     expect(EDITOR).toContain('<AmountSheet');
     expect(EDICION).toContain('<AmountSheet');
     const hojas = FILES.filter((f) => f.text.includes('export function AmountSheet'));
-    expect(hojas.map((f) => f.path)).toEqual(['features/personal/amount-sheet.tsx']);
+    expect(hojas.map((f) => f.path)).toEqual([
+      'features/personal/amount-sheet.tsx',
+      'ui/components/amount-sheet.tsx',
+    ]);
+    // Y el de la feature no compone nada: delega en el de `ui/` y le pone los
+    // textos. Si algún día dibujara, esto lo diría.
+    expect(ADAPTADOR).toContain('<SharedAmountSheet');
+    expect(ADAPTADOR).not.toContain('StyleSheet.create');
+    expect(ADAPTADOR).not.toContain('<AmountField');
   });
 
   /**
@@ -2221,7 +2350,8 @@ describe('el círculo de la fila lleva el color de su categoría', () => {
    * lo delata.
    */
   it('nadie resuelve el color de una fila por su cuenta', () => {
-    expect(HOME_CODE.match(/<MovementRow/g)).toHaveLength(2);
+    // Movimientos recientes, el desplegable de Ingresos y el de Gastos.
+    expect(HOME_CODE.match(/<MovementRow/g)).toHaveLength(3);
     expect(HOME_CODE).not.toContain('categoryColour(');
   });
 
@@ -2255,7 +2385,7 @@ describe('el círculo de la fila lleva el color de su categoría', () => {
    * Se exige el NOMBRE, no que exista la fila: teñir por una clave que esta
    * versión no sabe leer sería derivar presentación de un identificador
    * desconocido. Una retirada del catálogo activo sí se tiñe, porque su
-   * histórico sigue resolviendo nombre e icono (ADR-021).
+   * histórico sigue resolviendo nombre e icono (F06/ADR-003).
    */
   it('una categoría que no se puede nombrar no se tiñe', () => {
     expect(ROW).toContain('category !== undefined');
@@ -2332,6 +2462,12 @@ describe('la acción de eliminar: recorrido, área táctil y superficie', () => 
   it('lo que se recorre y lo que se pulsa miden igual', () => {
     expect(bloque('slot')).toContain('width: DELETE_ACTION_WIDTH');
     expect(SWIPE).toContain('deleteActionOffset(drag.value, DELETE_ACTION_WIDTH)');
+    // Sólo una fila abierta a la vez, y la papelera sigue siendo el símbolo por defecto.
+    expect(SWIPE).toContain('let openSwipeable: SwipeableMethods | null = null;');
+    expect(SWIPE).toContain(
+      'if (openSwipeable !== null && openSwipeable !== next) openSwipeable.close();',
+    );
+    expect(SWIPE).toContain('icon = Symbols.delete,');
     // Ninguna segunda distancia de la que separarse.
     expect(SWIPE).not.toContain('FOOTPRINT');
     expect(SWIPE).not.toContain('GUTTER');

@@ -1,11 +1,11 @@
 # E13 · Cómo lee `api` desde `core`
 
 Evidencia reproducible del nudo que
-[ADR-005](../../docs/adr/ADR-005-schema-topology.md) §4 dejó abierto: **qué
+[F03/ADR-002](../../docs/adr/F03/ADR-002-schema-topology.md) §4 dejó abierto: **qué
 privilegios necesita un rol cliente para leer a través de la superficie
 expuesta, y si tenerlos abre alguna ruta directa hacia la persistencia.**
 
-E13 mide. **No decide nada**: la topología es normativa en ADR-005, y la
+E13 mide. **No decide nada**: la topología es normativa en F03/ADR-002, y la
 estrategia de `GRANT` y de membresía son D3 y D5, todavía sin aprobar.
 
 > **No forma parte del esquema de Nomey.** Vive fuera de `supabase/migrations/`
@@ -14,7 +14,7 @@ estrategia de `GRANT` y de membresía son D3 y D5, todavía sin aprobar.
 > pertenece al modelo de datos.
 
 **La columna de datos es texto a propósito.** E13 no toca la frontera textual de
-[ADR-003](../../docs/adr/ADR-003-money-representation.md) §6, que es **D6** y
+[F02/ADR-001](../../docs/adr/F02/ADR-001-money-representation.md) §6, que es **D6** y
 sigue abierta. Aquí solo se miden ejecución, RLS y privilegios.
 
 ## Aislamiento de dependencias
@@ -25,7 +25,7 @@ los `.mjs` usan el `fetch` nativo de Node 22. Este directorio **no declara
 
 ## El modelo mínimo
 
-Una topología de juguete que imita la de ADR-005:
+Una topología de juguete que imita la de F03/ADR-002:
 
 | Schema     | Contiene                                                       |
 | ---------- | -------------------------------------------------------------- |

@@ -3,8 +3,9 @@ import { StyleSheet, View } from 'react-native';
 
 import { categoryOptions } from './category';
 import type { CategoryMenuProps } from './category-menu-props';
-import { CategoryTrigger } from './category-trigger';
+
 import { useTranslation } from '@/lib/i18n';
+import { CategoryTrigger } from '@/ui/components';
 
 /**
  * EL MENÚ NATIVO DE CATEGORÍAS.
@@ -31,7 +32,7 @@ import { useTranslation } from '@/lib/i18n';
  *
  * **Sin icono en las opciones, y no por descuido.** `MenuAction.image` admite
  * un nombre de SF Symbol —que sólo pinta iOS— o un `ImageSourcePropType`, un
- * recurso de dibujo. Nomey guarda una clave semántica (ADR-027) que resuelve a
+ * recurso de dibujo. Nomey guarda una clave semántica (F06/ADR-009) que resuelve a
  * un par `{ ios, android }` de `expo-symbols`, y el lado Android de ese par es
  * el nombre de un símbolo de Material, no un recurso. Aquí, que es la
  * implementación de Android, no hay nada admisible que mandar, así que el menú

@@ -28,14 +28,16 @@ set -uo pipefail
 
 # shellcheck source=scripts/local-db-guard.sh
 . "$(dirname "${BASH_SOURCE[0]}")/local-db-guard.sh"
-exigir_base_local || exit 1
+API="${NOMEY_API_URL:-http://127.0.0.1:54321}"
+DB_CONTAINER="${NOMEY_DB_CONTAINER:-supabase_db_Nomey}"
+exigir_base_local "${DB_CONTAINER}" || exit 1
 # Este script habla por la frontera: sin gateway no hay nada que comprobar, y
 # fallar aqui es legible. Fallar en el primer curl, no.
-exigir_frontera_http || exit 1
+exigir_frontera_http "${API}" || exit 1
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DB=(docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=0)
-DBQ=(docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -t -A -v ON_ERROR_STOP=0)
+DB=(docker exec -i "${DB_CONTAINER}" psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=0)
+DBQ=(docker exec -i "${DB_CONTAINER}" psql -U postgres -d postgres -X -q -t -A -v ON_ERROR_STOP=0)
 
 fallos=0
 fallo() { echo "  FALLO: $*"; fallos=$((fallos + 1)); }

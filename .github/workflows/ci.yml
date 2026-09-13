@@ -59,7 +59,7 @@ jobs:
     name: Variantes y guarda del bundle
     runs-on: ubuntu-latest
 
-    # Las dos comprobaciones de ADR-031 que no caben en `npm test`: resuelven la
+    # Las dos comprobaciones de F08/ADR-002 que no caben en `npm test`: resuelven la
     # configuracion de verdad con la CLI de Expo y exportan el bundle, y cada
     # invocacion cuesta segundos. En su propio job para que no alarguen el
     # camino corto de typecheck/lint/tests.
@@ -81,7 +81,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Las tres variantes resuelven, tienen la identidad de ADR-031 §1, no
+      # Las tres variantes resuelven, tienen la identidad de F08/ADR-002 §1, no
       # difieren en nada mas, una ausente da development y una desconocida falla.
       - name: Variant matrix
         run: node scripts/variant-matrix-check.mjs
@@ -109,7 +109,7 @@ jobs:
       #
       # Only postgres, kong, postgrest and gotrue are started. PostgREST is kept
       # on purpose: if the api schema stopped existing it would fail its health
-      # check, and that is the ADR-014 bootstrap guard for free.
+      # check, and that is the F03/ADR-011 bootstrap guard for free.
       #
       # Kong cannot be excluded while postgrest is kept. The CLI probes
       # PostgREST's readiness through the gateway, at
@@ -152,21 +152,21 @@ jobs:
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/participant-identity.sql
 
       # Contextual split and frozen conversion. Closes the persisted-fact
-      # inventory of ADR-013 §1: after this, everything that ADR declares
+      # inventory of F03/ADR-010 §1: after this, everything that ADR declares
       # authoritative-persisted exists.
       - name: Split and conversion checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/split-conversion.sql
 
       # Canonical projection and economic attribution. Also enforces the
-      # catalogue guard of ADR-013 §9 -only the canonical projection may depend
+      # catalogue guard of F03/ADR-010 §9 -only the canonical projection may depend
       # directly on core.effect- and that no bigint crosses the api surface.
       - name: Canonical projection and attribution checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/canonical-attribution.sql
 
       # Authoritative writer, first half. This one is piped through the vector
       # prelude: psql runs inside the container and cannot read the checkout,
-      # so tests/vectors/*.json travel on the same stdin. ADR-002 §7 requires
-      # the PL/pgSQL implementation to reproduce them exactly, and ADR-009 §1
+      # so tests/vectors/*.json travel on the same stdin. F01/ADR-001 §7 requires
+      # the PL/pgSQL implementation to reproduce them exactly, and F03/ADR-006 §1
       # accepts that the calculation is written a second time precisely because
       # the vectors — not shared code — are what detect drift.
       # `shell: bash` is not decoration: it adds `-o pipefail`, and without it
@@ -224,7 +224,7 @@ jobs:
       # the single function that may read it. And A10 is the file's only textual
       # assertion, deliberately: removing `version_kind = 'record'` was measured
       # to change nothing, so what has to be protected is the PRESENCE of the
-      # criterion ADR-024 §2 asks for, not its effect.
+      # criterion F06/ADR-006 §2 asks for, not its effect.
       - name: Personal read surface checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/read-surface.sql
 
@@ -236,8 +236,147 @@ jobs:
       - name: Personal statistics checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/personal-statistics.sql
 
+      # Group provisioning. api.create_group builds scope, profile, membership,
+      # participants and the creator's account link in ONE transaction, under
+      # the third role. The check covers its privilege boundary and its
+      # idempotency; a genuinely simultaneous replay needs real sessions and is
+      # out of a single psql connection's reach.
+      - name: Group provisioning checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/group-provisioning.sql
+
+      # The shared expense, end to end: creation opens the participants'
+      # presence periods (idempotently), the writer accepts concept and category
+      # -refusing a private one with CATEGORY_NOT_SHAREABLE- and the two read
+      # views publish one row per operation plus a server-side aggregate.
+      #
+      # Section E is the one that earns its keep: it orders four expenses whose
+      # amounts and dates deliberately disagree, and asserts that ordering by
+      # the TEXT of total_amount produces a different sequence than ordering by
+      # the integer - which is why the view publishes total_order at all.
+      #
+      # Section F records the limit this design has: presences open at
+      # current_date, so an expense dated before the group existed is refused.
+      - name: Group expense flow checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/group-expense-flow.sql
+
+      # F09/ADR-003: leaving a group and settling whoever left. Fixtures and
+      # rollback: Ana leaves owing, Luis leaves owed, a group created and left
+      # the same day, the barriers on inactive and retired participants, the
+      # atomic multi-pair resolution with its CAS on amounts, the retirement
+      # without a monetary operation, and the last member leaving.
+      - name: Leave and settle checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/leave-and-settle.sql
+
+      # F09/ADR-004: invitations. Issue (hash only, token shown once), preview
+      # (identity only, throttle after 20 misses), redeem (claim, new, already
+      # member, conflict on the link's primary key, retry), and the closed
+      # doors: revoked, expired, and whoever left with a link (F09/ADR-003).
+      - name: Group invitations checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/group-invitations.sql
+
+      # The bell marks pending notices as seen on entry, bounded by the newest
+      # notice the client had loaded: older ones beyond the page are included,
+      # a later one is not, and nobody's boundary marks anybody else's rows.
+      - name: Group notices seen checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/group-notices-seen.sql
+
+      # The Gastos breakdown of Personal explains its total: one row per shared
+      # share with context, the same rows personal_statistics sums; 4×25 + 10
+      # paid by another = 110; my own payment stays cash in personal_operation;
+      # correction, annulment, interval, exact reconciliation per category,
+      # isolation between accounts, and history after leaving (F09/ADR-003).
+      - name: Personal expense breakdown checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/personal-expense-breakdown.sql
+
+      # Retiring an unlinked participant (explicit extension of F09/ADR-003 §6):
+      # without history, with history and no pairs, net zero with crossed
+      # pairs (STALE without the pairs; one debt effect per pair with them, no
+      # cash), linked → PARTICIPANT_LINKED (also after leaving), retries,
+      # outsider refused. The claim/retire race runs as real sessions below.
+      - name: Retire participant checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/retire-participant.sql
+
+      # Group identity lock (migration 20260912150000): catalogue guard that the
+      # live bodies of claim, retire, settle, leave and the two writers that
+      # resolve a Personal through a link take sec.lock_participant_claims
+      # before reading membership/link/period/retirement, before lock_scopes,
+      # and after the idempotency claim; and that NO function resolves a
+      # Personal through a link without it (this is what watches F11's writer
+      # rewrites). Read-only.
+      # Rectify a claim (F09/ADR-006, migration 20260912160000) against the REAL
+      # function: permitted vs blocked cash, provisioner permissions and
+      # isolation, retry after a later claim, absent/ambiguous provenance,
+      # history and effects intact, Personal and access, expired invitation.
+      - name: Unclaim participant checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/unclaim-evidence.sql
+
+      # Registered group payments and leaving without debt (F09/ADR-007 v3,
+      # migration 20260912170000) against the REAL functions: pending pairs,
+      # decomposition (direct pair, shortest paths, novation, not applicable),
+      # CAS on the positions, no edition, annulment by either party even after
+      # leaving, leave blocked by pending pairs, notices, Personal and the
+      # bounded reopened-debt exception. The helper library only reads and
+      # wraps; it carries no accounting. Rollback.
+      - name: Group payments checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/group-payments-evidence.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # The departed participant's obligation is immutable (F09/ADR-008): a
+      # correction, an annulment or a backdated creation that would change what
+      # an expense attributes to someone who left is refused with no partial
+      # write; concept/category and actives-only changes are allowed. Rollback.
+      - name: Departed obligation checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/departed-obligation-evidence.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # Settling a pair reopened with someone who left (20260913120000, F09/ADR-007
+      # C6 exception 2): only the still-active party, only what an annulled
+      # payment between them reopened, capped; the departed and third parties
+      # refused; pay/annul cycles do not widen the cap; both gone, nobody.
+      - name: Reopened pair payment checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/reopened-pair-payment.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # Payments with a participant who has no account (20260913130000): the
+      # debt closes, cash moves only in the Personal that exists, both
+      # participant identities stay on the payment, no Personal or notice is
+      # invented; third parties and two-ghost payments refused; exact reversal
+      # on annulment; claim coherence by stable id; the bell of someone who
+      # left marks their payment notices seen.
+      - name: Ghost payment checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/ghost-payments.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # Leaving at net zero with compensated pairs: the departure novation
+      # (F09/ADR-007 C8) reassigns them without money, is not annullable, and the
+      # departed party's later payment/annulment authorisation still holds.
+      - name: Departure novation checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/departure-novation.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # Associating a ghost to my account (F09/ADR-009): canonical pairs and nets,
+      # historical cash incorporated once, views without the origin; and the
+      # payment CAS compares the SAME participant set api.group_balance
+      # publishes (20260914160000) — with a retired and a merged participant in
+      # the group, payments before and after the association go through, and
+      # the helper sends the client's real snapshot (rows of the view).
+      - name: Associate participant checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/associate-participant.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # Rejoining after leaving (F09/ADR-010): same canonical identity, a new
+      # presence period, nothing else changes.
+      - name: Rejoin after departure checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/rejoin-after-departure.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # Oversettlement guards refuse only what a correction or annulment
+      # worsens (pair oriented by its settlements); the canonical
+      # 5000/4000 → 3000 example still refuses.
+      - name: Oversettlement delta checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/oversettlement-delta.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # Catalogue guard: the live bodies of the ten functions that read or
+      # change identity (now including annul_operation, record_debt_settlement
+      # and record_group_payment) take the rank-1 lock in protocol order.
+      - name: Group identity lock guard
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/group-identity-lock.sql
+
       # Real concurrency. A single psql session has none, so the debt
-      # serialization protocol of ADR-013 §11 cannot be proven by a check: this
+      # serialization protocol of F03/ADR-010 §11 cannot be proven by a check: this
       # opens simultaneous sessions, the way E15-C did. It runs LAST because it
       # writes committed rows -a row lock only exists between transactions- and
       # it removes them again, asserting that nothing is left behind.
@@ -253,6 +392,31 @@ jobs:
       # destroyed real data.
       - name: Debt serialization under real concurrency, and its isolation
         run: ./scripts/writer-debt-isolation.sh
+
+      # Claim vs retire, both orders, as two real sessions sharing the per-scope
+      # advisory lock: the loser must see the winner's state.
+      - name: Retire/claim race (real sessions)
+        run: bash scripts/retire-claim-race.sh
+
+      # The identity lock under real concurrency: claim/unclaim/transfer/leave
+      # against the writers, both orders, eight races. Each outcome must equal a
+      # serial order, with no cash lost or attributed to an unlinked account;
+      # the waiting session's wait is measured.
+      - name: Group identity lock races (real sessions)
+        run: bash scripts/unclaim-race-evidence.sh
+
+      # Payments vs leaving vs annulment as two real sessions (F09/ADR-007 C5):
+      # pay→leave, blocked leave→pay (+retry), double confirmation (one payment,
+      # the other SETTLEMENT_STALE), annul→leave, leave→annul by whoever stays.
+      - name: Group payment races (real sessions)
+        run: bash scripts/group-payment-race-evidence.sh
+
+      # Leaving vs creating, correcting and annulling an expense, both orders
+      # (F09/ADR-008): the later session waits on the identity lock and the guard
+      # decides on the post-leave state; a refused backdated creation leaves
+      # no partial write, not even its idempotency key.
+      - name: Departed obligation races (real sessions)
+        run: bash scripts/departed-obligation-race-evidence.sh
 
       # Balance serialization. Reproduces, corrected, the two races measured in
       # supabase/e22: two concurrent target adjustments land on the target, and
@@ -274,7 +438,7 @@ jobs:
       # This is the one thing no SQL check can prove, because every other check
       # simulates identity. It signs up real users, calls the seven public
       # functions over HTTP with their tokens, and asserts the error contract of
-      # ADR-009 §9 against the real functions rather than E15's probes.
+      # F03/ADR-006 §9 against the real functions rather than E15's probes.
       #
       # No secrets: the publishable key is read at run time from the running
       # Kong's own configuration, so nothing is committed.

@@ -27,15 +27,15 @@ Escrito el 2026-08-23, con `supabase/migrations/` todavía inexistente.
 
 ### 1.1 Lo que existe
 
-| Cosa                   | Estado                                                                                                                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `supabase/config.toml` | Versionado. `api.schemas = ["public", "graphql_public"]`, `extra_search_path = ["public", "extensions"]`, `db.major_version = 17`, `max_rows = 1000`, `auth.jwt_expiry = 3600` **[medido]** |
-| Stack local            | Levantado y reutilizable. PostgreSQL **17.6**, PostgREST **v16.1**, GoTrue **v2.195.0** **[medido]**                                                                                        |
-| `supabase/e11/`        | Evidencia de la frontera de datos. **No es migración.** Declara su propia dependencia aislada de `@supabase/supabase-js@2.112.3`                                                            |
-| `supabase/e12/`        | **Nuevo en esta sesión.** Evidencia de D4. Cero dependencias. **No es migración**                                                                                                           |
-| `src/domain/`          | Implementación de referencia pura, 16 ficheros, 110 tests en verde                                                                                                                          |
-| `tests/vectors/`       | Seis ficheros JSON, única fuente de expectativas. Importes como `string`                                                                                                                    |
-| ADR-002, ADR-003       | `Aceptado`, inmutables. La puerta E11 de ADR-003 se cumplió contra stack real                                                                                                               |
+| Cosa                     | Estado                                                                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supabase/config.toml`   | Versionado. `api.schemas = ["public", "graphql_public"]`, `extra_search_path = ["public", "extensions"]`, `db.major_version = 17`, `max_rows = 1000`, `auth.jwt_expiry = 3600` **[medido]** |
+| Stack local              | Levantado y reutilizable. PostgreSQL **17.6**, PostgREST **v16.1**, GoTrue **v2.195.0** **[medido]**                                                                                        |
+| `supabase/e11/`          | Evidencia de la frontera de datos. **No es migración.** Declara su propia dependencia aislada de `@supabase/supabase-js@2.112.3`                                                            |
+| `supabase/e12/`          | **Nuevo en esta sesión.** Evidencia de D4. Cero dependencias. **No es migración**                                                                                                           |
+| `src/domain/`            | Implementación de referencia pura, 16 ficheros, 110 tests en verde                                                                                                                          |
+| `tests/vectors/`         | Seis ficheros JSON, única fuente de expectativas. Importes como `string`                                                                                                                    |
+| F01/ADR-001, F02/ADR-001 | `Aceptado`, inmutables. La puerta E11 de F02/ADR-001 se cumplió contra stack real                                                                                                           |
 
 ### 1.2 Lo que **no** existe
 
@@ -62,9 +62,9 @@ mal y esa imprecisión cambia el trabajo:
 
 | Hecho                                                                                      | Evidencia                       |
 | ------------------------------------------------------------------------------------------ | ------------------------------- |
-| PostgreSQL y PostgREST conservan `BIGINT` y `NUMERIC` exactos; `JSON.parse` los degrada    | E11 · ADR-003 §10               |
-| Lo determinante es el **cast a texto**, no el camino de acceso (tabla, vista o RPC)        | E11 · ADR-003 §10               |
-| `supabase gen types typescript` emite `number` para `int8` y `numeric`                     | E11 · ADR-003 §10               |
+| PostgreSQL y PostgREST conservan `BIGINT` y `NUMERIC` exactos; `JSON.parse` los degrada    | E11 · F02/ADR-001 §10           |
+| Lo determinante es el **cast a texto**, no el camino de acceso (tabla, vista o RPC)        | E11 · F02/ADR-001 §10           |
+| `supabase gen types typescript` emite `number` para `int8` y `numeric`                     | E11 · F02/ADR-001 §10           |
 | El origen de `REFERENCES`/`TRIGGER`/`TRUNCATE` sobre tablas nuevas de `public`             | **E12 · §D4 de este documento** |
 | `TRUNCATE` es **ejecutable** por `anon` incluso con RLS activada y sin política            | **E12 · `30-executable.sql`**   |
 | Una función creada en `public` sin `GRANT` es **invocable por `anon` vía `/rest/v1/rpc/`** | **E12 · `40-data-api.mjs`**     |
@@ -168,7 +168,7 @@ Consecuencia práctica: la configuración por defecto sobre la que se mide hoy
 **va a cambiar de estatus en unas semanas**. Ninguna decisión de 3.C debería
 depender de que ese campo exista.
 
-### 2.6 No se han encontrado contradicciones entre ADR-002, ADR-003, `data-model.md`, el glosario y `src/domain/`
+### 2.6 No se han encontrado contradicciones entre F01/ADR-001, F02/ADR-001, `data-model.md`, el glosario y `src/domain/`
 
 Se revisaron en particular: las cinco clases contables, el invariante de
 representación única, la regla de no sobrepago de la liquidación, la
@@ -242,7 +242,7 @@ una en una:
 2. **Ningún importe puede salir como número JSON**, porque la única superficie
    de lectura son vistas que castean **[medido en E11 que el cast basta]**.
 3. **Ningún rol cliente puede escribir un efecto**, porque no tiene `INSERT`
-   sobre nada, ni siquiera sobre sus propias filas (ADR-002 §7). La propiedad es
+   sobre nada, ni siquiera sobre sus propias filas (F01/ADR-001 §7). La propiedad es
    exigida por el ADR; **el mecanismo de privilegios que la garantiza se decide
    en D3/D5**.
 4. **Los privilegios heredados de `public` no tocan a Nomey**, porque Nomey no
@@ -313,11 +313,11 @@ Entidades en términos de dominio. **Los nombres son propuestas, no decisiones.*
                                      amount_minor      BIGINT
                                      currency_id ───────────► currency_definition
                                      affects_balance   boolean   ─┐ las tres dimensiones
-                                     economic_participant_id ─────┤ separadas de ADR-002 §1
+                                     economic_participant_id ─────┤ separadas de F01/ADR-001 §1
                                      debt_debtor_id / debt_creditor_id ─┘
                                      applied_rate_coefficient / applied_rate_scale
 
- client_command                     ← ADR-011 §5: la idempotencia vive aquí,
+ client_command                     ← F03/ADR-008 §5: la idempotencia vive aquí,
  ──────────────                       no en `operation`
  created_by · client_operation_id     UNIQUE juntos, transversal a clases
  command_type · command_contract_version
@@ -327,10 +327,10 @@ Entidades en términos de dominio. **Los nombres son propuestas, no decisiones.*
  created_at
 ```
 
-> **Corregido tras ADR-011.** Una versión anterior de este diagrama mostraba
+> **Corregido tras F03/ADR-008.** Una versión anterior de este diagrama mostraba
 > `client_operation_id` e `intent_fingerprint` **dentro de `operation`**. Ambos
 > se retiran: la unidad de idempotencia es el **comando**, no la operación
-> —ADR-011 §5—, y **v1 no usa hash** —ADR-011 §10—.
+> —F03/ADR-008 §5—, y **v1 no usa hash** —F03/ADR-008 §10—.
 
 **Cómo leer el efecto.** No hay un discriminante: `affects_balance`,
 `economic_participant_id` y el par deudor/acreedor son **dimensiones
@@ -350,7 +350,7 @@ sería inventar.
 
 > ## ✅ APROBADA — persistido frente a derivado, reparto contextual, proyección canónica
 >
-> ### → Normativa en [ADR-013](../adr/ADR-013-persisted-vs-derived.md), `Aceptado`
+> ### → Normativa en [F03/ADR-010](../adr/F03/ADR-010-persisted-vs-derived.md), `Aceptado`
 >
 > **La fuente normativa es el ADR, no esta sección**, que se conserva como el
 > análisis que lo precedió. Aprobada en la revisión del bloque **3.C.8**, con
@@ -389,23 +389,23 @@ propongo, y que se aplica en toda la tabla:
 
 El segundo criterio es el importante: un reparto recalculado dentro de un año
 con un algoritmo distinto **reinterpretaría un hecho histórico**, que es
-exactamente lo que ADR-003 §3 e invariante 22 prohíben.
+exactamente lo que F02/ADR-001 §3 e invariante 22 prohíben.
 
 | Concepto                             | Decisión                              | Por qué                                                                                                              |
 | ------------------------------------ | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Operación** (identidad lógica)     | **Persistida**                        | Unidad de identidad, idempotencia y versionado (ADR-002 §1)                                                          |
-| **Versión de operación**             | **Persistida, inmutable**             | «Corregir es versionar» (ADR-002 §6)                                                                                 |
+| **Operación** (identidad lógica)     | **Persistida**                        | Unidad de identidad, idempotencia y versionado (F01/ADR-001 §1)                                                      |
+| **Versión de operación**             | **Persistida, inmutable**             | «Corregir es versionar» (F01/ADR-001 §6)                                                                             |
 | **Intención del reparto**            | **Persistida** en la versión          | `data-model.md` §5 exige conservar intención **y** resultado: un 30/30/30/30 no distingue `equal` de `exact_amounts` |
 | **Resultado del reparto**            | **Persistido — como efectos**         | Los efectos económicos por participante **son** el resultado. No hace falta una tabla de participaciones aparte      |
 | **Efecto**                           | **Persistido, inmutable**             | Es el hecho contable congelado                                                                                       |
-| **Importe original**                 | **Persistido** en la versión          | ADR-003 §1: único autoritativo                                                                                       |
-| **Importe derivado por ámbito**      | **Persistido** en cada efecto         | ADR-003 §1 lo dice literalmente: «derivado, redondeado, **almacenado**»                                              |
-| **Tipo de cambio aplicado**          | **Persistido** en cada efecto         | ADR-003 §4: congelado, uno por conversión, **no** uno por operación                                                  |
-| **Catálogo de tipos de cambio**      | **Persistido**                        | ADR-003 consecuencia: hacen falta tipos históricos consultables por fecha efectiva                                   |
-| **Definición monetaria**             | **Persistida**, bajo control de Nomey | ADR-003 §3: la metadata no depende en tiempo real de una API externa                                                 |
+| **Importe original**                 | **Persistido** en la versión          | F02/ADR-001 §1: único autoritativo                                                                                   |
+| **Importe derivado por ámbito**      | **Persistido** en cada efecto         | F02/ADR-001 §1 lo dice literalmente: «derivado, redondeado, **almacenado**»                                          |
+| **Tipo de cambio aplicado**          | **Persistido** en cada efecto         | F02/ADR-001 §4: congelado, uno por conversión, **no** uno por operación                                              |
+| **Catálogo de tipos de cambio**      | **Persistido**                        | F02/ADR-001 consecuencia: hacen falta tipos históricos consultables por fecha efectiva                               |
+| **Definición monetaria**             | **Persistida**, bajo control de Nomey | F02/ADR-001 §3: la metadata no depende en tiempo real de una API externa                                             |
 | **Saldo de un ámbito**               | **Derivado**                          | Suma de `amount_minor` de los efectos con `affects_balance` de las versiones vigentes                                |
 | **Deuda**                            | **Derivada**                          | `effects/debt.ts` ya la deriva neteando pares. Almacenarla crearía la segunda fuente de verdad clásica               |
-| **Estadísticas**                     | **Derivadas**                         | Lista de admitidos: solo `income` y `expense` con impacto económico (ADR-002 §4)                                     |
+| **Estadísticas**                     | **Derivadas**                         | Lista de admitidos: solo `income` y `expense` con impacto económico (F01/ADR-001 §4)                                 |
 | **`Disponible actual`**              | **Derivado**                          | Es el saldo, sujeto a la regla de agregación del glosario                                                            |
 | **`Disponible tras saldar`**         | **Derivado**                          | Saldo + posición neta de deuda. **No se calcula si las definiciones monetarias difieren**: no hay cifra que mostrar  |
 | **Versión vigente de una operación** | **Puntero persistido** (ver D9)       | Única derivación que propongo materializar, y se justifica abajo                                                     |
@@ -450,7 +450,7 @@ SQL?**
 
 > ## ✅ APROBADA — **`UUID` fijo y sembrado** (opción A)
 >
-> ### → Normativa en [ADR-004](../adr/ADR-004-currency-definition-identity.md), `Aceptado`
+> ### → Normativa en [F03/ADR-001](../adr/F03/ADR-001-currency-definition-identity.md), `Aceptado`
 >
 > **La fuente normativa es el ADR, no esta sección.** Lo de aquí es el análisis
 > que lo precedió; si ambos difieren, manda el ADR.
@@ -492,7 +492,7 @@ SQL?**
 > Es una restricción de diseño para el transversal A; **no se cambian los
 > vectores ahora**.
 
-**Qué está fijado y no se toca.** ADR-003 §3 exige identidad interna estable e
+**Qué está fijado y no se toca.** F02/ADR-001 §3 exige identidad interna estable e
 inmutable, distinta del código ISO. `data-model.md` §10 añade que una identidad
 estable identifica **una única definición coherente**. `domain/` la trata como
 **opaca**: `CurrencyDefinitionId = Brand<string, ...>`, y `currency-definition.ts`
@@ -513,15 +513,15 @@ dinero.
 | **F · Compuesta `(code, version)`**       | 2 columnas      | Sí                               | Ninguna    | `string` + `int`          |
 
 **C está descartada por ADR aceptado**, no por juicio mío: es exactamente la
-alternativa C de ADR-003, rechazada porque en los tres casos reales —
+alternativa C de F02/ADR-001, rechazada porque en los tres casos reales —
 redenominación, continuidad con código distinto, y dos definiciones del mismo
 código creadas al corregir una errata nuestra — Nomey sumaría importes no
 homogéneos y mostraría un total falso sin avisar. **F es C con una columna
 extra**: mete el código ISO dentro de la clave foránea de cada fila con dinero,
-que es precisamente lo que ADR-003 §3 prohíbe que sea la identidad. Peor que C,
+que es precisamente lo que F02/ADR-001 §3 prohíbe que sea la identidad. Peor que C,
 porque además duplica el coste estructural.
 
-**D (`EUR@1`) es mejor que C y peor que E.** Cumple la letra de ADR-003 pero
+**D (`EUR@1`) es mejor que C y peor que E.** Cumple la letra de F02/ADR-001 pero
 **invita a que alguien la parsee**: `split('@')[0]` reintroduce el código ISO
 como identidad en el primer sitio donde a alguien le venga bien, y el fallo
 resultante es silencioso. Es exactamente el modo de fallo contra el que existe
@@ -589,7 +589,7 @@ donde una divergencia puede esconderse** sin que ningún test la vea.
 
 - Cero traducción entre vectores y servidor.
 - Reproducible entre entornos por construcción, sin depender de secuencias.
-- Cruza la frontera textual sin cast y sin excepción a la regla de ADR-003 §6.
+- Cruza la frontera textual sin cast y sin excepción a la regla de F02/ADR-001 §6.
 - Legible lo justo para depurar.
 
 #### Inconvenientes
@@ -608,7 +608,7 @@ donde una divergencia puede esconderse** sin que ningún test la vea.
 - **Alguien parsea el id.** Mitigado por el vector trampa.
 - **Un id se «corrige»** al descubrir una errata. Está prohibido: la identidad
   es inmutable; una errata de metadata se resuelve creando una definición nueva
-  y versionando las operaciones afectadas (ADR-003 §3).
+  y versionando las operaciones afectadas (F02/ADR-001 §3).
 - Colación e `initcap` accidental. Mitigado por el `CHECK` de minúsculas.
 
 #### Reversibilidad
@@ -644,7 +644,7 @@ opción **E**. Con la opción **A** aprobada, cambian así:
 
 > ## ✅ APROBADA — topología **B: `core` / `api` / `sec`**
 >
-> ### → Normativa en [ADR-005](../adr/ADR-005-schema-topology.md), `Aceptado`
+> ### → Normativa en [F03/ADR-002](../adr/F03/ADR-002-schema-topology.md), `Aceptado`
 >
 > **La fuente normativa es el ADR, no esta sección**, y su §4 delimita
 > exactamente qué queda sin decidir. Si ambos difieren, manda el ADR.
@@ -662,8 +662,8 @@ opción **E**. Con la opción **A** aprobada, cambian así:
 > | `public` | **No contiene tablas de dominio de Nomey**                                               |
 >
 > **Las tablas contables reales no se exponen directamente por PostgREST.**
-> Compatible con ADR-002 —el cliente no es autoridad y no escribe hechos
-> contables— y con ADR-003 —ningún importe exacto cruza JSON como `number`—.
+> Compatible con F01/ADR-001 —el cliente no es autoridad y no escribe hechos
+> contables— y con F02/ADR-001 —ningún importe exacto cruza JSON como `number`—.
 >
 > ### ⚠️ Lo que esta aprobación **NO** cierra
 >
@@ -729,7 +729,7 @@ e12_internal` **antes** de que ningún privilegio de tabla entre en juego
 
 No es la seguridad, aunque ayuda. Es este:
 
-> **ADR-003 §6 prohíbe que un importe cruce JSON como número, y E11 midió que
+> **F02/ADR-001 §6 prohíbe que un importe cruce JSON como número, y E11 midió que
 > exponer una tabla con `BIGINT` lo hace.** Luego **ninguna tabla de dominio
 > puede exponerse tal cual**, en `public` o donde sea.
 
@@ -815,13 +815,13 @@ de cierre 3.
 
 > ## ✅ APROBADA — privilegio mínimo explícito + saneamiento de defaults
 >
-> ### → Normativa en [ADR-006](../adr/ADR-006-privilege-model.md), `Aceptado`
+> ### → Normativa en [F03/ADR-003](../adr/F03/ADR-003-privilege-model.md), `Aceptado`
 >
 > **La fuente normativa es el ADR, no esta sección**, que se conserva como el
 > análisis que lo precedió. Si ambos difieren, manda el ADR.
 >
 > Aprobada en la revisión del bloque **3.C.3**, con dos correcciones sobre lo
-> escrito aquí: la casilla «Tablas de `core`: —`es **falsa** —hace falta`SELECT`sobre las tablas que alimentan cada vista—, y el`EXECUTE`de`PUBLIC`se ataca con **los dos mecanismos a la vez**, el default global y el`REVOKE`por función. ADR-006 añade además el **invariante de exposición**:`core`y`sec`fuera de los schemas expuestos **y** del`extra_search_path`,
+> escrito aquí: la casilla «Tablas de `core`: —`es **falsa** —hace falta`SELECT`sobre las tablas que alimentan cada vista—, y el`EXECUTE`de`PUBLIC`se ataca con **los dos mecanismos a la vez**, el default global y el`REVOKE`por función. F03/ADR-003 añade además el **invariante de exposición**:`core`y`sec`fuera de los schemas expuestos **y** del`extra_search_path`,
 > respaldado por un test.
 
 Consume la evidencia de D4 y la cita explícitamente. **La conclusión es mía; los
@@ -885,7 +885,7 @@ Y cinco reglas que van con ella:
    producto: no hay lectura pública de nada. Si algún día la hay, se concede
    entonces y se justifica entonces.
 2. **`authenticated` nunca recibe `INSERT`, `UPDATE`, `DELETE` ni `TRUNCATE`
-   sobre nada.** ADR-002 §7: los roles cliente no escriben efectos ni
+   sobre nada.** F01/ADR-001 §7: los roles cliente no escriben efectos ni
    operaciones. Lo escriben las funciones, que corren con otra identidad.
 3. **Cada función lleva su `REVOKE EXECUTE ... FROM PUBLIC` en la misma
    migración que la crea.** Esto no es celo: D4 midió que **una función creada
@@ -1329,7 +1329,7 @@ ficha, así que:
 
 > ## ✅ APROBADA — RLS de `core` como autoridad, con helper reducido
 >
-> ### → Normativa en [ADR-007](../adr/ADR-007-membership-rls.md), `Aceptado`
+> ### → Normativa en [F03/ADR-004](../adr/F03/ADR-004-membership-rls.md), `Aceptado`
 >
 > **La fuente normativa es el ADR, no esta sección.** Si ambos difieren, manda
 > el ADR.
@@ -1519,11 +1519,11 @@ claims es aceptar coste de consulta a cambio de frescura, y esa es una decisión
 de producto.
 ---
 
-### D6 · Frontera textual de ADR-003 §6 (T7)
+### D6 · Frontera textual de F02/ADR-001 §6 (T7)
 
 > ## ✅ APROBADA — estrategia combinada, con una corrección medida
 >
-> ### → Normativa en [ADR-008](../adr/ADR-008-exact-data-boundary.md), `Aceptado`
+> ### → Normativa en [F03/ADR-005](../adr/F03/ADR-005-exact-data-boundary.md), `Aceptado`
 >
 > **La fuente normativa es el ADR, no esta sección**, que se conserva como el
 > análisis que lo precedió. Si ambos difieren, manda el ADR.
@@ -1608,10 +1608,10 @@ create function api.record_personal_expense(
 ```
 
 3. **Cliente:** el adaptador convierte `string → bigint` al entrar en `domain/`
-   y `bigint → string` al salir, que es lo que ADR-003 §6 ya exige.
+   y `bigint → string` al salir, que es lo que F02/ADR-001 §6 ya exige.
 4. **Tipos generados:** `supabase gen types typescript --local --schema api`.
    Como en `api` no hay `int8`, `database.ts` **no puede** contener un `number`
-   de importe. Sigue siendo referencia estructural, no frontera —ADR-003 lo dice
+   de importe. Sigue siendo referencia estructural, no frontera —F02/ADR-001 lo dice
    y no cambia—, pero deja de ser una trampa. **`src/types/database.ts` no se
    edita a mano bajo ninguna circunstancia.**
 
@@ -1636,7 +1636,7 @@ escrito:
 - **El tipo JSON original sí es observable** con un payload `jsonb`
   —`jsonb_typeof` distingue `string`, `number` y `null` sobre los mismos bytes
   **[medido]**—. Eso demuestra que el invariante **es exigible**; **qué
-  mecanismo lo exige pertenece a D7** y ADR-008 lo delega expresamente.
+  mecanismo lo exige pertenece a D7** y F03/ADR-005 lo delega expresamente.
 
 #### Ventajas
 
@@ -1660,7 +1660,7 @@ escrito:
   `max_rows`», una sección que **nunca se escribió**. El dato de fondo es
   correcto —`max_rows = 1000` en `config.toml`—, pero no había tal referencia.
   Y la consecuencia **no** es que Nomey no pueda agregar por importe: es que la
-  agregación ocurre **en el servidor**, sobre los tipos exactos (ADR-008 §6).
+  agregación ocurre **en el servidor**, sobre los tipos exactos (F03/ADR-005 §6).
 
 #### Riesgos
 
@@ -1671,7 +1671,7 @@ escrito:
 #### Reversibilidad
 
 **Alta** para el mecanismo (las vistas se reescriben), **baja** para la decisión
-de fondo, que ya la tomó ADR-003 y no está en discusión.
+de fondo, que ya la tomó F02/ADR-001 y no está en discusión.
 
 #### Dependencias
 
@@ -1681,7 +1681,7 @@ Depende de **D1** (si la identidad monetaria es `text`, cruza sin cast) y de
 
 #### ¿Aprobación antes de SQL? **Recomendable pero no bloqueante.** El _qué_ lo
 
-fija ADR-003; aquí solo se elige el mecanismo, y es reversible.
+fija F02/ADR-001; aquí solo se elige el mecanismo, y es reversible.
 
 ---
 
@@ -1689,27 +1689,27 @@ fija ADR-003; aquí solo se elige el mecanismo, y es reversible.
 
 > ## ✅ APROBADA — funciones por clase, payload `jsonb`, writer dedicado bajo RLS
 >
-> ### → Normativa en [ADR-009](../adr/ADR-009-authoritative-write-boundary.md), `Aceptado`
+> ### → Normativa en [F03/ADR-006](../adr/F03/ADR-006-authoritative-write-boundary.md), `Aceptado`
 >
 > **La fuente normativa es el ADR, no esta sección.** Aprobada en la revisión de
 > **3.C.5**, con **tres correcciones medidas** sobre lo escrito aquí:
 >
 > 1. **El payload es `jsonb`, no parámetros tipados.** E14 midió que un
 >    parámetro `text` no conserva el tipo JSON original, así que la forma
->    propuesta aquí no podía cumplir ADR-008 §3.
+>    propuesta aquí no podía cumplir F03/ADR-005 §3.
 > 2. **La afirmación de que «dentro de un `SECURITY DEFINER` la RLS no protege
 >    nada» es falsa** con el writer aprobado. E16 midió que un owner que no es
 >    propietario de la tabla y no tiene `BYPASSRLS` **sigue sometido a RLS**, y
 >    que una política `WITH CHECK` **detuvo una escritura indebida del writer**.
 >    Hay segunda barrera.
-> 3. **El FX no se resuelve automáticamente «del catálogo».** ADR-003 dejó fuera
->    de alcance el proveedor y la regla de selección; ADR-009 §8 separa lo
+> 3. **El FX no se resuelve automáticamente «del catálogo».** F02/ADR-001 dejó fuera
+>    de alcance el proveedor y la regla de selección; F03/ADR-006 §8 separa lo
 >    decidido de lo que no.
 >
 > Además, el actor **no** se obtiene con `auth.uid()`: E16 midió que falla para
 > un writer de mínimo privilegio. Se obtiene de los claims de la petición.
 
-**Lo que ya está decidido y no se rediscute** (ADR-002 §7, `data-model.md` §9):
+**Lo que ya está decidido y no se rediscute** (F01/ADR-001 §7, `data-model.md` §9):
 el cliente envía **intención**, no resultado contable; una función del servidor
 valida y genera los efectos **atómicamente**; los roles cliente **no** tienen
 permisos de escritura sobre operaciones ni efectos.
@@ -1723,7 +1723,7 @@ permisos de escritura sobre operaciones ni efectos.
 **Alternativa B · Edge Function en TypeScript que importa `src/domain/`.**
 
 B tiene una ventaja que hay que reconocer sin rebajarla: **elimina la
-duplicación del cálculo por construcción.** ADR-002 aceptó explícitamente esa
+duplicación del cálculo por construcción.** F01/ADR-001 aceptó explícitamente esa
 duplicación como coste («el cálculo del reparto existe dos veces… se mitiga con
 vectores de prueba compartidos; no se elimina»), y B la eliminaría.
 
@@ -1744,7 +1744,7 @@ Y tiene dos costes que la descartan como frontera principal:
 
 **Recomendación: A**, con esta consecuencia asumida y escrita: **la paridad
 entre `domain/` y el servidor se garantiza con los vectores (transversal A), no
-compartiendo código.** Es exactamente lo que ADR-002 §7 previó.
+compartiendo código.** Es exactamente lo que F01/ADR-001 §7 previó.
 
 #### Forma de la superficie
 
@@ -1849,7 +1849,7 @@ está fuera de lo que puedo modificar. **Traspaso.**
 
 - **El cálculo de reparto se escribe por segunda vez, en PL/pgSQL**, incluido el
   mayor resto con desempate al pagador y orden estable. Es trabajo real y
-  delicado, y ADR-002 lo dio por asumido.
+  delicado, y F01/ADR-001 lo dio por asumido.
 - PL/pgSQL es peor lenguaje que TypeScript para esto, y se prueba peor.
 - Depurar una `SECURITY DEFINER` es incómodo.
 
@@ -1880,7 +1880,7 @@ errores.
 
 > ## ✅ APROBADA — UUID de cliente, comparación solo en servidor
 >
-> ### → Normativa en [ADR-010](../adr/ADR-010-client-operation-idempotency.md), `Aceptado`
+> ### → Normativa en [F03/ADR-007](../adr/F03/ADR-007-client-operation-idempotency.md), `Aceptado`
 >
 > **La fuente normativa es el ADR, no esta sección.** Aprobada en la revisión de
 > **3.C.5**, con **tres correcciones**:
@@ -2014,7 +2014,7 @@ Condiciona **D7** y **D9**. Depende de que exista `created_by`, es decir de auth
 
 > ## ✅ APROBADA — operación estable, versiones inmutables, comandos separados
 >
-> ### → Normativa en [ADR-011](../adr/ADR-011-operation-version-model.md), `Aceptado`
+> ### → Normativa en [F03/ADR-008](../adr/F03/ADR-008-operation-version-model.md), `Aceptado`
 >
 > **La fuente normativa es el ADR, no esta sección**, que se conserva como el
 > análisis que lo precedió. Aprobada en la revisión de **3.C.6**, con **dos
@@ -2034,7 +2034,7 @@ Condiciona **D7** y **D9**. Depende de que exista `created_by`, es decir de auth
 > seis restricciones de linaje, la reclamación del comando antes de su resultado
 > y la representación de las políticas `PUBLIC` en el catálogo.
 
-ADR-002 §6 y `data-model.md` §7: los hechos son inmutables, corregir crea una
+F01/ADR-001 §6 y `data-model.md` §7: los hechos son inmutables, corregir crea una
 **versión nueva**, y saldos y estadísticas se derivan de la **versión vigente**.
 
 #### Las cinco preguntas, con sus alternativas
@@ -2059,7 +2059,7 @@ ADR-002 §6 y `data-model.md` §7: los hechos son inmutables, corregir crea una
   §7 pide diferenciar versiones y derivar de la vigente, no consultar el pasado
   como si fuera presente. Añade rangos, exclusiones y un modo de fallo nuevo
   —solapamientos— a cambio de una capacidad que el producto no ha pedido.
-- **C · Log de eventos y proyección.** Desproporcionado, y ADR-002 ya descartó
+- **C · Log de eventos y proyección.** Desproporcionado, y F01/ADR-001 ya descartó
   la partida doble por la misma razón de proporción.
 
 **Recomendación: A.**
@@ -2099,7 +2099,7 @@ Tres capas, y hacen falta las tres:
 - **Trigger de inmutabilidad:** `before update or delete` que lanza siempre. Esto
   alcanza también al owner y a las funciones `SECURITY DEFINER`, que es lo que
   hace que la garantía no dependa de la disciplina de quien escriba la próxima
-  función. ADR-002 ya anticipó que PostgreSQL no permite `CHECK` entre filas y
+  función. F01/ADR-001 ya anticipó que PostgreSQL no permite `CHECK` entre filas y
   que estas cosas se resuelven con triggers.
 - **`TRUNCATE` explícitamente revocado** (D3/D4): sin eso, la inmutabilidad tiene
   una puerta trasera medida.
@@ -2118,7 +2118,7 @@ create trigger effect_immutable before update or delete on core.effect
 
 **Cómo se obtiene el historial:** consultando las versiones de una operación por
 `version_no`. Qué cambió se obtiene **diferenciando el `intent` de dos
-versiones**, sin registro de cambios separado —ADR-002 §6 lo dice
+versiones**, sin registro de cambios separado —F01/ADR-001 §6 lo dice
 explícitamente— porque un registro separado puede derivar del hecho que
 pretende describir.
 
@@ -2168,7 +2168,7 @@ Condiciona **D7** y toda la superficie de lectura.
 
 > ## ✅ APROBADA — participante contextual, vínculo separado, periodos
 >
-> ### → Normativa en [ADR-012](../adr/ADR-012-participant-identity.md), `Aceptado`
+> ### → Normativa en [F03/ADR-009](../adr/F03/ADR-009-participant-identity.md), `Aceptado`
 >
 > **La fuente normativa es el ADR, no esta sección**, que se conserva como el
 > análisis que lo precedió. Aprobada en la revisión de **3.C.7**, con **tres
@@ -2176,7 +2176,7 @@ Condiciona **D7** y toda la superficie de lectura.
 >
 > 1. **El participante es contextual por ámbito, y el argumento es de
 >    privacidad.** Esta sección lo daba por supuesto —solo aparecía en el
->    diagrama— sin compararlo con la alternativa global. ADR-012 §1 lo
+>    diagrama— sin compararlo con la alternativa global. F03/ADR-009 §1 lo
 >    argumenta: un participante global obligaría a correlacionar precisamente
 >    los datos que no deben correlacionarse.
 > 2. **Corrección medida:** el índice `UNIQUE (user_id, participant_id)` que
@@ -2319,7 +2319,7 @@ participaciones», que es de baja reversibilidad.
 
 > ## ✅ APROBADA — ver el recuadro de **§5**
 >
-> ### → Normativa en [ADR-013](../adr/ADR-013-persisted-vs-derived.md), `Aceptado`
+> ### → Normativa en [F03/ADR-010](../adr/F03/ADR-010-persisted-vs-derived.md), `Aceptado`
 >
 > Las cinco correcciones sobre lo escrito aquí están en §5. En particular, **la
 > recomendación (b) de abajo se aprueba con una relectura**: el puntero de
@@ -2377,44 +2377,44 @@ antes de abrir el siguiente.
 
 ### Decisiones aprobadas hasta ahora
 
-| Decisión | Estado                                                                                       | Fuente normativa                                                      |
-| -------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| **D1**   | **Aprobada:** `UUID` fijo y sembrado. Sustituye a la recomendación E del análisis            | [ADR-004](../adr/ADR-004-currency-definition-identity.md), `Aceptado` |
-| **D2**   | **Aprobada solo la topología** `core` / `api` / `sec`, sin dominio en `public`               | [ADR-005](../adr/ADR-005-schema-topology.md), `Aceptado` — ver su §4  |
-| **D3**   | **Aprobada:** privilegio mínimo explícito, saneamiento de defaults, invariante de exposición | [ADR-006](../adr/ADR-006-privilege-model.md), `Aceptado`              |
-| **D4**   | Medición cerrada. No es una decisión                                                         | Evidencia en [`supabase/e12/`](../../supabase/e12/README.md)          |
-| **D5**   | **Aprobada:** RLS de `core` como autoridad, helper reducido, sin claims                      | [ADR-007](../adr/ADR-007-membership-rls.md), `Aceptado`               |
-| **D6**   | **Aprobada:** lectura textual, invariante de `api`, escritura como JSON `string`             | [ADR-008](../adr/ADR-008-exact-data-boundary.md), `Aceptado`          |
-| **D7**   | **Aprobada:** funciones por clase, payload `jsonb`, writer dedicado bajo RLS                 | [ADR-009](../adr/ADR-009-authoritative-write-boundary.md), `Aceptado` |
-| **D8**   | **Aprobada:** UUID de cliente, comparación solo en servidor, envelope mínimo                 | [ADR-010](../adr/ADR-010-client-operation-idempotency.md), `Aceptado` |
-| **D9**   | **Aprobada:** operación estable, versiones inmutables, `client_command` separado             | [ADR-011](../adr/ADR-011-operation-version-model.md), `Aceptado`      |
-| **D10**  | **Aprobada:** participante contextual, vínculo separado, periodos de presencia               | [ADR-012](../adr/ADR-012-participant-identity.md), `Aceptado`         |
-| **D11**  | **Aprobada:** todo derivado salvo los hechos, reparto contextual, proyección canónica        | [ADR-013](../adr/ADR-013-persisted-vs-derived.md), `Aceptado`         |
+| Decisión | Estado                                                                                       | Fuente normativa                                                              |
+| -------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **D1**   | **Aprobada:** `UUID` fijo y sembrado. Sustituye a la recomendación E del análisis            | [F03/ADR-001](../adr/F03/ADR-001-currency-definition-identity.md), `Aceptado` |
+| **D2**   | **Aprobada solo la topología** `core` / `api` / `sec`, sin dominio en `public`               | [F03/ADR-002](../adr/F03/ADR-002-schema-topology.md), `Aceptado` — ver su §4  |
+| **D3**   | **Aprobada:** privilegio mínimo explícito, saneamiento de defaults, invariante de exposición | [F03/ADR-003](../adr/F03/ADR-003-privilege-model.md), `Aceptado`              |
+| **D4**   | Medición cerrada. No es una decisión                                                         | Evidencia en [`supabase/e12/`](../../supabase/e12/README.md)                  |
+| **D5**   | **Aprobada:** RLS de `core` como autoridad, helper reducido, sin claims                      | [F03/ADR-004](../adr/F03/ADR-004-membership-rls.md), `Aceptado`               |
+| **D6**   | **Aprobada:** lectura textual, invariante de `api`, escritura como JSON `string`             | [F03/ADR-005](../adr/F03/ADR-005-exact-data-boundary.md), `Aceptado`          |
+| **D7**   | **Aprobada:** funciones por clase, payload `jsonb`, writer dedicado bajo RLS                 | [F03/ADR-006](../adr/F03/ADR-006-authoritative-write-boundary.md), `Aceptado` |
+| **D8**   | **Aprobada:** UUID de cliente, comparación solo en servidor, envelope mínimo                 | [F03/ADR-007](../adr/F03/ADR-007-client-operation-idempotency.md), `Aceptado` |
+| **D9**   | **Aprobada:** operación estable, versiones inmutables, `client_command` separado             | [F03/ADR-008](../adr/F03/ADR-008-operation-version-model.md), `Aceptado`      |
+| **D10**  | **Aprobada:** participante contextual, vínculo separado, periodos de presencia               | [F03/ADR-009](../adr/F03/ADR-009-participant-identity.md), `Aceptado`         |
+| **D11**  | **Aprobada:** todo derivado salvo los hechos, reparto contextual, proyección canónica        | [F03/ADR-010](../adr/F03/ADR-010-persisted-vs-derived.md), `Aceptado`         |
 
 ### Abierto de forma expresa
 
 - **`public` dentro o fuera de `api.schemas`.** Pendiente de medición y decisión
-  posterior; separable, y ADR-006 lo deja fuera de alcance a propósito.
+  posterior; separable, y F03/ADR-003 lo deja fuera de alcance a propósito.
 - **El acceso residual** de quien sale de un ámbito con saldo pendiente
-  —`data-model.md` §6—, que **sigue sin representación física**. ADR-012 §12 lo
+  —`data-model.md` §6—, que **sigue sin representación física**. F03/ADR-009 §12 lo
   deja abierto expresamente.
 - **El mecanismo de prueba del claim, la revocación y la fusión** de
-  participantes, delegados por ADR-012 a **F10**.
-- **El `WITH CHECK` del writer sobre los efectos**, que ADR-013 §10 delega
+  participantes, delegados por F03/ADR-009 a **F10**.
+- **El `WITH CHECK` del writer sobre los efectos**, que F03/ADR-010 §10 delega
   expresamente a **E20**, antes de escribir migraciones. Lo único fijado es que
-  **no puede ser el aislamiento por ámbito**: ADR-002 §10 permite efectos sobre
+  **no puede ser el aislamiento por ámbito**: F01/ADR-001 §10 permite efectos sobre
   el ámbito de otro, así que ese predicado rechazaría escrituras legítimas.
 - **Forma definitiva de las vistas de lectura** —qué columnas proyecta cada una—
   y la API de servidor que permita filtrar, ordenar y agregar por importe.
 - **La anulación o cancelación** como concepto distinto de la corrección. Hoy no
-  aparece en ningún documento normativo, y ADR-011 no la inventa.
+  aparece en ningún documento normativo, y F03/ADR-008 no la inventa.
 - **Fuera de D9, como decisión de producto:** la **regla concreta de resolución
-  del tipo de cambio**. ADR-003 dejó fuera de alcance el proveedor, la
+  del tipo de cambio**. F02/ADR-001 dejó fuera de alcance el proveedor, la
   granularidad, la regla de selección y qué ocurre si no hay tipo para una
-  fecha; ADR-009 §8 lo subraya y **no lo resuelve**.
+  fecha; F03/ADR-006 §8 lo subraya y **no lo resuelve**.
 
 > **Cerrado desde la revisión de 3.C.3:** el mecanismo por el que `api` lee
-> `core` ya no está abierto. Lo fija ADR-006 §5 —vistas `security_invoker` con
+> `core` ya no está abierto. Lo fija F03/ADR-003 §5 —vistas `security_invoker` con
 > la RLS de `core` como autoridad—, con la evidencia de
 > [`supabase/e13/`](../../supabase/e13/README.md).
 
