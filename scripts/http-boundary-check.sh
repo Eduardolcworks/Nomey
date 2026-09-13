@@ -32,14 +32,19 @@ set -uo pipefail
 
 # shellcheck source=scripts/local-db-guard.sh
 . "$(dirname "${BASH_SOURCE[0]}")/local-db-guard.sh"
-exigir_base_local || exit 1
+# Pila configurable, por la misma via que los scripts de carreras: por omision
+# la local; NOMEY_DB_CONTAINER / NOMEY_KONG_CONTAINER / NOMEY_API_URL para una
+# pila aislada. Las guardas reciben la misma pila que luego se usa.
+API="${NOMEY_API_URL:-http://127.0.0.1:54321}"
+DB_CONTAINER="${NOMEY_DB_CONTAINER:-supabase_db_Nomey}"
+KONG_CONTAINER="${NOMEY_KONG_CONTAINER:-supabase_kong_Nomey}"
+exigir_base_local "${DB_CONTAINER}" || exit 1
 # Este script habla por la frontera: sin gateway no hay nada que comprobar, y
 # fallar aqui es legible. Fallar en el primer curl, no.
-exigir_frontera_http || exit 1
+exigir_frontera_http "${API}" || exit 1
 
-API=http://127.0.0.1:54321
-DB=(docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=0)
-DBQ=(docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -t -A -v ON_ERROR_STOP=0)
+DB=(docker exec -i "${DB_CONTAINER}" psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=0)
+DBQ=(docker exec -i "${DB_CONTAINER}" psql -U postgres -d postgres -X -q -t -A -v ON_ERROR_STOP=0)
 
 fallos=0
 fallo() { echo "  FALLO: $*"; fallos=$((fallos + 1)); }
@@ -68,7 +73,7 @@ jget() {
 # El `sh -c` no es adorno: Git Bash reescribe las rutas absolutas del comando
 # antes de pasarlas a Docker, y `/home/kong/kong.yml` se convertiria en una ruta
 # de Windows. Dentro de comillas para la shell del contenedor, no la toca.
-KEY=$(docker exec supabase_kong_Nomey \
+KEY=$(docker exec "${KONG_CONTAINER}" \
         sh -c "grep -o 'sb_publishable_[A-Za-z0-9_-]*' /home/kong/kong.yml | head -1" 2>/dev/null)
 if [ -z "${KEY}" ]; then
   echo "error: no se pudo leer la clave publicable del Kong en marcha." >&2
@@ -336,9 +341,9 @@ select count(*) from information_schema.role_routine_grants
  where routine_schema='api' and routine_name like 'record\_%' and grantee='authenticated';
 SQL
 )
-[ "$(tr -d '[:space:]' <<<"${rol}")" = "8" ] \
-  && ok "las ocho funciones estan concedidas a authenticated y a ningun otro rol cliente" \
-  || fallo "los grants de api.record_* a authenticated son $(tr -d '[:space:]' <<<"${rol}") y deben ser 8"
+[ "$(tr -d '[:space:]' <<<"${rol}")" = "9" ] \
+  && ok "las nueve funciones estan concedidas a authenticated y a ningun otro rol cliente" \
+  || fallo "los grants de api.record_* a authenticated son $(tr -d '[:space:]' <<<"${rol}") y deben ser 9"
 
 # ============================================================================
 echo ""
@@ -430,6 +435,7 @@ llamada "record_group_expense" record_group_expense "${TOK_A}" "{
   \"client_operation_id\":\"a1000000-0000-4000-8000-000000000005\",
   \"command_contract_version\":1,\"effective_date\":\"2026-02-05\",
   \"scope_id\":\"${GX}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"10000\",
+  \"concept\":\"Cena\",\"category_id\":\"${CAT_GASTO}\",
   \"payer_participant_id\":\"${XA}\",
   \"participants\":[\"${XA}\",\"${XB}\"],
   \"split_method\":{\"kind\":\"equal\"}}"
@@ -448,6 +454,7 @@ llamada "gasto previo en GY" record_group_expense "${TOK_B}" "{
   \"client_operation_id\":\"a1000000-0000-4000-8000-000000000007\",
   \"command_contract_version\":1,\"effective_date\":\"2026-02-07\",
   \"scope_id\":\"${GY}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"6000\",
+  \"concept\":\"Taxi\",\"category_id\":\"${CAT_GASTO}\",
   \"payer_participant_id\":\"${YB}\",
   \"participants\":[\"${YB}\",\"${YA}\"],
   \"split_method\":{\"kind\":\"equal\"}}"
@@ -483,6 +490,7 @@ r=$(rpc record_group_expense "${TOK_A}" "$(env_payload "{
   \"client_operation_id\":\"a1000000-0000-4000-8000-000000000005\",
   \"command_contract_version\":1,\"effective_date\":\"2026-02-05\",
   \"scope_id\":\"${GX}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"10000\",
+  \"concept\":\"Cena\",\"category_id\":\"${CAT_GASTO}\",
   \"payer_participant_id\":\"${XA}\",
   \"participants\":[\"${XA}\",\"${XB}\"],
   \"split_method\":{\"kind\":\"equal\"}}")")
@@ -547,6 +555,7 @@ comprobar_error "CAS obsoleto" record_group_expense "${TOK_A}" "{
   \"operation_id\":\"${OP_GASTO}\",
   \"expected_version_id\":\"a9999999-9999-4999-8999-999999999999\",
   \"scope_id\":\"${GX}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"8000\",
+  \"concept\":\"Cena\",\"category_id\":\"${CAT_GASTO}\",
   \"payer_participant_id\":\"${XA}\",
   \"participants\":[\"${XA}\",\"${XB}\"],
   \"split_method\":{\"kind\":\"equal\"}}" \
@@ -1103,12 +1112,14 @@ jarr() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{co
 GA=(-H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}")
 GB=(-H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_B}")
 
-# 11.1 · la lista responde, y no trae ninguna clase fuera de las de F6.
+# 11.1 · la lista responde, y no trae ninguna clase fuera de la lista blanca:
+# las tres de F6 mas las dos que F9 publica en Personal (gasto de grupo con
+# cuota, 20260909120000; pago declarado, 20260912170000 / F09/ADR-007).
 lista=$(curl -s "${API}/rest/v1/personal_operation?select=operation_id,operation_class,balance_amount,original_amount,version_no,previous_version_id,concept,target_balance" "${GA[@]}")
 n=$(printf '%s' "${lista}" | jarr 'a.length')
-malas=$(printf '%s' "${lista}" | jarr 'a.filter(x=>!["personal_expense","personal_income","adjustment"].includes(x.operation_class)).length')
+malas=$(printf '%s' "${lista}" | jarr 'a.filter(x=>!["personal_expense","personal_income","adjustment","group_expense","group_payment"].includes(x.operation_class)).length')
 if [ "${n}" != "err" ] && [ "${n}" -gt 0 ] 2>/dev/null && [ "${malas}" = "0" ]; then
-  ok "api.personal_operation responde con ${n} operaciones, todas de las clases de F6"
+  ok "api.personal_operation responde con ${n} operaciones, todas de las clases publicadas"
 else
   fallo "la lista devolvio n=${n} y ${malas} clases fuera de la lista blanca"
 fi
