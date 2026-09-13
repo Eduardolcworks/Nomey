@@ -51,15 +51,16 @@ begin
     fallos := array_append(fallos, 'A1b: no existe sec.lock_scopes');
   end if;
 
-  -- A2 · NINGUNA funcion autoritativa se quedo fuera del protocolo. Las SIETE
-  -- que producen saldo observan; `debt_settlement` no, porque no produce saldo.
+  -- A2 · NINGUNA funcion autoritativa se quedo fuera del protocolo. Las OCHO
+  -- que producen saldo observan (`group_payment`, ADR-038, mueve la caja de
+  -- los dos Personales); `debt_settlement` no, porque no produce saldo.
   select count(*) into v_n
     from pg_proc p join pg_namespace n on n.oid=p.pronamespace
    where n.nspname='api' and p.proname like 'record\_%'
      and p.prosrc like '%observe_balances%';
-  if v_n <> 7 then
+  if v_n <> 8 then
     fallos := array_append(fallos,
-      format('A2: %s funciones observan el saldo y deberian ser 7', v_n));
+      format('A2: %s funciones observan el saldo y deberian ser 8', v_n));
   end if;
   if exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
               where n.nspname='api' and p.proname='record_debt_settlement'
@@ -67,14 +68,14 @@ begin
     fallos := array_append(fallos, 'A2b: record_debt_settlement observa saldo y no produce ninguno');
   end if;
 
-  -- A2c · y las siete BLOQUEAN. Sin lock, la observacion miente (E22/R2).
+  -- A2c · y las ocho BLOQUEAN. Sin lock, la observacion miente (E22/R2).
   select count(*) into v_n
     from pg_proc p join pg_namespace n on n.oid=p.pronamespace
    where n.nspname='api' and p.proname like 'record\_%'
      and p.prosrc like '%lock_scopes%';
-  if v_n <> 8 then
+  if v_n <> 9 then
     fallos := array_append(fallos,
-      format('A2d: %s funciones bloquean ambitos y deberian ser 8, las 7 de saldo mas la de deuda', v_n));
+      format('A2d: %s funciones bloquean ambitos y deberian ser 9, las 8 de saldo mas la de deuda', v_n));
   end if;
 
   -- A3 · EXACTAMENTE UNA `sec.persist_version`. Si sobreviviera la de diez

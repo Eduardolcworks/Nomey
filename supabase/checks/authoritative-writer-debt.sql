@@ -59,14 +59,15 @@ begin
     end if;
   end loop;
 
-  -- A2 · la superficie de escritura completa son OCHO funciones y ninguna mas.
+  -- A2 · la superficie de escritura completa son NUEVE funciones y ninguna mas.
   -- Eran siete hasta que F6.B trajo el ingreso, que es la clase contable que el
-  -- modelo contempla desde la Fase 1 y que no tenia ruta de escritura.
+  -- modelo contempla desde la Fase 1 y que no tenia ruta de escritura; y ocho
+  -- hasta que ADR-038 (F9) trajo el pago de grupo registrado.
   select count(*) into v_n
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.proname like 'record\_%';
-  if v_n <> 8 then
-    fallos := array_append(fallos, format('A2: hay %s funciones api.record_* y deberian ser 8', v_n));
+  if v_n <> 9 then
+    fallos := array_append(fallos, format('A2: hay %s funciones api.record_* y deberian ser 9', v_n));
   end if;
 
   -- A3 · los privilegios que VUELVEN, porque ahora tienen ruta.
@@ -386,7 +387,7 @@ begin
         'client_operation_id','60000000-0000-4000-8000-000000000001',
         'command_contract_version',1,'effective_date','2026-02-01',
         'scope_id',G1,'currency_definition_id',EUR,'total','1000',
-        'payer_participant_id',QA,
+        'concept','Gasto',        'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',        'payer_participant_id',QA,
         'participants', jsonb_build_array(QA,QB,QC),
         'split_method', jsonb_build_object('kind','equal')));
   v_op := (r ->> 'operation_id')::uuid;
@@ -465,7 +466,7 @@ begin
         'client_operation_id','60000000-0000-4000-8000-000000000002',
         'command_contract_version',1,'effective_date','2026-02-02',
         'scope_id',G1,'currency_definition_id',EUR,'total','10000',
-        'payer_participant_id',QA,
+        'concept','Gasto',        'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',        'payer_participant_id',QA,
         'participants', jsonb_build_array(QA,QB,QC),
         'split_method', jsonb_build_object('kind','shares','weights',jsonb_build_array('1','2','3'))));
   reset role;
@@ -489,7 +490,7 @@ begin
         'client_operation_id','60000000-0000-4000-8000-000000000003',
         'command_contract_version',1,'effective_date','2026-02-03',
         'scope_id',G1,'currency_definition_id',EUR,'total','10000',
-        'payer_participant_id',QA,
+        'concept','Gasto',        'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',        'payer_participant_id',QA,
         'participants', jsonb_build_array(QA,QB,QC),
         'split_method', jsonb_build_object('kind','exact_amounts','amounts',jsonb_build_array('3000','3000','4000'))));
   reset role;
@@ -509,7 +510,7 @@ begin
         'client_operation_id','60000000-0000-4000-8000-000000000004',
         'command_contract_version',1,'effective_date','2026-02-04',
         'scope_id',G1,'currency_definition_id',EUR,'total','6000',
-        'payer_participant_id',QE,
+        'concept','Gasto',        'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',        'payer_participant_id',QE,
         'participants', jsonb_build_array(QE,QA),
         'split_method', jsonb_build_object('kind','equal')));
   reset role;
@@ -534,7 +535,7 @@ begin
         'client_operation_id','60000000-0000-4000-8000-000000000005',
         'command_contract_version',1,'effective_date','2026-02-05',
         'scope_id',G1,'currency_definition_id',EUR,'total','1',
-        'payer_participant_id',QA,
+        'concept','Gasto',        'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',        'payer_participant_id',QA,
         'participants', jsonb_build_array(QA,QB,QC),
         'split_method', jsonb_build_object('kind','equal')));
   reset role;
@@ -552,7 +553,15 @@ begin
   end if;
 
   -- B6 · la clase de operacion es la de 7b, en snake_case.
-  select count(*) into v_n from core.operation where operation_class <> 'group_expense';
+  --
+  -- Acotado a las operaciones DE ESTA SECCION. Contar todas las de la base daba
+  -- por supuesta una base desde cero: en CI lo es, y en una poblada la
+  -- afirmacion resultaba falsa sin que nada estuviera mal.
+  select count(distinct ov.operation_id) into v_n
+    from core.effect e
+    join core.operation_version ov on ov.id = e.operation_version_id
+    join core.operation o on o.id = ov.operation_id
+   where e.scope_id = G1::uuid and o.operation_class <> 'group_expense';
   if v_n <> 0 then
     fallos := array_append(fallos, format('B6: hay %s operaciones que no son group_expense en esta seccion', v_n));
   end if;
@@ -583,7 +592,7 @@ begin
         'client_operation_id','61000000-0000-4000-8000-000000000001',
         'command_contract_version',1,'effective_date','2026-03-01',
         'scope_id',G2,'currency_definition_id',EUR,'total','10000',
-        'payer_participant_id',RA,
+        'concept','Gasto',        'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',        'payer_participant_id',RA,
         'participants', jsonb_build_array(RA,RB),
         'split_method', jsonb_build_object('kind','equal')));
 
@@ -761,7 +770,7 @@ begin
         'client_operation_id','62000000-0000-4000-8000-000000000001',
         'command_contract_version',1,'effective_date','2026-04-01',
         'scope_id',G1,'currency_definition_id',EUR,'total','6000',
-        'payer_participant_id',QB,
+        'concept','Gasto',        'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',        'payer_participant_id',QB,
         'participants', jsonb_build_array(QB,QA),
         'split_method', jsonb_build_object('kind','equal')));
   reset role;
@@ -881,7 +890,7 @@ begin
         'client_operation_id','63000000-0000-4000-8000-000000000001',
         'command_contract_version',1,'effective_date','2026-05-01',
         'scope_id',G1,'currency_definition_id',EUR,'total','9000',
-        'payer_participant_id',QA,
+        'concept','Gasto',        'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',        'payer_participant_id',QA,
         'participants', jsonb_build_array(QA,QB,QC),
         'split_method', jsonb_build_object('kind','equal')));
   reset role;
@@ -899,7 +908,7 @@ begin
           'command_contract_version',1,'effective_date','2026-05-01',
           'operation_id', v_op, 'expected_version_id', v_v1,
           'scope_id',G1,'currency_definition_id',EUR,'total','6000',
-          'payer_participant_id',QA,
+          'concept','Gasto',          'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',          'payer_participant_id',QA,
           'participants', jsonb_build_array(QA,QB,QC),
           'split_method', jsonb_build_object('kind','equal')));
   exception when others then
@@ -963,7 +972,7 @@ begin
       'command_contract_version',1,'effective_date','2026-05-01',
       'operation_id', v_op, 'expected_version_id', v_v1,
       'scope_id',G1,'currency_definition_id',EUR,'total','3000',
-      'payer_participant_id',QA,
+      'concept','Gasto',      'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',      'payer_participant_id',QA,
       'participants', jsonb_build_array(QA,QB,QC),
       'split_method', jsonb_build_object('kind','equal')));
     fallos := array_append(fallos, 'E2: se acepto una correccion sobre una version ya superada');
@@ -1071,7 +1080,7 @@ begin
         'client_operation_id','67000000-0000-4000-8000-000000000001',
         'command_contract_version',1,'effective_date','2026-11-01',
         'scope_id',G7,'currency_definition_id',EUR,'total','10000',
-        'payer_participant_id',QA,
+        'concept','Gasto',        'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',        'payer_participant_id',QA,
         'participants', jsonb_build_array(QA,QB),
         'split_method', jsonb_build_object('kind','equal')));
   v_op := (r ->> 'operation_id')::uuid;
@@ -1110,7 +1119,7 @@ begin
       'command_contract_version',1,'effective_date','2026-11-01',
       'operation_id', v_op, 'expected_version_id', v_v1,
       'scope_id',G7,'currency_definition_id',EUR,'total','6000',
-      'payer_participant_id',QA,
+      'concept','Gasto',      'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',      'payer_participant_id',QA,
       'participants', jsonb_build_array(QA,QB),
       'split_method', jsonb_build_object('kind','equal')));
     fallos := array_append(fallos,
@@ -1161,7 +1170,7 @@ begin
       'command_contract_version',1,'effective_date','2026-11-01',
       'operation_id', v_op, 'expected_version_id', v_v1,
       'scope_id',G7,'currency_definition_id',EUR,'total','8000',
-      'payer_participant_id',QA,
+      'concept','Gasto',      'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',      'payer_participant_id',QA,
       'participants', jsonb_build_array(QA,QB),
       'split_method', jsonb_build_object('kind','equal')));
   exception when others then
@@ -1190,7 +1199,7 @@ begin
       'command_contract_version',1,'effective_date','2026-11-01',
       'operation_id', v_op, 'expected_version_id', v_vigente,
       'scope_id',G7,'currency_definition_id',EUR,'total','8000',
-      'payer_participant_id',QA,
+      'concept','Gasto',      'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',      'payer_participant_id',QA,
       'participants', jsonb_build_array(QA),
       'split_method', jsonb_build_object('kind','equal')));
     fallos := array_append(fallos,
@@ -1246,7 +1255,7 @@ begin
     'client_operation_id', K,
     'command_contract_version',1,'effective_date','2026-06-01',
     'scope_id',G1,'currency_definition_id',EUR,'total','5000',
-    'payer_participant_id',QA,
+    'concept','Gasto',    'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',    'payer_participant_id',QA,
     'participants', jsonb_build_array(QA,QB),
     'split_method', jsonb_build_object('kind','equal'));
 
@@ -1289,7 +1298,7 @@ begin
     'operation_id', v_op,
     'expected_version_id', v_cur,
     'scope_id',G1,'currency_definition_id',EUR,'total','7000',
-    'payer_participant_id',QA,
+    'concept','Gasto',    'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',    'payer_participant_id',QA,
     'participants', jsonb_build_array(QA,QB),
     'split_method', jsonb_build_object('kind','equal')));
   reset role;
@@ -1407,7 +1416,7 @@ begin
   base := jsonb_build_object(
     'command_contract_version',1,'effective_date','2026-07-01',
     'scope_id',G1,'currency_definition_id',EUR,'total','1000',
-    'payer_participant_id',QA,
+    'concept','Gasto',    'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',    'payer_participant_id',QA,
     'participants', jsonb_build_array(QA,QB),
     'split_method', jsonb_build_object('kind','equal'));
 
@@ -1438,7 +1447,7 @@ begin
       -- dominio
       ('sin participantes',          jsonb_build_object('participants', jsonb_build_array()),             'SPLIT_NO_PARTICIPANTS'),
       ('participante duplicado',     jsonb_build_object('participants', jsonb_build_array(QA,QA)),        'SPLIT_DUPLICATE_PARTICIPANT'),
-      ('pagador fuera',              jsonb_build_object('payer_participant_id', QB, 'participants', jsonb_build_array(QA)), 'SPLIT_PAYER_NOT_PARTICIPANT'),
+      ('pagador fuera',              jsonb_build_object('concept','Gasto','category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9','payer_participant_id', QB, 'participants', jsonb_build_array(QA)), 'SPLIT_PAYER_NOT_PARTICIPANT'),
       ('total negativo',             jsonb_build_object('total','-1000'),                                 'SPLIT_NEGATIVE_TOTAL'),
       ('pesos de otra longitud',     jsonb_build_object('split_method', jsonb_build_object('kind','shares','weights',jsonb_build_array('1'))), 'SPLIT_WEIGHTS_LENGTH_MISMATCH'),
       ('peso cero',                  jsonb_build_object('split_method', jsonb_build_object('kind','shares','weights',jsonb_build_array('1','0'))), 'SPLIT_SHARE_NOT_POSITIVE'),
@@ -1514,7 +1523,7 @@ begin
       'client_operation_id','66000000-0000-4000-8000-000000000001',
       'command_contract_version',1,'effective_date','2026-08-01',
       'scope_id',G3,'currency_definition_id',USD,'total','9185',
-      'payer_participant_id',QA3,
+      'concept','Gasto',      'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',      'payer_participant_id',QA3,
       'participants', jsonb_build_array(QA3,QB3),
       'split_method', jsonb_build_object('kind','equal')));
     fallos := array_append(fallos,
@@ -1780,7 +1789,7 @@ begin
             'command_contract_version', 1, 'effective_date', v_fecha::text,
             'scope_id', v_group::text, 'currency_definition_id', EUR::text,
             'total', v_op ->> 'total',
-            'payer_participant_id',
+            'concept','Gasto',            'category_id','4ed30a44-9f82-578f-828c-b491a25ebdd9',            'payer_participant_id',
               ('c0000000-0000-4000-8000-'
                || lpad((v_seen * 10 + strpos('ABCDM', v_op ->> 'payer'))::text, 12, '0')),
             'participants',
@@ -1949,11 +1958,28 @@ begin
 
     -- En que ambitos hubo movimiento de caja. Con la lista vacia, en ninguno: es
     -- el contraste entre «el pagador tiene Modo Personal» y «no se le inventa».
+    --
+    -- ═══ ACOTADO AL UNIVERSO DEL ESCENARIO, Y NO SOLO A SU FECHA ═══
+    --
+    -- La condicion era `ov.effective_date = v_fecha` y nada mas, asi que contaba
+    -- CUALQUIER efecto de caja de la base con esa fecha. Las fechas se reparten
+    -- desde 2026-09-01, una por escenario, de modo que en una base poblada un
+    -- gasto real del mismo dia entraba en la cuenta: medido, `4.7` esperaba un
+    -- ambito y encontraba dos, y el segundo era el Modo Personal de una persona
+    -- que no pinta nada en el escenario.
+    --
+    -- **No se debilita la comprobacion: se le da su sujeto.** Sigue exigiendo el
+    -- numero exacto de ambitos con caja, y sigue exigiendo cuales; lo unico que
+    -- cambia es que el universo son los ambitos que el escenario construye —su
+    -- grupo y los tres personales del mapa—, que es lo unico sobre lo que puede
+    -- afirmar algo. En CI, desde cero, no cambia nada.
     if v_case -> 'expect' ? 'balanceEffectScopes' then
       select count(distinct e.scope_id) into v_n
         from core.current_effect e
         join core.operation_version ov on ov.id = e.operation_version_id
-       where e.balance_amount is not null and ov.effective_date = v_fecha;
+       where e.balance_amount is not null and ov.effective_date = v_fecha
+         and (e.scope_id = v_group or e.scope_id in (
+               select (value)::uuid from jsonb_each_text(v_scope_map)));
       if v_n <> jsonb_array_length(v_case -> 'expect' -> 'balanceEffectScopes') then
         fallos := array_append(fallos, format('J/%s: hubo caja en %s ambitos y el vector enumera %s',
           v_case ->> 'id', v_n, jsonb_array_length(v_case -> 'expect' -> 'balanceEffectScopes')));

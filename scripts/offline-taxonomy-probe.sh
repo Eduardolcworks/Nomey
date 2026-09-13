@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# LA PUERTA DE ACEPTACION DE ADR-028 · la tripleta de cada clase de respuesta.
+# LA PUERTA DE ACEPTACION DE F07/ADR-001 · la tripleta de cada clase de respuesta.
 #
 #   estado HTTP  ·  codigo de frontera  ·  SQLSTATE
 #
-# Por que existe. ADR-028 §11 define siete clases y hace depender de ellas la
+# Por que existe. F07/ADR-001 §11 define siete clases y hace depender de ellas la
 # decision mas peligrosa de la fase: si se puede o no proponer registrar el gasto
 # otra vez. Equivocarse ahi DUPLICA DINERO. El ADR exige por eso medir la
 # tripleta contra el stack real antes de escribir el mapa en codigo, en vez de
@@ -106,7 +106,7 @@ jwt() {
 #     «soltar» el puntero antes de borrar la version. Un `update ... = null`
 #     falla, y con `ON_ERROR_STOP=0` fallaba EN SILENCIO: la operacion
 #     sobrevivia y la sonda dejaba basura.
-#   * La FK compuesta del puntero es DIFERIBLE (ADR-011 §7), asi que dentro de
+#   * La FK compuesta del puntero es DIFERIBLE (F03/ADR-008 §7), asi que dentro de
 #     una transaccion con `set constraints all deferred` se puede borrar la
 #     version y despues la operacion; al commit no queda inconsistencia.
 #

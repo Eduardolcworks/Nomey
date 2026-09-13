@@ -14,11 +14,11 @@
  *
  * WHAT IT PROVES, and why each one matters:
  *
- *  1. The three variants resolve at all, with the exact identity ADR-031 §1
+ *  1. The three variants resolve at all, with the exact identity F08/ADR-002 §1
  *     fixes. A typo in a bundle identifier is invisible until an install
  *     collides or a deep link opens the wrong app.
  *  2. They differ in NOTHING beyond that identity and the update channel.
- *     This is ADR-031 §2 made mechanical: the moment a variant starts changing
+ *     This is F08/ADR-002 §2 made mechanical: the moment a variant starts changing
  *     a plugin, a permission or a flag, staging stops being a rehearsal of
  *     production and starts being a different app.
  *  3. An absent APP_VARIANT resolves to development, never to production.
@@ -67,7 +67,7 @@ const MAY_DIFFER = [
 const VARIANT_ONLY_PLUGIN = './plugins/with-local-http.js';
 const PLUGIN_EXPECTED_IN = new Set(['staging']);
 
-/** Identity fixed by ADR-031 §1, restated here so the check has an oracle. */
+/** Identity fixed by F08/ADR-002 §1, restated here so the check has an oracle. */
 const EXPECTED = {
   development: {
     name: 'Nomey Dev',

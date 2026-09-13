@@ -11,9 +11,9 @@
 #
 #   1. que un JWT emitido por Auth resuelve al rol `authenticated`;
 #   2. que PostgREST entrega el `jsonb` CONSERVANDO EL TIPO JSON ORIGINAL, que
-#      es lo que ADR-008 §3 exige y E14 midio sobre una maqueta;
+#      es lo que F03/ADR-005 §3 exige y E14 midio sobre una maqueta;
 #   3. que `RAISE sqlstate 'PGRST'` viaja como el estado HTTP y el cuerpo que
-#      ADR-009 §9 fija, contra las funciones REALES y no las de E15;
+#      F03/ADR-006 §9 fija, contra las funciones REALES y no las de E15;
 #   4. que `core` no es alcanzable por la Data API, en comportamiento.
 #
 # Uso, con el stack levantado Y con GoTrue arrancado:
@@ -107,7 +107,7 @@ estado_de() { printf '%s' "${1%% *}"; }
 cuerpo_de() { printf '%s' "${1#* }"; }
 
 # El payload de una intencion viaja SIEMPRE dentro de `payload`, porque
-# ADR-009 §2 fija un unico parametro `jsonb` por funcion.
+# F03/ADR-006 §2 fija un unico parametro `jsonb` por funcion.
 env_payload() { printf '{"payload":%s}' "$1"; }
 
 # ------------------------------------------------------------- usuarios -----
@@ -254,8 +254,8 @@ insert into core.participant (id, scope_id, display_name) values
   ('${YA}','${GY}','A'), ('${YB}','${GY}','B');
 -- La membresia del PROPIO Modo Personal no es redundante con la propiedad, y
 -- descubrirlo costo un fallo de este check: `owner_user_id` es ATRIBUCION
--- economica durable (ADR-016) y `core.membership` es AUTORIZACION actual
--- (ADR-007). La policy de lectura de `core.effect` se resuelve por membresia,
+-- economica durable (F03/ADR-013) y `core.membership` es AUTORIZACION actual
+-- (F03/ADR-004). La policy de lectura de `core.effect` se resuelve por membresia,
 -- asi que sin esta fila el dueno no ve sus propios efectos. Son dos preguntas
 -- distintas a proposito, y el provisioning tendra que crear las dos.
 insert into core.membership (scope_id, user_id) values
@@ -356,7 +356,7 @@ esac
 # ============================================================================
 echo ""
 echo "== 3 · el payload jsonb conserva el tipo JSON original =="
-# ADR-008 §3. E14 midio sobre una maqueta que un parametro `text` NO lo conserva
+# F03/ADR-005 §3. E14 midio sobre una maqueta que un parametro `text` NO lo conserva
 # y que `jsonb` SI; esto lo comprueba contra la funcion real, por la ruta real.
 r=$(rpc record_adjustment "${TOK_A}" "$(env_payload "{
   \"client_operation_id\":\"a0000000-0000-4000-8000-000000000002\",
@@ -498,7 +498,7 @@ fi
 # ============================================================================
 echo ""
 echo "== 6 · los codigos de error viajan con su estado HTTP =="
-# ADR-009 §9 y E15: el codigo propio va en el CUERPO y el estado en `detail`.
+# F03/ADR-006 §9 y E15: el codigo propio va en el CUERPO y el estado en `detail`.
 # Esto lo comprueba contra las funciones reales, no contra las de la sonda.
 
 comprobar_error() {
@@ -559,7 +559,7 @@ comprobar_error "FX sin regla" record_adjustment "${TOK_A}" "{
   \"scope_id\":\"${PA}\",\"delta\":\"1\",\"currency_definition_id\":\"${USD}\"}" \
   CURRENCY_CONVERSION_UNSUPPORTED 422
 
-# Y un codigo de DOMINIO, que conserva el suyo (ADR-009 §9).
+# Y un codigo de DOMINIO, que conserva el suyo (F03/ADR-006 §9).
 comprobar_error "sobrepago" record_debt_settlement "${TOK_B}" "{
   \"client_operation_id\":\"a2000000-0000-4000-8000-000000000007\",
   \"command_contract_version\":1,\"effective_date\":\"2026-03-07\",
@@ -605,7 +605,7 @@ propios=$(curl -s "${API}/rest/v1/personal_effect?select=id" \
   && ok "y el caso POSITIVO tambien: ve ${propios} efectos suyos, asi que no es una tabla vacia" \
   || fallo "A no ve ninguno de sus propios efectos: el test de aislamiento seria vacio"
 
-# Los importes salen como TEXTO, nunca como number JSON (ADR-008 §1).
+# Los importes salen como TEXTO, nunca como number JSON (F03/ADR-005 §1).
 tipos=$(curl -s "${API}/rest/v1/personal_effect?select=balance_amount&limit=5" \
   -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);console.log(a.every(x=>x.balance_amount===null||typeof x.balance_amount==="string")?"ok":"number")}catch{console.log("err")}})')
@@ -673,7 +673,7 @@ else
   # 8.5 · el catalogo, que es lo que alimenta el selector de divisa.
   #
   # NO se cuenta el total: este mismo check siembra dos definiciones propias
-  # —con codigos EUR y USD y otra identidad—, que es justo el caso que ADR-004
+  # —con codigos EUR y USD y otra identidad—, que es justo el caso que F03/ADR-001
   # describe. Se comprueba que las VEINTE SEMBRADAS POR MIGRACION estan, por su
   # identidad y con su escala, que es lo que de verdad importa.
   n=$(curl -s "${API}/rest/v1/currency_definition?select=id,code,scale" \
@@ -985,7 +985,7 @@ echo ""
 echo "== 10 · saldo objetivo y anulacion, por HTTP =="
 #
 # Lo que solo esta ruta demuestra: que el objetivo viaja como STRING —es un
-# importe exacto y ADR-008 §1 no admite otra cosa—, que el delta lo deriva el
+# importe exacto y F03/ADR-005 §1 no admite otra cosa—, que el delta lo deriva el
 # servidor, y que anular responde por PostgREST con el estado correcto.
 
 # 10.1 · el saldo de partida de A, derivado.
@@ -1113,7 +1113,7 @@ else
   fallo "la lista devolvio n=${n} y ${malas} clases fuera de la lista blanca"
 fi
 
-# 11.2 · LOS IMPORTES CRUZAN COMO STRING. Es la mitad de ADR-008 §1 que solo la
+# 11.2 · LOS IMPORTES CRUZAN COMO STRING. Es la mitad de F03/ADR-005 §1 que solo la
 # ruta real comprueba: el catalogo dice que no hay columnas `bigint`, pero que
 # PostgREST no los reserialice como number lo demuestra este byte.
 tipos=$(printf '%s' "${lista}" | jarr 'a.every(x=>typeof x.balance_amount==="string" && typeof x.original_amount==="string")?"ok":"number"')
@@ -1122,7 +1122,7 @@ tipos=$(printf '%s' "${lista}" | jarr 'a.every(x=>typeof x.balance_amount==="str
   || fallo "algun importe de la lista salio como number JSON (${tipos})"
 
 # 11.3 · LA ANULADA NO ASOMA, ni por la lista ni por el historial. Es la
-# obligacion de ADR-024 comprobada sobre la ruta real y no sobre `set_config`.
+# obligacion de F06/ADR-006 comprobada sobre la ruta real y no sobre `set_config`.
 enlista=$(printf '%s' "${lista}" | jarr 'a.filter(x=>x.operation_id==="'"${OP_ANU}"'").length')
 enhist=$(curl -s "${API}/rest/v1/personal_operation_version?select=operation_version_id&operation_id=eq.${OP_ANU}" "${GA[@]}" | jarr 'a.length')
 if [ "${enlista}" = "0" ] && [ "${enhist}" = "0" ]; then
@@ -1284,7 +1284,7 @@ tipos=$(printf '%s' "${c}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).
   && ok "los totales y los importes por categoria cruzan como string JSON" \
   || fallo "algun importe de la estadistica salio como number JSON (${tipos})"
 
-# 12.3 · el reparto CUADRA con el total. Es la afirmacion central de ADR-026
+# 12.3 · el reparto CUADRA con el total. Es la afirmacion central de F06/ADR-008
 # —dos superficies, un solo conjunto de hechos— comprobada sobre la ruta real.
 cuadra=$(printf '%s' "${c}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const o=JSON.parse(s);const sum=(o.categories||[]).reduce((a,x)=>a+BigInt(x.expense_total),0n);console.log(sum===BigInt(o.expense_total)?"ok":sum+" vs "+o.expense_total)}catch{console.log("err")}})')
 [ "${cuadra}" = "ok" ] \

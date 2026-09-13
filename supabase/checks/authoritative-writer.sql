@@ -23,14 +23,15 @@ declare
   v_n int;
 begin
   -- A1 · la superficie de escritura completa, y nada mas. Eran cuatro con 7a;
-  -- son SIETE desde 7b, que anadio las tres clases con deuda. La cifra se
+  -- SIETE desde 7b, que anadio las tres clases con deuda; OCHO con el ingreso
+  -- (F6.B) y NUEVE con el pago de grupo (ADR-038, F9). La cifra se
   -- actualiza aqui a proposito en vez de relajar la comprobacion a «al menos»:
   -- lo que este test protege es que la superficie sea ENUMERABLE.
   select count(*) into v_n
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.proname like 'record\_%';
-  if v_n <> 8 then
-    fallos := array_append(fallos, format('A1: hay %s funciones api.record_* y deberian ser 8', v_n));
+  if v_n <> 9 then
+    fallos := array_append(fallos, format('A1: hay %s funciones api.record_* y deberian ser 9', v_n));
   end if;
 
   -- A2 · atributos exigidos por ADR-009 §4 y §5, una por una.

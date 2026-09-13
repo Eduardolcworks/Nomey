@@ -19,6 +19,7 @@ do $estructura$
 declare
   fallos text[] := '{}';
   v_n int;
+  v_t text;
 begin
   -- A1 · las tres relaciones nuevas existen.
   select count(*) into v_n
@@ -47,18 +48,26 @@ begin
     fallos := array_append(fallos, 'A3: existe una policy de core aplicable a PUBLIC');
   end if;
 
-  -- A4 · el rol cliente no alcanza ninguna de las tres, ni con grant ni con
-  -- policy. La lectura llegara por la superficie `api`, que no existe todavia.
-  select count(*) into v_n
+  -- A4 · lo que el cliente alcanza, y nada mas. Cuando estas relaciones
+  -- nacieron nadie las leia; desde 20260908140000 (F9) el reparto declarado se
+  -- abre a `authenticated` SOLO en lectura y SOLO por membresia del ambito
+  -- (`api.group_split_participant` y «Pagado por» son vistas security_invoker).
+  -- `core.frozen_conversion` sigue sin ningun privilegio de cliente. Cualquier
+  -- escritura, o `anon`/`service_role`, seria un cambio de contrato.
+  select coalesce(string_agg(table_name || ':' || grantee || ':' || privilege_type, ' ' order by table_name, grantee, privilege_type), '')
+    into v_t
   from information_schema.table_privileges
   where table_schema = 'core'
     and table_name in ('split','split_participant','frozen_conversion')
     and grantee in ('anon','authenticated','service_role');
-  if v_n <> 0 then
-    fallos := array_append(fallos, format('A4: los roles cliente tienen %s privilegios sobre las relaciones nuevas', v_n));
+  if v_t <> 'split:authenticated:SELECT split_participant:authenticated:SELECT' then
+    fallos := array_append(fallos, format('A4: privilegios de cliente sobre las relaciones nuevas distintos de la lectura del reparto por miembros: [%s]', v_t));
   end if;
 
-  select count(*) into v_n
+  -- A4b · y esa lectura es por membresia del ambito: una policy de select por
+  -- relacion, con sec.is_member(scope_id), y ninguna otra de cliente.
+  select coalesce(string_agg(c.relname || ':' || p.polname || ':' || p.polcmd::text || ':' || pg_get_expr(p.polqual, p.polrelid), ' ' order by c.relname), '')
+    into v_t
   from pg_policy p
   join pg_class c on c.oid = p.polrelid
   join pg_namespace n on n.oid = c.relnamespace
@@ -66,8 +75,8 @@ begin
   where n.nspname = 'core'
     and c.relname in ('split','split_participant','frozen_conversion')
     and r.rolname in ('anon','authenticated','service_role');
-  if v_n <> 0 then
-    fallos := array_append(fallos, format('A4b: hay %s policies de cliente sobre las relaciones nuevas', v_n));
+  if v_t <> 'split:split_client_select:r:sec.is_member(scope_id) split_participant:split_participant_client_select:r:sec.is_member(scope_id)' then
+    fallos := array_append(fallos, format('A4b: policies de cliente sobre las relaciones nuevas distintas de la lectura por miembros: [%s]', v_t));
   end if;
 
   -- A5 · grants EXACTOS del writer.

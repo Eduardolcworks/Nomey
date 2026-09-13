@@ -2,7 +2,7 @@
 #
 # Concurrencia real del protocolo de serializacion de la deuda · 7b.
 #
-# ADR-013 §11 no se puede comprobar desde `supabase/checks/`: una sola sesion de
+# F03/ADR-010 §11 no se puede comprobar desde `supabase/checks/`: una sola sesion de
 # `psql` no tiene concurrencia, y una simulacion secuencial pasaria tambien con
 # el lock quitado. Esto abre SESIONES SIMULTANEAS de verdad, como hizo E15-C.
 #
@@ -126,6 +126,8 @@ limpiar_operaciones() {
 begin;
 set constraints all deferred;
 delete from core.client_command where created_by in ('${UA}','${UB}');
+-- Las correcciones avisan a los miembros (20260908170000): sin esto, el ambito no se puede borrar.
+delete from core.group_notice where scope_id in (${AMBITOS});
 delete from core.balance_observation where scope_id in (${AMBITOS});
 delete from core.adjustment_detail d using core.operation_version ov
   where ov.id = d.operation_version_id and ov.created_by in ('${UA}','${UB}');
@@ -151,6 +153,8 @@ retirar() {
 begin;
 set constraints all deferred;
 delete from core.client_command where created_by in ('${UA}','${UB}');
+-- Las correcciones avisan a los miembros (20260908170000): sin esto, el ambito no se puede borrar.
+delete from core.group_notice where scope_id in (${AMBITOS});
 delete from core.balance_observation where scope_id in (${AMBITOS});
 delete from core.adjustment_detail d using core.operation_version ov
   where ov.id = d.operation_version_id and ov.created_by in ('${UA}','${UB}');
@@ -180,12 +184,19 @@ SQL
 gasto() {
   local clave="$1" scope="$2" pagador="$3" p1="$4" p2="$5" total="$6"
   llamar "${UA}" record_group_expense \
-    "{\"client_operation_id\":\"${clave}\",\"command_contract_version\":1,\"effective_date\":\"2026-10-01\",\"scope_id\":\"${scope}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"${total}\",\"payer_participant_id\":\"${pagador}\",\"participants\":[\"${p1}\",\"${p2}\"],\"split_method\":{\"kind\":\"equal\"}}"
+    "{\"client_operation_id\":\"${clave}\",\"command_contract_version\":1,\"effective_date\":\"2026-10-01\",\"scope_id\":\"${scope}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"${total}\",\"concept\":\"Cena\",\"category_id\":\"${CAT}\",\"payer_participant_id\":\"${pagador}\",\"participants\":[\"${p1}\",\"${p2}\"],\"split_method\":{\"kind\":\"equal\"}}"
 }
 
 echo "== preparando =="
 retirar
 sembrar
+# Desde 20260908120000 un gasto de grupo lleva concepto y categoria (de
+# sistema, F06/ADR-003/027): se resuelve del catalogo sembrado por migracion.
+CAT=$("${DBQ[@]}" <<SQL 2>/dev/null
+select id from core.category where message_key = 'category.expense.dining' and owner_user_id is null;
+SQL
+)
+CAT=$(echo "${CAT}" | tr -d '[:space:]')
 
 # ============================================================================
 echo ""
@@ -255,7 +266,7 @@ read -r OP2 V2 <<<"$(leer_op 8000)"
 mover() {
   local clave="$1" op="$2" ver="$3" scope="$4" pagador="$5" p1="$6" p2="$7"
   llamar "${UA}" record_group_expense \
-    "{\"client_operation_id\":\"${clave}\",\"command_contract_version\":1,\"effective_date\":\"2026-10-01\",\"operation_id\":\"${op}\",\"expected_version_id\":\"${ver}\",\"scope_id\":\"${scope}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"4000\",\"payer_participant_id\":\"${pagador}\",\"participants\":[\"${p1}\",\"${p2}\"],\"split_method\":{\"kind\":\"equal\"}}"
+    "{\"client_operation_id\":\"${clave}\",\"command_contract_version\":1,\"effective_date\":\"2026-10-01\",\"operation_id\":\"${op}\",\"expected_version_id\":\"${ver}\",\"scope_id\":\"${scope}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"4000\",\"concept\":\"Cena\",\"category_id\":\"${CAT}\",\"payer_participant_id\":\"${pagador}\",\"participants\":[\"${p1}\",\"${p2}\"],\"split_method\":{\"kind\":\"equal\"}}"
 }
 
 deadlocks=0
@@ -283,7 +294,7 @@ done
 # ============================================================================
 echo ""
 echo "== 3 · una correccion que reduce la deuda, contra una liquidacion =="
-echo "   Es el caso que ADR-013 §11 llama 'serializacion parcial': si solo la"
+echo "   Es el caso que F03/ADR-010 §11 llama 'serializacion parcial': si solo la"
 echo "   liquidacion bloqueara, la correccion no esperaria a nadie."
 
 limpiar_operaciones
@@ -312,17 +323,19 @@ select o.id || ' ' || o.current_version_id
 SQL
 )"
 
-# Sesion X: toma el lock del ambito, espera, y CORRIGE el gasto a la baja.
+# Sesion X: toma el cerrojo de identidad (rango 1) y el lock del ambito (rango
+# 2), en el orden del protocolo, espera, y CORRIGE el gasto a la baja.
 # El bloqueo manual es solo para hacer determinista lo que en produccion decide
 # el azar; la correccion vuelve a pedirlo dentro de la misma transaccion.
 tx=$(mktemp); ty=$(mktemp); tz=$(mktemp)
 "${DB[@]}" >"${tx}" 2>&1 <<SQL &
 begin;
+select sec.lock_participant_claims('${GZ}'::uuid); -- rango 1 primero (20260912150000): el writer de deuda lo toma antes de las filas
 select 1 from core.scope where id = '${GZ}' for update;
 select pg_sleep(3);
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"${UA}"}', true);
-select api.record_group_expense('{"client_operation_id":"90000000-0000-4000-8000-000000000031","command_contract_version":1,"effective_date":"2026-10-01","operation_id":"${OP3}","expected_version_id":"${V3}","scope_id":"${GZ}","currency_definition_id":"${EUR}","total":"4000","payer_participant_id":"${ZA}","participants":["${ZA}","${ZB}"],"split_method":{"kind":"equal"}}'::jsonb);
+select api.record_group_expense('{"client_operation_id":"90000000-0000-4000-8000-000000000031","command_contract_version":1,"effective_date":"2026-10-01","operation_id":"${OP3}","expected_version_id":"${V3}","scope_id":"${GZ}","currency_definition_id":"${EUR}","total":"4000","concept":"Cena","category_id":"${CAT}","payer_participant_id":"${ZA}","participants":["${ZA}","${ZB}"],"split_method":{"kind":"equal"}}'::jsonb);
 reset role;
 commit;
 SQL
@@ -337,7 +350,7 @@ llamar "${UA}" record_debt_settlement \
 py=$!
 
 # Sesion Z: CONTROL NEGATIVO. Lee la deuda SIN tomar el lock, mientras X lo
-# tiene. Es lo que pasaria si los pasos 2 y 4 de ADR-013 §11 se invirtieran.
+# tiene. Es lo que pasaria si los pasos 2 y 4 de F03/ADR-010 §11 se invirtieran.
 sleep 1
 pendiente "${GZ}" "${ZB}" "${ZA}" >"${tz}" 2>&1
 

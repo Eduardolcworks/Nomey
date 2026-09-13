@@ -20,6 +20,7 @@ do $estructura$
 declare
   fallos text[] := '{}';
   v_n int;
+  v_t text;
 begin
   -- A1 · la extension esta instalada y en el schema del stack.
   if not exists (
@@ -83,18 +84,25 @@ begin
     fallos := array_append(fallos, format('A5c: los roles cliente tienen %s privilegios sobre las relaciones nuevas', v_n));
   end if;
 
-  -- A6 · el writer LEE y NO escribe. La ausencia de escritura es la decision:
-  -- no hay comando autoritativo que escriba estas relaciones todavia.
+  -- A6 · el writer LEE las dos relaciones.
   if not has_table_privilege('nomey_writer', 'core.participant_user_link', 'select') then
     fallos := array_append(fallos, 'A6: el writer no puede leer el vinculo');
   end if;
   if not has_table_privilege('nomey_writer', 'core.participant_period', 'select') then
     fallos := array_append(fallos, 'A6b: el writer no puede leer los periodos');
   end if;
-  -- Se excluye al PROPIETARIO, que tiene todos los privilegios por definicion y
-  -- es quien ejecuta las migraciones. El invariante es que NINGUN OTRO rol
-  -- puede escribir estas dos relaciones por el camino normal.
-  select count(*) into v_n
+  -- A6c · QUIEN puede escribirlas, y nada mas. Cuando esta relacion nacio
+  -- nadie escribia (F5); desde F9 lo hacen los comandos autoritativos que los
+  -- ADR aceptados fijan: el provisioner inserta el vinculo (crear grupo,
+  -- reclamar por invitacion: ADR-032/ADR-035), lo borra (rectificar la propia
+  -- reclamacion: ADR-037), inserta periodos (crear grupo, «Soy nuevo», anadir
+  -- participantes, volver: ADR-032/ADR-035/ADR-041) y cierra el propio
+  -- (salir: ADR-034, columna valid_until); el writer cierra el periodo de un
+  -- retirado (ADR-036, columna valid_until). Se excluye al propietario, que
+  -- ejecuta las migraciones. Cualquier otro privilegio de escritura —de
+  -- estos roles o de los del cliente— es un cambio de contrato.
+  select coalesce(string_agg(c.relname || ':' || g.rolname || ':' || a.privilege_type, ' ' order by c.relname, g.rolname, a.privilege_type), '')
+    into v_t
   from pg_class c
   join pg_namespace n on n.oid = c.relnamespace
   cross join lateral aclexplode(c.relacl) a
@@ -103,8 +111,23 @@ begin
     and c.relname in ('participant_user_link','participant_period')
     and a.grantee <> c.relowner
     and a.privilege_type in ('INSERT','UPDATE','DELETE','TRUNCATE');
-  if v_n <> 0 then
-    fallos := array_append(fallos, format('A6c: %s roles distintos del propietario pueden escribir las relaciones nuevas; ningun comando autoritativo lo justifica todavia', v_n));
+  if v_t <> 'participant_period:nomey_provisioner:INSERT participant_user_link:nomey_provisioner:DELETE participant_user_link:nomey_provisioner:INSERT' then
+    fallos := array_append(fallos, format('A6c: escrituras de tabla sobre las relaciones nuevas distintas de las de los ADR aceptados: [%s]', v_t));
+  end if;
+  -- Las de columna: solo valid_until, y solo para cerrar (ADR-034, ADR-036).
+  select coalesce(string_agg(c.relname || '.' || at.attname || ':' || g.rolname || ':' || a.privilege_type, ' ' order by c.relname, at.attname, g.rolname, a.privilege_type), '')
+    into v_t
+  from pg_attribute at
+  join pg_class c on c.oid = at.attrelid
+  join pg_namespace n on n.oid = c.relnamespace
+  cross join lateral aclexplode(at.attacl) a
+  join pg_roles g on g.oid = a.grantee
+  where n.nspname = 'core'
+    and c.relname in ('participant_user_link','participant_period')
+    and at.attacl is not null
+    and a.privilege_type in ('INSERT','UPDATE','DELETE');
+  if v_t <> 'participant_period.valid_until:nomey_provisioner:UPDATE participant_period.valid_until:nomey_writer:UPDATE' then
+    fallos := array_append(fallos, format('A6d: escrituras de columna distintas de cerrar valid_until: [%s]', v_t));
   end if;
 
   -- A7 · las tres cardinalidades de ADR-012 §6 son ESTRUCTURALES, no
@@ -386,13 +409,14 @@ begin
     fallos := array_append(fallos, format('C4: se rechazo el mismo intervalo para otro participante: %s', sqlerrm));
   end;
 
-  -- C5 · intervalo vacio y limites invertidos.
+  -- C5 · POSITIVO · el intervalo VACIO se acepta desde ADR-034 §5 (migracion
+  -- 20260911120000): crear y salir el mismo dia deja [hoy, hoy), que es
+  -- historia —estuvo y se fue— y la exclusion GiST no lo solapa con nada.
   begin
     insert into core.participant_period (participant_id, valid_from, valid_until)
     values (P1B, date '2028-01-01', date '2028-01-01');
-    fallos := array_append(fallos, 'C5: se acepto un intervalo vacio');
-  exception when check_violation then null;
-    when others then fallos := array_append(fallos, format('C5: sqlstate inesperado %s', sqlstate));
+  exception when others then
+    fallos := array_append(fallos, format('C5: se rechazo el periodo vacio del mismo dia (ADR-034 §5): %s', sqlerrm));
   end;
   begin
     insert into core.participant_period (participant_id, valid_from, valid_until)
