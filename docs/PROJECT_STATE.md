@@ -13,7 +13,7 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-09-05**, al cerrar el bloque **F8.A5** de la **Fase 8**.
+Actualizado el **2026-09-13**, al cerrar **F11.A** —las decisiones de multimoneda, sin implementación—.
 
 ---
 
@@ -23,7 +23,7 @@ Actualizado el **2026-09-05**, al cerrar el bloque **F8.A5** de la **Fase 8**.
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Fase en curso**       | **Fase 8 — Distribución interna y entornos.** **F8.A0 … F8.A5** cerrados: hay build propia de Android y un Staging autónomo con su canal de actualización |
 | **Última fase cerrada** | **Fase 7 — Entrada rápida, offline y sincronización** (A … E), el 2026-09-04. **Validada en Android; iOS sin probar físicamente**                         |
-| **ADR aceptados**       | ADR-001 … ADR-031                                                                                                                                         |
+| **ADR aceptados**       | ADR-001 … ADR-032                                                                                                                                         |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **La Fase 7 no lo tocó**                                                             |
 | **App visible**         | **Inicio escribe dinero real y funciona sin conexión**: el alta se encola, se proyecta al instante y se sincroniza sola                                   |
 | **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                                              |
@@ -39,6 +39,28 @@ Metro y validó su canal**. **La Fase 8 NO está
 cerrada ni puede estarlo todavía**, porque dos de sus cuatro criterios
 originales siguen sin cumplirse; el estado criterio a criterio está en el
 [roadmap](product/roadmap.md), Fase 8.
+
+**F11.A está CERRADA, y es sólo contrato: la multimoneda todavía no existe en el
+código.** [ADR-032](adr/ADR-032-fx-rate-resolution.md) fija lo que F11.B y F11.C
+implementarán; hoy toda operación en una moneda distinta de la base sigue
+respondiendo `CURRENCY_CONVERSION_UNSUPPORTED · 422`. Lo que una fase futura no
+debe deducir por su cuenta:
+
+- **El tipo del día X es el último disponible al comenzar X en hora de
+  Fráncfort** —la publicación del BCE con la fecha de referencia más reciente
+  anterior a X— y **se fija una sola vez**. La conversión es inmediata, y ni la
+  hora de la operación ni el momento de sincronizar cambian el tipo.
+- **Moneda extranjera sólo en gasto e ingreso personales**, y en gasto de grupo
+  cuando se integre F9.
+- **La cobertura es por moneda y par, nunca por país.** ARS, COP y CLP siguen en
+  el catálogo y no se convierten, porque el BCE no las cubre.
+- **No hay tipo manual**, y un tipo congelado no se toca.
+- **Tres resultados que no se confunden:** `FX_CURRENCY_NOT_COVERED · 422`,
+  `FX_RATE_NOT_YET_AVAILABLE · 503` y el conflicto de base, que conserva
+  `CURRENCY_CONVERSION_UNSUPPORTED`.
+- **El payload llevará la base asumida al capturar**
+  (`expected_base_currency_definition_id`), y el contrato de Grupos deberá poder
+  transportarla.
 
 **F8.A1 dejó el contrato de entornos funcionando, y no hay ninguna build.** Las
 tres variantes se resuelven, se comparan y se exportan. Lo que hay que saber
@@ -797,6 +819,10 @@ la misma: se trocea siempre, y la cifra la valida en vez de cambiarla.
     RLS. Un Modo Personal necesita **las dos** filas.
 12. **`core.membership` es presencia, no historial**, y `participant_period` es
     elegibilidad para figurar en una operación, **nunca** autorización.
+13. **El tipo de cambio de una operación es el tipo del día de su fecha
+    efectiva**: el último disponible al comenzar ese día en hora de Fráncfort,
+    fijado una sola vez. No depende de la hora, de la sincronización ni del país,
+    y nunca lo aporta el cliente (ADR-032).
 
 ---
 
@@ -818,28 +844,28 @@ Ninguna bloqueó el cierre de la Fase 5. El detalle completo, con motivo y
 destino de cada una,
 está en [`model-coverage.md`](architecture/model-coverage.md).
 
-| Aplazado                                        | Dónde queda                                          |
-| ----------------------------------------------- | ---------------------------------------------------- |
-| **Google**, requisito de producto               | Prerrequisito en **F8.A**; implementación, posterior |
-| **Apple**, requisito de producto                | Prerrequisito en **F8.B**; implementación, posterior |
-| **Entorno realmente distinto del local**        | Criterio 2 de F8, **pendiente**. Sin fecha           |
-| **Tester externo real**                         | Criterio 3 de F8, **pendiente**. Sin fecha           |
-| **Icono alternativo negro de Premium**          | **F14** — decidido en ADR-030 §5, sin implementar    |
-| **Cuenta de Apple, firma y TestFlight**         | **F8.B**, puerta obligatoria antes de F14            |
-| **Google Play e Internal Testing**              | **F8.C**, cuando exista una beta Android real        |
-| **Subida real de la foto de perfil**            | Bloque posterior, con decisión propia                |
-| **Timeout de las operaciones de autenticación** | Deuda abierta, sin ADR                               |
-| Persistencia de la preferencia de idioma        | Con la UI de Ajustes                                 |
-| **Resolución autoritativa del FX**              | Decisión de producto — **F11**                       |
-| **Cambio de divisa base con historia**          | **F11**. Elegirla ya se puede (F6.A)                 |
-| **Provisioning** de Grupos y participantes      | **F9** y **F10**                                     |
-| **Modo Pareja** completo, con su `Cierre`       | Su fase                                              |
-| Mecanismo de claim, revocación y fusión         | **F10**                                              |
-| Notificación                                    | Abierto                                              |
-| Acceso residual                                 | Abierto                                              |
-| ~~Anulación, distinta de la corrección~~        | **Resuelta en F6.C** — ADR-024                       |
-| Idempotencia de recurrencias e importaciones    | Abierto                                              |
-| Preflight de `btree_gist` en producción         | Antes del primer deploy                              |
+| Aplazado                                        | Dónde queda                                              |
+| ----------------------------------------------- | -------------------------------------------------------- |
+| **Google**, requisito de producto               | Prerrequisito en **F8.A**; implementación, posterior     |
+| **Apple**, requisito de producto                | Prerrequisito en **F8.B**; implementación, posterior     |
+| **Entorno realmente distinto del local**        | Criterio 2 de F8, **pendiente**. Sin fecha               |
+| **Tester externo real**                         | Criterio 3 de F8, **pendiente**. Sin fecha               |
+| **Icono alternativo negro de Premium**          | **F14** — decidido en ADR-030 §5, sin implementar        |
+| **Cuenta de Apple, firma y TestFlight**         | **F8.B**, puerta obligatoria antes de F14                |
+| **Google Play e Internal Testing**              | **F8.C**, cuando exista una beta Android real            |
+| **Subida real de la foto de perfil**            | Bloque posterior, con decisión propia                    |
+| **Timeout de las operaciones de autenticación** | Deuda abierta, sin ADR                                   |
+| Persistencia de la preferencia de idioma        | Con la UI de Ajustes                                     |
+| ~~Resolución autoritativa del FX~~              | **Decidida en F11.A** — ADR-032; implementación en F11.B |
+| **Cambio de divisa base con historia**          | **F11**. Elegirla ya se puede (F6.A)                     |
+| **Provisioning** de Grupos y participantes      | **F9** y **F10**                                         |
+| **Modo Pareja** completo, con su `Cierre`       | Su fase                                                  |
+| Mecanismo de claim, revocación y fusión         | **F10**                                                  |
+| Notificación                                    | Abierto                                                  |
+| Acceso residual                                 | Abierto                                                  |
+| ~~Anulación, distinta de la corrección~~        | **Resuelta en F6.C** — ADR-024                           |
+| Idempotencia de recurrencias e importaciones    | Abierto                                                  |
+| Preflight de `btree_gist` en producción         | Antes del primer deploy                                  |
 
 > **La foto de perfil, y qué está hecho exactamente:** la **affordance** está
 > terminada y aprobada en dispositivo —hueco circular con iniciales o silueta,
@@ -956,24 +982,25 @@ una feature escribible real.
 
 ## Qué consultar, y cuándo
 
-| Necesitas…                                      | Lee                                                                                |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Reglas del repositorio y del agente             | [`AGENTS.md`](../AGENTS.md)                                                        |
-| Semántica contable y escenarios                 | [`architecture/data-model.md`](architecture/data-model.md)                         |
-| Dónde vive cada concepto del modelo             | [`architecture/model-coverage.md`](architecture/model-coverage.md)                 |
-| Una decisión y su porqué                        | [`adr/README.md`](adr/README.md) — ADR-001 … ADR-031                               |
-| Secuencia de fases y criterios de cierre        | [`product/roadmap.md`](product/roadmap.md)                                         |
-| Vocabulario                                     | [`product/glossary.md`](product/glossary.md)                                       |
-| Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                       |
-| **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · ADR-030 · ADR-031             |
-| Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)               |
-| Cómo quedó la Fase 5, ya cerrada                | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)               |
-| Cómo quedó la Fase 4, ya cerrada                | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                         |
-| Cómo se usan i18n y el formateo                 | [`src/lib/README.md`](../src/lib/README.md)                                        |
-| Levantar el entorno, migrar, ejecutar checks    | [`runbooks/local-setup.md`](runbooks/local-setup.md)                               |
-| **Arrancar, resolver o verificar un entorno**   | [`runbooks/environments.md`](runbooks/environments.md)                             |
-| **Preparar la cadena nativa y generar Android** | [`runbooks/android-build.md`](runbooks/android-build.md)                           |
-| **Por qué** la Fase 3 quedó como quedó          | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico |
+| Necesitas…                                      | Lee                                                                                         |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Reglas del repositorio y del agente             | [`AGENTS.md`](../AGENTS.md)                                                                 |
+| Semántica contable y escenarios                 | [`architecture/data-model.md`](architecture/data-model.md)                                  |
+| Dónde vive cada concepto del modelo             | [`architecture/model-coverage.md`](architecture/model-coverage.md)                          |
+| Una decisión y su porqué                        | [`adr/README.md`](adr/README.md) — ADR-001 … ADR-032                                        |
+| Secuencia de fases y criterios de cierre        | [`product/roadmap.md`](product/roadmap.md)                                                  |
+| Vocabulario                                     | [`product/glossary.md`](product/glossary.md)                                                |
+| Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                                |
+| **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · ADR-030 · ADR-031                      |
+| **Multimoneda: el contrato de F11**             | [`adr/ADR-032-fx-rate-resolution.md`](adr/ADR-032-fx-rate-resolution.md) · roadmap, Fase 11 |
+| Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)                        |
+| Cómo quedó la Fase 5, ya cerrada                | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)                        |
+| Cómo quedó la Fase 4, ya cerrada                | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                                  |
+| Cómo se usan i18n y el formateo                 | [`src/lib/README.md`](../src/lib/README.md)                                                 |
+| Levantar el entorno, migrar, ejecutar checks    | [`runbooks/local-setup.md`](runbooks/local-setup.md)                                        |
+| **Arrancar, resolver o verificar un entorno**   | [`runbooks/environments.md`](runbooks/environments.md)                                      |
+| **Preparar la cadena nativa y generar Android** | [`runbooks/android-build.md`](runbooks/android-build.md)                                    |
+| **Por qué** la Fase 3 quedó como quedó          | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico          |
 
 **Evidencia empírica:** `supabase/e11/` … `supabase/e20/`. Son sondas
 desechables sobre maquetas y **nunca deben convertirse en migración**.

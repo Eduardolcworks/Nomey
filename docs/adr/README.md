@@ -112,6 +112,7 @@ de decisiones. El registro solo contiene decisiones tomadas.
 | [029](ADR-029-incident-labels-and-review-destination.md)          | Etiquetas visibles de la incidencia y destino de «Revisar»        | Aceptado  |
 | [030](ADR-030-native-code-model.md)                               | Modelo de código nativo: CNG con config plugins                   | Aceptado  |
 | [031](ADR-031-environments-and-variants.md)                       | Contrato de entornos, variantes y separación de configuración     | Aceptado  |
+| [032](ADR-032-fx-rate-resolution.md)                              | Resolución autoritativa del tipo de cambio                        | Aceptado  |
 
 > **ADR-003 cumplió su puerta de aceptación el 2026-08-19.** El experimento
 > **E11** se ejecutó contra un stack Supabase local real: confirmó los supuestos

@@ -690,8 +690,44 @@ una dependencia externa.
 
 **Puertas.**
 
-- **Proveedor de tipos de cambio.** Su granularidad y su histórico condicionan
-  la política de selección que ADR-003 dejó abierta.
+- ~~**Proveedor de tipos de cambio.** Su granularidad y su histórico condicionan
+  la política de selección que ADR-003 dejó abierta.~~
+  **Resuelta el 2026-09-13 por [ADR-032](../adr/ADR-032-fx-rate-resolution.md):**
+  tipos de referencia del BCE sobre un catálogo propio; el tipo del día X es el
+  último disponible al comenzar X en hora de Fráncfort, fijado una sola vez; y la
+  cobertura es por moneda y par, nunca por país.
+
+#### La fase se ejecuta en cuatro bloques
+
+La partición es de **ejecución**: los cinco criterios de cierre siguen siendo los
+de arriba, y no se reescriben.
+
+| Bloque    | Qué contiene                                                                                                                                                                                                        | Estado                                                 |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **F11.A** | **Fuente y resolución.** Decisiones y contrato, sin implementación: fuente, tipo de cada día, cobertura, clases con moneda extranjera, resultados del resolver, derivación y conflicto de base                      | **Cerrado** el 2026-09-13 — ADR-032 aceptado           |
+| **F11.B** | **Conversión y persistencia.** Catálogo, fijación diaria del tipo e ingesta, correspondencia de códigos, resolver y derivación en SQL, escritura de `core.frozen_conversion` y su procedencia, paridad por vectores | **Siguiente**                                          |
+| **F11.C** | **Lecturas, estadísticas y offline/sync.** Superficies de lectura, estadísticas sobre la magnitud convertida, espera de tipo en la cola, proyección, conflicto de base y presentación del original y el convertido  | Pendiente de F11.B                                     |
+| **F11.D** | **Integración, validación y cierre.** Gasto de grupo en moneda extranjera y verificación de los cinco criterios                                                                                                     | **Necesita F9**: el objetivo y el criterio 2 lo exigen |
+
+**F11.A está cerrada.** Lo que decide
+[ADR-032](../adr/ADR-032-fx-rate-resolution.md):
+
+1. **Una operación con fecha efectiva X usa el último tipo definitivo disponible
+   al comenzar X** —las 00:00 en hora de Fráncfort—, y se convierte en el acto.
+   El tipo de cada día se fija una sola vez: ni la hora de la operación ni el
+   momento de sincronizar lo cambian, y nunca se usa una publicación posterior.
+2. **Admiten moneda extranjera** el gasto personal, el ingreso personal y el
+   gasto de grupo cuando se integre F9. Transferencias, ajustes y liquidaciones
+   entre monedas o bases distintas quedan fuera de F11.
+3. **ARS, COP y CLP siguen en el catálogo** y no se convierten mientras la
+   fuente no las cubra. La restricción es por moneda y par, **nunca por país**.
+4. **No existe tipo manual.** Corregir fecha o moneda provoca una nueva
+   resolución; el tipo congelado no se toca.
+5. **«Moneda no cubierta», «todavía no disponible» y «conflicto de base» son
+   resultados distintos**, con código y estado propios.
+6. **El payload lleva la base asumida al capturar**, y un desajuste es conflicto,
+   nunca conversión silenciosa. **El contrato de Grupos deberá poder
+   transportarla** cuando se integre F9.
 
 ---
 

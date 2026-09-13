@@ -212,21 +212,19 @@ Ver §4 de este documento: Modo Pareja.
 | Agregación solo con la misma definición  | **Runtime**    | Estructural: FK compuesta de moneda del ámbito |
 | El residuo de redondeo no genera efecto  | **Runtime**    | Una sola conversión, y el cálculo después      |
 
-**Aplazado — resolución autoritativa del FX.** _(punto 3 del cierre)_
-Qué catálogo, qué proveedor, qué granularidad, qué regla de selección y qué
-ocurre si no hay tipo exacto para una fecha. → No es de F3: **ADR-003 §4 lo deja
-expresamente fuera de alcance y ADR-009 §8 lo declara decisión de producto
-pendiente**, añadiendo que este ADR «no atribuye a la frontera de escritura una
-resolución automática por catálogo». El servidor **no tiene con qué resolverla**,
-y el tipo que aporte el cliente no es autoritativo. → Queda como decisión de
-producto, sin fase asignada. Hasta entonces las siete funciones exigen que la
-moneda de la operación sea la base de **todos** los ámbitos alcanzados y, si no,
-devuelven `CURRENCY_CONVERSION_UNSUPPORTED · 422` sin escribir nada.
+~~**Aplazado — resolución autoritativa del FX.**~~ _(punto 3 del cierre)_
+**DECIDIDO en F11.A** por [ADR-032](../adr/ADR-032-fx-rate-resolution.md): tipos
+de referencia del BCE sobre un catálogo propio; el tipo del día X es el último
+disponible al comenzar X en hora de Fráncfort, fijado una sola vez; y la cobertura
+es por moneda y par. **La implementación es de F11.B**: hasta entonces, las
+funciones de escritura siguen exigiendo que la moneda de la operación sea la base
+de **todos** los ámbitos alcanzados y, si no, devuelven
+`CURRENCY_CONVERSION_UNSUPPORTED · 422` sin escribir nada.
 
-> **Consecuencia medida:** `core.frozen_conversion` existe, con todas sus
-> restricciones, y **no tiene ruta de escritura**. El writer no conserva `INSERT`
-> sobre ella, y el check lo comprueba en cada ejecución. Volverá cuando exista la
-> regla, no antes.
+> **Consecuencia medida, todavía vigente:** `core.frozen_conversion` existe, con
+> todas sus restricciones, y **no tiene ruta de escritura**. El writer no conserva
+> `INSERT` sobre ella, y el check lo comprueba en cada ejecución. Vuelve con
+> F11.B.
 
 ~~**Aplazado — siembra del catálogo de definiciones monetarias.**~~
 **RESUELTO en la Fase 6.A** por [ADR-019](../adr/ADR-019-personal-provisioning.md)
@@ -234,12 +232,12 @@ devuelven `CURRENCY_CONVERSION_UNSUPPORTED · 422` sin escribir nada.
 reproducibles** entre local, CI y producción. La escala sale de los minor units de
 ISO 4217, que es la fuente que ADR-003 §3 designa, y **no** de una API externa.
 
-**Aplazado — conflicto por configuración monetaria anterior.**
-Una operación creada bajo otra configuración «entra en conflicto y requiere
-revisión» (invariante 28). → No es de F3: exige un estado de conflicto y un flujo
-de revisión que ningún ADR modela. → Queda sin fase asignada; el invariante se
-respeta por construcción, porque hoy nada reinterpreta en silencio: la FK
-compuesta impide cambiar la moneda base con efectos existentes.
+~~**Aplazado — conflicto por configuración monetaria anterior.**~~
+**DECIDIDO en F11.A** por [ADR-032](../adr/ADR-032-fx-rate-resolution.md) §10: el
+payload lleva la base del ámbito asumida al capturar, y si no es la vigente la
+frontera responde conflicto y no convierte. La cola y la revisión ya existen
+(ADR-028 §14); la comprobación en la frontera es de F11.B. Hasta entonces el
+invariante se sigue respetando por construcción: no existe ninguna conversión.
 
 ---
 
@@ -291,20 +289,20 @@ no altera `core.client_command`.
 
 Ninguno queda sin sitio. Resumen de dónde vive cada uno:
 
-| Invariantes          | Dónde se sostienen                                          |
-| -------------------- | ----------------------------------------------------------- |
-| 1 · 2 · 22 · 23 · 24 | **Estructural**: `bigint` en unidad mínima, FK de moneda    |
-| 3 · 9 · 25           | **Runtime**: reparto y conversión, con vectores compartidos |
-| 4 · 5 · 6 · 8 · 20   | **Runtime**: qué efectos produce cada clase                 |
-| 7                    | **Derivable**: lista de admitidos de estadísticas           |
-| 10                   | **Estructural**: el autor no entra en la derivación         |
-| 11                   | **Persistido**: versiones inmutables + proyección canónica  |
-| 12                   | **Estructural**: FK compuesta `(scope, currency)`           |
-| 13 · 14 · 15         | 13 y 14 **runtime**; **15 aplazado** (notificación)         |
-| 16 · 17 · 18         | **Aplazados**: Modo Pareja                                  |
-| 19                   | **Runtime** para el origen cliente; **aplazado** el resto   |
-| 21                   | **Fuera del dominio**: monetización (§12)                   |
-| 26 · 27 · 28         | **Aplazados con el FX**; 27 parcialmente estructural        |
+| Invariantes          | Dónde se sostienen                                                                     |
+| -------------------- | -------------------------------------------------------------------------------------- |
+| 1 · 2 · 22 · 23 · 24 | **Estructural**: `bigint` en unidad mínima, FK de moneda                               |
+| 3 · 9 · 25           | **Runtime**: reparto y conversión, con vectores compartidos                            |
+| 4 · 5 · 6 · 8 · 20   | **Runtime**: qué efectos produce cada clase                                            |
+| 7                    | **Derivable**: lista de admitidos de estadísticas                                      |
+| 10                   | **Estructural**: el autor no entra en la derivación                                    |
+| 11                   | **Persistido**: versiones inmutables + proyección canónica                             |
+| 12                   | **Estructural**: FK compuesta `(scope, currency)`                                      |
+| 13 · 14 · 15         | 13 y 14 **runtime**; **15 aplazado** (notificación)                                    |
+| 16 · 17 · 18         | **Aplazados**: Modo Pareja                                                             |
+| 19                   | **Runtime** para el origen cliente; **aplazado** el resto                              |
+| 21                   | **Fuera del dominio**: monetización (§12)                                              |
+| 26 · 27 · 28         | **Decididos en ADR-032**, implementación en F11.B y F11.C; 27 parcialmente estructural |
 
 ---
 
@@ -316,19 +314,19 @@ persistido, es derivable, tiene proyección, vive en la frontera, o está aplaza
 
 Los aplazados, en una línea cada uno:
 
-| Aplazado                                       | Destino              |
-| ---------------------------------------------- | -------------------- |
-| Modo Pareja completo (4.9, 4.10, 4.12–4.14)    | Su fase              |
-| Atributos de Grupo                             | Su fase              |
-| Resolución autoritativa del FX                 | Decisión de producto |
-| ~~Siembra del catálogo monetario~~             | **Resuelto en F6.A** |
-| ~~Provisioning del Modo Personal~~             | **Resuelto en F6.A** |
-| Provisioning de Grupos y participantes         | F9 y F10             |
-| Mecanismo de claim, revocación y fusión        | **F10**              |
-| Acceso residual                                | Abierto              |
-| Notificación                                   | Abierto              |
-| ~~Anulación como concepto distinto~~           | **Resuelto en F6.C** |
-| Idempotencia de otros orígenes                 | Abierto              |
-| Previsualización de correcciones               | Fase de pantallas    |
-| ~~Clase `ingreso` sin ruta~~                   | **Resuelto en F6.B** |
-| Conflicto por configuración monetaria anterior | Abierto              |
+| Aplazado                                           | Destino                             |
+| -------------------------------------------------- | ----------------------------------- |
+| Modo Pareja completo (4.9, 4.10, 4.12–4.14)        | Su fase                             |
+| Atributos de Grupo                                 | Su fase                             |
+| ~~Resolución autoritativa del FX~~                 | **Decidida en F11.A** — ADR-032     |
+| ~~Siembra del catálogo monetario~~                 | **Resuelto en F6.A**                |
+| ~~Provisioning del Modo Personal~~                 | **Resuelto en F6.A**                |
+| Provisioning de Grupos y participantes             | F9 y F10                            |
+| Mecanismo de claim, revocación y fusión            | **F10**                             |
+| Acceso residual                                    | Abierto                             |
+| Notificación                                       | Abierto                             |
+| ~~Anulación como concepto distinto~~               | **Resuelto en F6.C**                |
+| Idempotencia de otros orígenes                     | Abierto                             |
+| Previsualización de correcciones                   | Fase de pantallas                   |
+| ~~Clase `ingreso` sin ruta~~                       | **Resuelto en F6.B**                |
+| ~~Conflicto por configuración monetaria anterior~~ | **Decidido en F11.A** — ADR-032 §10 |
