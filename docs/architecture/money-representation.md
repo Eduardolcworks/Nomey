@@ -1,30 +1,30 @@
 # Representación del dinero — documento de trabajo
 
 > ⚠️ **NO NORMATIVO.** La fuente normativa de esta materia es
-> **[ADR-003 — Representación exacta del dinero](../adr/ADR-003-money-representation.md)**,
+> **[F02/ADR-001 — Representación exacta del dinero](../adr/F02/ADR-001-money-representation.md)**,
 > en estado `Aceptado` desde el 2026-08-19, tras cumplir su puerta E11.
 >
 > Este documento es el **archivo de evidencia y del razonamiento** que precedió
 > al ADR. Lee cada sección con su clasificación delante, porque no todas tienen
 > el mismo peso:
 >
-> | Sección                              | Clasificación                                                           |
-> | ------------------------------------ | ----------------------------------------------------------------------- |
-> | **Confirmado**                       | Restricciones ya aceptadas en `AGENTS.md` y ADR-002. No se deciden aquí |
-> | **Decisiones confirmadas de Fase 2** | `Decidido` — confirmadas por producto y **ya recogidas en ADR-003**     |
-> | **Evidencia técnica verificada**     | Hechos medidos. No deciden nada por sí solos                            |
-> | **Recomendaciones**                  | Propuestas del análisis. **No aceptadas**                               |
-> | **Pendientes**                       | Sin decidir                                                             |
+> | Sección                              | Clasificación                                                               |
+> | ------------------------------------ | --------------------------------------------------------------------------- |
+> | **Confirmado**                       | Restricciones ya aceptadas en `AGENTS.md` y F01/ADR-001. No se deciden aquí |
+> | **Decisiones confirmadas de Fase 2** | `Decidido` — confirmadas por producto y **ya recogidas en F02/ADR-001**     |
+> | **Evidencia técnica verificada**     | Hechos medidos. No deciden nada por sí solos                                |
+> | **Recomendaciones**                  | Propuestas del análisis. **No aceptadas**                                   |
+> | **Pendientes**                       | Sin decidir                                                                 |
 >
 > **Que una decisión esté `Decidido` aquí no la convierte en normativa del
-> repositorio.** Lo normativo es ADR-003, que **desde su aceptación sí es
+> repositorio.** Lo normativo es F02/ADR-001, que **desde su aceptación sí es
 > vinculante**. Este documento custodia el razonamiento para que no dependa del
 > contexto de una conversación.
 >
-> Con ADR-003 ya aceptado, queda **pendiente de decidir** si este documento se
+> Con F02/ADR-001 ya aceptado, queda **pendiente de decidir** si este documento se
 > conserva como historial de análisis o se retira.
 
-Decisión que lo enmarca: [ADR-002](../adr/ADR-002-accounting-model.md).
+Decisión que lo enmarca: [F01/ADR-001](../adr/F01/ADR-001-accounting-model.md).
 Vocabulario: [glosario](../product/glossary.md).
 
 ---
@@ -32,7 +32,7 @@ Vocabulario: [glosario](../product/glossary.md).
 ## Confirmado
 
 Restricciones ya aceptadas que cualquier propuesta debe respetar. Proceden de
-`AGENTS.md` §1 y de ADR-002; **no se deciden aquí**.
+`AGENTS.md` §1 y de F01/ADR-001; **no se deciden aquí**.
 
 - Los valores contables se representan de forma **exacta**, nunca mediante coma
   flotante binaria.
@@ -57,7 +57,7 @@ Restricciones ya aceptadas que cualquier propuesta debe respetar. Proceden de
 
 ### D1 — El importe declarado es el autoritativo · `Decidido`
 
-**Verificado contra ADR-002 (Aceptado): sin contradicción.** ADR-002 §8 ya manda
+**Verificado contra F01/ADR-001 (Aceptado): sin contradicción.** F01/ADR-001 §8 ya manda
 conservar «importe y moneda originales y el tipo de cambio congelado»; D1 fija
 cuál de los dos importes es la entrada y cuál el resultado derivado.
 
@@ -100,7 +100,7 @@ seleccionada es la moneda predeterminada del Grupo.
 
 > La heurística «país → moneda sugerida» es **ayuda de UX, no una dependencia
 > contable**. La moneda del Grupo sigue gobernada por las reglas ya aceptadas
-> sobre moneda base del ámbito (ADR-002 §8, invariante 12).
+> sobre moneda base del ámbito (F01/ADR-001 §8, invariante 12).
 
 #### D1.4 · Moneda por defecto de un gasto
 
@@ -131,7 +131,7 @@ se hacen los cálculos internos de ese ámbito.**
 ```
 
 El reparto se efectúa **íntegramente en la moneda del ámbito**, con la
-representación exacta y el algoritmo de mayor resto de ADR-002 §5.
+representación exacta y el algoritmo de mayor resto de F01/ADR-001 §5.
 
 **No:** repartir en USD y convertir cada parte por separado. Medido en **E12**:
 ese orden hace que la suma de las participaciones convertidas difiera del total
@@ -180,9 +180,9 @@ distintas**.
 > tener múltiples conversiones derivadas, cada una con el tipo exacto utilizado
 > para esa derivación.**
 
-Restricción conceptual registrada para que **ADR-003 no nazca suponiendo un
+Restricción conceptual registrada para que **F02/ADR-001 no nazca suponiendo un
 único tipo de cambio global por operación**. Esquema, tablas y columnas quedan
-explícitamente fuera. Es coherente con ADR-002 §8, que está redactado **por
+explícitamente fuera. Es coherente con F01/ADR-001 §8, que está redactado **por
 efecto** —«cada efecto se registra en la moneda base de su ámbito»—, no por
 operación.
 
@@ -198,7 +198,7 @@ los 0,0042 USD descartados NO son un movimiento financiero
 ```
 
 `ajuste` se reserva para una verdadera reconciliación o corrección de saldo
-según el modelo contable de ADR-002 §3.
+según el modelo contable de F01/ADR-001 §3.
 
 #### D1.11 · Cambiar la moneda o el importe de un gasto existente
 
@@ -208,7 +208,7 @@ anterior**. Sigue el mecanismo de corrección por versionado ya aceptado:
 conservar historial, registrar la versión nueva, recalcular los efectos
 derivados correspondientes y mantener trazabilidad.
 
-> **Verificado contra ADR-002 §6 y `data-model.md` §7: coherente.** ADR-002 §6
+> **Verificado contra F01/ADR-001 §6 y `data-model.md` §7: coherente.** F01/ADR-001 §6
 > dice que corregir crea una versión nueva y que la anterior nunca se muta;
 > `data-model.md` §7 añade que saldos y estadísticas se derivan de la **versión
 > vigente**, «sin operaciones de reversión separadas». Recalcular los efectos
@@ -219,17 +219,17 @@ derivados correspondientes y mantener trazabilidad.
 Se registran aquí para que no se pierdan. **No están decididos y nada los da por
 resueltos.**
 
-1. **Qué tipo de cambio aplica una corrección.** ADR-002 §8 dice que «la
+1. **Qué tipo de cambio aplica una corrección.** F01/ADR-001 §8 dice que «la
    conversión no se recalcula después», referido a una versión ya registrada.
    Una corrección crea una versión **nueva**, que necesita un tipo: ¿hereda el
    congelado en la versión corregida, o congela uno nuevo al corregir? Si
    hereda, corregir una errata de descripción no puede mover el saldo derivado
-   de otra persona; si no hereda, sí puede. **Ni ADR-002 ni D1 lo resuelven.**
+   de otra persona; si no hereda, sí puede. **Ni F01/ADR-001 ni D1 lo resuelven.**
 2. **Hasta cuándo puede cambiarse la moneda de un Grupo.** D1.3 describe la
-   elección durante la creación. ADR-002 §8 y el invariante 12 la fijan «tras su
+   elección durante la creación. F01/ADR-001 §8 y el invariante 12 la fijan «tras su
    primera operación». Un Grupo creado y todavía sin operaciones cae entre ambas
    redacciones. **No es una contradicción** —D1.3 no afirma nada sobre ese
-   intervalo—, pero conviene cerrarlo antes de ADR-003.
+   intervalo—, pero conviene cerrarlo antes de F02/ADR-001.
 
 ### D2 — El significado monetario de un hecho histórico es inmutable · `Decidido`
 
@@ -258,9 +258,9 @@ estructura con la que se persiste.** En particular, **no** queda decidido que
 haya que almacenar físicamente `scale = 2` junto a cada importe: eso es **una
 implementación posible**, no la decisión de dominio.
 
-Lo que D2 sí impone sobre ADR-003 es un **requisito**, no un mecanismo:
+Lo que D2 sí impone sobre F02/ADR-001 es un **requisito**, no un mecanismo:
 
-> **ADR-003 debe exigir que la definición monetaria utilizada por un hecho pueda
+> **F02/ADR-001 debe exigir que la definición monetaria utilizada por un hecho pueda
 > reconstruirse exactamente y de forma inmutable.**
 
 Cómo se consiga queda abierto, y podrá decidirse más adelante entre —o
@@ -287,7 +287,7 @@ Cuando la equivocada era **nuestra propia metadata**:
 - corregir la tabla **no modifica en silencio** el significado de hechos ya
   registrados;
 - corregir los hechos afectados, si procede, es **explícito y trazable** según
-  el modelo de corrección y versionado de ADR-002 §6.
+  el modelo de corrección y versionado de F01/ADR-001 §6.
 
 **Son dos casos distintos y no se tratan igual.** Un cambio legítimo de la
 moneda y una errata nuestra producen la misma diferencia numérica y exigen
@@ -304,7 +304,7 @@ Es la forma general de las dos anteriores, y la razón por la que D2 existe: sin
 ella, modificar una fila de configuración sería una vía para alterar
 contabilidad sin dejar rastro, sin atribución y sin notificación.
 
-#### Coherencia con ADR-002
+#### Coherencia con F01/ADR-001
 
 **Verificado: sin contradicción, y con precedente de la misma forma.**
 
@@ -424,7 +424,7 @@ propiedades contables.
 > silencio un hecho histórico.
 
 El **mecanismo exacto** de versionado e identidad de esa definición **sigue
-pendiente** y corresponde a ADR-003 (D2.2).
+pendiente** y corresponde a F02/ADR-001 (D2.2).
 
 #### Alternativas descartadas en D3
 
@@ -436,14 +436,14 @@ Se conservan con su razón, por ser arquitectónicamente relevantes.
 | **Excluir de la v1 las monedas de 3 decimales**                    | Se apoyaba en una lectura errónea del techo de `number` (ver corrección en E2) y en un juicio de riesgo no medido. La escala no es criterio de admisión (D3.2)                                  |
 | **Sin lista: cualquier código que el usuario escriba**             | Sin definición monetaria controlada no hay escala fiable, y sin escala fiable no se cumplen D1 ni D2. Descartada también por producto (D3.3)                                                    |
 
-#### Coherencia con ADR-002 y `AGENTS.md`
+#### Coherencia con F01/ADR-001 y `AGENTS.md`
 
 **Verificado: sin contradicción.**
 
 - `AGENTS.md` §1 — «Nomey es multi-moneda por diseño aunque la UI muestre una» y
   «la escala decimal depende de la moneda; nunca hardcodear 2 decimales». **D3.2
   es la aplicación directa de esa regla**, no una excepción a ella.
-- **ADR-002 §8** — no limita el conjunto de monedas; fija que cada ámbito tiene
+- **F01/ADR-001 §8** — no limita el conjunto de monedas; fija que cada ámbito tiene
   una moneda base inmutable tras su primera operación. D3 no lo toca.
 - **D2** — D3 **amplía la superficie** de la obligación de D2: más monedas
   admitidas son más definiciones que deben ser reconstruibles de forma exacta e
@@ -555,14 +555,14 @@ Es una decisión **distinta**, registrada como **P4** en «Pendientes».
 
 #### Alternativa descartada en P1
 
-| Alternativa                                                                  | Por qué se descarta                                                                                                                                                                                                                                        |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Clasificar todos los campos** y decidir el comportamiento FX campo a campo | Innecesario: basta una pregunta binaria (P1.4). Una clasificación de campos hay que mantenerla, y la implementación puede equivocarse en ella **en silencio**, que es justo el tipo de fallo que P1 evita                                                  |
-| **Congelar un tipo nuevo en cada versión**                                   | Corregir una errata movería importes derivados, saldos y deudas de otras personas sin que nadie lo pidiera. Choca con ADR-002 §10, donde el efecto sobre otro usuario nace de una operación válida del dominio, no del efecto colateral de editar un texto |
+| Alternativa                                                                  | Por qué se descarta                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Clasificar todos los campos** y decidir el comportamiento FX campo a campo | Innecesario: basta una pregunta binaria (P1.4). Una clasificación de campos hay que mantenerla, y la implementación puede equivocarse en ella **en silencio**, que es justo el tipo de fallo que P1 evita                                                      |
+| **Congelar un tipo nuevo en cada versión**                                   | Corregir una errata movería importes derivados, saldos y deudas de otras personas sin que nadie lo pidiera. Choca con F01/ADR-001 §10, donde el efecto sobre otro usuario nace de una operación válida del dominio, no del efecto colateral de editar un texto |
 
-#### Coherencia con ADR-002
+#### Coherencia con F01/ADR-001
 
-**Verificado: sin contradicción, y cierra un hueco que ADR-002 dejaba abierto.**
+**Verificado: sin contradicción, y cierra un hueco que F01/ADR-001 dejaba abierto.**
 
 - **§8** — «el tipo de cambio congelado en el momento de registrar; la conversión
   no se recalcula después». P1 extiende ese principio a la **versión nueva**, que
@@ -607,12 +607,12 @@ financiera.
 En el momento en que exista la **primera operación financiera válida** del
 Grupo, la moneda base queda **bloqueada definitivamente**.
 
-Es exactamente el invariante de ADR-002 §8 e invariante 12 —«moneda base
+Es exactamente el invariante de F01/ADR-001 §8 e invariante 12 —«moneda base
 inmutable tras su primera operación»—, del que P2 solo aclara el intervalo
 anterior.
 
 > **P2 no redefine qué cuenta como operación financiera.** Usa el concepto de
-> operación de ADR-002 tal cual. Si algún día hiciera falta afinarlo, será otra
+> operación de F01/ADR-001 tal cual. Si algún día hiciera falta afinarlo, será otra
 > decisión, no una lectura de ésta.
 
 #### P2.3 · Participantes e invitaciones no bloquean el cambio
@@ -683,13 +683,13 @@ La resolución concreta —rechazo, conflicto de sincronización, revisión u ot
 | **Inmutable desde la creación**, sin intervalo         | Demasiado duro para un producto que prioriza la rapidez: equivocarse en un desplegable de la pantalla de creación es normal, y la protección no aporta nada mientras no haya hechos |
 | **Notificar el cambio** a los participantes            | Contradice la filosofía de producto de minimizar notificaciones. Un cambio que no altera ningún hecho financiero no justifica interrumpir a nadie (P2.4)                            |
 
-#### Coherencia con ADR-002
+#### Coherencia con F01/ADR-001
 
 **Verificado: sin contradicción.**
 
 - **§8 e invariante 12** — «moneda base inmutable tras su primera operación».
   P2.2 es literalmente ese invariante; P2.0 solo resuelve el intervalo anterior,
-  que ADR-002 no cubría.
+  que F01/ADR-001 no cubría.
 - **Invariante 15** — «toda operación con efectos financieros relevantes sobre
   otro usuario queda atribuida y **genera notificación**». **P2.4 no lo
   contradice**: el invariante condiciona la notificación a que haya **efectos
@@ -791,7 +791,7 @@ P3 es **únicamente la regla de dominio**. **No** decide:
 > una forma imaginable de cumplir P3, entre otras, y no están elegidas.
 
 Es la misma separación que hizo **D2.2**: la regla se decide, el mecanismo se
-deja abierto para ADR-003.
+deja abierto para F02/ADR-001.
 
 #### P3.6 · Mecanismos explícitos posteriores
 
@@ -806,15 +806,15 @@ un mecanismo explícito de conversión, redenominación, migración o correcció
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **El código ISO es la identidad monetaria** | Basta para el caso normal y falla en tres reales: mismo código tras una redenominación, códigos distintos con continuidad real, y —el más probable— dos definiciones del mismo código creadas al corregir una errata nuestra (D2.4). En los tres, Nomey sumaría importes no homogéneos y mostraría un total falso **sin avisar**, que es justo lo que D2 existía para impedir a nivel de hecho |
 
-#### Coherencia con ADR-002 y con D2
+#### Coherencia con F01/ADR-001 y con D2
 
 **Verificado: sin contradicción.**
 
-- **ADR-002 §8 e invariante 12** — cada ámbito tiene una moneda base inmutable
+- **F01/ADR-001 §8 e invariante 12** — cada ámbito tiene una moneda base inmutable
   tras su primera operación. En el caso normal todos los efectos de un ámbito
   comparten definición y P3 no cambia nada. P3 solo actúa cuando esa definición
-  **cambió a lo largo del tiempo**, un supuesto que ADR-002 no aborda.
-- **ADR-002 §4 y §5** — estadísticas y reparto. P3 no altera qué clases alimentan
+  **cambió a lo largo del tiempo**, un supuesto que F01/ADR-001 no aborda.
+- **F01/ADR-001 §4 y §5** — estadísticas y reparto. P3 no altera qué clases alimentan
   las estadísticas ni el algoritmo de mayor resto; **restringe cuándo una suma
   es lícita**, que es una capa distinta.
 - **D1.6** — «convertir una vez, repartir después, en la moneda del ámbito». P3
@@ -860,7 +860,7 @@ visual y UX sin conexión. **Ese valor no es autoritativo.**
 > **El tipo definitivo que entra en el hecho contable lo resuelve el servidor al
 > recibir la operación.**
 
-Coherente con ADR-002 §7: el cliente envía **intención**, el servidor valida y
+Coherente con F01/ADR-001 §7: el cliente envía **intención**, el servidor valida y
 genera los efectos.
 
 #### P4.3 · Una vez resuelto, el tipo queda congelado
@@ -969,18 +969,18 @@ no haya operaciones financieras válidas, y la primera la bloquea.
 > financiera ya registrada** y no bloquea nada.
 
 Lo que sí crea es un **conflicto de sincronización**, que este cierre resuelve
-mediante **revisión obligatoria**. ADR-002 no se modifica para reflejarlo.
+mediante **revisión obligatoria**. F01/ADR-001 no se modifica para reflejarlo.
 
 #### Alternativas descartadas en P4
 
-| Alternativa                                                   | Por qué se descarta                                                                                                                                                            |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Usar el tipo del momento de sincronización**                | El importe del gasto dependería de cuándo se recuperó cobertura. Dos personas que apuntan el mismo gasto a la vez obtendrían cifras distintas si una sincroniza antes          |
-| **Usar el tipo que el cliente llevaba en caché**              | Metería en un hecho contable un dato decidido por un cliente no confiable, contra ADR-002 §7, y dos móviles con cachés distintas darían importes distintos para el mismo gasto |
-| **«Mejor tipo disponible» + corrección automática posterior** | Produce versiones, historial y notificaciones sin que nadie haya corregido nada. Rechazada en P4.4; la vía correcta es la corrección explícita de P1.3                         |
-| **Rechazar la operación en conflicto de P2.5**                | Perdería una intención legítima del usuario. La revisión conserva el hecho y le devuelve la decisión a quien lo registró                                                       |
+| Alternativa                                                   | Por qué se descarta                                                                                                                                                                |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Usar el tipo del momento de sincronización**                | El importe del gasto dependería de cuándo se recuperó cobertura. Dos personas que apuntan el mismo gasto a la vez obtendrían cifras distintas si una sincroniza antes              |
+| **Usar el tipo que el cliente llevaba en caché**              | Metería en un hecho contable un dato decidido por un cliente no confiable, contra F01/ADR-001 §7, y dos móviles con cachés distintas darían importes distintos para el mismo gasto |
+| **«Mejor tipo disponible» + corrección automática posterior** | Produce versiones, historial y notificaciones sin que nadie haya corregido nada. Rechazada en P4.4; la vía correcta es la corrección explícita de P1.3                             |
+| **Rechazar la operación en conflicto de P2.5**                | Perdería una intención legítima del usuario. La revisión conserva el hecho y le devuelve la decisión a quien lo registró                                                           |
 
-#### Coherencia con ADR-002
+#### Coherencia con F01/ADR-001
 
 **Verificado: sin contradicción.**
 
@@ -998,26 +998,26 @@ mediante **revisión obligatoria**. ADR-002 no se modifica para reflejarlo.
 - **P2** — sin cambios. Una intención en vuelo no es una operación registrada y
   no bloquea la moneda base.
 
-> **Punto que merece argumentarse, porque roza un límite de ADR-002.** ADR-002
+> **Punto que merece argumentarse, porque roza un límite de F01/ADR-001.** F01/ADR-001
 > §10 y `data-model.md` §8 dicen que **«no hay confirmaciones, efectos
 > pendientes ni estados de autorización»**. La revisión obligatoria del conflicto
 > podría leerse como un efecto pendiente, y **no lo es**, por dos razones:
 >
-> 1. Esa regla de ADR-002 condiciona la inmediatez a que la operación sea
+> 1. Esa regla de F01/ADR-001 condiciona la inmediatez a que la operación sea
 >    **válida**. Aquí la operación **todavía no lo es**: la configuración
 >    monetaria bajo la que se creó la intención ya no existe en el ámbito.
-> 2. Lo que ADR-002 descarta es la **confirmación de un tercero** antes de que
+> 2. Lo que F01/ADR-001 descarta es la **confirmación de un tercero** antes de que
 >    los efectos le alcancen. Aquí no confirma un tercero: resuelve **quien
 >    registró la intención**, sobre su propia intención, y nadie más queda a la
 >    espera.
 >
 > Si en el futuro esta revisión se generalizase a operaciones ya válidas, sí
-> contradiría ADR-002 y exigiría un ADR sucesor.
+> contradiría F01/ADR-001 y exigiría un ADR sucesor.
 
 ### Decisiones técnicas T1–T12 · `Decidido`
 
 Aprobadas el **2026-08-19**, delegadas por producto en la segunda revisión
-arquitectónica. Son la materia que ADR-003 debe recoger como normativa.
+arquitectónica. Son la materia que F02/ADR-001 debe recoger como normativa.
 
 #### T1 · Representación de importes
 
@@ -1104,7 +1104,7 @@ financiero no depende de `number`.
 de cambio, con restricciones explícitas que impidan valores inválidos.
 
 **No se fija `NUMERIC(p, s)` ahora**, por no haber evidencia suficiente para
-elegir precisión y escala definitivas. ADR-003 establece que debe ser **exacto**,
+elegir precisión y escala definitivas. F02/ADR-001 establece que debe ser **exacto**,
 **nunca `REAL` ni `DOUBLE PRECISION`**, **preservar sin pérdida** la precisión de
 los tipos admitidos, estar **acotado y validado**, y **no admitir en silencio
 valores especiales o inválidos**. La precisión concreta se cierra con el diseño
@@ -1138,7 +1138,7 @@ almacenamiento sin conexión.**
 #### T8 · PostgREST y E11
 
 **No se altera el orden de fases** para resolver E11. En su lugar, **E11 se
-convierte en una puerta explícita de aceptación de ADR-003**.
+convierte en una puerta explícita de aceptación de F02/ADR-001**.
 
 Al comenzar la fase de infraestructura y base de datos: prueba empírica real ·
 comprobar `BIGINT` · comprobar `NUMERIC` · comprobar el cliente JS · comprobar
@@ -1152,13 +1152,13 @@ cast u otro mecanismo—. **Cuál, no se decide ahora.**
 > **El modelo de dominio no dependerá de que PostgREST casualmente serialice un
 > tipo de una forma concreta.**
 
-#### T9 · Estado de ADR-003
+#### T9 · Estado de F02/ADR-001
 
-`ADR-003 — Representación exacta del dinero` se redactó en estado **`Propuesto`**,
+`F02/ADR-001 — Representación exacta del dinero` se redactó en estado **`Propuesto`**,
 con la aceptación condicionada únicamente a E11.
 
 > **Cumplido.** E11 se ejecutó el 2026-08-19 contra un stack Supabase local real
-> y no falsificó ninguna premisa. **ADR-003 pasó a `Aceptado` ese mismo día.**
+> y no falsificó ninguna premisa. **F02/ADR-001 pasó a `Aceptado` ese mismo día.**
 > Ver E11 más abajo y §10 del ADR.
 
 #### T10 · Redondeo FX
@@ -1211,7 +1211,7 @@ de lo relevante:
 | T10      | E10             | _half away from zero_ coincide con cómo redondea `numeric` de PostgreSQL                                                                              |
 | T11      | E6              | E6 midió que `BigInt` trunca hacia cero; T11 elimina el problema en lugar de tratarlo                                                                 |
 
-#### Tres consecuencias que ADR-003 debe resolver por escrito
+#### Tres consecuencias que F02/ADR-001 debe resolver por escrito
 
 Detectadas al verificar T1–T12. **Ninguna bloquea**, las tres exigen una frase
 explícita en el ADR.
@@ -1225,16 +1225,16 @@ explícita en el ADR.
    mecanismo.
 2. **La escala del tipo de cambio necesita una cota declarada.** T5 permite
    cualquier escala; T6 exige preservar sin pérdida. Si la escala no tiene tope,
-   **ninguna columna `NUMERIC` puede garantizar la preservación**. ADR-003 debe
+   **ninguna columna `NUMERIC` puede garantizar la preservación**. F02/ADR-001 debe
    exigir que exista **una cota máxima declarada**, aunque su número concreto se
    fije con el esquema.
-3. **T11 introduce una restricción implícita que ADR-002 no enuncia:** que el
+3. **T11 introduce una restricción implícita que F01/ADR-001 no enuncia:** que el
    total de un reparto sea no negativo. **Se ha buscado y no se ha encontrado
-   ningún caso aceptado en ADR-002 que exija repartir directamente una cantidad
+   ningún caso aceptado en F01/ADR-001 que exija repartir directamente una cantidad
    negativa** —las correcciones son versiones, no importes negativos (§6), y las
-   participaciones son positivas (§5)—. Pero ADR-002 tampoco lo prohíbe de forma
-   explícita, así que ADR-003 lo enuncia como **restricción propia**, no como
-   lectura de ADR-002.
+   participaciones son positivas (§5)—. Pero F01/ADR-001 tampoco lo prohíbe de forma
+   explícita, así que F02/ADR-001 lo enuncia como **restricción propia**, no como
+   lectura de F01/ADR-001.
 
 #### Objeciones registradas contra T1–T12
 
@@ -1249,7 +1249,7 @@ explícita en el ADR.
 #### Objeción registrada contra esta decisión
 
 **P4.1 obliga a disponer de tipos por fecha, no solo del tipo de hoy.** De dónde
-vienen los tipos seguía anotado como pendiente fuera del alcance de ADR-003, y
+vienen los tipos seguía anotado como pendiente fuera del alcance de F02/ADR-001, y
 esta decisión lo convierte en un requisito con forma: histórico, consultable por
 fecha efectiva y determinista (P4.5). No invalida P4, pero **la dependencia es
 real y no estaba en el plan**.
@@ -1345,7 +1345,7 @@ Resultados medidos, todos con suma exacta:
 | 100,00 EUR en 1:2:3   | 16,67 · 33,33 · 50,00 |
 
 En el primer caso los restos son `1 · 1 · 1`: empate triple, y el céntimo va al
-pagador según la regla de ADR-002.
+pagador según la regla de F01/ADR-001.
 
 ### E6 · `BigInt` trunca hacia cero, no hacia −∞
 
@@ -1441,7 +1441,7 @@ la documentación de Supabase lo especifican. Por eso hubo que medirlo.
 >
 > **Lo determinante es el cast, no el camino de acceso.** Scripts reproducibles
 > en [`supabase/e11/`](../../supabase/e11/README.md); resultado normativo en
-> §10 de [ADR-003](../adr/ADR-003-money-representation.md).
+> §10 de [F02/ADR-001](../adr/F02/ADR-001-money-representation.md).
 
 ### E12 · El orden entre repartir y convertir cambia el resultado
 
@@ -1631,13 +1631,13 @@ mecanismos y detalles, clasificados abajo.
 **T1–T12**. Lo que queda de ellas para más adelante es el detalle de esquema:
 
 - `NUMERIC(p, s)` concretos para el tipo de cambio (T6), y la **cota máxima de
-  escala** que ADR-003 debe exigir aunque no fije su número.
+  escala** que F02/ADR-001 debe exigir aunque no fije su número.
 - Nombre de tabla, columnas e identificador concreto de una definición monetaria
   (T3), que siguen fuera por P3.5.
 - La capa de transporte que garantice la frontera de strings, si E11 revela que
   PostgREST no la garantiza por defecto (T8).
 
-**Pendientes que ADR-003 puede dejar fuera:**
+**Pendientes que F02/ADR-001 puede dejar fuera:**
 
 - **Presentación de una agregación imposible** — qué muestra Nomey cuando P3.2
   impide el total, y cómo se presenta la conversión explícita de P3.3 en
@@ -1649,7 +1649,7 @@ mecanismos y detalles, clasificados abajo.
   exige que corresponda al momento efectivo del hecho y que sea **determinista**.
 - **Origen y frecuencia de los tipos de cambio.** P4.1 lo convierte en un
   requisito con forma —histórico consultable por fecha efectiva— aunque la fuente
-  concreta siga fuera del alcance de ADR-003.
+  concreta siga fuera del alcance de F02/ADR-001.
 - **Copy definitivo** del conflicto de sincronización.
 - **Criptomonedas, tokens, monedas retiradas y unidades de cuenta especiales**:
   fuera de D3.4, sin admitir ni excluir.
@@ -1662,7 +1662,7 @@ mecanismos y detalles, clasificados abajo.
 
 ---
 
-## Alcance propuesto para ADR-003
+## Alcance propuesto para F02/ADR-001
 
 **Debe recoger, ya decidido (D1):** el importe declarado como autoritativo y el
 del ámbito como derivado y almacenado · la prohibición de reconstruir el

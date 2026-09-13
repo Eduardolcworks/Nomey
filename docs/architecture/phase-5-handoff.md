@@ -44,8 +44,8 @@ Antes de nada, y en este orden: [`AGENTS.md`](../../AGENTS.md) ·
 
 **La Fase 5 sí toca el backend**, a diferencia de la 4: se apoya en el Auth
 técnico y la RLS que dejó 3.C. Los sitios donde mirar cuando haga falta son
-[`ADR-007`](../adr/ADR-007-membership-rls.md) para la autorización por fila,
-[`ADR-017`](../adr/ADR-017-secure-session-storage.md) para el almacenamiento de
+[`F03/ADR-004`](../adr/F03/ADR-004-membership-rls.md) para la autorización por fila,
+[`F05/ADR-001`](../adr/F05/ADR-001-secure-session-storage.md) para el almacenamiento de
 sesión, y el runbook de entorno local — no antes, y no todo.
 
 ### Lo que ya está hecho, para consumirlo sin releerlo
@@ -74,7 +74,7 @@ Tres reglas que **no se deben deshacer** al construir encima:
   propio titular: sirve para saludar y para nada más.
 
 El detalle está en [`PROJECT_STATE.md`](../PROJECT_STATE.md) §«Frontera de sesión
-en el cliente» y en [ADR-017](../adr/ADR-017-secure-session-storage.md).
+en el cliente» y en [F05/ADR-001](../adr/F05/ADR-001-secure-session-storage.md).
 
 ### Decisiones de producto ya cerradas, que no se reabren
 
@@ -179,7 +179,7 @@ Aprobado en iPhone físico y fuera de discusión salvo defecto material:
   cliente Auth **efímero y en memoria** que el `SessionProvider` principal no ve
   nunca, el deep link tiene un dueño único, una sesión abierta bloquea el enlace
   sin canjearlo, y la prueba sólo se gasta cuando el servidor lo establece —
-  [ADR-018](../adr/ADR-018-ephemeral-recovery-session.md). El detalle, en §7.
+  [F05/ADR-002](../adr/F05/ADR-002-ephemeral-recovery-session.md). El detalle, en §7.
 - **Lo cerrado en F5.B**, validado en iPhone: los cuatro estados de sesión, la
   restauración por `INITIAL_SESSION` sin `getSession()`, el watchdog, el
   refresco atado a `AppState`, las guardas con `Stack.Protected` y el gate que
@@ -188,7 +188,7 @@ Aprobado en iPhone físico y fuera de discusión salvo defecto material:
   `WHEN_UNLOCKED_THIS_DEVICE_ONLY` y exclusión de backup en Android, el
   almacenamiento troceado con su manifiesto, la configuración del cliente y el
   polyfill de `URL` en un único punto de arranque —
-  [ADR-017](../adr/ADR-017-secure-session-storage.md).
+  [F05/ADR-001](../adr/F05/ADR-001-secure-session-storage.md).
 - **Lo cerrado en F5.D**, validado en iPhone. La arquitectura del cierre de
   sesión **no se reabre**:
   - `signOut({ scope: 'local' })`, explícito. El defecto de la librería es
@@ -244,7 +244,7 @@ inaccesibles sin sesión; y **ninguna credencial de backend está en el bundle**
 ámbitos y participantes · Modo Pareja · Grupos funcionales · Quick Entry.
 
 **Almacenamiento seguro ya está decidido y construido** —
-[ADR-017](../adr/ADR-017-secure-session-storage.md), F5.A—. Cualquier decisión
+[F05/ADR-001](../adr/F05/ADR-001-secure-session-storage.md), F5.A—. Cualquier decisión
 nueva de la misma clase sigue pasando por ADR antes de escribirse.
 
 **Los cuatro criterios del roadmap están cumplidos y verificados**, y con ellos
@@ -310,8 +310,8 @@ saludo con el nombre real.
 
 **La medición del payload real está RESUELTA**: 2285 B · 5 chunks · máximo 512 B,
 sobre una sesión auténtica en iPhone. Supera el umbral de ~2 KB de Expo, así que
-valida el troceado de ADR-017 contra un caso real. La cifra vive en
-[`PROJECT_STATE.md`](../PROJECT_STATE.md); **ADR-017 no se modifica**, porque un
+valida el troceado de F05/ADR-001 contra un caso real. La cifra vive en
+[`PROJECT_STATE.md`](../PROJECT_STATE.md); **F05/ADR-001 no se modifica**, porque un
 ADR aceptado es inmutable.
 
 Captura de correo local: `[local_smtp]`, interfaz en el puerto **54324**.
@@ -344,7 +344,7 @@ Tres cosas que conviene no volver a deducir:
 
 ### Lo que F5.E cerró, y no se vuelve a abrir
 
-**Su decisión es [ADR-018](../adr/ADR-018-ephemeral-recovery-session.md)**, y es
+**Su decisión es [F05/ADR-002](../adr/F05/ADR-002-ephemeral-recovery-session.md)**, y es
 una frontera: **una sesión nacida de un enlace de correo no es una sesión
 ordinaria de Nomey, no se persiste y nunca se promociona.** Lo que F5.F necesita
 saber, y nada más:

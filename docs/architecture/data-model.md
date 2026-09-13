@@ -7,7 +7,7 @@
 > concretos no están decididos: pertenecen a las migraciones y a los ADR que
 > las gobiernen. Si necesitas un nombre de tabla para avanzar, falta un ADR.
 
-Decisión de referencia: [ADR-002](../adr/ADR-002-accounting-model.md).
+Decisión de referencia: [F01/ADR-001](../adr/F01/ADR-001-accounting-model.md).
 Vocabulario: [glosario](../product/glossary.md).
 
 ---
@@ -106,7 +106,7 @@ tal. Confundirlos haría que una obligación inexistente apareciera de la nada.
 De ahí se siguen dos casos que también son inválidos: liquidar cuando **no hay
 deuda pendiente**, y liquidar **en la dirección contraria** a la deuda existente.
 
-> **Decisión de producto de 2026-08-20.** ADR-002 define la liquidación y admite
+> **Decisión de producto de 2026-08-20.** F01/ADR-001 define la liquidación y admite
 > los pagos parciales, pero **no aborda el sobrepago**; esta regla no es una
 > lectura suya. Tampoco introduce una máquina de estados: la deuda sigue siendo
 > un saldo continuo y esto es una **validación al registrar**, no un estado
@@ -165,9 +165,9 @@ materialmente distintos es un **conflicto**, no una repetición.
 > liquidación no tienen concepto ni categoría —la línea que el usuario lee la
 > deriva el producto—, y **no se les inventa ninguno**. Qué contiene toda versión
 > y qué depende de la clase lo fija
-> [ADR-020](../adr/ADR-020-version-content-and-time.md); el catálogo de
+> [F06/ADR-002](../adr/F06/ADR-002-version-content-and-time.md); el catálogo de
 > categorías y su autorización,
-> [ADR-021](../adr/ADR-021-category-catalogue.md).
+> [F06/ADR-003](../adr/F06/ADR-003-category-catalogue.md).
 
 ---
 
@@ -177,8 +177,11 @@ Todos verificados contra los invariantes. **Son la referencia directa para los
 tests de dominio.**
 
 Todos los efectos que aparecen se aplican de inmediato. Cuando una operación
-afecta al Modo Personal de otro usuario, este recibe **notificación**, no una
-petición de confirmación.
+**modifica, anula, liquida o declara pagado** un hecho que afecta a otro
+usuario, este recibe **notificación**, no una petición de confirmación. **El
+alta de un gasto y la reincorporación a un grupo no avisan** (decisión de
+producto de F9, 2026-09-14): lo nuevo se ve al abrir el grupo o Inicio, y lo
+que después se corrija o anule sí avisa.
 
 ### 4.1 Gasto personal simple — 20 €
 
@@ -222,9 +225,9 @@ Modo Personal A → saldo −120
 ```
 
 **Los efectos financieros son idénticos a 4.2.** La única diferencia es la
-autoría —queda registrado que la operación la creó B— y que **A recibe una
-notificación** indicándole que se ha reflejado un movimiento de −120 € en su
-Modo Personal.
+autoría: queda registrado que la operación la creó B. **A no recibe aviso por
+el alta** (invariante 15): ve el movimiento de −120 € en su Modo Personal y el
+gasto en el grupo; si B lo corrigiera o anulara después, sí lo recibiría.
 
 A no confirma nada. Si el dato era incorrecto, se corrige por versionado (§7).
 
@@ -255,6 +258,14 @@ registre su propio movimiento de caja. **Es correcto**: Nomey es un registro
 manual, y un movimiento real todavía sin anotar es su estado normal — la misma
 razón por la que existe el `ajuste`.
 
+**En la app (F9, [F09/ADR-007](../adr/F09/ADR-007-group-payments-and-exit-without-debt.md)
+§2), «Saldado» no es este escenario sino un _pago declarado_:** el pagador o el
+receptor declaran un pago hecho fuera de Nomey, y se registra caja en los dos
+Modos Personales **y** la liquidación de la deuda (clase `group_payment`,
+transferencia; nunca ingreso). La vía «sólo deuda» de este escenario sigue
+siendo una capacidad del writer (`record_debt_settlement`), sin superficie en
+la app.
+
 ### 4.6 · Escenario F — pagar una deuda mediante transferencia
 
 A debe 30 € a B y registra «pagar deuda».
@@ -276,6 +287,12 @@ conserva la vía de 4.5, que modifica la deuda sin mover saldo.
 
 Contraste con 4.5: aquí se mueve saldo **y** se modifica la deuda; allí solo la
 deuda. Siguen siendo hechos distintos.
+
+**Este escenario es la transferencia _ordenada desde la app_ (F12, invariante
+14): sólo A la origina.** Distinto del _pago declarado_ de F9 (F09/ADR-007 §2),
+donde cualquiera de los dos declara un pago que ya ocurrió fuera y Nomey
+registra la declaración —con caja en ambos Personales— sin verificar el envío;
+el otro recibe aviso y puede anularlo.
 
 ### 4.7 Liquidar con un participante sin usuario
 
@@ -338,7 +355,8 @@ Modo Pareja     → saldo común: SIN CAMBIOS
 Modo Personal A → saldo −80
 ```
 
-Efecto inmediato aunque lo registre B. A recibe notificación.
+Efecto inmediato aunque lo registre B. A no recibe aviso por el alta
+(invariante 15); lo ve en su Modo Personal.
 
 Estadísticas de pareja: 80 de gasto. Estadísticas personales de A: **0**. No
 nace ninguna deuda de B hacia A. Dinero real que sale: 80, una sola vez.
@@ -455,7 +473,7 @@ pagador por el desempate. **No es un error: es indivisibilidad.**
 Lo mismo puede ocurrirle al pagador. Con `shares`, un total de 0,01 € y pesos
 1 · 2 · 2 deja al pagador en **0**, porque el empate por mayor resto se produce
 entre los otros dos y el desempate no le alcanza. Sigue siendo válido: **su
-participación declarada era positiva**, que es lo que ADR-002 §5 exige.
+participación declarada era positiva**, que es lo que F01/ADR-001 §5 exige.
 
 Qué debe ser estrictamente positivo, entonces:
 
@@ -471,7 +489,7 @@ Qué debe ser estrictamente positivo, entonces:
 > económica declarada en ella_. Un gasto de 10 € con A = 10 € y B = 0 € tiene un
 > solo participante, no dos.
 >
-> **ADR-002 no aborda este caso**; no es una lectura suya. Queda registrada aquí
+> **F01/ADR-001 no aborda este caso**; no es una lectura suya. Queda registrada aquí
 > porque es una regla del modelo de dominio, no una decisión arquitectónica que
 > justifique un ADR propio.
 
@@ -525,8 +543,8 @@ anterior y aplica los de la nueva, sin operaciones de reversión separadas.
 >
 > **Los periodos de presencia no participan en esta autorización.** Conservan su
 > única función: determinar si un participante es **elegible para figurar en una
-> operación** en su fecha efectiva ([ADR-012](../adr/ADR-012-participant-identity.md)
-> §7). Son dos preguntas distintas y colapsarlas es el error que ADR-012 existe
+> operación** en su fecha efectiva ([F03/ADR-009](../adr/F03/ADR-009-participant-identity.md)
+> §7). Son dos preguntas distintas y colapsarlas es el error que F03/ADR-009 existe
 > para evitar.
 >
 > Lo que sostiene la regla no es una restricción de acceso, sino las cinco capas
@@ -548,7 +566,7 @@ anterior y aplica los de la nueva, sin operaciones de reversión separadas.
   salvo que el propio tipo sea el dato explícitamente corregido (§10). Corregir
   no revaloriza.
 
-> **Precisión de [ADR-013](../adr/ADR-013-persisted-vs-derived.md) §6.** La
+> **Precisión de [F03/ADR-010](../adr/F03/ADR-010-persisted-vs-derived.md) §6.** La
 > herencia del tipo aplica **cuando no cambian las entradas de las que el tipo
 > depende**. Corregir solo una nota, o el importe conservando moneda, ámbito y
 > fecha efectiva, **hereda**. Corregir la **fecha efectiva**, o la **definición
@@ -602,8 +620,11 @@ No en la confirmación previa, sino en cinco capas simultáneas: **permisos del
 ámbito · atribución · historial · notificación · corrección**.
 
 Toda operación con efectos financieros relevantes sobre otro usuario queda
-atribuida y **genera notificación**. El dominio conserva quién hizo qué, sobre
-qué ámbito, cuándo, qué importes cambiaron y qué correcciones hubo después.
+atribuida, y **genera notificación** cuando modifica, anula, liquida o declara
+pagado algo que ya constaba, o cuando alguien sale del grupo; el alta de un
+gasto y la reincorporación no avisan (invariante 15). El dominio conserva
+quién hizo qué, sobre qué ámbito, cuándo, qué importes cambiaron y qué
+correcciones hubo después.
 
 ### Quién puede originar una transferencia directa
 
@@ -694,7 +715,7 @@ implementaciones.
 
 ## 10. Moneda, importe y tipo de cambio
 
-Decisión de referencia: [ADR-003](../adr/ADR-003-money-representation.md). Aquí
+Decisión de referencia: [F02/ADR-001](../adr/F02/ADR-001-money-representation.md). Aquí
 solo el vocabulario y las reglas de dominio; la representación técnica y el
 esquema pertenecen al ADR y a las migraciones.
 
@@ -714,7 +735,7 @@ valores dicen tener la misma identidad y se contradicen en escala o en código,
 inválido. Sumarlos produciría una cifra falsa sin lanzar ningún error, que es
 exactamente el fallo contra el que existe todo lo demás.
 
-> **Decisión de producto de 2026-08-20**, tomada al auditar la Fase 3.B. ADR-003
+> **Decisión de producto de 2026-08-20**, tomada al auditar la Fase 3.B. F02/ADR-001
 > exige que la identidad sea estable e inmutable pero **no aborda qué ocurre si
 > llegan metadatos contradictorios bajo la misma identidad**; esta regla no es
 > una lectura suya. De dónde salen las definiciones coherentes es cuestión del
@@ -790,7 +811,7 @@ el primer hecho.
 > vigente, y la conversión depende de una resolución de tipo de cambio que
 > todavía no existe. Es una capacidad prevista del producto, no descartada; llega
 > con la multimoneda operativa. Hasta entonces se rechaza explícitamente en vez
-> de resolverse mal. Ver [ADR-019](../adr/ADR-019-personal-provisioning.md).
+> de resolverse mal. Ver [F06/ADR-001](../adr/F06/ADR-001-personal-provisioning.md).
 
 Una operación creada bajo una configuración monetaria anterior **nunca se
 reinterpreta en silencio**: entra en conflicto y requiere revisión antes de
@@ -822,7 +843,7 @@ convertirse en operación financiera válida del ámbito.
     estadísticas se derivan de la versión vigente. Una proyección local de
     intenciones todavía no confirmadas **no es un saldo**: es una previsión, no
     se persiste y no alimenta ninguna escritura
-    ([ADR-028](../adr/ADR-028-offline-command-queue-and-optimistic-projection.md)
+    ([F07/ADR-001](../adr/F07/ADR-001-offline-command-queue-and-optimistic-projection.md)
     §8, §10).
 12. Cada ámbito tiene una moneda base inmutable tras su primera operación.
 13. **Un usuario solo produce efectos sobre otro cuando la operación y el ámbito
@@ -832,7 +853,13 @@ convertirse en operación financiera válida del ámbito.
     propietario del Modo Personal que constituye el extremo de salida.** El
     destinatario no puede originar una salida en el Modo Personal del remitente.
 15. **Toda operación con efectos financieros relevantes sobre otro usuario queda
-    atribuida y genera notificación.**
+    atribuida; y genera notificación toda corrección, anulación, liquidación,
+    pago declarado y salida que afecte a otro, y —en las fases que las
+    traigan— la transferencia directa (4.8) y la retirada del saldo común
+    (4.12). El alta de un gasto y la reincorporación a un grupo no avisan**
+    (decisión de producto de F9, 2026-09-14: lo nuevo se ve al abrir;
+    F09/ADR-003 §7, F09/ADR-007, F09/ADR-010). La notificación es interna, en la campana;
+    no hay push.
 16. La trazabilidad de una aportación al Modo Pareja no confiere propiedad,
     porcentaje ni derecho de recuperación; el saldo es común.
 17. **El reparto final del saldo común del Modo Pareja y las compensaciones que
@@ -875,52 +902,52 @@ conoce planes. La capa de capacidades **invoca** al dominio; el dominio **nunca
 consulta** capacidades.
 
 **Resuelto desde este documento:** la representación exacta del importe y del
-tipo de cambio, en [ADR-003](../adr/ADR-003-money-representation.md), aceptado ·
+tipo de cambio, en [F02/ADR-001](../adr/F02/ADR-001-money-representation.md), aceptado ·
 la **identidad física** de la definición monetaria —`UUID` fijo y sembrado, que
 el dominio sigue tratando como opaca—, en
-[ADR-004](../adr/ADR-004-currency-definition-identity.md), aceptado · el
+[F03/ADR-001](../adr/F03/ADR-001-currency-definition-identity.md), aceptado · el
 **esquema expuesto** y la regla de que las tablas contables no se alcanzan
-directamente por la Data API, en [ADR-005](../adr/ADR-005-schema-topology.md),
+directamente por la Data API, en [F03/ADR-002](../adr/F03/ADR-002-schema-topology.md),
 aceptado.
 
 **Resuelto también:** la **estrategia de grants** y el mecanismo por el que la
 superficie expuesta lee la persistencia, en
-[ADR-006](../adr/ADR-006-privilege-model.md) · la **comprobación de membresía** y
-la estrategia de RLS, en [ADR-007](../adr/ADR-007-membership-rls.md).
+[F03/ADR-003](../adr/F03/ADR-003-privilege-model.md) · la **comprobación de membresía** y
+la estrategia de RLS, en [F03/ADR-004](../adr/F03/ADR-004-membership-rls.md).
 
 **Resuelto también:** el **contrato de transporte de los valores exactos** en
-las dos direcciones, en [ADR-008](../adr/ADR-008-exact-data-boundary.md).
+las dos direcciones, en [F03/ADR-005](../adr/F03/ADR-005-exact-data-boundary.md).
 
 **Resuelto también:** la **frontera autoritativa de escritura** —funciones por
 clase, payload `jsonb`, identidad de la petición, writer de mínimo privilegio
 sometido a RLS y transacción única—, en
-[ADR-009](../adr/ADR-009-authoritative-write-boundary.md) · la **idempotencia
+[F03/ADR-006](../adr/F03/ADR-006-authoritative-write-boundary.md) · la **idempotencia
 del origen cliente**, en
-[ADR-010](../adr/ADR-010-client-operation-idempotency.md).
+[F03/ADR-007](../adr/F03/ADR-007-client-operation-idempotency.md).
 
 **Resuelto también:** el **modelo físico de operaciones, versiones y comandos
 cliente** —identidad estable, versiones inmutables, efectos por versión,
 `client_command` separado y restricciones de linaje—, en
-[ADR-011](../adr/ADR-011-operation-version-model.md).
+[F03/ADR-008](../adr/F03/ADR-008-operation-version-model.md).
 
 **Resuelto también:** la **identidad de los participantes sin cuenta** y su
 vínculo con una cuenta —participante contextual por ámbito, efectos que
 referencian siempre al participante, periodos de presencia y reclamación que no
 altera la contabilidad—, en
-[ADR-012](../adr/ADR-012-participant-identity.md).
+[F03/ADR-009](../adr/F03/ADR-009-participant-identity.md).
 
 **Resuelto también:** el inventario **persistido frente a derivado**, la **forma
 física de los datos autoritativos de cada versión**, el **reparto contextual por
 ámbito** —con el método y el pagador fuera de la versión—, la **proyección
 canónica de efectos vigentes** y el **protocolo de serialización de la deuda**,
-en [ADR-013](../adr/ADR-013-persisted-vs-derived.md).
+en [F03/ADR-010](../adr/F03/ADR-010-persisted-vs-derived.md).
 
 **Pendiente en otros ADR:** el **mecanismo de prueba del claim**, la **revocación** y
-la **fusión de participantes**, delegados por ADR-012 a F10 · el **acceso
+la **fusión de participantes**, delegados por F03/ADR-009 a F10 · el **acceso
 residual** de quien sale de un ámbito con saldo pendiente, que sigue sin
 representación física · idempotencia de **recurrencias, importaciones bancarias
 y backend** · **origen,
-frecuencia y regla de selección de los tipos de cambio**, que ADR-003 dejó fuera
-de alcance y ADR-009 §8 subraya que **no está decidida** · la **anulación** como
+frecuencia y regla de selección de los tipos de cambio**, que F02/ADR-001 dejó fuera
+de alcance y F03/ADR-006 §8 subraya que **no está decidida** · la **anulación** como
 concepto distinto de la corrección · conciliación entre un movimiento importado
 y la pata personal de una operación compuesta.

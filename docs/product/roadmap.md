@@ -12,8 +12,8 @@
 > en [`data-model.md`](../architecture/data-model.md) y en
 > [`glossary.md`](glossary.md).
 
-Decisiones de referencia: [ADR-002 — Modelo contable](../adr/ADR-002-accounting-model.md) ·
-[ADR-003 — Representación exacta del dinero](../adr/ADR-003-money-representation.md).
+Decisiones de referencia: [F01/ADR-001 — Modelo contable](../adr/F01/ADR-001-accounting-model.md) ·
+[F02/ADR-001 — Representación exacta del dinero](../adr/F02/ADR-001-money-representation.md).
 
 ---
 
@@ -78,7 +78,7 @@ versión de Node fijada.
 **Dependencias.** Ninguna.
 
 **Cierre.** CI en verde sobre cada PR · dirección de dependencias entre capas
-impuesta por ESLint, no por convención · `README.md` por capa · ADR-001
+impuesta por ESLint, no por convención · `README.md` por capa · F00/ADR-001
 redactado.
 
 **Puertas.** Ninguna.
@@ -98,7 +98,7 @@ confianza y permisos entre usuarios.
 
 **Dependencias.** F0.
 
-**Cierre.** [ADR-002](../adr/ADR-002-accounting-model.md) en estado `Aceptado` ·
+**Cierre.** [F01/ADR-001](../adr/F01/ADR-001-accounting-model.md) en estado `Aceptado` ·
 [`data-model.md`](../architecture/data-model.md) y [`glossary.md`](glossary.md)
 escritos y marcados de mantenimiento obligatorio.
 
@@ -119,12 +119,12 @@ serialización y comportamiento ante correcciones y entrada sin conexión.
 
 **Dependencias.** F1.
 
-**Cierre.** [ADR-003](../adr/ADR-003-money-representation.md) redactado en estado
+**Cierre.** [F02/ADR-001](../adr/F02/ADR-001-money-representation.md) redactado en estado
 `Propuesto` · evidencia E1–E15 registrada en
 [`money-representation.md`](../architecture/money-representation.md), documento
 de trabajo **no normativo**.
 
-**Puertas.** ADR-003 **no pasa a `Aceptado`** hasta cumplir su puerta de
+**Puertas.** F02/ADR-001 **no pasa a `Aceptado`** hasta cumplir su puerta de
 aceptación, que se ejecuta en F3.
 
 ---
@@ -134,14 +134,14 @@ aceptación, que se ejecuta en F3.
 `FUNDAMENTO` · **CERRADA el 2026-08-27** · 3.A, 3.B y 3.C **cerradas**
 
 **Objetivo.** Construir la primera capa de persistencia real, segura y
-reproducible, y cerrar la puerta de aceptación de ADR-003.
+reproducible, y cerrar la puerta de aceptación de F02/ADR-001.
 
 **Alcance.** Se ejecuta en tres subfases.
 
-**3.A — Entorno, E11 y resolución de ADR-003.**
+**3.A — Entorno, E11 y resolución de F02/ADR-001.**
 Entorno Supabase local reproducible, `supabase init`, y el experimento **E11**
 sobre la frontera `BIGINT` / `NUMERIC` → PostgREST → `supabase-js` → TypeScript.
-Termina con ADR-003 aceptado, enmendado o sustituido.
+Termina con F02/ADR-001 aceptado, enmendado o sustituido.
 
 **3.B — Núcleo `domain/` y vectores de prueba.**
 `Money`, `ExchangeRate`, reparto por mayor resto, balances y liquidación como
@@ -164,7 +164,7 @@ para `supabase init`, exigida por `.claude/agents/data-architect.md`.
 
 1. Desde un clon limpio y siguiendo solo el runbook, se levanta el stack y se
    reconstruye **todo** el esquema con migraciones, sin pasos manuales.
-2. **E11 medido y publicado**, y ADR-003 en estado definitivo con justificación.
+2. **E11 medido y publicado**, y F02/ADR-001 en estado definitivo con justificación.
 3. Ninguna tabla alcanzable desde el cliente sin RLS, verificado por consulta al
    catálogo y no por revisión visual.
 4. Los tests de aislamiento pasan y **fallan** al relajar una política a
@@ -172,7 +172,7 @@ para `supabase init`, exigida por `.claude/agents/data-architect.md`.
 5. Ningún rol cliente tiene `INSERT`, `UPDATE` ni `DELETE` sobre operaciones ni
    efectos, y hay un test que lo demuestra.
 6. El cálculo de reparto de `domain/` y el del servidor producen resultados
-   idénticos sobre los vectores compartidos, como exige ADR-002 §7.
+   idénticos sobre los vectores compartidos, como exige F01/ADR-001 §7.
 7. `src/types/database.ts` regenerado, nunca escrito a mano, y commiteado junto
    al SQL.
 8. `npm run verify` en verde y CI ejecutando migraciones desde cero.
@@ -181,21 +181,21 @@ para `supabase init`, exigida por `.claude/agents/data-architect.md`.
 
 **Los nueve quedaron cumplidos el 2026-08-27**, con `main` en `3787901`:
 
-| #   | Evidencia                                                                                           |
-| --- | --------------------------------------------------------------------------------------------------- |
-| 1   | Dos `db reset` consecutivos por la vía del runbook, resultado idéntico, sin pasos manuales          |
-| 2   | [`supabase/e11/`](../../supabase/e11/README.md) · ADR-003 `Aceptado`, con ADR-015 superseding su §4 |
-| 3   | `split-conversion.sql` A2 recorre **todas** las tablas de `core` por catálogo                       |
-| 4   | Sección G de `split-conversion.sql` y las regresiones deliberadas de los checks del writer          |
-| 5   | `authoritative-writer-debt.sql` A7, y el check HTTP comprueba además que `core` no tiene ruta       |
-| 6   | **22/22** vectores de reparto y **19/20** escenarios; el restante, aplazado por diseño (§ FX)       |
-| 7   | `src/types/database.ts` generado sobre `api`, con las siete funciones                               |
-| 8   | `npm run verify` verde y CI reconstruyendo desde cero en cada PR                                    |
-| 9   | [`model-coverage.md`](../architecture/model-coverage.md), la auditoría completa                     |
+| #   | Evidencia                                                                                                   |
+| --- | ----------------------------------------------------------------------------------------------------------- |
+| 1   | Dos `db reset` consecutivos por la vía del runbook, resultado idéntico, sin pasos manuales                  |
+| 2   | [`supabase/e11/`](../../supabase/e11/README.md) · F02/ADR-001 `Aceptado`, con F03/ADR-012 superseding su §4 |
+| 3   | `split-conversion.sql` A2 recorre **todas** las tablas de `core` por catálogo                               |
+| 4   | Sección G de `split-conversion.sql` y las regresiones deliberadas de los checks del writer                  |
+| 5   | `authoritative-writer-debt.sql` A7, y el check HTTP comprueba además que `core` no tiene ruta               |
+| 6   | **22/22** vectores de reparto y **19/20** escenarios; el restante, aplazado por diseño (§ FX)               |
+| 7   | `src/types/database.ts` generado sobre `api`, con las siete funciones                                       |
+| 8   | `npm run verify` verde y CI reconstruyendo desde cero en cada PR                                            |
+| 9   | [`model-coverage.md`](../architecture/model-coverage.md), la auditoría completa                             |
 
 > **El criterio 6 se satisface con 19 ejecutables + 1 aplazado justificadamente,
 > y no se presenta como 20/20.** El escenario restante exige una resolución
-> autoritativa de FX que **ADR-003 §4 deja fuera de alcance y ADR-009 §8 declara
+> autoritativa de FX que **F02/ADR-001 §4 deja fuera de alcance y F03/ADR-006 §8 declara
 > decisión de producto pendiente**. La frontera lo **rechaza** explícitamente con
 > `CURRENCY_CONVERSION_UNSUPPORTED · 422` en vez de resolverlo mal, y el check
 > falla si el recuento deja de ser exactamente 19.
@@ -209,30 +209,30 @@ stack de CI dejó de excluir GoTrue.
 
 **Puertas.**
 
-- **3.A · E11 → ADR-003.** Puerta dura. **Cumplida el 2026-08-19**; ADR-003
+- **3.A · E11 → F02/ADR-001.** Puerta dura. **Cumplida el 2026-08-19**; F02/ADR-001
   quedó `Aceptado`. Evidencia reproducible en
   [`supabase/e11/`](../../supabase/e11/README.md).
 - **3.B · cerrada el 2026-08-20.** `src/domain/` implementado como
   implementación de referencia pura, con vectores compartidos en
   `tests/vectors/` y 110 tests en verde. **La frontera de escritura autoritativa
-  de 3.C deberá reproducir esos vectores exactamente** (ADR-002 §7).
+  de 3.C deberá reproducir esos vectores exactamente** (F01/ADR-001 §7).
 - **3.C · arranca con análisis del Data Architect, no con SQL.** Ver
   [`architecture/phase-3c-handoff.md`](../architecture/phase-3c-handoff.md).
 - **3.C · las seis puertas están cerradas**, con ADR aceptado cada una:
-  identidad de la definición monetaria (ADR-004) · esquema expuesto por la Data
-  API (ADR-005, ADR-006 §6) · estrategia de `GRANT` (ADR-006) · comprobación de
-  membresía en RLS (ADR-007) · mecanismo de idempotencia del **origen cliente**
-  (ADR-010, ADR-011 §5) · **frontera textual** que hace cumplir T7 de ADR-003,
-  que E11 dejó abierto y que ADR-008 §1-§2 resuelve como vista `security_invoker`
+  identidad de la definición monetaria (F03/ADR-001) · esquema expuesto por la Data
+  API (F03/ADR-002, F03/ADR-003 §6) · estrategia de `GRANT` (F03/ADR-003) · comprobación de
+  membresía en RLS (F03/ADR-004) · mecanismo de idempotencia del **origen cliente**
+  (F03/ADR-007, F03/ADR-008 §5) · **frontera textual** que hace cumplir T7 de F02/ADR-001,
+  que E11 dejó abierto y que F03/ADR-005 §1-§2 resuelve como vista `security_invoker`
   de `api` que proyecta texto. Detalle en
   [`architecture/phase-3c-handoff.md`](../architecture/phase-3c-handoff.md) §2.
 - **La entrada que quedaba sin conclusión ya la tiene.** E11 observó que `anon` y
   `authenticated` aparecen con `REFERENCES`, `TRIGGER` y `TRUNCATE` sobre tablas
   nuevas de `public` sin que se les conceda nada. **E12 lo midió**: proceden de
   los default privileges de Supabase, son **ejecutables**, y `MAINTAIN` es
-  además **invisible para `information_schema`**. ADR-006 §7 fija su saneamiento
+  además **invisible para `information_schema`**. F03/ADR-003 §7 fija su saneamiento
   explícito.
-- **Cerrado el 2026-08-25 por ADR-014:** `public` **no** forma parte de los
+- **Cerrado el 2026-08-25 por F03/ADR-011:** `public` **no** forma parte de los
   schemas expuestos. La lista queda `["api", "graphql_public"]`, y el cambio de
   `config.toml` se aplica **en el mismo commit que cree el schema `api`**,
   porque PostgREST no arranca si el schema no existe.
@@ -336,11 +336,11 @@ aquí, a partir de un caso real.
 **Cierre.**
 
 1. Registrar, consultar y corregir un ingreso y un gasto de principio a fin.
-2. La corrección crea una versión nueva y **no muta** la anterior, según ADR-002
+2. La corrección crea una versión nueva y **no muta** la anterior, según F01/ADR-001
    §6.
 3. El saldo y las estadísticas se **derivan** de la versión vigente; no hay saldo
    almacenado como segunda fuente de verdad.
-4. Solo `ingreso` y `gasto` alimentan estadísticas, según ADR-002 §4.
+4. Solo `ingreso` y `gasto` alimentan estadísticas, según F01/ADR-001 §4.
 5. Los tests de dominio de los importes implicados están escritos en el mismo PR
    que la lógica, según [`tests/README.md`](../../tests/README.md).
 
@@ -358,7 +358,7 @@ idempotencia mientras la superficie de escritura es todavía una sola.
 **Alcance.** Un recorrido de alta **corto y continuo, con aparición inmediata**
 dentro de la app, interfaz optimista, cola de escritura sin conexión, reintentos
 sobre la clave de idempotencia definida en 3.C, y el conflicto de sincronización
-descrito en ADR-003 §7.
+descrito en F02/ADR-001 §7.
 
 > **«En el orden de cinco segundos» era una descripción del concepto**, no un
 > umbral de aceptación. Cronometrarlo habría medido el teclado del aparato y la
@@ -379,7 +379,7 @@ descrito en ADR-003 §7.
 3. **Reproducir la misma operación no crea un segundo registro**, verificado con
    un test, según el invariante 19 de `data-model.md`.
 4. Una operación creada bajo una configuración monetaria anterior **no se
-   reinterpreta en silencio**, según ADR-003 §7.
+   reinterpreta en silencio**, según F02/ADR-001 §7.
 5. Un rechazo demostrado se resuelve **desde la campana y sin vocabulario
    interno**, y un fallo transitorio no genera aviso ninguno.
 
@@ -421,7 +421,7 @@ reescriben ni se reinterpretan**:
 **Puertas.**
 
 - ~~**ADR de código nativo:** CNG con config plugins, o prebuild versionado.~~
-  **Resuelta el 2026-09-04 por [ADR-030](../adr/ADR-030-native-code-model.md):
+  **Resuelta el 2026-09-04 por [F08/ADR-001](../adr/F08/ADR-001-native-code-model.md):
   CNG con config plugins**, sin versionar `/ios` ni `/android`, con el código
   nativo propio expresado como plugin local versionado. Abandonar el modelo
   exige un ADR nuevo que demuestre una limitación material.
@@ -433,11 +433,11 @@ empezar F14**, porque es Premium quien necesita la integración real con las
 tiendas. Esa secuencia parte la fase, y la partición es de **ejecución**: los
 cuatro criterios siguen siendo los de arriba.
 
-| Bloque   | Qué contiene                                                                                                                              | Cuándo                              |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| **F8.A** | Decisiones, contrato de entornos, toolchain, build propia de Android, Staging actualizable y validación funcional en Android              | **Ahora**                           |
-| **F8.B** | Apple Developer, firma y credenciales de iOS, registro del dispositivo, build en el iPhone, TestFlight o ad hoc, y las deudas físicas iOS | **Puerta obligatoria antes de F14** |
-| **F8.C** | Google Play y canal de beta de Android                                                                                                    | Cuando exista una beta real         |
+| Bloque   | Qué contiene                                                                                                                                                                                                                                             | Cuándo                              |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| **F8.A** | Decisiones, contrato de entornos, toolchain, build propia de Android, Staging actualizable y validación funcional en Android                                                                                                                             | **Ahora**                           |
+| **F8.B** | Apple Developer, firma y credenciales de iOS, registro del dispositivo, build en el iPhone, TestFlight o ad hoc, las deudas físicas iOS, y la **invitación pulsable desde WhatsApp** (dominio, Universal/App Links; condiciones en el seguimiento de F9) | **Puerta obligatoria antes de F14** |
+| **F8.C** | Google Play y canal de beta de Android                                                                                                                                                                                                                   | Cuando exista una beta real         |
 
 ##### F8.A, bloque a bloque
 
@@ -445,18 +445,18 @@ La subdivisión F8.A0–F8.A5 se formalizó durante F8.A4 para hacer explícita 
 secuencia de entrega. **A0–A3 describen trabajo ya fusionado; A4 y A5 delimitan
 el trabajo pendiente.**
 
-| Sub-bloque | Qué es                                                     | Estado      |
-| ---------- | ---------------------------------------------------------- | ----------- |
-| **F8.A0**  | Decisiones: ADR-030 y ADR-031, y la partición A/B/C        | **Cerrado** |
-| **F8.A1**  | Contrato de entornos ejecutable y EAS Update               | **Cerrado** |
-| **F8.A2**  | Cadena nativa, CNG y assets técnicos                       | **Cerrado** |
-| **F8.A3**  | Primera development build de Android, instalada y validada | **Cerrado** |
-| **F8.A4**  | Validación funcional dentro de la development build        | **Cerrado** |
-| **F8.A5**  | Primera build de Staging y su canal                        | **Cerrado** |
+| Sub-bloque | Qué es                                                      | Estado      |
+| ---------- | ----------------------------------------------------------- | ----------- |
+| **F8.A0**  | Decisiones: F08/ADR-001 y F08/ADR-002, y la partición A/B/C | **Cerrado** |
+| **F8.A1**  | Contrato de entornos ejecutable y EAS Update                | **Cerrado** |
+| **F8.A2**  | Cadena nativa, CNG y assets técnicos                        | **Cerrado** |
+| **F8.A3**  | Primera development build de Android, instalada y validada  | **Cerrado** |
+| **F8.A4**  | Validación funcional dentro de la development build         | **Cerrado** |
+| **F8.A5**  | Primera build de Staging y su canal                         | **Cerrado** |
 
-**F8.A0 — decisiones.** [ADR-030](../adr/ADR-030-native-code-model.md), que
+**F8.A0 — decisiones.** [F08/ADR-001](../adr/F08/ADR-001-native-code-model.md), que
 cumple la puerta de código nativo de esta fase, y
-[ADR-031](../adr/ADR-031-environments-and-variants.md), el contrato de entornos.
+[F08/ADR-002](../adr/F08/ADR-002-environments-and-variants.md), el contrato de entornos.
 Partió la fase en A/B/C sin reescribir los cuatro criterios.
 
 **F8.A1 — contrato ejecutable.** Las tres variantes en `app.config.ts` con su
@@ -496,7 +496,7 @@ obligaciones de su **§5**. Cubre, además de esa matriz:
 6. **Aislamiento entre actores**: cambiar de actor no contamina snapshot, cola ni
    proyección.
 7. **Incidencias** de
-   [ADR-029](../adr/ADR-029-incident-labels-and-review-destination.md), con
+   [F07/ADR-002](../adr/F07/ADR-002-incident-labels-and-review-destination.md), con
    regreso a un estado estable. La forma **ordinaria** —`Sí` y `No`— se ejercita
    a mano dentro de la build; la **excepcional** no, y conviene separar por qué.
 
@@ -504,7 +504,7 @@ obligaciones de su **§5**. Cubre, además de esa matriz:
    Sus dos disparos son condiciones del servidor que el cliente no puede
    producir: `conflict` nace de `CURRENCY_CONVERSION_UNSUPPORTED`, que exige una
    definición monetaria distinta de la del ámbito —el cliente sólo ofrece EUR, y
-   la moneda base es inmutable en cuanto hay efectos (ADR-013, FK compuesta)—; y
+   la moneda base es inmutable en cuanto hay efectos (F03/ADR-010, FK compuesta)—; y
    `review` nace de `IDEMPOTENCY_KEY_REUSED`, que exige reutilizar una clave,
    precisamente lo que el cliente evita generando un UUID nuevo por intención.
 
@@ -532,7 +532,7 @@ cosa de iOS.
 canal `staging` y su entorno EAS `preview`. Cierra con:
 
 1. APK de **release** con la identidad de Staging —`Nomey Staging`,
-   `es.lcworks.nomey.staging`, `nomey-staging`—, compilado **localmente**: ADR-031
+   `es.lcworks.nomey.staging`, `nomey-staging`—, compilado **localmente**: F08/ADR-002
    §5 descarta EAS Build, así que no hay cola, cuota ni coste.
 2. Instalado **junto a** Nomey Dev, sin sustituirla, y arrancando **con Metro
    detenido**: alta, lectura y una operación real contra el stack local.
@@ -547,7 +547,7 @@ canal `staging` y su entorno EAS `preview`. Cierra con:
 **Lo que NO cierra, y sigue escrito como pendiente.** El backend de Staging es el
 **mismo stack local**, alcanzado por `adb reverse` sobre `127.0.0.1`. Eso lo hace
 independiente de la red pero **no** de este ordenador, así que el **criterio 2 de
-la Fase 8 sigue abierto** — ADR-031 §4, que no se reinterpreta.
+la Fase 8 sigue abierto** — F08/ADR-002 §4, que no se reinterpreta.
 
 **La firma tampoco es de producción.** El APK va firmado con el **keystore de
 depuración** que genera la plantilla, cuyo certificado es público y compartido
@@ -558,12 +558,12 @@ Play; la firma del paquete de producción se decide en **F8.C**, y el paquete
 **F8.A puede cerrarse como bloque parcial. La Fase 8 sigue abierta** mientras
 queden criterios originales sin cumplir. Estado por criterio:
 
-| Criterio | Estado                                                                                                                                                                 |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1**    | **Mitad Android CUMPLIDA** desde F8.A3: build propia instalada y validada en un POCO X4 Pro 5G y en el emulador. **La mitad iOS es de F8.B**                           |
-| **2**    | **Pendiente.** Staging apunta provisionalmente al stack local, que **no** es un entorno distinto del local — [ADR-031](../adr/ADR-031-environments-and-variants.md) §4 |
-| **3**    | **Pendiente.** Se marcará cuando exista un tester externo real; no se da por hecho con una entrega simulada                                                            |
-| **4**    | **Cubierto en Android** por F8.A, con las tres capas ya existentes. Se revalida en F8.B sobre el artefacto de iOS                                                      |
+| Criterio | Estado                                                                                                                                                                         |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1**    | **Mitad Android CUMPLIDA** desde F8.A3: build propia instalada y validada en un POCO X4 Pro 5G y en el emulador. **La mitad iOS es de F8.B**                                   |
+| **2**    | **Pendiente.** Staging apunta provisionalmente al stack local, que **no** es un entorno distinto del local — [F08/ADR-002](../adr/F08/ADR-002-environments-and-variants.md) §4 |
+| **3**    | **Pendiente.** Se marcará cuando exista un tester externo real; no se da por hecho con una entrega simulada                                                                    |
+| **4**    | **Cubierto en Android** por F8.A, con las tres capas ya existentes. Se revalida en F8.B sobre el artefacto de iOS                                                              |
 
 **F8.B no es opcional y no puede desaparecer.** Es puerta de F14 por la
 dependencia que esa fase ya declara —«F8, por las cuentas de tienda»— y absorbe
@@ -583,7 +583,7 @@ que la decisión sea consciente y no una omisión:
   contradice ninguna dependencia, pero **debilita la mitigación** que este
   roadmap se da a sí mismo en §Riesgo asumido.
 
-**Decidido en F8.A y ejecutado más adelante.** ADR-030 §5 deja fijado que Nomey
+**Decidido en F8.A y ejecutado más adelante.** F08/ADR-001 §5 deja fijado que Nomey
 llevará **dos iconos de aplicación** —el amarillo por defecto y el negro como
 distintivo de Premium—, que los dos son recursos nativos y que **tienen que
 estar dentro del binario antes de la primera publicación**, porque EAS Update no
@@ -594,7 +594,7 @@ trabajo de F14**, no de esta fase.
 
 ### Fase 9 — Grupos, gastos compartidos y deudas
 
-`PRODUCTO` · _beta cerrada posible desde aquí_
+`PRODUCTO` · **CERRADA el 2026-09-14** · _beta cerrada posible desde aquí_
 
 **Objetivo.** El segundo pilar, en su forma básica y ya utilizable.
 
@@ -605,7 +605,7 @@ pagos parciales · **atribución, historial y notificación**.
 
 **Sobre la notificación.** No es una comodidad: el invariante 15 de
 `data-model.md` la exige para toda operación con efectos financieros sobre otro
-usuario, y ADR-002 la incluye entre las cinco capas que sustituyen a la
+usuario, y F01/ADR-001 la incluye entre las cinco capas que sustituyen a la
 confirmación previa. Un grupo sin notificación es el modelo de efecto inmediato
 sin su contrapeso.
 
@@ -628,9 +628,44 @@ resuelva como push, porque entonces iOS necesitaría APNs y la cuenta de Apple.
 
 **Puertas.**
 
-- **Qué significa «notificación»:** si basta con avisar dentro de la app o exige
-  notificación push. ADR-002 dice que el afectado _se entera en el momento_, y de
-  esa lectura depende si entra una infraestructura más.
+- ~~**Qué significa «notificación»:** si basta con avisar dentro de la app o
+  exige notificación push.~~ **Resuelta en F9 (`20260908170000`, F09/ADR-003 §7,
+  F09/ADR-007): dentro de la app, en la campana (`core.group_notice`, una fila
+  por destinatario). No hay push y no se prepara ninguno.** F01/ADR-001 dice que
+  el afectado _se entera en el momento_; la lectura adoptada es «al abrir
+  Nomey». Cambiarla es una decisión nueva, no una deuda de esta fase.
+
+#### Estado de cierre (contrastado el 2026-09-14)
+
+Los cinco criterios son los originales y **no se reescriben**. Lo que sí
+cambió, por ADR aceptados durante la fase, es **qué implementación los
+satisface**; se anota aquí, y el detalle con la evidencia está en el
+[seguimiento de F9](../architecture/phase-9-progress.md).
+
+| Criterio                                               | Estado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 · escenarios 4.2–4.5 en la app                       | **4.2, 4.3 y 4.4 cumplidos** (vectores compartidos dominio/servidor; validados en iPhone y emulador). **4.5 sustituido por [F09/ADR-007](../adr/F09/ADR-007-group-payments-and-exit-without-debt.md) §2**: en la app, «marcar saldado» es un **pago declarado** —caja en los dos Personales y deuda, la registre el pagador o el receptor—; la vía «sólo deuda» de 4.5 sigue existiendo como capacidad del writer (`record_debt_settlement`) **sin UI**, y no se añade una para cumplir la letra. 4.6 sigue siendo la transferencia ordenada desde la app, de F12 (invariante 14). |
+| 2 · no depende de quién registra (inv. 10)             | **Cumplido**: Eduardo registra un gasto pagado por Aitor; pagador, cuotas y Disponibles como si lo hubiera registrado Aitor (sólo cambia la autoría). Evidencia automática: `authoritative-writer-debt` E1.                                                                                                                                                                                                                                                                                                                                                                        |
+| 3 · gasto económico de todos (inv. 9)                  | **Cumplido**: cuota de 1 € a cada uno sobre 2 €, sin mover el Disponible de quien no pagó. `personal-statistics` M1–M4.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 4 · atribución y notificación (inv. 15)                | **Cumplido con el invariante 15 tal como quedó fijado el 2026-09-14** (`data-model.md` §11): atribución por versión (F03/ADR-008); aviso interno para correcciones, perfil, salidas, «Saldado», anulaciones y liquidaciones (`core.group_notice`, seis `kind`); **el alta de un gasto y la reincorporación no avisan, por decisión de producto** — lo nuevo se ve al abrir el grupo o Inicio. Evidencia: `group-notices-seen`, `group-payments-evidence`; campana vista en los dos móviles.                                                                                        |
+| 5 · reparto del resto determinista en dos dispositivos | **Cumplido**: el mismo reparto en iPhone y emulador; 22/22 vectores idénticos dominio/servidor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+
+**Decisión de producto (2026-09-14) que cerró el criterio 4:** **no** se
+emiten avisos por el alta de un gasto ni por la reincorporación a un grupo;
+se conservan los existentes (correcciones, perfil, salidas, «Saldado»,
+anulaciones, liquidaciones). Ejemplo: Aitor registra una cena de 30 € pagada
+por él y repartida con Eduardo; Eduardo ve los 15 € al abrir el grupo o
+Inicio, sin aviso; si Aitor la corrige a 40 € después, sí recibe el aviso de
+edición. El invariante 15 y los escenarios 4.3 y 4.10 de `data-model.md`
+quedaron ajustados a esta decisión.
+
+**Trasladado fuera del cierre, explícitamente:** la **retirada técnica de
+`api.settle_participant`** (sin UI desde F09/ADR-007; revocar su `EXECUTE` y
+retirar el hook, reescribiendo `leave-and-settle.sql` y
+`retire-participant.sql` para afirmar el rechazo — F09/ADR-007 «Decisiones
+cerradas y pendientes» §4, condición ya cumplida); y la incidencia de
+**ParticipantField**, que sigue como **no reproducida**, no corregida. Ninguna
+de las dos es funcionalidad nueva ni condiciona F10.
 
 ---
 
@@ -672,14 +707,14 @@ implementar.
 efectiva** · conversión en la app · jerarquía visual del importe original frente
 al derivado · conflicto de sincronización cuando cambia la moneda base.
 
-**Dependencias.** F9 · ADR-003 aceptado · proveedor de tipos contratado o
+**Dependencias.** F9 · F02/ADR-001 aceptado · proveedor de tipos contratado o
 elegido. **El hilo de selección de proveedor conviene abrirlo en F9**, porque es
 una dependencia externa.
 
 **Cierre.**
 
 1. Un gasto declarado en otra moneda conserva su importe original y muestra el
-   derivado de forma secundaria, según ADR-003 §1.
+   derivado de forma secundaria, según F02/ADR-001 §1.
 2. La conversión ocurre **una vez** y el reparto se calcula después, en la moneda
    del ámbito.
 3. El tipo aplicado corresponde a la **fecha efectiva** del hecho, no al momento
@@ -691,7 +726,7 @@ una dependencia externa.
 **Puertas.**
 
 - **Proveedor de tipos de cambio.** Su granularidad y su histórico condicionan
-  la política de selección que ADR-003 dejó abierta.
+  la política de selección que F02/ADR-001 dejó abierta.
 
 ---
 
@@ -723,8 +758,8 @@ con saldo pendiente y acceso residual · participante histórico.
 infraestructura común —operación, efecto, ámbito, corrección, notificación—
 preparada para implementar el tercer ámbito.
 
-> **ADR-002 no está implementado en todos sus ámbitos hasta cerrar F13.** Modo
-> Pareja forma parte del modelo que ADR-002 fija y llega en la fase siguiente.
+> **F01/ADR-001 no está implementado en todos sus ámbitos hasta cerrar F13.** Modo
+> Pareja forma parte del modelo que F01/ADR-001 fija y llega en la fase siguiente.
 
 **Puertas.** Ninguna.
 
@@ -735,7 +770,7 @@ preparada para implementar el tercer ámbito.
 `PRODUCTO`
 
 **Objetivo.** El tercer ámbito, y con él la implementación funcional completa
-del modelo de ADR-002.
+del modelo de F01/ADR-001.
 
 **Alcance.** Dinero común · aportaciones · fuente de financiación frente a
 procedencia · retiradas ordinarias · ciclo de cierre · reparto final bilateral y
@@ -754,7 +789,7 @@ su corrección.
 4. El reparto final exige confirmación bilateral y, sin ella, el saldo queda
    congelado sin reparto automático de ningún tipo.
 5. **El dominio no consulta en ningún punto una capacidad comercial**, según
-   ADR-002 §11.
+   F01/ADR-001 §11.
 
 **Puertas.** Ninguna.
 
@@ -769,7 +804,7 @@ su corrección.
 **Alcance.** Capa de capacidades que **invoca** operaciones del dominio,
 suscripciones, y facturación de App Store y Google Play.
 
-**La restricción que gobierna la fase.** ADR-002 §11: _el dominio financiero
+**La restricción que gobierna la fase.** F01/ADR-001 §11: _el dominio financiero
 conoce ámbitos, operaciones, efectos y cierres; no conoce planes comerciales. Una
 capa independiente de capacidades invoca operaciones del dominio; el dominio
 nunca consulta capacidades._
@@ -778,7 +813,7 @@ nunca consulta capacidades._
 capacidades que existen · **F8.B**, por las cuentas de tienda, que es la puerta
 que esta fase no puede saltarse.
 
-**Trae, además, el icono alternativo.** ADR-030 §5 dejó decidido que Nomey
+**Trae, además, el icono alternativo.** F08/ADR-001 §5 dejó decidido que Nomey
 lleva dos iconos y que los dos viajan en el binario. Aquí se implementa el
 comportamiento: al activarse Premium se habilita y selecciona el icono negro,
 respetando la confirmación que exija el sistema; desde Ajustes la persona
@@ -830,7 +865,7 @@ sola vez.
 
 **Puertas.**
 
-- **Presentación de agregaciones entre definiciones monetarias.** ADR-003 la
+- **Presentación de agregaciones entre definiciones monetarias.** F02/ADR-001 la
   dejó explícitamente sin decidir y esta fase la fuerza.
 
 ---
@@ -847,7 +882,7 @@ ellos.
 
 **Dependencias.** F7, porque un widget que registra un gasto debe escribir en la
 cola sin conexión, lo que en iOS implica almacenamiento compartido entre app y
-extensión · **[ADR-030](../adr/ADR-030-native-code-model.md), ya aceptado**, que
+extensión · **[F08/ADR-001](../adr/F08/ADR-001-native-code-model.md), ya aceptado**, que
 obliga a expresar las extensiones como **plugin local versionado** y no abriendo
 `/ios`.
 
@@ -862,7 +897,7 @@ obliga a expresar las extensiones como **plugin local versionado** y no abriendo
 
 **Puertas.** ~~El ADR de código nativo debe estar aceptado; si no lo está, la
 fase no arranca.~~ **Cumplida el 2026-09-04** —
-[ADR-030](../adr/ADR-030-native-code-model.md). Lo que la puerta deja en su
+[F08/ADR-001](../adr/F08/ADR-001-native-code-model.md). Lo que la puerta deja en su
 lugar es una restricción: las superficies nativas se implementan bajo CNG, como
 plugin local versionado y detrás de una frontera nativa explícita.
 
@@ -878,7 +913,7 @@ movimientos.
 **Alcance.** Agregador externo, importación, conciliación con operaciones
 existentes, e idempotencia propia de importación.
 
-**La restricción que gobierna la fase.** ADR-002 §2 ya establece que los ámbitos
+**La restricción que gobierna la fase.** F01/ADR-001 §2 ya establece que los ámbitos
 **no son cuentas bancarias** y que una integración externa _aporta procedencia y
 conciliación; no cambia la naturaleza de los ámbitos_. En consecuencia:
 
@@ -889,7 +924,7 @@ conciliación; no cambia la naturaleza de los ámbitos_. En consecuencia:
 
 **Dependencias.** F12, por las correcciones · F11, por las divisas · **ADR de
 conciliación** entre un movimiento importado y la pata personal de una operación
-compuesta, ya declarado pendiente en ADR-002 · contrato con el agregador.
+compuesta, ya declarado pendiente en F01/ADR-001 · contrato con el agregador.
 
 > **El hilo de proveedor, contrato y requisitos regulatorios debe abrirse en F9**,
 > aunque el código llegue aquí. Es aprovisionamiento, no ingeniería, y no se
@@ -970,14 +1005,14 @@ de tienda, despliegue y operación.
 
 ## Trabajo paralelizable
 
-| Trabajo                                                     | En paralelo con |
-| ----------------------------------------------------------- | --------------- |
-| Runner de tests y vectores de prueba derivados de ADR-002   | 3.A             |
-| Arquitectura UX e i18n (F4 completa)                        | 3.C             |
-| Cuentas de desarrollador y firma (**F8.B**)                 | antes de F14    |
-| **Proveedor, contrato y viabilidad del agregador bancario** | **desde F9**    |
-| Selección de proveedor de tipos de cambio                   | desde F9        |
-| Configuración de productos de suscripción en las tiendas    | desde F12       |
+| Trabajo                                                       | En paralelo con |
+| ------------------------------------------------------------- | --------------- |
+| Runner de tests y vectores de prueba derivados de F01/ADR-001 | 3.A             |
+| Arquitectura UX e i18n (F4 completa)                          | 3.C             |
+| Cuentas de desarrollador y firma (**F8.B**)                   | antes de F14    |
+| **Proveedor, contrato y viabilidad del agregador bancario**   | **desde F9**    |
+| Selección de proveedor de tipos de cambio                     | desde F9        |
+| Configuración de productos de suscripción en las tiendas      | desde F12       |
 
 ---
 
@@ -989,15 +1024,15 @@ Ordenadas por riesgo.
    requisitos regulatorios. Plazos ajenos a la ingeniería. Es la razón de abrir
    el hilo en F9.
 2. ~~**ADR de código nativo (F8).**~~ **Resuelto el 2026-09-04 como CNG con
-   config plugins** — [ADR-030](../adr/ADR-030-native-code-model.md). `/ios` y
+   config plugins** — [F08/ADR-001](../adr/F08/ADR-001-native-code-model.md). `/ios` y
    `/android` siguen git-ignorados, así que el riesgo de calendario que este
    punto describía desaparece. En su lugar entra una dependencia externa nueva y
    menor: **la cuenta de Expo que EAS Update necesita** para actualizar Staging
-   — [ADR-031](../adr/ADR-031-environments-and-variants.md) §5.
+   — [F08/ADR-002](../adr/F08/ADR-002-environments-and-variants.md) §5.
 3. **Revisión de App Store y Google Play (F14 y F19).** Las suscripciones tienen
    reglas propias y rechazos frecuentes en la primera vuelta.
 4. **Proveedor de tipos de cambio (F11).** Su granularidad y su histórico
-   condicionan la política de selección que ADR-003 dejó abierta.
+   condicionan la política de selección que F02/ADR-001 dejó abierta.
 5. **Infraestructura de notificaciones push (F9).** Depende de cómo se resuelva
    la puerta de esa fase.
 6. **Comportamiento de PostgREST (3.A).** Puede obligar a introducir una capa de
@@ -1007,17 +1042,17 @@ Ordenadas por riesgo.
 
 ## Puertas de decisión, resumen
 
-| Fase | Puerta                                                                                      |
-| ---- | ------------------------------------------------------------------------------------------- |
-| 3.A  | **E11 → ADR-003.** Si contradice una premisa, la fase se detiene                            |
-| 3.C  | Identidad de la definición monetaria · esquema expuesto · grants · membresía · idempotencia |
-| 8    | ~~ADR de código nativo~~ · **cumplida: [ADR-030](../adr/ADR-030-native-code-model.md)**     |
-| 9    | Qué significa «notificación»: en la app, o push                                             |
-| 10   | ADR de invitación y reclamación de participantes sin cuenta                                 |
-| 11   | Proveedor de tipos de cambio con histórico                                                  |
-| 15   | Presentación de agregaciones entre definiciones monetarias                                  |
-| 16   | ~~ADR de código nativo aceptado~~ · **cumplida: ADR-030**                                   |
-| 17   | ADR de conciliación · contrato y viabilidad regulatoria                                     |
+| Fase | Puerta                                                                                          |
+| ---- | ----------------------------------------------------------------------------------------------- |
+| 3.A  | **E11 → F02/ADR-001.** Si contradice una premisa, la fase se detiene                            |
+| 3.C  | Identidad de la definición monetaria · esquema expuesto · grants · membresía · idempotencia     |
+| 8    | ~~ADR de código nativo~~ · **cumplida: [F08/ADR-001](../adr/F08/ADR-001-native-code-model.md)** |
+| 9    | Qué significa «notificación»: en la app, o push                                                 |
+| 10   | ADR de invitación y reclamación de participantes sin cuenta                                     |
+| 11   | Proveedor de tipos de cambio con histórico                                                      |
+| 15   | Presentación de agregaciones entre definiciones monetarias                                      |
+| 16   | ~~ADR de código nativo aceptado~~ · **cumplida: F08/ADR-001**                                   |
+| 17   | ADR de conciliación · contrato y viabilidad regulatoria                                         |
 
 ---
 
