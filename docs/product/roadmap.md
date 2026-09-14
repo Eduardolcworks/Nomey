@@ -704,21 +704,21 @@ residual general (F12).
 **Principio.** _Ninguna cuenta adjudica unilateralmente la identidad de otra
 cuenta._ La RLS vigente ya lo impone; F10 lo declara invariante y lo guarda.
 
-**Dependencias.** F9 · `F10/ADR-001` aceptado antes de A2 · `F10/ADR-002`
+**Dependencias.** F9 · ~~`F10/ADR-001` aceptado antes de A2~~ **(cumplida el 2026-09-14)** · `F10/ADR-002`
 aceptado antes de B1.
 
 #### Bloques
 
-| Sub-bloque | Qué es                                                                                  | Estado                                             |
-| ---------- | --------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| **F10.A0** | Apertura: reconciliación F9/F10, criterios nuevos, mediciones previas, deuda documental | **Cerrado**                                        |
-| **F10.A1** | `F10/ADR-001`: principio de no adjudicación y ciclo de vida del vínculo propio          | **Redactado, Propuesto** (pendiente de aceptación) |
-| **F10.A2** | Backend de A1: instancia y procedencia del vínculo, desvinculación, guardas, carreras   | Pendiente                                          |
-| **F10.A3** | Cliente de A1                                                                           | Pendiente                                          |
-| **F10.B0** | `F10/ADR-002`: cesión consentida (`identity_handover`) y fusión fantasma ↔ fantasma     | Pendiente                                          |
-| **F10.B1** | Backend de lo que B0 apruebe                                                            | Pendiente                                          |
-| **F10.B2** | Cliente de B0                                                                           | Pendiente                                          |
-| **F10.C0** | Cierre: regresión, criterios, documentación, `PROJECT_STATE` y handoff                  | Pendiente                                          |
+| Sub-bloque | Qué es                                                                                  | Estado      |
+| ---------- | --------------------------------------------------------------------------------------- | ----------- |
+| **F10.A0** | Apertura: reconciliación F9/F10, criterios nuevos, mediciones previas, deuda documental | **Cerrado** |
+| **F10.A1** | `F10/ADR-001`: principio de no adjudicación y ciclo de vida del vínculo propio          | **Cerrado** |
+| **F10.A2** | Backend de A1: instancia y procedencia del vínculo, desvinculación, guardas, carreras   | Pendiente   |
+| **F10.A3** | Cliente de A1                                                                           | Pendiente   |
+| **F10.B0** | `F10/ADR-002`: cesión consentida (`identity_handover`) y fusión fantasma ↔ fantasma     | Pendiente   |
+| **F10.B1** | Backend de lo que B0 apruebe                                                            | Pendiente   |
+| **F10.B2** | Cliente de B0                                                                           | Pendiente   |
+| **F10.C0** | Cierre: regresión, criterios, documentación, `PROJECT_STATE` y handoff                  | Pendiente   |
 
 **Cierre.** Sustituye a los cuatro criterios originales, cumplidos por F9.
 
@@ -770,7 +770,7 @@ aceptado antes de B1.
 
 - ~~El ADR de invitación y reclamación debe estar aceptado antes de
   implementar.~~ **Cumplida por F09/ADR-004.**
-- **`F10/ADR-001` aceptado antes de A2**; **`F10/ADR-002` aceptado antes de B1**.
+- ~~**`F10/ADR-001` aceptado antes de A2**~~ **Cumplida el 2026-09-14: [F10/ADR-001](../adr/F10/ADR-001-link-instance-lifecycle.md) Aceptado.** **`F10/ADR-002` aceptado antes de B1.**
 
 **Consecuencia registrada, sin tratamiento en esta fase.** Una invitación
 multiuso de hasta 30 días es, de facto, la única llave de recuperación de un

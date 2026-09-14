@@ -9,8 +9,8 @@ entre dos cuentas del mismo grupo, o su aplazamiento declarado; fusión de dos
 participantes sin cuenta, decidida sobre su matriz económica; disputas sin
 consentimiento declaradas no resolubles. **Fuera:** revocación del vínculo
 ajeno, expulsión, roles, identidad anónima, recuperación global de cuenta,
-soporte administrativo. **Estado de la fase:** Abierta el 2026-09-14; F10.A0
-cerrado. El detalle está en [el roadmap](../../product/roadmap.md) y la
+soporte administrativo. **Estado de la fase:** Abierta el 2026-09-14; F10.A0 y F10.A1
+cerrados. El detalle está en [el roadmap](../../product/roadmap.md) y la
 apertura, con las mediciones previas y los insumos de cada ADR, en
 [`phase-10-opening.md`](../../architecture/phase-10-opening.md).
 
@@ -21,9 +21,9 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 
 ## ADR de esta fase
 
-| ADR                                               | Título                                                                         | Estado    | Fecha      | Bloque |
-| ------------------------------------------------- | ------------------------------------------------------------------------------ | --------- | ---------- | ------ |
-| [F10/ADR-001](ADR-001-link-instance-lifecycle.md) | Ciclo de vida de una instancia propia de vínculo cuenta ↔ identidad contextual | Propuesto | 2026-09-14 | F10.A1 |
+| ADR                                               | Título                                                                         | Estado   | Fecha      | Bloque |
+| ------------------------------------------------- | ------------------------------------------------------------------------------ | -------- | ---------- | ------ |
+| [F10/ADR-001](ADR-001-link-instance-lifecycle.md) | Ciclo de vida de una instancia propia de vínculo cuenta ↔ identidad contextual | Aceptado | 2026-09-14 | F10.A1 |
 
 Previsto, sin redactar:
 
@@ -32,7 +32,7 @@ Previsto, sin redactar:
 | **F10/ADR-002** | Cesión consentida atómica (`identity_handover`) o su aplazamiento · fusión fantasma ↔ fantasma sobre la matriz económica medida | F10.B0 | Pendiente |
 
 Lo que cada uno recibe como insumo está en `phase-10-opening.md` §5 y §6; el
-primero ya está redactado sobre esos insumos y las mediciones de F10.A1.
+primero está aceptado sobre esos insumos y las mediciones de F10.A1.
 
 ## Decisiones de otras fases que esta fase aplica
 

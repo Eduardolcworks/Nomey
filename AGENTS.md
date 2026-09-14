@@ -521,8 +521,8 @@ comment; the permanent equivalence table is in `docs/adr/README.md`.
 closed on 2026-08-27, Phase 5 (identity and session) on 2026-08-28, Phase 6
 (Modo Personal) on 2026-09-03, Phase 7 (quick entry, offline and sync) on
 2026-09-04 and Phase 9 (groups, shared expenses and debts) on 2026-09-14 —
-validated on an iPhone (Expo Go) and the Android emulator. **41 of the 42 ADRs
-of phases F00–F09 and F11 are accepted** (F00/ADR-001 is still Proposed; see
+validated on an iPhone (Expo Go) and the Android emulator. **42 of the 43 ADRs
+of phases F00–F11 are accepted** (F00/ADR-001 is still Proposed; see
 `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a real local
 Supabase stack.
 

@@ -21,14 +21,14 @@ el cierre de **F11.A** (decisiones de multimoneda, sin implementación).
 
 ## Dónde estamos
 
-|                         |                                                                                                                                                                                                                                                |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes) y **Fase 10** (ciclo de vida del vínculo: F10.A0 cerrado, A1 … C0 pendientes). **Fase 11** abierta: **F11.A** cerrada (contrato, sin implementación) |
-| **Última fase cerrada** | **Fase 9 — Grupos, gastos compartidos y deudas**, el 2026-09-14. **Validada en iPhone (Expo Go) y en el emulador Android**                                                                                                                     |
-| **ADR aceptados**       | 41 de 42 (F00–F09 y F11; F00/ADR-001 sigue Propuesto), organizados por fase en `docs/adr/FNN/`                                                                                                                                                 |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **46 migraciones**: la última alinea el CAS del pago con la vista de saldos                                                                                               |
-| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver                                                                                                           |
-| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                                                                                                                                   |
+|                         |                                                                                                                                                                                                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes) y **Fase 10** (ciclo de vida del vínculo: F10.A0 y F10.A1 cerrados, F10.A2 … C0 pendientes). **Fase 11** abierta: **F11.A** cerrada (contrato, sin implementación) |
+| **Última fase cerrada** | **Fase 9 — Grupos, gastos compartidos y deudas**, el 2026-09-14. **Validada en iPhone (Expo Go) y en el emulador Android**                                                                                                                                   |
+| **ADR aceptados**       | 42 de 43 (F00–F11; F00/ADR-001 sigue Propuesto), organizados por fase en `docs/adr/FNN/`                                                                                                                                                                     |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **46 migraciones**: la última alinea el CAS del pago con la vista de saldos                                                                                                             |
+| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver                                                                                                                         |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                                                                                                                                                 |
 
 **La Fase 8 está ABIERTA.** F8.A0 aceptó
 [F08/ADR-001](adr/F08/ADR-001-native-code-model.md) y
@@ -91,12 +91,16 @@ como tareas explícitas, no como funcionalidad: la **retirada técnica de
 `api.settle_participant`** y la incidencia de **ParticipantField** (no
 reproducida).
 
-**La Fase 10 está ABIERTA (2026-09-14), y F10.A0 cerrado.** Su alcance original
-—invitación, prueba, reclamación retroactiva, fusión de duplicados— lo cerró F9,
-así que la fase se reescribió en el [roadmap](product/roadmap.md) (Fase 10) con
-un principio y doce criterios nuevos; la reconciliación, las mediciones previas
-y los insumos de sus dos ADR están en
-[`phase-10-opening.md`](architecture/phase-10-opening.md). Lo que hay que saber
+**La Fase 10 está ABIERTA (2026-09-14); F10.A0 y F10.A1 cerrados, F10.A2
+pendiente.** Su alcance original —invitación, prueba, reclamación retroactiva,
+fusión de duplicados— lo cerró F9, así que la fase se reescribió en el
+[roadmap](product/roadmap.md) (Fase 10) con un principio y doce criterios
+nuevos; la reconciliación, las mediciones previas y los insumos de sus dos ADR
+están en [`phase-10-opening.md`](architecture/phase-10-opening.md), y el
+contrato del vínculo lo fija
+[F10/ADR-001](adr/F10/ADR-001-link-instance-lifecycle.md) (**Aceptado**,
+2026-09-14). **Nada de A2 está implementado**: ni `link_id`, ni la línea base,
+ni la función de baja existen todavía en el esquema. Lo que hay que saber
 antes de tocar identidad:
 
 - **Ninguna cuenta adjudica unilateralmente la identidad de otra.** No existe
@@ -108,14 +112,25 @@ antes de tocar identidad:
   cualquier atribución económica vigente **generada durante esa instancia**; la
   historia anterior a la instancia no bloquea. Supera F09/ADR-006 §2 en un
   punto: hoy `unclaim` deja desprenderse de deuda nacida después de reclamar
-  (medido). Cómo se determina «nació bajo la instancia» sin depender de
-  timestamps —que no atestiguan la serialización bajo el cerrojo— lo fija
-  `F10/ADR-001` (candidato a evaluar, no decidido: línea base por instancia
-  tomada bajo el cerrojo, con estrategia demostrada para los vínculos ya
-  existentes y comparación por atribución con procedencia, nunca por neto).
-- **Cada instancia de vínculo tendrá identidad (`link_id`) y procedencia
-  (`origin_command_id`, nula si no es demostrable) separadas**; el CAS y el
-  replay se anclan a `link_id`. Todavía no existen las columnas.
+  (medido). **Decidido por F10/ADR-001 §2–§3:** «nació bajo la instancia» se
+  determina contra una **línea base por instancia** (`core.link_baseline`)
+  tomada bajo `sec.lock_participant_claims` al crear el vínculo, junto con el
+  **conjunto de sujetos crudos que resolvían a P al nacer** (`S0`,
+  `core.link_baseline_subject`); la evaluación usa ids crudos —nunca la
+  resolución canónica actual, que una fusión posterior cambia— y cantidades
+  **firmadas** por identidad semántica (`eco`, `owes`, `owed`): la capa
+  necesaria bloquea `cur > base` en `eco`/`owes` (obligación nueva, aumento,
+  settlement negativo que se reduce o desaparece); la política v1, relajable,
+  bloquea además cualquier identidad que empiece a atribuir durante la
+  instancia. Un `owed` preexistente que crece no bloquea: el crédito queda en
+  el fantasma. Ningún timestamp es autoridad.
+- **Cada instancia de vínculo tiene identidad (`link_id`) y procedencia
+  (`origin_command_id`, nula si no es demostrable) separadas** (F10/ADR-001
+  §1); el CAS y el replay se anclan a `link_id` con respuesta uniforme
+  `LINK_SUPERSEDED`; la baja borra vínculo y membresía propios, no toca
+  presencia ni hechos, deja el hecho `core.participant_unlink`
+  (`unlinked_by = user_id`) y avisa con `identity_released`. Las columnas, las
+  relaciones y la función son trabajo de F10.A2 y **no existen todavía**.
 - **La cesión A → B, si entra, es atómica con prueba de un solo uso**
   (`identity_handover`); componer «A deja la identidad → B la reclama» deja una
   ventana de apropiación y **no se acepta como producto**. Fantasma ↔ fantasma
@@ -1182,28 +1197,28 @@ una feature escribible real.
 
 ## Qué consultar, y cuándo
 
-| Necesitas…                                      | Lee                                                                                                                          |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Reglas del repositorio y del agente             | [`AGENTS.md`](../AGENTS.md)                                                                                                  |
-| Semántica contable y escenarios                 | [`architecture/data-model.md`](architecture/data-model.md)                                                                   |
-| Dónde vive cada concepto del modelo             | [`architecture/model-coverage.md`](architecture/model-coverage.md)                                                           |
-| Una decisión y su porqué                        | [`adr/README.md`](adr/README.md) — índice general y tabla de equivalencias con la numeración antigua                         |
-| Secuencia de fases y criterios de cierre        | [`product/roadmap.md`](product/roadmap.md)                                                                                   |
-| Vocabulario                                     | [`product/glossary.md`](product/glossary.md)                                                                                 |
-| Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                                                                 |
-| **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · F08/ADR-001 · F08/ADR-002                                               |
-| **Continuar la Fase 10**                        | [`product/roadmap.md`](product/roadmap.md), Fase 10 · [`architecture/phase-10-opening.md`](architecture/phase-10-opening.md) |
-| **Multimoneda: el contrato de F11**             | [`adr/F11/ADR-001-fx-rate-resolution.md`](adr/F11/ADR-001-fx-rate-resolution.md) · roadmap, Fase 11                          |
-| **Continuar la Fase 11**                        | [`architecture/phase-11-progress.md`](architecture/phase-11-progress.md): estado, contraste con F9 y limitaciones            |
-| Cómo quedó la Fase 9, ya cerrada                | [`architecture/phase-9-progress.md`](architecture/phase-9-progress.md) · roadmap, Fase 9, «Estado de cierre»                 |
-| Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)                                                         |
-| Cómo quedó la Fase 5, ya cerrada                | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)                                                         |
-| Cómo quedó la Fase 4, ya cerrada                | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                                                                   |
-| Cómo se usan i18n y el formateo                 | [`src/lib/README.md`](../src/lib/README.md)                                                                                  |
-| Levantar el entorno, migrar, ejecutar checks    | [`runbooks/local-setup.md`](runbooks/local-setup.md)                                                                         |
-| **Arrancar, resolver o verificar un entorno**   | [`runbooks/environments.md`](runbooks/environments.md)                                                                       |
-| **Preparar la cadena nativa y generar Android** | [`runbooks/android-build.md`](runbooks/android-build.md)                                                                     |
-| **Por qué** la Fase 3 quedó como quedó          | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico                                           |
+| Necesitas…                                      | Lee                                                                                                                                                                                      |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reglas del repositorio y del agente             | [`AGENTS.md`](../AGENTS.md)                                                                                                                                                              |
+| Semántica contable y escenarios                 | [`architecture/data-model.md`](architecture/data-model.md)                                                                                                                               |
+| Dónde vive cada concepto del modelo             | [`architecture/model-coverage.md`](architecture/model-coverage.md)                                                                                                                       |
+| Una decisión y su porqué                        | [`adr/README.md`](adr/README.md) — índice general y tabla de equivalencias con la numeración antigua                                                                                     |
+| Secuencia de fases y criterios de cierre        | [`product/roadmap.md`](product/roadmap.md)                                                                                                                                               |
+| Vocabulario                                     | [`product/glossary.md`](product/glossary.md)                                                                                                                                             |
+| Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                                                                                                                             |
+| **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · F08/ADR-001 · F08/ADR-002                                                                                                           |
+| **Continuar la Fase 10**                        | [`product/roadmap.md`](product/roadmap.md), Fase 10 · [`architecture/phase-10-opening.md`](architecture/phase-10-opening.md) · [F10/ADR-001](adr/F10/ADR-001-link-instance-lifecycle.md) |
+| **Multimoneda: el contrato de F11**             | [`adr/F11/ADR-001-fx-rate-resolution.md`](adr/F11/ADR-001-fx-rate-resolution.md) · roadmap, Fase 11                                                                                      |
+| **Continuar la Fase 11**                        | [`architecture/phase-11-progress.md`](architecture/phase-11-progress.md): estado, contraste con F9 y limitaciones                                                                        |
+| Cómo quedó la Fase 9, ya cerrada                | [`architecture/phase-9-progress.md`](architecture/phase-9-progress.md) · roadmap, Fase 9, «Estado de cierre»                                                                             |
+| Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)                                                                                                                     |
+| Cómo quedó la Fase 5, ya cerrada                | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)                                                                                                                     |
+| Cómo quedó la Fase 4, ya cerrada                | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                                                                                                                               |
+| Cómo se usan i18n y el formateo                 | [`src/lib/README.md`](../src/lib/README.md)                                                                                                                                              |
+| Levantar el entorno, migrar, ejecutar checks    | [`runbooks/local-setup.md`](runbooks/local-setup.md)                                                                                                                                     |
+| **Arrancar, resolver o verificar un entorno**   | [`runbooks/environments.md`](runbooks/environments.md)                                                                                                                                   |
+| **Preparar la cadena nativa y generar Android** | [`runbooks/android-build.md`](runbooks/android-build.md)                                                                                                                                 |
+| **Por qué** la Fase 3 quedó como quedó          | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico                                                                                                       |
 
 **Evidencia empírica:** `supabase/e11/` … `supabase/e22/`. Son sondas
 desechables sobre maquetas y **nunca deben convertirse en migración**.
