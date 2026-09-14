@@ -2,6 +2,8 @@
 
 **Alcance:** Fuente de tipos de cambio con histórico por fecha efectiva, conversión, jerarquía visual del importe original, cambio de moneda base. **Estado de la fase:** Abierta: **F11.A cerrada** (contrato de fuente y resolución, sin implementación); F11.B, F11.C y F11.D pendientes. El detalle está en
 [el roadmap](../../product/roadmap.md).
+El estado, el contraste con F9 y las limitaciones conocidas están en
+[el seguimiento de F11](../../architecture/phase-11-progress.md), que no es normativo.
 
 Los ADR de esta carpeta se numeran de forma independiente (`F11/ADR-NNN`) y
 la identidad completa es siempre fase y número. Consulta este índice antes de
@@ -16,7 +18,7 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 
 ## Decisiones de otras fases que esta fase aplica
 
-La representación del dinero y del tipo congelado ya están decididas; el pago declarado rehúsa la conversión, y F11/ADR-001 la mantiene fuera de F11.
+La representación del dinero y del tipo congelado ya están decididas; el pago declarado rehúsa la conversión, y F11 no la implementa: F11/ADR-001 deja las liquidaciones fuera de su alcance.
 
 Se citan, no se copian ni se redefinen:
 

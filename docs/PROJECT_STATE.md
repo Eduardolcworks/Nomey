@@ -100,10 +100,14 @@ debe deducir por su cuenta:
   anterior a X— y **se fija una sola vez**. La conversión es inmediata, y ni la
   hora de la operación ni el momento de sincronizar cambian el tipo.
 - **Moneda extranjera sólo en gasto e ingreso personales y en gasto de grupo**,
-  sobre el contrato de F9. **Pagos declarados, novación, salida, reincorporación
-  y caja incorporada al asociar quedan fuera de la conversión**: quien tiene un
-  Personal en otra moneda que la del grupo sigue sin poder liquidar ni salir con
-  saldo pendiente.
+  sobre el contrato de F9. Las demás clases y la caja incorporada al asociar
+  conservan su negativa a convertir.
+- **Liquidar entre bases distintas sigue sin poderse, y es conocido.** F9 ya lo
+  restringe: quien tiene un Personal en otra moneda que la del grupo no puede
+  declarar ni recibir un pago, y por eso tampoco salir con saldo. **No es un
+  fallo de la integración F9 + F11, queda fuera del alcance de F11 y F11.B no
+  lo implementa.** Detalle en el
+  [seguimiento de F11](architecture/phase-11-progress.md#limitaciones-conocidas).
 - **La cobertura es por moneda y par, nunca por país.** ARS, COP y CLP siguen en
   el catálogo y no se convierten, porque el BCE no las cubre.
 - **No hay tipo manual**, y un tipo congelado no se toca.
@@ -959,17 +963,19 @@ solo usa `format()` y deriva la forma del locale con sondas, en una única vía
 para todos los runtimes. **Nada que se ejecute en el dispositivo se da por
 verificado porque pase en Vitest**, que corre sobre V8.
 
-**Las estadísticas personales pueden sumar monedas distintas.** Medido el
-2026-09-14 sobre las 46 migraciones: con base personal EUR y una cuota de un
-grupo en JPY pagado por otra persona, `api.personal_statistics` devuelve
+**Las estadísticas personales pueden sumar monedas distintas.** Es un defecto
+**preexistente**, introducido por
+`20260910120000_personal_statistics_shared_share.sql` (F9), y **no** por F11.
+Medido el 2026-09-14 sobre las 46 migraciones: con base personal EUR y una cuota
+de un grupo en JPY pagado por otra persona, `api.personal_statistics` devuelve
 `expense_total = 3500` como EUR (10,00 EUR propios + 2500 JPY de cuota). La cuota
-compartida de `20260910120000_personal_statistics_shared_share.sql` se suma sin
-filtrar por moneda, y basta con **participar sin pagar** en un grupo cuya base
-difiere de la del Personal: no hace falta ninguna conversión. Contradice
-F02/ADR-001 §3. La deuda de Inicio **no** tiene este problema: se niega a sumar
-monedas distintas. Excluir, convertir o separar esas cuotas es una decisión de
-F11.C; el detalle está en
-[F11/ADR-001](adr/F11/ADR-001-fx-rate-resolution.md#contraste-con-f9).
+compartida se suma sin filtrar por moneda, y basta con **participar sin pagar**
+en un grupo cuya base difiere de la del Personal: no hace falta ninguna
+conversión. Contradice F02/ADR-001 §3. La deuda de Inicio **no** tiene este
+problema: se niega a sumar monedas distintas. **Se resuelve en F11.C**
+(estadísticas y lecturas): excluir, convertir o separar esas cuotas es una
+decisión pendiente de ese bloque. Detalle en el
+[seguimiento de F11](architecture/phase-11-progress.md#las-estadísticas-personales-suman-monedas-distintas).
 
 ---
 
@@ -1129,26 +1135,27 @@ una feature escribible real.
 
 ## Qué consultar, y cuándo
 
-| Necesitas…                                      | Lee                                                                                                  |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Reglas del repositorio y del agente             | [`AGENTS.md`](../AGENTS.md)                                                                          |
-| Semántica contable y escenarios                 | [`architecture/data-model.md`](architecture/data-model.md)                                           |
-| Dónde vive cada concepto del modelo             | [`architecture/model-coverage.md`](architecture/model-coverage.md)                                   |
-| Una decisión y su porqué                        | [`adr/README.md`](adr/README.md) — índice general y tabla de equivalencias con la numeración antigua |
-| Secuencia de fases y criterios de cierre        | [`product/roadmap.md`](product/roadmap.md)                                                           |
-| Vocabulario                                     | [`product/glossary.md`](product/glossary.md)                                                         |
-| Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                                         |
-| **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · F08/ADR-001 · F08/ADR-002                       |
-| **Continuar la Fase 9**                         | [`product/roadmap.md`](product/roadmap.md), Fase 9 · F09/ADR-001 · F09/ADR-002 · F07/ADR-001         |
-| **Multimoneda: el contrato de F11**             | [`adr/F11/ADR-001-fx-rate-resolution.md`](adr/F11/ADR-001-fx-rate-resolution.md) · roadmap, Fase 11  |
-| Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)                                 |
-| Cómo quedó la Fase 5, ya cerrada                | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)                                 |
-| Cómo quedó la Fase 4, ya cerrada                | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                                           |
-| Cómo se usan i18n y el formateo                 | [`src/lib/README.md`](../src/lib/README.md)                                                          |
-| Levantar el entorno, migrar, ejecutar checks    | [`runbooks/local-setup.md`](runbooks/local-setup.md)                                                 |
-| **Arrancar, resolver o verificar un entorno**   | [`runbooks/environments.md`](runbooks/environments.md)                                               |
-| **Preparar la cadena nativa y generar Android** | [`runbooks/android-build.md`](runbooks/android-build.md)                                             |
-| **Por qué** la Fase 3 quedó como quedó          | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico                   |
+| Necesitas…                                      | Lee                                                                                                               |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Reglas del repositorio y del agente             | [`AGENTS.md`](../AGENTS.md)                                                                                       |
+| Semántica contable y escenarios                 | [`architecture/data-model.md`](architecture/data-model.md)                                                        |
+| Dónde vive cada concepto del modelo             | [`architecture/model-coverage.md`](architecture/model-coverage.md)                                                |
+| Una decisión y su porqué                        | [`adr/README.md`](adr/README.md) — índice general y tabla de equivalencias con la numeración antigua              |
+| Secuencia de fases y criterios de cierre        | [`product/roadmap.md`](product/roadmap.md)                                                                        |
+| Vocabulario                                     | [`product/glossary.md`](product/glossary.md)                                                                      |
+| Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                                                      |
+| **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · F08/ADR-001 · F08/ADR-002                                    |
+| **Continuar la Fase 9**                         | [`product/roadmap.md`](product/roadmap.md), Fase 9 · F09/ADR-001 · F09/ADR-002 · F07/ADR-001                      |
+| **Multimoneda: el contrato de F11**             | [`adr/F11/ADR-001-fx-rate-resolution.md`](adr/F11/ADR-001-fx-rate-resolution.md) · roadmap, Fase 11               |
+| **Continuar la Fase 11**                        | [`architecture/phase-11-progress.md`](architecture/phase-11-progress.md): estado, contraste con F9 y limitaciones |
+| Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)                                              |
+| Cómo quedó la Fase 5, ya cerrada                | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)                                              |
+| Cómo quedó la Fase 4, ya cerrada                | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                                                        |
+| Cómo se usan i18n y el formateo                 | [`src/lib/README.md`](../src/lib/README.md)                                                                       |
+| Levantar el entorno, migrar, ejecutar checks    | [`runbooks/local-setup.md`](runbooks/local-setup.md)                                                              |
+| **Arrancar, resolver o verificar un entorno**   | [`runbooks/environments.md`](runbooks/environments.md)                                                            |
+| **Preparar la cadena nativa y generar Android** | [`runbooks/android-build.md`](runbooks/android-build.md)                                                          |
+| **Por qué** la Fase 3 quedó como quedó          | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico                                |
 
 **Evidencia empírica:** `supabase/e11/` … `supabase/e20/`. Son sondas
 desechables sobre maquetas y **nunca deben convertirse en migración**.

@@ -7,12 +7,6 @@
   [F09/ADR-001](../F09/ADR-001-group-model-and-permissions.md); nunca llegó a
   `main` con ese número y se renumeró **antes de integrar**, como exige la regla
   5 de [`docs/adr/README.md`](../README.md).
-- **Integración con F9 (2026-09-14):** contrastado con el contrato vigente de
-  Grupos (`main` en `e3af705`, 46 migraciones). **Las cuatro decisiones de
-  producto no cambian.** Se completan los puntos que F9 hizo necesarios: las
-  clases nuevas en §4, la posición de la resolución dentro del protocolo de F9
-  en §6, el contrato real del gasto de grupo en §11, y lo medido en
-  [Contraste con F9](#contraste-con-f9).
 - **Alcance:** F11.A — fuente y resolución de tipos de cambio. Fija el contrato
   que F11.B y F11.C implementarán. **No implementa nada** y **no modifica ningún
   ADR aceptado**: completa lo que ellos delegaron expresamente.
@@ -266,18 +260,16 @@ fuentes.
 
 ### 4. Qué operaciones admiten moneda extranjera en F11
 
-| Clase                    | Moneda extranjera en F11                                                                       |
-| ------------------------ | ---------------------------------------------------------------------------------------------- |
-| `personal_expense`       | **Sí**                                                                                         |
-| `personal_income`        | **Sí**                                                                                         |
-| `group_expense`          | **Sí**, sobre el contrato de F9 (§11)                                                          |
-| `adjustment`             | No                                                                                             |
-| `external_transfer`      | No                                                                                             |
-| `internal_transfer`      | No                                                                                             |
-| `debt_settlement`        | No                                                                                             |
-| `settlement_by_transfer` | No                                                                                             |
-| `group_payment`          | No: es una liquidación ([F09/ADR-007](../F09/ADR-007-group-payments-and-exit-without-debt.md)) |
-| `departure_novation`     | No: no declara importe ni moneda; reasigna pares en la base del grupo                          |
+| Clase                    | Moneda extranjera en F11          |
+| ------------------------ | --------------------------------- |
+| `personal_expense`       | **Sí**                            |
+| `personal_income`        | **Sí**                            |
+| `group_expense`          | **Sí**, al integrarse Grupos (F9) |
+| `adjustment`             | No                                |
+| `external_transfer`      | No                                |
+| `internal_transfer`      | No                                |
+| `debt_settlement`        | No                                |
+| `settlement_by_transfer` | No                                |
 
 **Una clase sin moneda extranjera en F11**, si recibe una moneda distinta de la
 base de algún ámbito alcanzado, sigue respondiendo
@@ -286,24 +278,9 @@ tiene hoy. No quiere decir que esas clases no puedan admitir multimoneda en el
 futuro, sino que **su semántica multimoneda no está definida** y queda fuera de
 F11.
 
-**La caja incorporada al asociar un participante** (`sec.incorporate_participant_cash`,
-[F09/ADR-009](../F09/ADR-009-associate-ghost-to-own-account.md)) no es una clase
-de operación, pero traslada caja entre la base del grupo y la del Modo Personal.
-**Queda fuera de F11 por la misma regla**: conserva su negativa
-`CURRENCY_CONVERSION_UNSUPPORTED · 422` cuando las dos bases difieren.
-
 Un gasto de grupo convierte hacia **cada ámbito alcanzado que lo requiera**
 (F03/ADR-010 §6): el del Grupo y, si su base difiere, el Modo Personal del pagador.
 **Todas las conversiones de una operación salen del mismo tipo del día X.**
-
-> **Consecuencia de dejar fuera las liquidaciones, que F9 ya tiene hoy y F11 no
-> cambia.** Quien tiene un Modo Personal en una moneda distinta de la base del
-> grupo **no puede registrar ni recibir un pago declarado**: `record_group_payment`
-> exige la base del grupo en el Personal de cada punta con cuenta. Como
-> `leave_group` exige neto cero, **si queda deudor o acreedor, tampoco puede
-> salir**. Con F11 podrá pagar gastos del grupo en otra moneda, pero no
-> liquidarlos. Medido sobre la base combinada; ver
-> [Contraste con F9](#contraste-con-f9).
 
 ### 5. Cobertura: por definición monetaria y par, nunca por país
 
@@ -356,27 +333,16 @@ requiera convertir desde o hacia una de ellas recibe
 | **Clase sin FX**          | Moneda distinta de la base en una clase de §4 que no admite FX   | No                                         | `CURRENCY_CONVERSION_UNSUPPORTED` · 422 | `conflict`                           |
 | **Fuera de rango**        | El coeficiente o el importe convertido no caben en `bigint` (§7) | No                                         | **`FX_CONVERSION_OUT_OF_RANGE` · 422**  | `rejected`, terminal                 |
 
-**Dónde se evalúa.** La resolución **ocupa exactamente el lugar donde cada
-función de escritura vigente llama hoy a `sec.assert_no_conversion`**, y **no
-reordena nada de lo que va antes**. Eso incluye el protocolo de F03/ADR-008 §13
-(reclamar el comando y resolver el replay antes de autorizar) y el de F9: el
-cerrojo de identidad del grupo (`sec.lock_participant_claims`, de rango 1),
-la comprobación de tipo de ámbito y de membresía, la elegibilidad por fecha, las
-guardas de retirados y de obligaciones de quien salió, y el orden ascendente de
-locks de ámbito. En un gasto de grupo hay **dos** puntos, porque F9 comprueba
-por separado el ámbito del grupo y el Modo Personal del pagador.
-
-**Orden entre los resultados de FX**, igual para todas las clases:
+**Orden de evaluación**, igual para todas las clases:
 
 1. Replay e idempotencia, antes que nada (F03/ADR-008 §13).
 2. Forma del payload: un tipo aportado es `PAYLOAD_INVALID` (§8).
-3. Autorización y protocolo de F9, **sin cambios**.
-4. Clase sin moneda extranjera (§4).
-5. Conflicto de base (§10).
-6. Cobertura de la definición (§5.1).
-7. Tipo del día X fijado (§3.4).
-8. Cobertura en la fecha (§5.1).
-9. Derivación y rango (§7).
+3. Clase sin moneda extranjera (§4).
+4. Conflicto de base (§10).
+5. Cobertura de la definición (§5.1).
+6. Tipo del día X fijado (§3.4).
+7. Cobertura en la fecha (§5.1).
+8. Derivación y rango (§7).
 
 La cobertura de la definición se comprueba **antes** que la disponibilidad: un
 gasto en ARS no espera a nada, se rechaza de inmediato.
@@ -556,68 +522,42 @@ acepta por la misma razón que en F06/ADR-009: **no hay producción**.
 
 ### 11. Relación con Grupos (F9)
 
-**Este ADR no modifica ningún contrato de Grupos.** F9 está integrada y su
-contrato del gasto de grupo es el que manda. Medido sobre la base combinada
-(cuerpo vigente de `api.record_group_expense`, de
-`20260912170000_group_payments_and_departed.sql`):
+**Este ADR no modifica ningún contrato de Grupos.** Deja fijado lo que su
+integración con F11 necesitará:
 
-- **El payload ya transporta `currency_definition_id`**, obligatorio y dentro de
-  la intención canónica. La forma es estricta: `sec.assert_payload_shape` rechaza
-  cualquier campo que no esté en su lista.
-- **Hay dos negativas de conversión**: sobre el ámbito del grupo y sobre el Modo
-  Personal del pagador, que se resuelve con `sec.participant_personal_scope`. **Un
-  pagador sin cuenta —fantasma— no tiene Modo Personal**, así que su caja no
-  convierte nada.
-- **El gasto de grupo no pasa por la cola sin conexión.** La cola admite hoy
-  `personal_expense.create`, `personal_income.create` y `group.create`.
-
-Lo que F11 necesita de ese contrato, **sin cambiar las reglas de F9**:
-
-- **`expected_base_currency_definition_id` se incorpora a la lista de campos
-  admitidos y a la intención canónica de `record_group_expense`**, referido al
-  ámbito del grupo, con las reglas de §10. Aunque el gasto no se encole, la base
-  asumida es la que enseñaba el formulario al capturar: la del grupo sólo puede
-  cambiar mientras no tenga efectos (F09/ADR-001 §4), y un cambio entre abrir el
-  formulario y enviar es exactamente el conflicto de §10.
-- **La recreación se hace en una migración nueva, posterior a
-  `20260914160000_positions_cas_visible_participants.sql`, y parte del cuerpo
-  vigente de F9**, nunca de uno anterior. Eso conserva el cerrojo de identidad,
-  la elegibilidad por fecha, las guardas de retirados y de obligaciones de quien
-  salió, los avisos de edición y la resolución por identidad canónica.
+- **El payload y la intención canónica de `record_group_expense` deberán poder
+  transportar `expected_base_currency_definition_id`** del ámbito del Grupo, con
+  las reglas de §10. Si ese contrato se publica antes sin el campo, añadirlo
+  después **no rompe los comandos ya enviados**, gracias a cómo se interpreta su
+  ausencia; aun así, conviene que nazca con él.
+- **Cambiar la base de un Grupo**, que F02/ADR-001 §7 permite a su creador, produce
+  el mismo conflicto que en el Modo Personal.
+- **Todos los miembros obtienen el mismo tipo para la misma fecha efectiva**,
+  estén donde estén (§3.2).
 - **La conversión hacia el Modo Personal del pagador** sigue §3–§7. **Si esa base
   no está cubierta en X, se rechaza el gasto de grupo entero** con
   `FX_CURRENCY_NOT_COVERED`, porque los efectos de una operación son atómicos.
-  Hoy ya ocurre algo equivalente, medido: el pagador con base personal distinta
-  recibe `CURRENCY_CONVERSION_UNSUPPORTED`.
-- **Cambiar la base de un Grupo** mientras no tenga efectos (F02/ADR-001 §7,
-  F09/ADR-001 §4) produce el mismo conflicto que en el Modo Personal.
-- **Todos los miembros obtienen el mismo tipo para la misma fecha efectiva**,
-  estén donde estén (§3.2).
-- **Pagos, novación, salida, reincorporación y asociación** siguen en la base
-  del grupo y **fuera de la conversión** (§4). Sus deudas y posiciones se derivan
-  de efectos que ya están en la base del grupo, así que F11 no altera sus
-  invariantes.
+  Hoy ya ocurre algo equivalente: `sec.assert_no_conversion` rechaza cualquier
+  pagador cuya base personal difiera de la moneda. Validarlo con producto forma
+  parte de la integración con F9.
 
 ### 12. Lo que no decide, y dónde queda
 
-| Tema                                                                                                                                                     | Dónde |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| Tablas del catálogo, de la fijación del tipo del día y de la procedencia, con su RLS y sus grants                                                        | F11.B |
-| Mecanismo, rol, planificación y entorno de la ingesta: observación al comenzar cada día natural en Fráncfort, carga histórica y garantía de completitud  | F11.B |
-| Correspondencia versionada definición → código de la fuente                                                                                              | F11.B |
-| Resolver y derivación en SQL, retirada de `sec.assert_no_conversion` para las clases de §4, escritura de `core.frozen_conversion`                        | F11.B |
-| Vectores de derivación y conversión, consumidos por el dominio y por SQL con UUID fijos (F03/ADR-001 §4)                                                 | F11.B |
-| Medición por HTTP de los códigos y estados de §6                                                                                                         | F11.B |
-| Cómo espera la cola una entrada _todavía no disponible_, y si merece una clase propia (sucesor de F07/ADR-001 §11)                                       | F11.C |
-| Proyección optimista de entradas en moneda extranjera                                                                                                    | F11.C |
-| Superficies de lectura: moneda del importe original y magnitud convertida                                                                                | F11.C |
-| Estadísticas por categoría sobre la **magnitud económica convertida**, preservando el invariante de F06/ADR-008 §6                                       | F11.C |
-| Presentación: original como principal y convertido como secundario, atribución al BCE, previsualización de correcciones (F03/ADR-010 §6)                 | F11.C |
-| Mostrar la derivación al revisar un conflicto (F02/ADR-001 §7), hoy vacía por F07/ADR-002 §3                                                             | F11.C |
-| `expected_base_currency_definition_id` en `record_group_expense`, en una migración nueva sobre el cuerpo vigente de F9 (§11)                             | F11.B |
-| Lecturas por persona con cuotas de grupos en otra base: `api.personal_statistics` y `api.personal_expense_share` ([Contraste con F9](#contraste-con-f9)) | F11.C |
-| Filas de gasto de grupo y de pago en `api.personal_operation`: conservar `group_payment` y su contexto al publicar moneda original y convertida          | F11.C |
-| Integración del gasto de grupo con F9 y cierre de los criterios de F11                                                                                   | F11.D |
+| Tema                                                                                                                                                    | Dónde |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| Tablas del catálogo, de la fijación del tipo del día y de la procedencia, con su RLS y sus grants                                                       | F11.B |
+| Mecanismo, rol, planificación y entorno de la ingesta: observación al comenzar cada día natural en Fráncfort, carga histórica y garantía de completitud | F11.B |
+| Correspondencia versionada definición → código de la fuente                                                                                             | F11.B |
+| Resolver y derivación en SQL, retirada de `sec.assert_no_conversion` para las clases de §4, escritura de `core.frozen_conversion`                       | F11.B |
+| Vectores de derivación y conversión, consumidos por el dominio y por SQL con UUID fijos (F03/ADR-001 §4)                                                | F11.B |
+| Medición por HTTP de los códigos y estados de §6                                                                                                        | F11.B |
+| Cómo espera la cola una entrada _todavía no disponible_, y si merece una clase propia (sucesor de F07/ADR-001 §11)                                      | F11.C |
+| Proyección optimista de entradas en moneda extranjera                                                                                                   | F11.C |
+| Superficies de lectura: moneda del importe original y magnitud convertida                                                                               | F11.C |
+| Estadísticas por categoría sobre la **magnitud económica convertida**, preservando el invariante de F06/ADR-008 §6                                      | F11.C |
+| Presentación: original como principal y convertido como secundario, atribución al BCE, previsualización de correcciones (F03/ADR-010 §6)                | F11.C |
+| Mostrar la derivación al revisar un conflicto (F02/ADR-001 §7), hoy vacía por F07/ADR-002 §3                                                            | F11.C |
+| Integración del gasto de grupo con F9 y cierre de los criterios de F11                                                                                  | F11.D |
 
 ## Alternativas consideradas
 
@@ -784,11 +724,7 @@ en otra moneda.
   - la comprobación de F06/ADR-008 §6 (suma de categorías = `expense_total`) exige
     sumar la magnitud **convertida**, no `original_amount`;
   - `api.personal_operation` publica `original_amount` junto a la moneda del
-    **efecto**, y desde F9 también las filas de gasto de grupo y de pago
-    declarado en el Modo Personal.
-- **Liquidar entre bases distintas sigue imposible después de F11** (§4): quien
-  tiene un Modo Personal en otra moneda que la del grupo no puede declarar ni
-  recibir un pago, y por eso tampoco salir con saldo pendiente.
+    **efecto**.
 
 ## Discrepancias detectadas y no resueltas aquí
 
@@ -798,59 +734,6 @@ en otra moneda.
   tras la primera operación**, y la FK compuesta de `core.effect` lo impone. Las
   decisiones de F11.A **no lo incluyen**, y hacerlo exigiría un ADR sucesor de
   F01/ADR-001 §8. **Este ADR no lo decide.**
-  [F09/ADR-001](../F09/ADR-001-group-model-and-permissions.md) añade la misma
-  expectativa para los grupos («Cambio de moneda base de un grupo — F11, con
-  conversión»). El cambio **sin efectos** que F09/ADR-001 §4 ya permite no está
-  afectado.
-- **El pago declarado «hasta F11».**
-  [F09/ADR-007](../F09/ADR-007-group-payments-and-exit-without-debt.md) describe
-  su negativa de conversión como vigente «hasta F11», y llama a
-  `record_settlement_by_transfer` «writer de F11». Por la decisión de producto 2,
-  **F11 no convierte liquidaciones**, así que ninguna de las dos piezas cambia
-  con F11. Es una expectativa de F9, no una decisión de F9, y este ADR no
-  modifica F09/ADR-007.
-
-## Contraste con F9
-
-Medido el **2026-09-14** sobre el esquema combinado, levantado desde cero con las
-46 migraciones en una pila aislada (`NomeyIso`). Los cuerpos se leyeron del
-catálogo vivo, no de los ficheros.
-
-**Negativas de conversión vigentes.** Nueve funciones llaman a
-`sec.assert_no_conversion`, con quince llamadas en total:
-`record_personal_expense`, `record_personal_income`, `record_adjustment`,
-`record_external_transfer` (1), `record_internal_transfer` (2),
-`record_group_expense` (2), `record_debt_settlement` (1), `record_group_payment`
-(3) y `record_settlement_by_transfer` (3). Además, `sec.incorporate_participant_cash`
-lanza `CURRENCY_CONVERSION_UNSUPPORTED` por su cuenta. **F11.B sólo levanta las
-de las clases de §4 que admiten moneda extranjera**; las demás se conservan.
-
-**Funciones compartidas con F9:**
-
-| Función                      | Qué añadió F9                                                                                       | Qué necesita F11                                                                                               | Conclusión                                              |
-| ---------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `api.record_group_expense`   | Concepto, hora, categoría por defecto, avisos de edición, cerrojo de identidad, guardas canónicas   | Resolver en sus dos puntos de negativa y `expected_base_currency_definition_id` (§10, §11)                     | Compatible, con migración nueva sobre el cuerpo vigente |
-| `api.annul_operation`        | Autorización por partes de `group_payment`, rango 1, identidad canónica, guarda de sobreliquidación | Nada: anular crea una versión sin efectos y sin conversión; la conversión congelada de la anterior se conserva | Compatible sin cambios                                  |
-| `sec.persist_version`        | `OPERATION_NOT_ANNULLABLE` para `departure_novation`                                                | Nada en F11.A. Congelar la conversión con la versión no debe saltarse sus guardas de clase y de anulación      | Compatible; F11.B escribe la conversión sin rodearla    |
-| `api.record_debt_settlement` | Rango 1 y ambos extremos activos                                                                    | Nada: liquidación, fuera de F11 (§4)                                                                           | Conserva su negativa                                    |
-| `api.claimed_dimension`      | La deuda exige vínculo y membresía, excepción C6, resolución canónica                               | Nada en F11.A. Cada fila ya lleva su `currency_definition_id`: no mezcla monedas                               | Compatible; los consumidores deben respetar esa moneda  |
-| `api.personal_operation`     | Fila de gasto de grupo con `your_share`, clase `group_payment` con contraparte                      | Publicar moneda original y convertida **conservando** clases y contexto de F9                                  | Compatible; F11.C recrea desde el cuerpo vigente        |
-
-**Defecto medido en `main`, previo e independiente de F11.** Con un Modo Personal
-en EUR, un gasto propio de 10,00 EUR y la cuota de 2500 JPY del actor en un gasto
-de un grupo en JPY pagado por una participante sin cuenta,
-`api.personal_statistics` devuelve **`expense_total = 3500`** con
-`currency_definition_id` EUR, y el desglose por categoría también. La cuota
-compartida que añadió `20260910120000_personal_statistics_shared_share.sql` se
-suma sin filtrar por moneda sobre el total de la base personal. **Mezcla
-definiciones monetarias distintas sin conversión, contra F02/ADR-001 §3 y el
-criterio de cierre 5 de F11.** La migración de F9 lo reconoce como «punto
-abierto». Ocurre sin ninguna conversión de por medio: basta con que el actor
-**participe sin pagar** en un grupo cuya base difiere de la de su Modo Personal.
-Qué hacer con esas cuotas —excluirlas, convertirlas o mostrarlas aparte— es una
-decisión de producto de F11.C que este ADR no toma. El tratamiento de la deuda en
-Inicio (`src/features/groups/group-projection.ts`) ya se niega a sumar monedas
-distintas.
 
 ## Evidencia
 

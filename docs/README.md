@@ -92,6 +92,7 @@ lo es el ADR correspondiente, cuando se acepta.
 | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                     | 4    | Bloques de F4, decisiones que la abren y dirección **provisional** de navegación. **No normativo**                   |
 | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)           | 5    | Lo que la Fase 6 hereda de la 5: qué existe, qué no se reabre y qué invariantes no romper. **No normativo**          |
 | [`architecture/phase-6-handoff.md`](architecture/phase-6-handoff.md)           | 6    | Estado de la Fase 6 bloque a bloque, y las obligaciones que cada uno deja al siguiente. **No normativo**             |
+| [`architecture/phase-11-progress.md`](architecture/phase-11-progress.md)       | 11   | Seguimiento de F11: estado, contraste con F9 y limitaciones conocidas. **No normativo**; la decisión es F11/ADR-001  |
 
 Al aceptarse el ADR que lo cierra, se decide si el documento se conserva como
 historial de análisis o se retira.
