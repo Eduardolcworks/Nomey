@@ -840,7 +840,9 @@ de arriba, y no se reescriben.
 4. **No existe tipo manual.** Corregir fecha o moneda provoca una nueva
    resolución; el tipo congelado no se toca.
 5. **«Moneda no cubierta», «todavía no disponible» y «conflicto de base» son
-   resultados distintos**, con código y estado propios.
+   resultados distintos:** `FX_CURRENCY_NOT_COVERED · 422`,
+   `FX_RATE_NOT_YET_AVAILABLE · 503` y el conflicto de base, que conserva
+   `CURRENCY_CONVERSION_UNSUPPORTED · 422`.
 6. **El payload lleva la base asumida al capturar**, y un desajuste es conflicto,
    nunca conversión silenciosa. **`record_group_expense` la incorporará** en
    una migración nueva sobre su cuerpo vigente de F9, sin cambiar sus reglas.
@@ -1122,14 +1124,14 @@ de tienda, despliegue y operación.
 
 ## Trabajo paralelizable
 
-| Trabajo                                                       | En paralelo con |
-| ------------------------------------------------------------- | --------------- |
-| Runner de tests y vectores de prueba derivados de F01/ADR-001 | 3.A             |
-| Arquitectura UX e i18n (F4 completa)                          | 3.C             |
-| Cuentas de desarrollador y firma (**F8.B**)                   | antes de F14    |
-| **Proveedor, contrato y viabilidad del agregador bancario**   | **desde F9**    |
-| Selección de proveedor de tipos de cambio                     | desde F9        |
-| Configuración de productos de suscripción en las tiendas      | desde F12       |
+| Trabajo                                                                | En paralelo con |
+| ---------------------------------------------------------------------- | --------------- |
+| Runner de tests y vectores de prueba derivados de F01/ADR-001          | 3.A             |
+| Arquitectura UX e i18n (F4 completa)                                   | 3.C             |
+| Cuentas de desarrollador y firma (**F8.B**)                            | antes de F14    |
+| **Proveedor, contrato y viabilidad del agregador bancario**            | **desde F9**    |
+| ~~Selección de proveedor de tipos de cambio~~ · **hecha: F11/ADR-001** | desde F9        |
+| Configuración de productos de suscripción en las tiendas               | desde F12       |
 
 ---
 
@@ -1148,8 +1150,11 @@ Ordenadas por riesgo.
    — [F08/ADR-002](../adr/F08/ADR-002-environments-and-variants.md) §5.
 3. **Revisión de App Store y Google Play (F14 y F19).** Las suscripciones tienen
    reglas propias y rechazos frecuentes en la primera vuelta.
-4. **Proveedor de tipos de cambio (F11).** Su granularidad y su histórico
-   condicionan la política de selección que F02/ADR-001 dejó abierta.
+4. ~~**Proveedor de tipos de cambio (F11).**~~ **Resuelto el 2026-09-13** —
+   [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md): tipos de referencia
+   del Banco Central Europeo. Sigue siendo una fuente externa: si su publicación
+   o la ingesta fallan, las operaciones afectadas quedan _todavía no
+   disponibles_, sin sustituir el tipo por uno antiguo (F11/ADR-001 §3.4).
 5. **Infraestructura de notificaciones push (F9).** Depende de cómo se resuelva
    la puerta de esa fase.
 6. **Comportamiento de PostgREST (3.A).** Puede obligar a introducir una capa de
@@ -1166,7 +1171,7 @@ Ordenadas por riesgo.
 | 8    | ~~ADR de código nativo~~ · **cumplida: [F08/ADR-001](../adr/F08/ADR-001-native-code-model.md)**                              |
 | 9    | Qué significa «notificación»: en la app, o push                                                                              |
 | 10   | ~~ADR de invitación y reclamación~~ · **cumplida: F09/ADR-004**. Ahora: `F10/ADR-001` antes de A2, `F10/ADR-002` antes de B1 |
-| 11   | Proveedor de tipos de cambio con histórico                                                                                   |
+| 11   | ~~Proveedor de tipos de cambio con histórico~~ · **cumplida: [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md)**       |
 | 15   | Presentación de agregaciones entre definiciones monetarias                                                                   |
 | 16   | ~~ADR de código nativo aceptado~~ · **cumplida: F08/ADR-001**                                                                |
 | 17   | ADR de conciliación · contrato y viabilidad regulatoria                                                                      |

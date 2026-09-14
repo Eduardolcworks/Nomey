@@ -842,8 +842,10 @@ a write boundary must stay under it (E16). Do not unify them.
 - **The only permitted exception handler is the claim's `unique_violation`.**
   Any other turns a failure into a partial write.
 - **Cross-currency is refused**, with `CURRENCY_CONVERSION_UNSUPPORTED` (422),
-  until the FX resolution rule exists. `core.frozen_conversion` therefore has
-  no write route, and the writer has no `INSERT` on it.
+  until F11.B implements the FX resolution rule of
+  [F11/ADR-001](docs/adr/F11/ADR-001-fx-rate-resolution.md).
+  `core.frozen_conversion` therefore has no write route, and the writer has no
+  `INSERT` on it.
 - **Parity with `src/domain/` is the shared vectors, not shared code**
   (F03/ADR-006 §1). `scripts/vectors-prelude.sh` pipes `tests/vectors/*.json` into
   the checks, because psql runs inside the container and cannot read the

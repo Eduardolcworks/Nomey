@@ -51,9 +51,10 @@ migraciones:
   del Modo Personal difieren.
 
 Por F11/ADR-001 §4, la conversión se abre **sólo** para `personal_expense`,
-`personal_income` y `group_expense`. Todo lo demás conserva su negativa tal como
-está: no hay nada que decidir para ello, porque ninguna otra clase ni flujo
-figura entre los que admiten moneda extranjera.
+`personal_income` y `group_expense`. Las demás clases conservan su negativa tal
+como está. **La negativa de `sec.incorporate_participant_cash` no está
+decidida**: la caja que incorpora puede proceder de un gasto de grupo, que sí
+admite moneda extranjera. Ver [Decisiones abiertas](#decisiones-abiertas).
 
 ### Funciones compartidas
 
@@ -79,12 +80,42 @@ no pasa por la cola sin conexión**: la cola admite `personal_expense.create`,
 
 No es una regla nueva: resulta de aplicar a la vez ADR ya aceptados.
 
-- **Dónde se resuelve.** F11/ADR-001 §6 fija el orden **entre los resultados de
-  FX**. F03/ADR-008 §13 exige resolver el replay antes de autorizar, y los ADR
-  de F9 fijan el cerrojo de identidad, la membresía, la elegibilidad por fecha y
-  el orden de locks. Aplicarlos a la vez sitúa la resolución en el punto donde
-  cada función llama hoy a `sec.assert_no_conversion`, **sin reordenar nada de
-  F9**.
+- **La conversión no se inserta donde hoy están las guardas: se resuelve antes
+  del reparto.** En el cuerpo vigente de `record_group_expense`
+  (`20260912170000_group_payments_and_departed.sql`) el reparto se calcula en
+  la línea 520 con `sec.resolve_split` sobre el importe **declarado**, antes de
+  reclamar el comando, y ese `v_resolved` es el que escriben las cuotas, las
+  deudas y `core.split`, y el que usa la guarda de sobreliquidación de una
+  corrección. Las dos negativas (líneas 549 y 576) llegan después. Sustituir
+  sólo esas negativas por una conversión escribiría el reparto de 100,00 USD
+  como si fueran JPY, y nada lo detendría: la FK compuesta valida la moneda, no
+  la magnitud. Lo que exigen los ADR aceptados:
+  - **Convertir una vez y repartir después**, en la moneda base del Grupo
+    (F02/ADR-001 §5, `data-model.md` §10). El reparto que se escribe y la guarda
+    de sobreliquidación operan sobre el total convertido; el escenario
+    `gasto-de-grupo-con-tres-monedas` de `tests/vectors/scenarios.json` lo fija
+    para `equal`.
+  - **Cada conversión sale del importe original**, una por ámbito alcanzado
+    (F03/ADR-010 §6, F11/ADR-001 §4): la caja del pagador en su Modo Personal
+    es la conversión del original a esa base, no la del total ya convertido al
+    Grupo.
+  - **Todas las conversiones de la operación se resuelven juntas, antes de
+    escribir nada**, respetando el orden de F11/ADR-001 §6 **para la operación
+    entera**: los pasos 3–5 (clase, conflicto de base, cobertura de la
+    definición) se evalúan para todos los ámbitos antes de los pasos 6–8. Un
+    gasto cuyo pagador tiene base ARS se rechaza con
+    `FX_CURRENCY_NOT_COVERED · 422` aunque el tipo del día aún no esté fijado;
+    resolver cada guarda por separado podría responder antes `503` y, al
+    reintentar, `422`.
+  - **Lo que no cambia de F9:** el replay antes de autorizar (F03/ADR-008 §13),
+    el cerrojo de identidad antes de leer membresía o vínculo, la elegibilidad
+    por fecha y el orden de locks. La resolución necesita el Modo Personal del
+    pagador, que se deriva bajo el cerrojo de identidad (línea 574), así que va
+    detrás de él y delante de la guarda de sobreliquidación y de toda
+    escritura.
+  - **Sin decidir:** cómo se trasladan a la base del Grupo los importes
+    declarados de un reparto `exact_amounts` en moneda extranjera. Ver
+    [Decisiones abiertas](#decisiones-abiertas).
 - **La base asumida en el gasto de grupo.** F11/ADR-001 §11 ya exige que
   `record_group_expense` la transporte. Añadirla a su lista de campos y a su
   intención canónica es una migración **posterior a
@@ -105,14 +136,17 @@ No es una regla nueva: resulta de aplicar a la vez ADR ya aceptados.
   los cuerpos vigentes del catálogo de la pila aislada; no se ejecutó un pago
   de prueba.
 - **No es un fallo de la integración F9 + F11.** Ocurre igual en `main` sin la
-  rama de F11, y ninguna pieza de F11 lo provoca ni lo agrava.
+  rama de F11, y ninguna pieza de F11 lo provoca.
+- **F11 sí amplía a quién afecta.** Hoy quien tiene un Modo Personal en otra
+  base no puede pagar un gasto del grupo. Con F11 podrá (F11/ADR-001 §11) y
+  quedar como **acreedora**, y sus deudores tampoco podrán declararle un pago
+  ni salir con saldo. Validarlo con producto forma parte de F11.D
+  (F11/ADR-001 §11); no cambia lo decidido.
 - **Queda fuera del alcance de F11** por la decisión de producto 2 de
   [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md): las liquidaciones y
   los pagos entre monedas o bases distintas no se convierten en F11.
 - **F11.B no debe implementarlo**, ni las conversiones que sólo harían falta
-  para esos flujos. La caja incorporada al asociar un fantasma tampoco se
-  convierte en F11, por otro motivo: F11/ADR-001 §4 sólo abre la moneda
-  extranjera para tres clases, y la asociación no es ninguna de ellas.
+  para esos flujos.
 - **Con F11**, esa persona podrá pagar gastos del grupo en otra moneda, pero no
   liquidarlos.
 - [F09/ADR-007](../adr/F09/ADR-007-group-payments-and-exit-without-debt.md)
@@ -143,6 +177,49 @@ rama no toca ni SQL ni cliente.
   de lectura (F11/ADR-001 §12). Excluir, convertir o mostrar aparte esas cuotas
   es una decisión de producto pendiente para ese bloque. **No se corrige en
   F11.A.**
+
+## Decisiones abiertas
+
+Casos que F11/ADR-001 no resuelve y que ninguna decisión de producto cubre.
+**No están decididos**: se registran para que F11.B no los fije por omisión.
+
+### Caja incorporada al asociar un fantasma que pagó un gasto de grupo (F11.D)
+
+- **El escenario.** Un fantasma pagó un gasto de un grupo con base JPY. Una
+  cuenta con Modo Personal en EUR lo asocia a su identidad (F09/ADR-009):
+  `sec.incorporate_participant_cash` debe escribir en ese Personal la caja que
+  el fantasma pagó, en la versión vigente de cada gasto
+  (`20260914130000_associate_participant.sql`).
+- **Qué pasa hoy.** Esa función rechaza la asociación **entera** con
+  `CURRENCY_CONVERSION_UNSUPPORTED · 422` en cuanto la base del grupo difiere
+  de la del Personal, tenga o no caja que incorporar.
+- **Por qué requiere decisión.** Con F11, el mismo gasto pagado directamente por
+  esa cuenta **se convierte** a su Personal (F11/ADR-001 §4 y §11). Pagado por
+  un fantasma que la cuenta asocia después, no hay regla: F11/ADR-001 no trata
+  la asociación, F09/ADR-009 no habla de moneda y la negativa sólo existe en el
+  SQL. Mantenerla deja dos resultados distintos para el mismo gasto; convertir
+  exige fijar, entre otras cosas, con qué tipo y qué pasa si no está cubierto
+  o todavía no está disponible.
+- **Qué no está en cuestión.** La parte de la caja que procede de pagos
+  declarados (`group_payment`) es una liquidación y queda fuera de F11 por la
+  decisión 2.
+- **Dónde se decide: F11.D**, con la integración del gasto de grupo. Hasta
+  entonces, F11.B no cambia `sec.incorporate_participant_cash`.
+
+### Reparto por importes exactos en moneda extranjera (F11.D)
+
+- **El escenario.** Un gasto de grupo de 100,00 USD en un grupo con base EUR,
+  repartido con `exact_amounts` de 70,00 y 30,00 USD.
+- **Por qué requiere decisión.** Los importes declarados están en la moneda de
+  la operación, y el reparto debe calcularse en la base del Grupo después de
+  convertir (F02/ADR-001 §5). Convertir cada importe por separado es justo lo
+  que ese § prohíbe, porque las partes convertidas dejan de sumar el total
+  convertido. `equal` y `shares` no declaran importes, así que se aplican al
+  total convertido sin nada que trasladar. Para `exact_amounts`, ningún ADR fija
+  cómo se trasladan los importes declarados a la base del Grupo, ni con qué
+  reparto y redondeo: no se prejuzga aquí.
+- **Dónde se decide: F11.D**, antes de que F11.B escriba el reparto sobre el
+  total convertido.
 
 ## Discrepancias documentales anotadas
 
