@@ -58,14 +58,19 @@ sustituye se cita.
   «Deshacer un vínculo erróneo» lo cubre [F09/ADR-006](ADR-006-unclaim-participant.md)
   para la propia reclamación; la revocación por otro **no llegará**: está
   prohibida por principio de producto (F10).
-- **F09/ADR-006 §2 (caso C) — a superar por `F10/ADR-001`:** hoy la
-  rectificación se permite aunque durante el vínculo se haya generado deuda
-  nueva que nombra al participante (medido en F10.A0: el reclamante se
-  desprende de una deuda nacida después de reclamar y vuelve como nuevo). La
-  regla temporal de obligaciones aprobada el 2026-09-14 bloquea exactamente
-  eso y conserva el caso B (historia anterior a la reclamación). El ADR de F10
-  cita este punto y no reescribe ADR-006. Su alcance «no cubre al creador ni a
-  quien entró como nuevo» también se amplía allí.
+- **F09/ADR-006 — superado en dos puntos por
+  [F10/ADR-001](../F10/ADR-001-link-instance-lifecycle.md) (Aceptado,
+  2026-09-14):** **§1**, en la identidad y el ancla de la instancia: el CAS y
+  el replay se anclan a `link_id`, la procedencia pasa a `origin_command_id` y
+  `claim_command_id` deja de ser normativa; la vía deja de limitarse a vínculos
+  nacidos de una reclamación y cubre también creador y «Soy nuevo». **§2, caso
+  C**, en la regla económica: hoy la rectificación se permite aunque durante el
+  vínculo haya nacido deuda nueva que nombra al participante (medido en
+  F10.A0: el reclamante se desprende de una deuda nacida después de reclamar y
+  vuelve como nuevo); la regla temporal de obligaciones de F10/ADR-001 §2
+  bloquea exactamente eso y conserva el caso B (historia anterior a la
+  reclamación). El resto de ADR-006 —regla de caja, protocolo de identidad,
+  carreras, hecho de baja como patrón— sigue en pie y F10/ADR-001 lo cita.
 - **F09/ADR-009 — estado:** validado en el iPhone por el propietario el
   2026-09-14 (`PROJECT_STATE.md`), aunque su cabecera diga «sin validar en
   dispositivo». **Guarda de catálogo:** «Consecuencias» cita una guarda
@@ -74,7 +79,12 @@ sustituye se cita.
   en `core.current_effect`). **Hallazgo (F10.A0):** `sec.payment_counterpart_name`
   publica el nombre crudo del origen fusionado como contraparte de un pago,
   mientras el ADR afirma que se publica por canónico; registrado como
-  discrepancia, a resolver en F10.B0 (corrección o anotación).
+  discrepancia, a resolver en F10.B0 (corrección o anotación). **Superado por
+  [F10/ADR-001](../F10/ADR-001-link-instance-lifecycle.md) §4 (Aceptado,
+  2026-09-14):** el bloqueo **absoluto** `UNCLAIM_BLOCKED_MERGE` —rehusar
+  dejar la identidad por la mera existencia de una fusión— deja de aplicar; una
+  fusión previa a la instancia forma parte de su línea base y no bloquea, y una
+  fusión durante la instancia bloquea sólo si absorbió atribución económica.
 - **F09/ADR-006 y F09/ADR-005 — «pendiente de validación visual en el
   iPhone»:** F9 cerró validada en iPhone y emulador Android (roadmap, Fase 9,
   «Estado de cierre»).

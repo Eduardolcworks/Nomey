@@ -1,6 +1,6 @@
 # F10/ADR-001 — Ciclo de vida de una instancia propia de vínculo cuenta ↔ identidad contextual
 
-- **Estado:** Propuesto
+- **Estado:** Aceptado (2026-09-14)
 - **Fecha:** 2026-09-14
 - **Alcance:** qué es una **instancia** de vínculo entre una cuenta y un
   participante de Grupo, cómo se identifica y de dónde procede, cuándo y cómo
