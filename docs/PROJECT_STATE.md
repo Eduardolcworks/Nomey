@@ -13,21 +13,21 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-09-14**, al cerrar la **Fase 9** (Grupos, gastos
-compartidos y deudas).
+Actualizado el **2026-09-14**, al abrir la **Fase 10** (F10.A0), el mismo día
+en que cerró la **Fase 9** (Grupos, gastos compartidos y deudas).
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                                                                                                  |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes). F10 y F11 **no abiertas**                             |
-| **Última fase cerrada** | **Fase 9 — Grupos, gastos compartidos y deudas**, el 2026-09-14. **Validada en iPhone (Expo Go) y en el emulador Android**                       |
-| **ADR aceptados**       | 40 de 41 (F00–F09; F00/ADR-001 sigue Propuesto), organizados por fase en `docs/adr/FNN/`                                                         |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **46 migraciones**: la última alinea el CAS del pago con la vista de saldos |
-| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver             |
-| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                                     |
+|                         |                                                                                                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes) y **Fase 10** (ciclo de vida del vínculo: F10.A0 cerrado, A1 … C0 pendientes). F11 **no abierta** |
+| **Última fase cerrada** | **Fase 9 — Grupos, gastos compartidos y deudas**, el 2026-09-14. **Validada en iPhone (Expo Go) y en el emulador Android**                                                                  |
+| **ADR aceptados**       | 40 de 41 (F00–F09; F00/ADR-001 sigue Propuesto), organizados por fase en `docs/adr/FNN/`                                                                                                    |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **46 migraciones**: la última alinea el CAS del pago con la vista de saldos                                            |
+| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver                                                        |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                                                                                |
 
 **La Fase 8 está ABIERTA.** F8.A0 aceptó
 [F08/ADR-001](adr/F08/ADR-001-native-code-model.md) y
@@ -71,7 +71,8 @@ garantías:
   el alta de un gasto y la reincorporación NO avisan**; el invariante 15 de
   `data-model.md` quedó fijado así. No hay push.
 - **Verificado:** 46 migraciones reconstruidas desde cero en una pila
-  aislada con la suite SQL completa (30/30, carreras incluidas en CI);
+  aislada con la suite SQL completa (30/30; siete scripts de carrera en CI y
+  dos —asociación y reincorporación— todavía fuera, deuda registrada en F10.A0);
   `vitest` 130 ficheros / 3737 tests; `npm run verify` limpio; validación
   manual en iPhone (Expo Go) y emulador Android: gasto pagado por otro
   miembro con el mismo resultado, reparto idéntico en los dos aparatos,
@@ -80,13 +81,49 @@ garantías:
 
 **Lo que la Fase 9 deja fuera, a propósito:** conversión monetaria (**F11**:
 `CURRENCY_CONVERSION_UNSUPPORTED`), roles dentro del ámbito (no existen;
-`core.membership` no tiene columna de rol), revocar el vínculo de otro y
-fusionar cuentas (**F10**), la transferencia ordenada desde la app (F12,
+`core.membership` no tiene columna de rol), el ciclo de vida del vínculo
+propio, la cesión consentida y las fusiones pendientes (**F10**, ahora abierta:
+ver abajo; la revocación del vínculo ajeno queda **prohibida**), la transferencia ordenada desde la app (F12,
 invariante 14) y la «liquidación sólo deuda» del escenario 4.5, que sigue en
 el writer (`record_debt_settlement`) sin superficie en la app. Trasladados
 como tareas explícitas, no como funcionalidad: la **retirada técnica de
 `api.settle_participant`** y la incidencia de **ParticipantField** (no
 reproducida).
+
+**La Fase 10 está ABIERTA (2026-09-14), y F10.A0 cerrado.** Su alcance original
+—invitación, prueba, reclamación retroactiva, fusión de duplicados— lo cerró F9,
+así que la fase se reescribió en el [roadmap](product/roadmap.md) (Fase 10) con
+un principio y doce criterios nuevos; la reconciliación, las mediciones previas
+y los insumos de sus dos ADR están en
+[`phase-10-opening.md`](architecture/phase-10-opening.md). Lo que hay que saber
+antes de tocar identidad:
+
+- **Ninguna cuenta adjudica unilateralmente la identidad de otra.** No existe
+  ni existirá en F10 revocación del vínculo ajeno, expulsión, roles ni soporte
+  de disputas; la RLS vigente ya lo impone (políticas del provisioner sobre
+  vínculo y membresía acotadas al propio actor) y F10 lo guarda en catálogo.
+- **Dejar una instancia propia de vínculo** se generaliza a cualquier origen
+  (`create`, `new`, `claim`) con una regla temporal: bloquea la caja vigente y
+  cualquier atribución económica vigente **generada durante esa instancia**; la
+  historia anterior a la instancia no bloquea. Supera F09/ADR-006 §2 en un
+  punto: hoy `unclaim` deja desprenderse de deuda nacida después de reclamar
+  (medido). Cómo se determina «nació bajo la instancia» sin depender de
+  timestamps —que no atestiguan la serialización bajo el cerrojo— lo fija
+  `F10/ADR-001` (candidato a evaluar, no decidido: línea base por instancia
+  tomada bajo el cerrojo, con estrategia demostrada para los vínculos ya
+  existentes y comparación por atribución con procedencia, nunca por neto).
+- **Cada instancia de vínculo tendrá identidad (`link_id`) y procedencia
+  (`origin_command_id`, nula si no es demostrable) separadas**; el CAS y el
+  replay se anclan a `link_id`. Todavía no existen las columnas.
+- **La cesión A → B, si entra, es atómica con prueba de un solo uso**
+  (`identity_handover`); componer «A deja la identidad → B la reclama» deja una
+  ventana de apropiación y **no se acepta como producto**. Fantasma ↔ fantasma
+  se decide en `F10/ADR-002` sobre su matriz económica (extingue las
+  obligaciones entre ambos, consolida las de terceros, reversible por lectura).
+- **Un grupo puede quedar sin ninguna cuenta miembro** (hecho heredado de F9,
+  medido): con invitación viva cualquiera recupera el acceso y nadie puede
+  revocarla; sin ella el grupo es inaccesible. F10 no lo cambia; queda
+  registrado como consecuencia que merece decisión futura.
 
 **F8.A1 dejó el contrato de entornos funcionando, y no hay ninguna build.** Las
 tres variantes se resuelven, se comparan y se exportan. Lo que hay que saber
@@ -243,8 +280,9 @@ volver a deducir:
   suma con signo. **`loaded` es «llegó el dato», nunca «hay red»**, y por eso un
   refresco que falla sobre un snapshot conservado no vuelve a desconocer nada.
   El cero de hoy es derivado, no supuesto: una dimensión de deuda sólo llega a un
-  ámbito personal por `core.participant_user_link`, que no tiene ruta de
-  escritura para el cliente ni para el escritor y está vacía hasta F10. La lógica
+  ámbito personal por `core.participant_user_link`, que en F8.A4 no tenía ruta
+  de escritura y hoy la escriben `create_group`, `redeem_invitation` y
+  `associate_participant` (F9). La lógica
   vive en `src/features/personal/debt-display.ts`, y un texto ilegible es
   desconocido y nunca cero — que es donde `toMinor` no sirve.
 - **`supabase start` con éxito no demuestra que Kong esté en pie.** El stack
@@ -610,10 +648,11 @@ completada una sola vez por el writer (`sec.incorporate_participant_cash`)
 sólo en el Personal del actor.
 
 **Todo lo que lee o cambia identidad de grupo toma el cerrojo de rango 1**
-(`sec.lock_participant_claims`, migración `20260912150000`): diez funciones,
-entre ellas `annul_operation`, `record_debt_settlement` y
-`record_group_payment`; la guarda de catálogo `group-identity-lock.sql` lo
-vigila. **Y la obligación de quien salió es intocable** (F09/ADR-008): un alta
+(`sec.lock_participant_claims`, migración `20260912150000`): once funciones,
+entre ellas `annul_operation`, `record_debt_settlement`,
+`record_group_payment` y `associate_participant`; la guarda de catálogo
+`group-identity-lock.sql` vigila diez de ellas —`associate_participant` falta
+de su lista, deuda registrada en F10.A0—. **Y la obligación de quien salió es intocable** (F09/ADR-008): un alta
 retro-fechada, una corrección o una anulación de gasto que cambie lo que se
 le atribuye —deuda por par, cuota o caja— se rehúsa entera con
 `DEPARTED_OBLIGATION_CHANGED · 422`; concepto, categoría y cambios sólo entre
@@ -888,7 +927,8 @@ la misma: se trocea siempre, y la cifra la valida en vez de cambiarla.
 ## Invariantes que una fase futura no debe romper
 
 1. **El cliente no escribe efectos.** Envía intención; el servidor deriva. Las
-   siete funciones son la única entrada de escritura.
+   nueve funciones de clase, más `annul_operation`, son la única entrada de
+   escritura contable.
 2. **Los importes son enteros exactos en unidad mínima y nunca cruzan JSON como
    número.** Entran como string, salen como texto.
 3. **Todo importe lleva su definición monetaria**, cuya identidad es un `UUID`,
@@ -956,7 +996,7 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 | ~~Unión por enlace o QR, y edición del perfil~~ | **HECHO** — `update_group_profile` (F09/ADR-001), `redeem_invitation` (F09/ADR-004); **Compartir grupo** con QR y hoja del sistema sobre la misma invitación                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **Modo Pareja** completo, con su `Cierre`       | Su fase                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ~~Mecanismo de claim~~                          | **Cerrado por F09/ADR-004**: la invitación autoriza; reclamar = vincular                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Revocación de un vínculo y fusión de duplicados | **Rectificar la propia reclamación: HECHO** — `api.unclaim_participant` (F09/ADR-006). **Asociar un fantasma a la propia cuenta: HECHO** — `api.associate_participant` (F09/ADR-009, Aceptado; validado en iPhone). Revocar por otro y fusionar cuentas: **F10**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Ciclo de vida del vínculo y fusiones            | **Rectificar la propia reclamación: HECHO** — `api.unclaim_participant` (F09/ADR-006). **Asociar un fantasma a la propia cuenta: HECHO** — `api.associate_participant` (F09/ADR-009, Aceptado; validado en iPhone). **F10 (abierta)**: dejar cualquier instancia propia de vínculo, cesión consentida atómica o su aplazamiento, fantasma ↔ fantasma por decidir; **revocar el vínculo de otro está prohibido** ([`phase-10-opening.md`](architecture/phase-10-opening.md))                                                                                                                                                                                                                                                                                                                                                |
 | Notificación                                    | **Hecha en F9** — `core.group_notice`, una relación con seis `kind` (ediciones, perfil, salidas, liquidaciones, pagos, anulaciones); campana del cliente (F09/ADR-003 §7). **Sin aviso por alta de gasto ni reincorporación** (decisión de producto, 2026-09-14); sin push                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ~~Acceso residual~~                             | **Cerrado por F09/ADR-003**: no existe. Quien sale conserva su Personal por vínculo y no ve nada más del grupo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Salir de un grupo y pagos registrados           | **HECHO** — `api.leave_group` a neto cero con novación de salida (F09/ADR-007 C8, `LEAVE_BLOCKED_DEBT`), `api.record_group_payment` (clase `group_payment`, sin edición, anulable por las partes), Pagos sugeridos «Los míos»/«Todos» con «Saldado» (F09/ADR-007, Aceptado); la obligación de quien salió es intocable (F09/ADR-008, Aceptado). `api.settle_participant` queda sin UI para el estado heredado. **Volver tras salir: HECHO** — `redeem_invitation` con `choice = 'rejoin'` recupera la identidad de entonces y abre un periodo desde hoy (F09/ADR-010, Aceptado; migración `20260914140000` aplicada a la base local y validada en el iPhone). La guarda de sobreliquidación sólo rehúsa lo que empeora el par (`20260914150000`, aplicada a la base local). **Pendiente:** validar en dispositivo lo demás |
@@ -983,15 +1023,15 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 > fallo, reintentaría, y la primera llamada terminaría después — dos altas y una
 > respuesta que nadie sabe interpretar.
 
-> **Lo que sigue sin provisioning, y lo que ya no.** **El Modo Personal tiene
-> ruta** desde F6.A, y la app la usa desde F6.E. **El Grupo también la tiene
-> desde F9**: `api.create_group` crea ámbito, membresía, perfil, el participante
-> del creador con su vínculo y el resto de participantes, en una sola
-> transacción. Lo que sigue faltando es el **vínculo de un participante con OTRA
-> cuenta** —la reclamación, cuyo mecanismo es de F10— y las **presencias**, así
-> que `record_group_expense` y las dos liquidaciones **todavía no son
-> alcanzables de extremo a extremo** por un cliente real: los checks siguen
-> sembrando ese estado como `postgres`.
+> **Ya no queda provisioning sin ruta.** **El Modo Personal tiene ruta** desde
+> F6.A, y la app la usa desde F6.E. **El Grupo también la tiene desde F9**:
+> `api.create_group` crea ámbito, membresía, perfil, el participante del creador
+> con su vínculo y el resto de participantes, en una sola transacción; la
+> **reclamación** (`redeem_invitation`, F09/ADR-004) crea el vínculo de un
+> participante con otra cuenta y las **presencias** las abren y cierran los
+> comandos de F9. `record_group_expense`, `record_group_payment` y las dos
+> liquidaciones son alcanzables de extremo a extremo por un cliente real; lo
+> que F10 abre es el **ciclo de vida** del vínculo, no su creación.
 
 ---
 
@@ -1087,27 +1127,28 @@ una feature escribible real.
 
 ## Qué consultar, y cuándo
 
-| Necesitas…                                      | Lee                                                                                                  |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Reglas del repositorio y del agente             | [`AGENTS.md`](../AGENTS.md)                                                                          |
-| Semántica contable y escenarios                 | [`architecture/data-model.md`](architecture/data-model.md)                                           |
-| Dónde vive cada concepto del modelo             | [`architecture/model-coverage.md`](architecture/model-coverage.md)                                   |
-| Una decisión y su porqué                        | [`adr/README.md`](adr/README.md) — índice general y tabla de equivalencias con la numeración antigua |
-| Secuencia de fases y criterios de cierre        | [`product/roadmap.md`](product/roadmap.md)                                                           |
-| Vocabulario                                     | [`product/glossary.md`](product/glossary.md)                                                         |
-| Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                                         |
-| **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · F08/ADR-001 · F08/ADR-002                       |
-| **Continuar la Fase 9**                         | [`product/roadmap.md`](product/roadmap.md), Fase 9 · F09/ADR-001 · F09/ADR-002 · F07/ADR-001         |
-| Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)                                 |
-| Cómo quedó la Fase 5, ya cerrada                | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)                                 |
-| Cómo quedó la Fase 4, ya cerrada                | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                                           |
-| Cómo se usan i18n y el formateo                 | [`src/lib/README.md`](../src/lib/README.md)                                                          |
-| Levantar el entorno, migrar, ejecutar checks    | [`runbooks/local-setup.md`](runbooks/local-setup.md)                                                 |
-| **Arrancar, resolver o verificar un entorno**   | [`runbooks/environments.md`](runbooks/environments.md)                                               |
-| **Preparar la cadena nativa y generar Android** | [`runbooks/android-build.md`](runbooks/android-build.md)                                             |
-| **Por qué** la Fase 3 quedó como quedó          | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico                   |
+| Necesitas…                                      | Lee                                                                                                                          |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Reglas del repositorio y del agente             | [`AGENTS.md`](../AGENTS.md)                                                                                                  |
+| Semántica contable y escenarios                 | [`architecture/data-model.md`](architecture/data-model.md)                                                                   |
+| Dónde vive cada concepto del modelo             | [`architecture/model-coverage.md`](architecture/model-coverage.md)                                                           |
+| Una decisión y su porqué                        | [`adr/README.md`](adr/README.md) — índice general y tabla de equivalencias con la numeración antigua                         |
+| Secuencia de fases y criterios de cierre        | [`product/roadmap.md`](product/roadmap.md)                                                                                   |
+| Vocabulario                                     | [`product/glossary.md`](product/glossary.md)                                                                                 |
+| Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                                                                 |
+| **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · F08/ADR-001 · F08/ADR-002                                               |
+| **Continuar la Fase 10**                        | [`product/roadmap.md`](product/roadmap.md), Fase 10 · [`architecture/phase-10-opening.md`](architecture/phase-10-opening.md) |
+| Cómo quedó la Fase 9, ya cerrada                | [`architecture/phase-9-progress.md`](architecture/phase-9-progress.md) · roadmap, Fase 9, «Estado de cierre»                 |
+| Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)                                                         |
+| Cómo quedó la Fase 5, ya cerrada                | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)                                                         |
+| Cómo quedó la Fase 4, ya cerrada                | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                                                                   |
+| Cómo se usan i18n y el formateo                 | [`src/lib/README.md`](../src/lib/README.md)                                                                                  |
+| Levantar el entorno, migrar, ejecutar checks    | [`runbooks/local-setup.md`](runbooks/local-setup.md)                                                                         |
+| **Arrancar, resolver o verificar un entorno**   | [`runbooks/environments.md`](runbooks/environments.md)                                                                       |
+| **Preparar la cadena nativa y generar Android** | [`runbooks/android-build.md`](runbooks/android-build.md)                                                                     |
+| **Por qué** la Fase 3 quedó como quedó          | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico                                           |
 
-**Evidencia empírica:** `supabase/e11/` … `supabase/e20/`. Son sondas
+**Evidencia empírica:** `supabase/e11/` … `supabase/e22/`. Son sondas
 desechables sobre maquetas y **nunca deben convertirse en migración**.
 
 ---

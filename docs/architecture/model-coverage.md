@@ -137,13 +137,15 @@ traer el estado del ámbito, la bilateralidad y el reparto final.
 | Participante histórico  | **Derivable**  | Los efectos apuntan al participante; permanece siempre |
 | Reclamación retroactiva | **Proyección** | `api.claimed_dimension()` (F03/ADR-013)                |
 
-**Aplazado — el mecanismo de claim.**
-Qué constituye prueba de autorización para vincular un participante con una
-cuenta: token de un solo uso, invitación verificada, aprobación de un miembro, o
-una combinación. También la revocación, el _unlink_ y la fusión de participantes.
-→ No es de F3: F03/ADR-009 fija el **invariante** —el claim exige prueba— y delega
-expresamente el mecanismo. → Queda en **F10**, sobre relaciones que ya existen.
-`core.participant_user_link` no tiene ruta de escritura por eso.
+**~~Aplazado~~ Resuelto en F9 — el mecanismo de claim.** La prueba es una
+invitación válida (F09/ADR-004); reclamar es vincular más membresía, sin tocar
+hechos; la rectificación propia (F09/ADR-006), la asociación de un fantasma
+(F09/ADR-009) y la reincorporación (F09/ADR-010) también están.
+`core.participant_user_link` la escriben `create_group`, `redeem_invitation` y
+`unclaim_participant`, siempre para el propio actor. **Queda en F10** el ciclo
+de vida del vínculo propio, su identidad y procedencia, la cesión consentida
+atómica y la fusión fantasma ↔ fantasma; **revocar el vínculo de otro está
+prohibido** por principio ([`phase-10-opening.md`](phase-10-opening.md)).
 
 **Aplazado — acceso residual.**
 Qué puede ver y hacer quien abandona un ámbito con saldo distinto de cero. → No
@@ -247,8 +249,8 @@ compuesta impide cambiar la moneda base con efectos existentes.
 
 **Aplazado — creación de Grupos, participantes y periodos.**
 No es de F3: F3 cierra **la frontera de escritura contable**, y crear un ámbito no
-es un hecho contable. Además, la creación de un participante y su vínculo dependen
-del mecanismo de claim, que es F10. → Queda en **F9** y **F10**.
+es un hecho contable. → **Resuelto en F9**: `api.create_group` y
+`api.redeem_invitation` crean grupo, participantes, vínculos y periodos.
 
 **El Modo Personal ya no está aquí: lo resolvió la Fase 6.A.**
 [F06/ADR-001](../adr/F06/ADR-001-personal-provisioning.md) trae `api.ensure_personal_scope`,
@@ -257,10 +259,11 @@ que crea el ámbito **y su membresía en la misma transacción**, bajo un tercer
 y eso es una decisión: los efectos personales llevan participante legítimamente
 nulo y la atribución es por propiedad (F03/ADR-013). Añadirlo en F10 sería aditivo.
 
-> **Consecuencia que conviene no olvidar:** las tres clases de 7b siguen sin ser
-> alcanzables de extremo a extremo por un cliente real, porque necesitan un Grupo
-> y participantes. Los checks siembran ese estado como `postgres`. **El Modo
-> Personal ya no lo necesita**: el check HTTP crea el suyo por la ruta real.
+> **Ya no hay clase inalcanzable por falta de provisioning:** desde F9 un
+> cliente real crea el grupo y sus participantes por la ruta real, y
+> `scripts/http-boundary-check.sh` ejercita la frontera de F9 con JWT real.
+> Algunos checks siguen sembrando estados como `postgres` cuando necesitan una
+> forma que ningún comando produce (p. ej. el legado de F09/ADR-003).
 
 > **Y un detalle que costó un fallo descubrir:** la **membresía del propio Modo
 > Personal no es redundante con la propiedad**. `owner_user_id` es atribución
@@ -316,19 +319,19 @@ persistido, es derivable, tiene proyección, vive en la frontera, o está aplaza
 
 Los aplazados, en una línea cada uno:
 
-| Aplazado                                       | Destino              |
-| ---------------------------------------------- | -------------------- |
-| Modo Pareja completo (4.9, 4.10, 4.12–4.14)    | Su fase              |
-| Atributos de Grupo                             | Su fase              |
-| Resolución autoritativa del FX                 | Decisión de producto |
-| ~~Siembra del catálogo monetario~~             | **Resuelto en F6.A** |
-| ~~Provisioning del Modo Personal~~             | **Resuelto en F6.A** |
-| Provisioning de Grupos y participantes         | F9 y F10             |
-| Mecanismo de claim, revocación y fusión        | **F10**              |
-| Acceso residual                                | Abierto              |
-| Notificación                                   | Abierto              |
-| ~~Anulación como concepto distinto~~           | **Resuelto en F6.C** |
-| Idempotencia de otros orígenes                 | Abierto              |
-| Previsualización de correcciones               | Fase de pantallas    |
-| ~~Clase `ingreso` sin ruta~~                   | **Resuelto en F6.B** |
-| Conflicto por configuración monetaria anterior | Abierto              |
+| Aplazado                                                                                | Destino                      |
+| --------------------------------------------------------------------------------------- | ---------------------------- |
+| Modo Pareja completo (4.9, 4.10, 4.12–4.14)                                             | Su fase                      |
+| Atributos de Grupo                                                                      | Su fase                      |
+| Resolución autoritativa del FX                                                          | Decisión de producto         |
+| ~~Siembra del catálogo monetario~~                                                      | **Resuelto en F6.A**         |
+| ~~Provisioning del Modo Personal~~                                                      | **Resuelto en F6.A**         |
+| ~~Provisioning de Grupos y participantes~~                                              | **Resuelto en F9**           |
+| ~~Mecanismo de claim~~ · ciclo de vida del vínculo, cesión y fusión fantasma ↔ fantasma | **Resuelto en F9** · **F10** |
+| Acceso residual                                                                         | Abierto                      |
+| Notificación                                                                            | Abierto                      |
+| ~~Anulación como concepto distinto~~                                                    | **Resuelto en F6.C**         |
+| Idempotencia de otros orígenes                                                          | Abierto                      |
+| Previsualización de correcciones                                                        | Fase de pantallas            |
+| ~~Clase `ingreso` sin ruta~~                                                            | **Resuelto en F6.B**         |
+| Conflicto por configuración monetaria anterior                                          | Abierto                      |
