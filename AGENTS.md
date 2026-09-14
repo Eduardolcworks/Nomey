@@ -270,11 +270,26 @@ Three invariants, all decided:
 - **Presence periods** are separate from user membership, and **claiming
   establishes identity, not access**.
 
-**Still open (ADR), delegated to F10:** what constitutes proof — a single-use
-invitation token, a verified email invitation issued by an existing member,
-explicit approval by a member, or a combination; **revocation and unlink**; and
-**duplicate handling and participant-to-participant merges**. The invariant is
-the proof requirement, not the mechanism.
+**Settled by F9 — [F09/ADR-004](docs/adr/F09/ADR-004-group-invitations.md),
+[F09/ADR-006](docs/adr/F09/ADR-006-unclaim-participant.md),
+[F09/ADR-009](docs/adr/F09/ADR-009-associate-ghost-to-own-account.md) and
+[F09/ADR-010](docs/adr/F09/ADR-010-rejoin-after-departure.md).** The proof is a
+valid invitation (opaque token, hash only, multi-use, 1–30 days); claiming is
+linking plus membership and touches no accounting fact; the claimant may undo
+its own claim; a member may fold an account-less ghost into its own identity
+(`core.participant_merge`, resolved in `core.current_effect`); an account that
+left may rejoin with its identity.
+
+**Open in F10 (ADR), under one product principle: no account unilaterally
+adjudicates another account's identity.** There is no revocation of someone
+else's link, no expulsion and no moderator role — the provisioner's policies
+on the link and the membership are already self-only, and F10 guards that in
+the catalogue. What F10 decides: leaving **any** own link instance under a
+temporal rule (cash and any economic attribution born during that instance
+block; earlier history does not), a stable identity and a separate provenance
+for each link instance, a consented **atomic** identity handover between two
+accounts or its explicit deferral, and whether two ghosts may be merged. Start
+at [`docs/architecture/phase-10-opening.md`](docs/architecture/phase-10-opening.md).
 
 ### 6. Internationalisation
 
@@ -502,12 +517,21 @@ comment; the permanent equivalence table is in `docs/adr/README.md`.
 > surface, the invariants a future phase must not break, and what is deferred.
 > This section keeps the detail that only matters while touching the data layer.
 
-**Phases 0 through 7 are CLOSED.** Phase 3 (persistence and data boundary) closed
-on 2026-08-27, Phase 5 (identity and session) on 2026-08-28, Phase 6 (Modo
-Personal) on 2026-09-03 and Phase 7 (quick entry, offline and sync) on
-2026-09-04 — **the latter validated on Android; iOS is not physically tested**.
-**the 31 ADRs of phases F00–F08 are accepted** (see `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a
-real local Supabase stack.
+**Phases 0 through 7 and 9 are CLOSED.** Phase 3 (persistence and data boundary)
+closed on 2026-08-27, Phase 5 (identity and session) on 2026-08-28, Phase 6
+(Modo Personal) on 2026-09-03, Phase 7 (quick entry, offline and sync) on
+2026-09-04 and Phase 9 (groups, shared expenses and debts) on 2026-09-14 —
+validated on an iPhone (Expo Go) and the Android emulator. **40 of the 41 ADRs
+of phases F00–F09 are accepted** (F00/ADR-001 is still Proposed; see
+`docs/adr/README.md`); F02/ADR-001 met its E11 gate against a real local
+Supabase stack.
+
+**Phase 10 is OPEN** (2026-09-14) — the lifecycle of the account ↔ participant
+link, under the principle that **no account unilaterally adjudicates another
+account's identity** (§5). F10.A0 reconciled its original scope, which F9 had
+already closed, and rewrote the closure criteria in the
+[roadmap](docs/product/roadmap.md); start at
+[`docs/architecture/phase-10-opening.md`](docs/architecture/phase-10-opening.md).
 
 **Phase 8 is OPEN** — internal distribution and environments. It is split into
 **F8.A** (now), **F8.B** (Apple, a mandatory gate before F14) and **F8.C**
@@ -542,26 +566,26 @@ Two artefacts closed Phase 5 and are worth knowing about:
   longer excludes GoTrue.
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
-and eleven reproducible probes that measured the decisions behind the schema
-(`supabase/e11/` … `supabase/e21/`, **none of them a migration**). A pure
-reference implementation of the financial domain in `src/domain/`, with shared
-test vectors in `tests/vectors/` and a Vitest suite — 116 tests. **The
-authoritative server write boundary will have to reproduce those vectors
-exactly** (F01/ADR-001 §7).
+and twelve reproducible probes that measured the decisions behind the schema
+(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **46
+migrations** rebuilt from zero in CI with 30 SQL checks and seven real-session
+race scripts. A pure reference implementation of the financial domain in
+`src/domain/`, with shared test vectors in `tests/vectors/` that the server
+boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 130 files.
+Screens with economic function exist for the Modo Personal (F6, F7) and for
+Groups (F9): creating, inviting, shared expenses, balances, declared payments,
+leaving and rejoining.
 
-**What does not exist yet.** No screens with economic function, and no
-provisioning for Groups — nothing creates a group, a participant, a
-participant-account link or a presence period. The writer assumes those rows
-exist because the phase that creates them is a later one, and the database checks
-seed them as `postgres`.
-
-**The Modo Personal has a route, and the app does not use it yet.**
-`api.ensure_personal_scope` creates the scope and its membership under a third
-role, `nomey_provisioner` — [F06/ADR-001](docs/adr/F06/ADR-001-personal-provisioning.md).
-It is safe, idempotent and verified over HTTP with a real JWT, but **no client
-code calls it**, so a freshly confirmed account still has no personal scope until
-something does. Wiring it into the authenticated lifecycle is F6.E, and it comes
-before Inicio consumes the scope.
+**Provisioning is complete for what exists.** `api.ensure_personal_scope`
+creates the personal scope and its membership under the third role,
+`nomey_provisioner` ([F06/ADR-001](docs/adr/F06/ADR-001-personal-provisioning.md)),
+and the app calls it in its authenticated lifecycle since F6.E.
+`api.create_group` creates the group, its profile, the creator's participant
+with its link, the other participants and their presence periods in one
+transaction (F09/ADR-001); `api.redeem_invitation` creates the link of a
+participant with **another** account, or a new participant, or reopens a
+presence on rejoin (F09/ADR-004, F09/ADR-010). The database checks still seed
+some states as `postgres` where a check needs a shape no command produces.
 
 **Inicio shows real money, and the app finally provisions the scope.** F6.E
 wired `api.ensure_personal_scope` — F6.A left it ready and nothing called it —
@@ -656,7 +680,7 @@ writer of one class can no longer correct an operation of another**, guarded in
 [F06/ADR-002](docs/adr/F06/ADR-002-version-content-and-time.md) and
 [F06/ADR-003](docs/adr/F06/ADR-003-category-catalogue.md).
 
-**Migrations have started.** `supabase/migrations/` holds eighteen. The first is the
+**Migrations have started.** `supabase/migrations/` holds 46. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is F03/ADR-011: `api` is served and `public`, `core` and `sec`
@@ -707,15 +731,21 @@ any two of them is the mistake F03/ADR-009 exists to prevent:
   a GiST exclusion on overlaps. The grain follows its only consumer: eligibility
   is evaluated against an operation's `effective_date`, which is a `date`.
   A period may end exactly when the next one starts.
-- **Nobody can write either relation yet** — not the client, not the writer.
-  That is deliberate: creating a link needs proof of authorization, whose
-  mechanism belongs to F10, and opening or closing periods belongs to
-  participant lifecycle commands that do not exist. They are empty and stay
-  empty until their command arrives.
-- **Neither is readable by the client either.** The link would reveal which
-  global account is behind a contextual identity, and the open delegation about
-  which effects are "mine" (see the handoff, §11 ter) is what should decide that
-  surface.
+- **Both relations are written only by their own commands, under the
+  provisioner, and only for the actor itself.** The link is created by
+  `create_group`, `redeem_invitation` (claim or new) and never for a third
+  party — every provisioner policy on it and on `core.membership` is
+  `user_id = sec.request_actor_id()` — and deleted only by the claimant's own
+  `unclaim_participant` (F09/ADR-006). Periods are opened by `create_group` and
+  `redeem_invitation` and closed by `leave_group` and the retirement core; the
+  writer may close them under a membership policy (F09/ADR-005). **Nothing
+  lets one account alter another account's link or membership**, and F10 keeps
+  it that way (§5).
+- **The client never reads either relation.** It sees `is_linked`, `is_self`
+  and, only on its own row, `claim_command_id` through `api.group_participant`;
+  which global account is behind a contextual identity is never published
+  (F03/ADR-009 §1). "Which effects are mine" is answered by
+  `api.claimed_dimension()` and the reduced definers of F9.
 - **`btree_gist`'s production preflight is still open.** Supabase's public docs
   do not enumerate it, so availability on a target project is measured, not
   assumed. The runbook carries the query to run before any real deploy.
@@ -781,10 +811,13 @@ DEFINER` owned by `postgres`, takes no parameters, and filters by link **in
 - **`src/types/database.ts` is generated over `api`**, never hand-written. Every
   monetary field comes out as `string`.
 
-**The authoritative writer is complete.** Seven functions — `record_adjustment`,
-`record_personal_expense`, `record_external_transfer`,
-`record_internal_transfer`, `record_group_expense`, `record_debt_settlement` and
-`record_settlement_by_transfer` — are the only way anything gets written. They
+**The authoritative writer is complete.** Nine class functions —
+`record_adjustment`, `record_personal_expense`, `record_personal_income`,
+`record_external_transfer`, `record_internal_transfer`, `record_group_expense`,
+`record_debt_settlement`, `record_settlement_by_transfer` and
+`record_group_payment` — plus `annul_operation`, which is not a class, are the
+only way anything accounting gets written (the seven below are the F3 set; F6
+and F9 added the other two). They
 are `SECURITY DEFINER` **owned by `nomey_writer`** — the opposite of
 `api.claimed_dimension()`, and deliberately so: a read boundary must cross RLS,
 a write boundary must stay under it (E16). Do not unify them.

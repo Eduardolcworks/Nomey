@@ -37,3 +37,44 @@ Se citan, no se copian ni se redefinen:
 - [F03/ADR-013](../F03/ADR-013-economic-attribution.md) — Atribución económica de efectos a un usuario
 - [F06/ADR-006](../F06/ADR-006-annulment.md) — Anulación de una operación
 - [F07/ADR-001](../F07/ADR-001-offline-command-queue-and-optimistic-projection.md) — Cola de escritura sin conexión, durabilidad de la clave y proyección optimista
+
+## Notas posteriores al cierre de la fase
+
+Los ADR aceptados no se editan; lo que un ADR posterior o el cierre de la
+fase dejó superado o precisado se anota aquí, con fecha, y el ADR que lo
+sustituye se cita.
+
+- **F09/ADR-004 §3 — emisión, caducidad y revocación: CONFIRMADO por producto
+  el 2026-09-14 tal como está implementado.** Cualquier miembro emite y revoca ·
+  multiuso hasta caducar o revocarse · 7 días por defecto, 1–30 · el token se
+  enseña una sola vez (`20260911150000`; `group-invitations.sql` B2/B4). La
+  cabecera del ADR que dice «pendiente de confirmación» queda resuelta por esta
+  nota. Consecuencia registrada en F10.A0: una invitación viva es la única llave
+  de un grupo sin miembros.
+- **F09/ADR-004 §5 («Reincorporarse sigue en F10») y «Fuera de alcance»
+  (reincorporación, compartir la invitación):** superados dentro de F9.
+  Compartir grupo (QR y hoja del sistema) se hizo en el bloque siguiente; la
+  reincorporación la decide [F09/ADR-010](ADR-010-rejoin-after-departure.md).
+  «Deshacer un vínculo erróneo» lo cubre [F09/ADR-006](ADR-006-unclaim-participant.md)
+  para la propia reclamación; la revocación por otro **no llegará**: está
+  prohibida por principio de producto (F10).
+- **F09/ADR-006 §2 (caso C) — a superar por `F10/ADR-001`:** hoy la
+  rectificación se permite aunque durante el vínculo se haya generado deuda
+  nueva que nombra al participante (medido en F10.A0: el reclamante se
+  desprende de una deuda nacida después de reclamar y vuelve como nuevo). La
+  regla temporal de obligaciones aprobada el 2026-09-14 bloquea exactamente
+  eso y conserva el caso B (historia anterior a la reclamación). El ADR de F10
+  cita este punto y no reescribe ADR-006. Su alcance «no cubre al creador ni a
+  quien entró como nuevo» también se amplía allí.
+- **F09/ADR-009 — estado:** validado en el iPhone por el propietario el
+  2026-09-14 (`PROJECT_STATE.md`), aunque su cabecera diga «sin validar en
+  dispositivo». **Guarda de catálogo:** «Consecuencias» cita una guarda
+  «ninguna agregación por participante sin `canonical_participant`»; **no
+  existe**, y el propio cuerpo explica por qué no hace falta (la resolución vive
+  en `core.current_effect`). **Hallazgo (F10.A0):** `sec.payment_counterpart_name`
+  publica el nombre crudo del origen fusionado como contraparte de un pago,
+  mientras el ADR afirma que se publica por canónico; registrado como
+  discrepancia, a resolver en F10.B0 (corrección o anotación).
+- **F09/ADR-006 y F09/ADR-005 — «pendiente de validación visual en el
+  iPhone»:** F9 cerró validada en iPhone y emulador Android (roadmap, Fase 9,
+  «Estado de cierre»).
