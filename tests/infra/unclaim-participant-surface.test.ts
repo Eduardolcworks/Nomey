@@ -122,7 +122,7 @@ describe('el servidor', () => {
     }
     expect(CHECK.trim().endsWith('rollback;')).toBe(true);
     expect(GUARD).toContain("('api.unclaim_participant'),");
-    expect(GUARD).toContain("('api.record_group_payment')) as t(name)");
+    expect(GUARD).toContain("('api.record_group_payment'),");
     expect(RACE).toContain('select api.unclaim_participant(');
     expect(RACE).not.toContain('raise notice');
     expect(CI).toContain('supabase/checks/unclaim-evidence.sql');

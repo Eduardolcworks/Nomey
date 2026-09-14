@@ -52,9 +52,13 @@ delete from core.split_participant where scope_id = '${G}';
 delete from core.split where scope_id = '${G}';
 delete from core.effect where scope_id in ('${G}','${PSA}','${PSB}');
 delete from core.client_command where created_by in ('${UA}','${UB}') and command_type <> 'group.create';
+-- F10/ADR-001 (20260915120000): la linea base de una instancia referencia versiones
+-- (insert-only): se borra como postgres antes que ellas. Los vinculos y sus sujetos
+-- se conservan entre carreras; los borra el limpiado final.
+delete from core.link_baseline b using core.operation o where o.id = b.operation_id and o.created_by in ('${UA}','${UB}');
 delete from core.operation_version where created_by in ('${UA}','${UB}');
 delete from core.operation where created_by in ('${UA}','${UB}');
-delete from core.provisioning_command where created_by = '${UB}';
+delete from core.provisioning_command where created_by = '${UB}' and command_type <> 'invitation.redeem'; -- el origen de su instancia (F10/ADR-001) se conserva con el vinculo
 delete from core.membership where scope_id = '${G}' and user_id = '${UB}';
 delete from core.participant_period where participant_id = '${PB}';
 insert into core.participant_period (participant_id, valid_from, valid_until) values ('${PB}', current_date - 10, null);

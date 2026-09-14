@@ -369,9 +369,18 @@ jobs:
       - name: Oversettlement delta checks
         run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/oversettlement-delta.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
 
-      # Catalogue guard: the live bodies of the ten functions that read or
-      # change identity (now including annul_operation, record_debt_settlement
-      # and record_group_payment) take the rank-1 lock in protocol order.
+      # Link instance (F10/ADR-001 §1, §3, §7; migration 20260915120000): link_id
+      # and origin on every link, S0 and baseline written by every link creation
+      # under the rank-1 lock, claim baseline captured from real history, the
+      # three new relations insert-only, scope and owner integrity enforced by
+      # policy, participant_unlink closed until its command exists.
+      - name: Link instance schema and creations
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/link-instance.sql
+
+      # Catalogue guard: the live bodies of the twelve functions that read or
+      # change identity (annul_operation, record_debt_settlement,
+      # record_group_payment, associate_participant and create_group included)
+      # take the rank-1 lock in protocol order.
       - name: Group identity lock guard
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/group-identity-lock.sql
 
