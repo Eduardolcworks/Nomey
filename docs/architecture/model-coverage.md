@@ -222,9 +222,20 @@ es por moneda y par. **La implementación es de F11.B**: hasta entonces, las nue
 funciones de escritura que llaman a `sec.assert_no_conversion` —y
 `sec.incorporate_participant_cash`, que lanza el mismo código— siguen exigiendo
 que la moneda sea la base de **todos** los ámbitos alcanzados y, si no,
-devuelven `CURRENCY_CONVERSION_UNSUPPORTED · 422` sin escribir nada. Qué pasa
-con la caja incorporada al asociar un fantasma sigue sin decidir (F11.D,
-[seguimiento de F11](phase-11-progress.md#decisiones-abiertas)).
+devuelven `CURRENCY_CONVERSION_UNSUPPORTED · 422` sin escribir nada. Tras F11.B
+esa negativa sólo desaparece para el gasto y el ingreso personales; las demás
+clases la conservan, y el gasto de grupo en moneda extranjera espera a F11.D.
+
+**Aplazado — dos casos de la conversión sin decidir.** _(F11.D)_ → Qué hace
+`sec.incorporate_participant_cash` con la caja de un gasto de grupo en otra
+moneda pagado por un fantasma que se asocia (hoy rechaza si las bases difieren y,
+con bases iguales, escribiría el importe original como si fuera la base), y cómo
+se traslada a la base del Grupo un `exact_amounts` declarado en moneda
+extranjera. → Ni F11/ADR-001 ni ninguna decisión de producto los cubre. → Quedan
+**abiertos en F11.D**, y F11.B no habilita moneda extranjera en
+`record_group_expense` hasta decidirlos: es una condición de seguridad, no una
+decisión sobre el comportamiento
+([seguimiento de F11](phase-11-progress.md#decisiones-abiertas)).
 
 > **Consecuencia medida, todavía vigente:** `core.frozen_conversion` existe, con
 > todas sus restricciones, y **no tiene ruta de escritura**. El writer no conserva
@@ -295,20 +306,20 @@ no altera `core.client_command`.
 
 Ninguno queda sin sitio. Resumen de dónde vive cada uno:
 
-| Invariantes          | Dónde se sostienen                                                                                                                                               |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 · 2 · 22 · 23 · 24 | **Estructural**: `bigint` en unidad mínima, FK de moneda                                                                                                         |
-| 3 · 9 · 25           | **Runtime**: reparto y conversión, con vectores compartidos                                                                                                      |
-| 4 · 5 · 6 · 8 · 20   | **Runtime**: qué efectos produce cada clase                                                                                                                      |
-| 7                    | **Derivable**: lista de admitidos de estadísticas                                                                                                                |
-| 10                   | **Estructural**: el autor no entra en la derivación                                                                                                              |
-| 11                   | **Persistido**: versiones inmutables + proyección canónica                                                                                                       |
-| 12                   | **Estructural**: FK compuesta `(scope, currency)`                                                                                                                |
-| 13 · 14 · 15         | 13 y 14 **runtime**; **15 aplazado** (notificación)                                                                                                              |
-| 16 · 17 · 18         | **Aplazados**: Modo Pareja                                                                                                                                       |
-| 19                   | **Runtime** para el origen cliente; **aplazado** el resto                                                                                                        |
-| 21                   | **Fuera del dominio**: monetización (§12)                                                                                                                        |
-| 26 · 27 · 28         | 26 **decidido en F02/ADR-001 §5**; 27 y 28 **decididos en F11/ADR-001** (27 en §3 y §8, 28 en §10); implementación en F11.B y F11.C; 27 parcialmente estructural |
+| Invariantes          | Dónde se sostienen                                                                                                                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 · 2 · 22 · 23 · 24 | **Estructural**: `bigint` en unidad mínima, FK de moneda                                                                                                                                                                                 |
+| 3 · 9 · 25           | **Runtime**: reparto y conversión, con vectores compartidos                                                                                                                                                                              |
+| 4 · 5 · 6 · 8 · 20   | **Runtime**: qué efectos produce cada clase                                                                                                                                                                                              |
+| 7                    | **Derivable**: lista de admitidos de estadísticas                                                                                                                                                                                        |
+| 10                   | **Estructural**: el autor no entra en la derivación                                                                                                                                                                                      |
+| 11                   | **Persistido**: versiones inmutables + proyección canónica                                                                                                                                                                               |
+| 12                   | **Estructural**: FK compuesta `(scope, currency)`                                                                                                                                                                                        |
+| 13 · 14 · 15         | 13 y 14 **runtime**; **15 aplazado** (notificación)                                                                                                                                                                                      |
+| 16 · 17 · 18         | **Aplazados**: Modo Pareja                                                                                                                                                                                                               |
+| 19                   | **Runtime** para el origen cliente; **aplazado** el resto                                                                                                                                                                                |
+| 21                   | **Fuera del dominio**: monetización (§12)                                                                                                                                                                                                |
+| 26 · 27 · 28         | 26 **decidido en F02/ADR-001 §5**; 27 **en F02/ADR-001 §4**, con la regla del día de F11/ADR-001 §3 y las correcciones de F03/ADR-010 §6; 28 **en F11/ADR-001 §10**; implementación en F11.B, F11.C y F11.D; 27 parcialmente estructural |
 
 ---
 
@@ -336,3 +347,5 @@ Los aplazados, en una línea cada uno:
 | Previsualización de correcciones                                                        | Fase de pantallas                       |
 | ~~Clase `ingreso` sin ruta~~                                                            | **Resuelto en F6.B**                    |
 | ~~Conflicto por configuración monetaria anterior~~                                      | **Decidido en F11.A** — F11/ADR-001 §10 |
+| Caja del fantasma asociado en un gasto de grupo en otra moneda                          | **F11.D**, sin decidir                  |
+| `exact_amounts` en moneda extranjera                                                    | **F11.D**, sin decidir                  |

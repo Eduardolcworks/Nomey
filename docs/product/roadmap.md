@@ -788,9 +788,9 @@ grupo que se quedó sin miembros. Merece decisión futura; no es de identidad.
 efectiva** · conversión en la app · jerarquía visual del importe original frente
 al derivado · conflicto de sincronización cuando cambia la moneda base.
 
-**Dependencias.** F9 · F02/ADR-001 aceptado · proveedor de tipos contratado o
-elegido. **El hilo de selección de proveedor conviene abrirlo en F9**, porque es
-una dependencia externa.
+**Dependencias.** F9 · F02/ADR-001 aceptado · ~~proveedor de tipos contratado o
+elegido~~ **cumplida: tipos de referencia del BCE, sin contrato**
+([F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md) §3.1).
 
 **Cierre.**
 
@@ -818,12 +818,12 @@ una dependencia externa.
 La partición es de **ejecución**: los cinco criterios de cierre siguen siendo los
 de arriba, y no se reescriben.
 
-| Bloque    | Qué contiene                                                                                                                                                                                                        | Estado                                           |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| **F11.A** | **Fuente y resolución.** Decisiones y contrato, sin implementación: fuente, tipo de cada día, cobertura, clases con moneda extranjera, resultados del resolver, derivación y conflicto de base                      | **Cerrado** el 2026-09-13 — F11/ADR-001 aceptado |
-| **F11.B** | **Conversión y persistencia.** Catálogo, fijación diaria del tipo e ingesta, correspondencia de códigos, resolver y derivación en SQL, escritura de `core.frozen_conversion` y su procedencia, paridad por vectores | **Siguiente**                                    |
-| **F11.C** | **Lecturas, estadísticas y offline/sync.** Superficies de lectura, estadísticas sobre la magnitud convertida, espera de tipo en la cola, proyección, conflicto de base y presentación del original y el convertido  | Pendiente de F11.B                               |
-| **F11.D** | **Integración, validación y cierre.** Gasto de grupo en moneda extranjera y verificación de los cinco criterios                                                                                                     | Pendiente de F11.C · F9 cerrada e integrada      |
+| Bloque    | Qué contiene                                                                                                                                                                                                                                             | Estado                                           |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| **F11.A** | **Fuente y resolución.** Decisiones y contrato, sin implementación: fuente, tipo de cada día, cobertura, clases con moneda extranjera, resultados del resolver, derivación y conflicto de base                                                           | **Cerrado** el 2026-09-13 — F11/ADR-001 aceptado |
+| **F11.B** | **Conversión y persistencia.** Catálogo, fijación diaria del tipo e ingesta, correspondencia de códigos, resolver y derivación en SQL, escritura de `core.frozen_conversion` y su procedencia, paridad por vectores                                      | **Siguiente**                                    |
+| **F11.C** | **Lecturas, estadísticas y offline/sync.** Superficies de lectura, estadísticas sobre la magnitud convertida, espera de tipo en la cola, proyección, conflicto de base y presentación del original y el convertido                                       | Pendiente de F11.B                               |
+| **F11.D** | **Integración, validación y cierre.** Decidir los dos casos abiertos (caja del fantasma asociado, `exact_amounts` en moneda extranjera), habilitar después el gasto de grupo en moneda extranjera —F11.B no lo habilita— y verificar los cinco criterios | Pendiente de F11.C · F9 cerrada e integrada      |
 
 **F11.A está cerrada.** Lo que decide
 [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md):

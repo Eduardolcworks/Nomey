@@ -138,10 +138,14 @@ debe deducir por su cuenta:
   hora de la operación ni el momento de sincronizar cambian el tipo.
 - **Moneda extranjera sólo en gasto e ingreso personales y en gasto de grupo**,
   sobre el contrato de F9. Las demás clases conservan su negativa a convertir.
-  **Sin decidir, en F11.D:** si se convierte la caja que se incorpora al
-  asociar un fantasma que pagó un gasto de grupo, y cómo se reparte un
-  `exact_amounts` en moneda extranjera
+  **Sin decidir, en F11.D:** si se convierte o se rechaza la caja que se
+  incorpora al asociar un fantasma que pagó un gasto de grupo, y cómo se reparte
+  un `exact_amounts` en moneda extranjera
   ([decisiones abiertas](architecture/phase-11-progress.md#decisiones-abiertas)).
+  **Condición de seguridad, no decisión:** F11.B no habilita moneda extranjera
+  en `record_group_expense`; se habilita en F11.D, después de decidir los dos
+  casos. Habilitarla antes haría que `sec.incorporate_participant_cash`
+  escribiera la caja de un gasto en USD como si fuera la base del Personal.
 - **Liquidar entre bases distintas sigue sin poderse, y es conocido.** F9 ya lo
   restringe: quien tiene un Personal en otra moneda que la del grupo no puede
   declarar ni recibir un pago, y por eso tampoco salir con saldo. **No es un
