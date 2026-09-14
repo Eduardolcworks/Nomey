@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PersonalEntryPayload } from '../../src/lib/offline/command';
 
 import { persistEntry } from '../../src/features/personal/entry-enqueue';
 import type { EntryDraft } from '../../src/features/personal/movement-entry';
@@ -24,7 +25,7 @@ import { openTestDatabase, type TestDatabase } from './offline-sqlite';
  * CUANDO LO QUE FALLA ES SQLITE, Y NO EL SERVIDOR.
  *
  * Un fallo de la base es infraestructura del cliente: no es una respuesta, no
- * pasa por la clasificación de ADR-028 §11, y por tanto **no puede** mover una
+ * pasa por la clasificación de F07/ADR-001 §11, y por tanto **no puede** mover una
  * entrada a `rejected`, `review` o `conflict`, ni borrarla, ni crearle otra
  * clave, ni abrir la puerta directa para «salvar» el gasto. Lo que hace es
  * interrumpir la pasada, dejar las filas como estaban, y volver a intentar la
@@ -227,7 +228,7 @@ async function setup(script: (n: number) => TransportOutcome = (n) => OK(`op-${n
     store: faults.store,
     transport: {
       async send(_type, payload) {
-        seen.push(String(payload.client_operation_id));
+        seen.push(String((payload as PersonalEntryPayload).client_operation_id));
         const outcome = script(calls);
         calls += 1;
         return outcome;
@@ -394,7 +395,7 @@ describe('3 · EL SERVIDOR ESCRIBIÓ Y SQLITE FALLÓ DESPUÉS', () => {
     // La petición salió UNA vez y el servidor la ejecutó…
     expect(t.calls).toBe(1);
     // …y la respuesta no pudo guardarse: EN DISCO la fila queda `sending`, con
-    // su clave, y el store la relee como `queued` (ADR-028 §6), que es lo que
+    // su clave, y el store la relee como `queued` (F07/ADR-001 §6), que es lo que
     // hace que la siguiente pasada la reenvíe sin reparación aparte.
     expect(await enDisco(t, entry.clientOperationId)).toBe('sending');
     const enVuelo = await t.real.byId(ACTOR_A, entry.clientOperationId);
@@ -411,7 +412,7 @@ describe('3 · EL SERVIDOR ESCRIBIÓ Y SQLITE FALLÓ DESPUÉS', () => {
     });
     expect(t.coordinator.armedAt()).toBe(T0 + 1_000);
 
-    // La base vuelve. La `sending` se relee como `queued` (ADR-028 §6) y se
+    // La base vuelve. La `sending` se relee como `queued` (F07/ADR-001 §6) y se
     // reenvía CON LA MISMA CLAVE: el servidor dice que ya lo tenía.
     t.faults.heal();
     await t.env.advanceTo(T0 + 1_000);

@@ -1,4 +1,4 @@
-export { AmountField } from './amount-field';
+export { AmountField } from '@/ui/components';
 export { BalanceCard } from './balance-card';
 export { BalanceEditor } from './balance-editor';
 export {
@@ -10,13 +10,7 @@ export {
   systemCategoryKey,
 } from './category';
 export { CategoryCard } from './category-card';
-export {
-  type DebtDisplay,
-  type DebtSnapshot,
-  debtDisplay,
-  homeDebt,
-  PERSONAL_DEBT_AMOUNTS,
-} from './debt-display';
+export { type DebtDisplay, type DebtSnapshot, debtDisplay, homeDebt } from './debt-display';
 export { EntryKindSelector } from './entry-kind-selector';
 export { FlowCard } from './flow-card';
 export {
@@ -106,20 +100,13 @@ export { type PersonalHome, usePersonalHome } from './use-personal-home';
 export { type EntryCategories, useCategoryNames, useEntryCategories } from './use-entry-categories';
 export { usePersonalScope } from './use-personal-scope';
 export { type RecordStatus, useRecordMovement } from './use-record-movement';
-export { createQueueTransport } from './queue-transport';
+export { personalCommandHandlers } from './queue-transport';
 export {
   type EnqueueFailure,
   type EntryQueue,
   type EntryScope,
   useEntryQueue,
 } from './use-entry-queue';
-export {
-  countUnsyncedEntries,
-  localQueueStatus,
-  readBarrier,
-  useEntryQueueRuntime,
-  wakeEntryQueue,
-} from './queue-runtime';
 export { IncidentCard } from './incident-card';
 export {
   type Incident,
@@ -131,7 +118,16 @@ export {
   replacementFor,
   type ReviewDestination,
 } from './incidents';
+export {
+  INCIDENT_SEEN_KEY,
+  parseSeen,
+  seenAfterVisit,
+  serializeSeen,
+  unseenIncidents,
+} from './incident-seen';
 export { type IncidentActions, useIncidents } from './use-incidents';
+export { type ExpenseLine, type ExpenseShare, expenseLines, shareKey } from './expense-share';
+export { ShareRow } from './share-row';
 export {
   isReconciled,
   type ProjectedHome,
@@ -140,3 +136,4 @@ export {
   projectHome,
 } from './projection';
 export { useProjectedHome } from './use-projected-home';
+export { sendPersonalEntry } from './personal-service';

@@ -3,7 +3,7 @@ import { CHUNKED_STORAGE_LIMITS, type StorageBackend } from './chunked-storage';
 /**
  * How big the stored session actually is.
  *
- * [ADR-017](../../../docs/adr/ADR-017-secure-session-storage.md) requires this
+ * [F05/ADR-001](../../../docs/adr/F05/ADR-001-secure-session-storage.md) requires this
  * measured on a real device before Phase 5 closes. It could not be taken in
  * F5.A because no authentic session existed yet; F5.C is the first block that
  * produces one.

@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync } from 'node:fs';
+import type { PersonalEntryPayload } from '../../src/lib/offline/command';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -30,13 +31,13 @@ import { openTestDatabase, type TestDatabase } from './offline-sqlite';
 /**
  * INCIDENTS: THE ONLY VISIBLE SURFACE OF THE QUEUE.
  *
- * ADR-028 §15 put them in one place and gave them one source: **the queue's own
+ * F07/ADR-001 §15 put them in one place and gave them one source: **the queue's own
  * terminal state**, with no second store, no counter and no badge on the list.
  * So everything asserted here is asserted against real rows in a real SQLite —
  * an incident is a row, resolving one is a transaction, and there is nothing
  * else to keep in sync.
  *
- * ADR-029 renamed the affirmative button to `Sí` and settled where `Revisar`
+ * F07/ADR-002 renamed the affirmative button to `Sí` and settled where `Revisar`
  * goes. The semantics underneath did not move.
  */
 
@@ -89,7 +90,7 @@ function entry(
     actorId: over.actorId ?? A,
     scopeId: SCOPE,
     commandType: kind === 'income' ? 'personal_income.create' : 'personal_expense.create',
-    payload,
+    payload: payload as unknown as PersonalEntryPayload,
     currency: { definitionId: CURRENCY, code: 'EUR', scale: 2 },
     createdAt: `2026-09-04T10:00:${String(seq % 60).padStart(2, '0')}.000Z`,
   });
@@ -238,7 +239,7 @@ describe('4 · «Sí»', () => {
     expect(fresh?.scopeId).toBe(rejected.scopeId);
     expect(fresh?.commandType).toBe(rejected.commandType);
     // La fecha efectiva NO se toca; la de creación sí, que es el orden FIFO.
-    expect(fresh?.payload.effective_date).toBe(TODAY);
+    expect((fresh?.payload as PersonalEntryPayload | undefined)?.effective_date).toBe(TODAY);
     expect(fresh?.createdAt).not.toBe(rejected.createdAt);
 
     // El movimiento vuelve a verse como uno normal, y la incidencia se fue.
@@ -421,7 +422,7 @@ describe('10 · `review` y `conflict`', () => {
     db.close();
   });
 
-  it('el destino de «Revisar» depende de lo que se pueda demostrar (ADR-029 §2)', () => {
+  it('el destino de «Revisar» depende de lo que se pueda demostrar (F07/ADR-002 §2)', () => {
     // Conflicto monetario: la frontera se negó ANTES de escribir → la hoja.
     expect(incidentOf(entry({ state: 'conflict' }))?.reviewDestination).toBe('sheet');
     // Resultado desconocido: podría existir → mirar primero, sin clave nueva.
@@ -515,7 +516,7 @@ describe('13 · la base local no deja persistir', () => {
     const { db, store } = await open();
 
     /*
-     * Es el caso de ADR-028 §1 y no el de §15: si SQLite no admite la entrada,
+     * Es el caso de F07/ADR-001 §1 y no el de §15: si SQLite no admite la entrada,
      * la hoja se queda abierta con su borrador y NADA queda escrito. Una
      * incidencia de rechazo describiría una respuesta del servidor que aquí no
      * ha ocurrido, porque no ha salido ninguna petición.
@@ -547,8 +548,8 @@ describe('14 · lo que se lee en pantalla', () => {
   ] as const;
 
   /**
-   * El vocabulario que ADR-028 §15 prohíbe en pantalla, más los códigos y la
-   * palabra que ADR-029 retiró.
+   * El vocabulario que F07/ADR-001 §15 prohíbe en pantalla, más los códigos y la
+   * palabra que F07/ADR-002 retiró.
    */
   const FORBIDDEN = [
     'cola',
@@ -590,13 +591,13 @@ describe('14 · lo que se lee en pantalla', () => {
     });
   }
 
-  it('la forma ordinaria PREGUNTA, y los botones son Sí y No (ADR-029 §1)', () => {
+  it('la forma ordinaria PREGUNTA, y los botones son Sí y No (F07/ADR-002 §1)', () => {
     expect(esES['incident.expenseNotMade']).toBe(
       'Gasto de {amount} en {category} no realizado. ¿Quieres volver a intentarlo?',
     );
     expect(esES['incident.yes']).toBe('Sí');
     expect(esES['incident.no']).toBe('No');
-    // Y ninguna cadena de incidencia es «Reintentar», que es lo que ADR-029
+    // Y ninguna cadena de incidencia es «Reintentar», que es lo que F07/ADR-002
     // retiró. La palabra sigue existiendo para el reintento de una CARGA, que
     // es otra cosa y no toca dinero.
     for (const key of VISIBLE) expect(esES[key]).not.toBe('Reintentar');

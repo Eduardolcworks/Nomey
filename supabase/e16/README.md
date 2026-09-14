@@ -175,7 +175,7 @@ Las tres medidas, y ninguna estaba prevista:
 
 **No se modificó `config.toml`.** El envoltorio de `30-http.mjs` vive en `public`
 porque es el único schema expuesto por defecto. Eso **no expresa ninguna
-preferencia de topología**: ADR-005 ya decidió que la persistencia de Nomey no
+preferencia de topología**: F03/ADR-002 ya decidió que la persistencia de Nomey no
 vive en `public`.
 
 ## Salidas

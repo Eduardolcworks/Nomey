@@ -23,7 +23,7 @@ export function buildClientOptions(storage: StorageBackend): SupabaseClientOptio
   return {
     db: {
       /**
-       * ADR-005 and ADR-014: `api` is the only exposed schema. `public`,
+       * F03/ADR-002 and F03/ADR-011: `api` is the only exposed schema. `public`,
        * `core` and `sec` answer 406 PGRST106. Without this the client would
        * ask PostgREST for `public` and every call would fail.
        */

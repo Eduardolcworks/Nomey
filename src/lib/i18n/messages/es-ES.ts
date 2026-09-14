@@ -15,6 +15,380 @@ export const esES = {
 
   'nav.home': 'Inicio',
   'nav.groups': 'Grupos',
+
+  // Grupos — F9
+  'groups.createGroup': 'Crear grupo',
+  'groups.joinGroup': 'Únete a un grupo',
+  'groups.createGroupDescription': 'Inicia un nuevo grupo.',
+  'groups.joinGroupDescription': 'Únete mediante un enlace o código QR.',
+  /* Unirse (F09/ADR-004): la misma hoja, con el escáner, el enlace y «¿Quién eres?». */
+  'groups.scanQr': 'Escanear QR',
+  'groups.scanQrDescription': 'Lee el código de una invitación.',
+  'groups.scanHint': 'Apunta al código QR de la invitación.',
+  'groups.scanForeign': 'Ese código no es una invitación de Nomey.',
+  'groups.scanPermission': 'Hace falta permiso de cámara para leer el código.',
+  'groups.scanDenied': 'Sin permiso de cámara. Puedes pegar el enlace de la invitación.',
+  'groups.scanUseLink': 'Pegar enlace',
+  'groups.pasteLink': 'Pegar enlace',
+  'groups.pasteHint': 'Lee el portapapeles y comprueba la invitación. No abre el teclado.',
+  'groups.pasteEmpty': 'No hay nada que pegar. Copia el enlace de la invitación y vuelve a tocar.',
+  'groups.pasteFailed': 'No se ha podido leer el portapapeles. Vuelve a tocar.',
+  'groups.linkLabel': 'Enlace de invitación',
+  'groups.linkSend': 'Usar la invitación',
+  'groups.linkReady': 'Invitación a {group}',
+  'groups.linkNotInvitation': 'Eso no es un enlace de invitación de Nomey.',
+  'groups.linkInvalid': 'Esta invitación no existe.',
+  'groups.linkRevoked': 'Esta invitación se ha revocado.',
+  'groups.linkExpired': 'Esta invitación ha caducado.',
+  'groups.linkThrottled': 'Demasiados intentos. Espera unos minutos.',
+  'groups.linkOffline': 'No se ha podido comprobar la invitación. Revisa la conexión.',
+  'groups.whoTitle': '¿Quién eres en {group}?',
+  'groups.whoHint': 'Elige tu nombre si ya estás en el grupo, o entra como nuevo.',
+  'groups.whoClaim': 'Soy {name}',
+  'groups.whoNew': 'Soy nuevo',
+  'groups.claimAskTitle': '¿Eres {name}?',
+  'groups.claimAskBody': 'Sus gastos y deudas anteriores se vincularán a tu cuenta.',
+  'groups.claimBack': 'Volver',
+  'groups.claimYes': 'Sí, soy {name}',
+  'groups.whoNewHint': 'Entra en el grupo con tu nombre, sin gastos anteriores',
+  'groups.whoNone': 'No hay nadie sin cuenta que reclamar. Entra como nuevo.',
+  'groups.whoNewName': 'Tu nombre',
+  'groups.whoNewConfirm': 'Entrar con este nombre',
+  'groups.joinBack': 'Volver al enlace',
+  'groups.joinOffline': 'No se ha podido entrar. Revisa la conexión e inténtalo de nuevo.',
+  'groups.joinClaimed': 'Ese nombre acaba de ser reclamado por otra cuenta. Elige otra opción.',
+  'groups.joinRejoin': 'Ya estuviste en este grupo. Vuelve a entrar con tu identidad de entonces.',
+  'groups.whoRejoinHint':
+    'Ya estuviste en este grupo. Vuelves con tu identidad de entonces: tus gastos y pagos anteriores siguen siendo tuyos, y desde hoy vuelves a contar en los nuevos.',
+  'groups.whoRejoin': 'Volver a entrar como {name}',
+  'groups.joinUnusable': 'La invitación ya no se puede usar.',
+  'groups.joinRejected': 'No se ha podido entrar en el grupo.',
+
+  // Crear grupo — F9. Los limites que hay son los del contrato; el nombre del
+  // grupo no tiene ninguno todavia, y por eso no hay cadena de «maximo».
+  'groups.createTitle': 'Crear grupo',
+  'groups.emojiLabel': 'Emoji del grupo',
+  'groups.emojiChosen': 'Emoji del grupo: {emoji}',
+  'groups.nameLabel': 'Nombre del grupo',
+  'groups.namePlaceholder': 'Ponle un nombre',
+  'groups.currency': 'Divisa',
+  'groups.currencyLoading': 'Cargando tu divisa…',
+  'groups.currencyUnknown': 'No se ha podido saber tu divisa',
+  'groups.currencyLabel': 'Divisa del grupo: {code}',
+  'groups.participants': 'Participantes',
+  'groups.participantYou': 'Tú',
+  'groups.participantNoName': 'Tu cuenta, sin nombre en el perfil',
+  'groups.participantPlaceholder': 'Nombre',
+  'groups.participantLabel': 'Nombre del participante {position}',
+  'groups.participantNew': 'Nuevo participante, todavía sin nombre',
+  'groups.addParticipant': 'Añadir participante',
+  'groups.removeParticipant': 'Quitar a {name}',
+  'groups.nameBlank': 'Escribe un nombre.',
+  'groups.nameDuplicate': 'Ese nombre ya está en el grupo.',
+  'groups.createHint': 'Crea el grupo y vuelve a la lista.',
+  'groups.incomplete': 'Ponle nombre, elige divisa y revisa los participantes',
+  /* El editor de un grupo ya creado. */
+  'groups.editTitle': 'Modificar grupo',
+  /* La categoría preestablecida del grupo. «Todas» es la ausencia de preselección. */
+  'groups.presetCategory': 'Categoría preestablecida',
+  'groups.presetAll': 'Todas',
+  'groups.presetUnavailable': 'No disponible',
+  'groups.presetLoading': 'Cargando categoría…',
+  'groups.presetUnavailableHint':
+    'La categoría guardada ya no se puede usar en gastos compartidos. Elige otra o «Todas».',
+  'groups.presetLabelAll': 'Categoría preestablecida: todas, sin preselección',
+  'groups.presetLabelChosen': 'Categoría preestablecida: {name}',
+  'groups.presetLabelUnavailable': 'Categoría preestablecida no disponible: elige otra',
+  'groups.saveChanges': 'Guardar cambios',
+  'groups.saveChangesHint': 'Guarda el nombre, el emoji y los participantes nuevos.',
+  'groups.currencyLocked': 'La divisa de un grupo creado no se puede cambiar.',
+  'groups.editPending':
+    'Este grupo todavía no se ha guardado en el servidor. Podrás modificarlo cuando se confirme.',
+  'groups.editConflict':
+    'Otra persona ha guardado cambios en este grupo. Cierra y vuelve a abrirlo para ver la versión actual.',
+  'groups.editNotMember': 'Ya no formas parte de este grupo.',
+  'groups.editRejected': 'No se ha podido guardar. Revisa los datos e inténtalo de nuevo.',
+  'groups.editOffline':
+    'Sin conexión no se pueden guardar los cambios. Inténtalo cuando la recuperes.',
+  /* El menú contextual de una tarjeta de grupo. */
+  'groups.menuAddExpense': 'Añadir gasto',
+  'groups.menuEdit': 'Modificar grupo',
+  'groups.menuLeave': 'Salir del grupo',
+  /* Salir (F09/ADR-003): las cuatro cosas, sin presentarlo como pago ni condonación. */
+  'groups.leaveTitle': 'Salir de {name}',
+  'groups.leaveBody':
+    'El grupo dejará de aparecer en tus grupos activos.\n\nTus movimientos anteriores permanecerán en Personal.\n\nLa deuda de este grupo dejará de incluirse en Deudas de Personal.\n\nLos demás conservarán el historial y los saldos pendientes dentro del grupo.',
+  'groups.leaveConfirm': 'Salir',
+  'groups.leaveFailedTitle': 'No se ha podido salir',
+  'groups.leaveFailed': 'No se ha podido salir del grupo. Sigues dentro; inténtalo de nuevo.',
+  /* Salir a neto cero (F09/ADR-007 C8). */
+  'groups.leaveBlockedTitle': 'Tienes saldo pendiente en este grupo',
+  'groups.leaveBlocked':
+    'Se sale con el saldo a cero. Salda o cobra desde Pagos sugeridos del grupo y vuelve a intentarlo.',
+  'groups.leaveBlockedGo': 'Ir al grupo',
+  'groups.leaveBlockedOwe': 'Te queda por pagar {amount}',
+  'groups.leaveBlockedOwed': 'Te queda por cobrar {amount}',
+  /* Quien salió, y darlo por saldado (F09/ADR-003). */
+  'group.participantInactive': 'Inactivo',
+  'group.participantLinked': 'Con cuenta',
+  'group.participantMenuHint': 'Toca para ver las acciones sobre este participante',
+  'group.removeParticipant': 'Eliminar participante',
+  'group.retireParticipant': 'Retirar participante',
+  'group.removeTitle': 'Eliminar a {name}',
+  'group.retireTitle': 'Retirar a {name}',
+  'group.removeBody':
+    'No tiene historial en el grupo. Desaparecerá de participantes y de Saldos, y no se podrá volver a elegir. No se puede deshacer.',
+  'group.retireBody':
+    'Su nombre y sus gastos anteriores se conservan tal cual. Desaparecerá de participantes y de Saldos, y no se podrá volver a elegir ni reclamar. No se puede deshacer.',
+  'group.retirePairsBody':
+    'Antes de retirarlo hay que saldar estos pendientes. Al confirmar se darán por resueltos dentro del grupo, sin registrar ningún movimiento de dinero en Personal, como con «Saldado».',
+  'group.removeConfirm': 'Eliminar',
+  'group.retireConfirm': 'Retirar',
+  'group.retireLinkedTitle': 'Tiene cuenta',
+  'group.retireLinked':
+    'Alguien ha reclamado a este participante mientras tanto. Un participante con cuenta no se puede eliminar ni retirar por otra persona.',
+  'group.retireFailedTitle': 'No se ha podido retirar',
+  'group.retireFailed': 'No se ha retirado nada. Inténtalo de nuevo.',
+  /* Asociar un participante sin cuenta a la propia (F09/ADR-009). */
+  'group.associate': 'Asociar a mi cuenta',
+  'group.associateTitle': '¿Asociar a {name} a tu cuenta?',
+  'group.associateBody':
+    'Asumirás su historial en {group}: sus gastos, sus pagos y sus pendientes pasarán a ser tuyos, junto con lo que ya tienes. En todo el grupo aparecerá como tú. No se puede deshacer.',
+  'group.associateConfirm': 'Asociar',
+  'group.associateTakenTitle': 'Ya no se puede asociar',
+  'group.associateTaken':
+    'Ese participante ya tiene cuenta, ya está asociado o está retirado. Vuelve a mirar la lista.',
+  'group.associateFailedTitle': 'No se ha podido asociar',
+  'group.associateFailed': 'No se ha asociado nada. Inténtalo de nuevo.',
+  'group.unclaim': 'Me equivoqué de participante',
+  'group.unclaimTitle': '¿No eres {name}?',
+  'group.unclaimBody':
+    'Se deshará tu reclamación: {name} volverá a estar sin cuenta y tú dejarás de ver este grupo. Nada de lo registrado cambia, y lo que ya viste no se puede des-ver.\n\nDespués podrás elegir quién eres con la invitación.',
+  'group.unclaimConfirm': 'Sí, me equivoqué',
+  'group.unclaimBlockedTitle': 'No se puede deshacer',
+  'group.unclaimBlockedBody': 'Hay dinero registrado en tu Personal como {name} en este grupo.',
+  'group.unclaimBlockedList': 'Lo impiden:',
+  'group.unclaimBlockedTransfer': 'Transferencia',
+  'group.unclaimSupersededTitle': 'La reclamación ya no es la actual',
+  'group.unclaimSuperseded':
+    'Tu vínculo con este participante cambió mientras tanto. Vuelve a abrir el grupo.',
+  'group.unclaimFailedTitle': 'No se ha podido deshacer',
+  'group.unclaimFailed': 'No se ha deshecho nada. Revisa la conexión e inténtalo de nuevo.',
+  'group.unclaimDoneTitle': 'Reclamación deshecha',
+  'group.unclaimDone': '{name} vuelve a estar sin cuenta. Elige quién eres con la invitación.',
+  'group.unclaimDoneNoInvitation':
+    '{name} vuelve a estar sin cuenta. Pide una invitación nueva al grupo para volver a entrar.',
+  'group.splitInactiveHint': 'Salió del grupo antes de esta fecha',
+  'group.settleAction': 'Saldado',
+  'group.settleActionHint': 'Dar por resueltos los pendientes de {name} y retirarlo de las listas',
+  'group.settlePair': '{debtor} debe a {creditor}: {amount}',
+  'group.settleConfirm': 'Saldado',
+  'group.settleStaleTitle': 'Los pendientes han cambiado',
+  'group.settleStale': 'No se ha saldado nada. Revisa las cantidades nuevas antes de confirmar.',
+  /* Compartir el grupo (F09/ADR-004): la ventana con el QR y la hoja del sistema. */
+  'group.shareTitle': 'Compartir grupo',
+  'group.shareSend': 'Enviar invitación',
+  'group.shareSendHint':
+    'Abre las opciones del sistema para copiar o enviar el enlace de invitación',
+  'group.shareQrLabel': 'Código QR de invitación a {group}',
+  'group.shareLoading': 'Preparando la invitación',
+  'group.shareHint': 'Vale 7 días. Quien lo escanee o pegue el enlace podrá entrar en el grupo.',
+  'group.shareOffline': 'No se ha podido preparar la invitación. Revisa la conexión.',
+  'group.shareNotMember': 'Ya no formas parte de este grupo.',
+  'group.shareFailed': 'No se ha podido preparar la invitación.',
+  'group.shareMessage': 'Únete a «{group}» en Nomey con este enlace: {link}',
+  /* La cabecera del grupo. */
+  'group.participantCount': '{count} participantes',
+  'group.participantCountOne': '1 participante',
+  'group.editGroup': 'Modificar grupo',
+  'groups.saveFailed': 'No se ha podido guardar en este aparato. Inténtalo otra vez.',
+  'groups.saveFailedSession': 'Vuelve a entrar en tu cuenta para crear el grupo.',
+  'groups.saveFailedCurrency': 'Todavía no se sabe la divisa. Elige una y vuelve a intentarlo.',
+
+  // La lista de grupos y su tarjeta — F9.
+  'groups.cardLabel': '{name}, {participants}, {position}',
+  'groups.stale': 'Puede que falten grupos: no se ha podido conectar.',
+
+  // El contador de la tarjeta, con sus dos formas.
+  'group.participantsOne': '{count} participante',
+  'group.participantsOther': '{count} participantes',
+
+  // La posición neta del actor en el grupo. UNA sola, nunca las dos a la vez.
+  'group.owedToYou': 'Te deben',
+  'group.youOwe': 'Debes',
+  'group.settled': 'Saldado',
+  'group.owedToThem': 'Le deben',
+  'group.theyOwe': 'Debe',
+  'group.edited': 'Editado',
+  'group.previousAmount': 'Importe anterior: {amount}',
+  'group.positionUnknown': 'Sin datos',
+
+  // Dentro de un grupo — F9.
+  'group.youSpent': 'Tu gasto',
+  'group.total': 'Total',
+  'group.tabMovements': 'Movimientos',
+  'group.tabBalances': 'Saldos',
+  'group.noMovements': 'Todavía no hay movimientos',
+  'group.noMovementsHint': 'Los gastos que registréis en el grupo aparecerán aquí.',
+  'group.allSettled': 'Todo saldado',
+  'group.allSettledHint': 'No hay deudas pendientes entre los participantes.',
+  'group.suggestTitle': 'Pagos sugeridos',
+  'group.suggestShow': 'Muestra una propuesta de pagos para saldar el grupo',
+  'group.suggestHide': 'Oculta la propuesta de pagos',
+  'group.suggestExact': 'Número mínimo de transferencias',
+  'group.suggestGreedy': 'Propuesta de pagos',
+  'group.suggestPayment': '{from} paga {amount} a {to}',
+  'group.suggestSomeone': 'Alguien del grupo',
+  'group.suggestInactive':
+    'No se puede proponer mientras haya saldo pendiente de quien salió del grupo: {names}.',
+  'group.suggestUnavailable': 'No se puede proponer ahora mismo: los saldos no cuadran.',
+  /* Pagos registrados (F09/ADR-007). */
+  'group.suggestAll': 'Todos',
+  'group.suggestOthersHide': 'Sólo los míos',
+  'group.suggestOthersHint': 'Despliega también las propuestas de los demás',
+  'group.suggestOthersHideHint': 'Pliega las propuestas de los demás',
+  'group.suggestNoneMine': 'Ninguna propuesta te nombra. Mira «Todos» para ver el resto.',
+  'group.suggestSettleHint': 'Registrar como hecho el pago de {from} a {to} de {amount}',
+  'group.payTitle': 'Registrar pago',
+  'group.payBody':
+    '{from} pagó {amount} a {to} fuera de la app.\n\nSe cerrará esa obligación en el grupo y se anotará en la caja de los dos. Un pago no se edita: si te equivocas, elimínalo y registra otro.',
+  'group.payStaleTitle': 'Los saldos han cambiado',
+  'group.payStale': 'No se ha registrado nada. Revisa la propuesta nueva antes de confirmar.',
+  'group.payFailedTitle': 'No se ha podido registrar el pago',
+  'group.payFailed': 'No se ha registrado nada. Inténtalo de nuevo.',
+  'group.payNotApplicable':
+    'Ese pago no se sostiene sobre lo que hay pendiente ahora mismo. Revisa la propuesta nueva.',
+  'group.payOffline':
+    'Sin respuesta del servidor. Vuelve a pulsar «Saldado»: se reintenta con la misma clave y no se registra dos veces.',
+  'group.paymentsTitle': 'Pagos registrados',
+  'group.paymentKind': 'Pago',
+  'group.paymentTitle': '{from} → {to}',
+  'group.paymentDeclaredBy': 'Declarado por',
+  'group.paymentAnnulled': 'Anulado',
+  'group.deletePayment': 'Eliminar pago',
+  'group.deletePaymentBody':
+    '¿Quieres eliminar este pago? La obligación que cerró volverá a estar pendiente y la caja de los dos se corregirá.',
+  'group.deletePaymentNotParty': 'Sólo quien pagó o quien cobró puede eliminar este pago.',
+  'group.movementsFailed': 'No se han podido cargar los movimientos',
+  'group.movementsFailedHint': 'Comprueba la conexión y vuelve a intentarlo.',
+  'group.movementsLoading': 'Cargando movimientos',
+  'group.orderChosen': 'Filtrar por: {name}',
+  'group.orderDateDesc': 'Fecha más reciente',
+  'group.orderDateAsc': 'Fecha menos reciente',
+  'group.orderAmountDesc': 'Mayor gasto',
+  'group.orderAmountAsc': 'Menor gasto',
+  'group.filterTitle': 'Filtrar',
+  'group.filterApply': 'Aplicar los filtros',
+  'group.filterClose': 'Cerrar los filtros',
+  'group.filterActive': 'Filtrar. Hay filtros puestos',
+  'group.filterFrom': 'Importe mínimo: {amount}',
+  'group.filterTo': 'Importe máximo: {amount}',
+  'group.filterCategory': 'Categoría',
+  'group.filterCategoryChosen': 'Categoría: {name}',
+  'group.filterAllCategories': 'Todas las categorías',
+  'group.filterCategoriesEmpty': 'Categorías',
+  'group.filterPayer': 'Filtrar por quién pagó',
+  'group.filterPayerChosen': 'Filtrar por quién pagó: {name}',
+  'group.filterAllParticipants': 'Todos los participantes',
+  'group.filterParticipantsEmpty': 'Participantes',
+  'group.filterReset': 'Restablecer',
+  'group.paidBy': 'Pagado por {name}',
+  'group.paidByUnknown': 'Pagado por alguien del grupo',
+  'group.yourPart': 'Tu parte',
+  'group.notInSplit': 'No participas',
+  'group.editExpense': 'Editar el gasto',
+  'group.deleteExpense': 'Eliminar el gasto',
+  'group.deleteExpenseBody':
+    'Se anulará y dejará de contar en los saldos del grupo. Nada se borra: queda registrado que se anuló.',
+  'group.deleteFailedTitle': 'No se ha podido eliminar',
+  'group.deleteFailedBody':
+    'Vuelve a intentarlo. Si el gasto ha cambiado mientras tanto, ciérralo y ábrelo otra vez.',
+  'group.deleteDeparted':
+    'No puedes anular este gasto porque afecta a las obligaciones de un participante que ya salió del grupo.',
+  'group.deleteRetired':
+    'No puedes anular este gasto porque afecta a las obligaciones de un participante retirado.',
+  'group.expenseDeparted':
+    'No puedes modificar este gasto porque afecta a las obligaciones de un participante que ya salió del grupo. El concepto y la categoría sí se pueden cambiar.',
+  'group.expenseRetired':
+    'No puedes modificar este gasto porque afecta a las obligaciones de un participante retirado.',
+  'group.deleteSettled':
+    'Ese gasto ya tiene liquidaciones que dependen de él, así que no se puede anular.',
+  'group.editTitle': 'Editar gasto compartido',
+  'group.expenseConflict':
+    'Alguien ha cambiado este gasto mientras lo editabas. Ciérralo y vuelve a abrirlo para ver lo que hay ahora.',
+  'group.noMatches': 'Ningún movimiento coincide',
+  'group.noMatchesHint': 'Prueba a ampliar el intervalo o a quitar alguna restricción.',
+  'group.sortTitle': 'Ordenar',
+  'group.unknown': 'Este grupo no está en este aparato',
+  'group.unknownHint': 'Vuelve a Grupos y ábrelo desde la lista.',
+  'group.expenseTitle': 'Añadir gasto compartido',
+  'group.payerTitle': 'Quién pagó',
+  'group.payerLabel': 'Pagado por',
+  'group.splitLabel': 'Reparto',
+  'group.payerYou': '{name} (Tú)',
+  'group.kindExpense': 'Gasto',
+  'group.kindTransfer': 'Transferencia',
+  'group.transferTitle': 'Pagar a alguien del grupo',
+  'group.transferNoRoute':
+    'Una transferencia salda lo que le debes a otra persona del grupo y reduce esa deuda por lo que le pagues. Todavía no se puede registrar: no hay ninguna deuda que saldar ni forma de consultarlas.',
+  'group.payerEmpty': 'Quién pagó',
+  'group.payerChosen': 'Quién pagó: {name}',
+  'group.methodTitle': 'Cómo se reparte',
+  'group.methodChosen': 'Reparto: {name}',
+  'group.splitEqual': 'Igualmente',
+  'group.splitShares': 'Por partes',
+  'group.splitAmounts': 'Cantidad',
+  'group.splitAmong': 'Repartir entre',
+  'group.splitInclude': 'Incluir a {name} en el reparto',
+  'group.splitExclude': 'Excluir a {name} del reparto',
+  'group.splitPayerLocked': '{name} paga y participa',
+  'group.splitPayerHint':
+    'Quien paga participa siempre en el reparto. Para excluirle, elige otro pagador.',
+  'group.splitAmountLabel': 'Importe de {name}',
+  'group.splitRemaining': 'Falta por asignar {amount}',
+  'group.splitOver': 'Te pasas por {amount}',
+  'group.splitSharesValue': '{count}x',
+  'group.splitSharesCount': '{count} partes de {name}',
+  'group.splitSharesLess': 'Una parte menos para {name}',
+  'group.splitSharesMore': 'Una parte más para {name}',
+  'group.splitAmountAuto': 'Importe de {name}, calculado automáticamente',
+  'group.splitEqualize': 'Repartir igualmente',
+  'group.splitEqualizeHint':
+    'Libera las cuotas fijadas a mano y vuelve a repartir el total igualmente',
+  'group.expenseNoParticipants': 'Elige entre quiénes se reparte.',
+  'group.expenseUnreachable': 'No se ha podido enviar. Lo escrito sigue aquí: vuelve a intentarlo.',
+  'group.expenseRejected': 'El servidor ha rechazado el gasto. Lo escrito sigue aquí.',
+  'group.expenseNotEligible':
+    'Este grupo no admite un gasto con esa fecha: sus participantes constan desde el día en que se creó. Elige una fecha desde entonces, o crea un grupo nuevo si éste es anterior a esta versión de Nomey.',
+  'group.expenseCategoryShared': 'Un gasto compartido sólo admite categorías de Nomey: elige otra.',
+  'group.expenseCategoryUnusable': 'Esa categoría no se puede usar. Elige otra.',
+  'group.expenseCurrency': 'Ese gasto necesitaría cambiar de divisa, y todavía no se puede.',
+  'group.expensePayerUnknown': 'Elige quién pagó.',
+  'group.expenseAmountMissing': 'Escribe el importe.',
+  'group.expenseAmountInvalid': 'Ese importe no vale.',
+  'group.expenseConceptMissing': 'Escribe en qué se gastó.',
+  'group.expenseSharesInvalid':
+    'Cada participante necesita un número entero de partes mayor que cero.',
+  'group.expenseAmountsMismatch': 'Los importes tienen que sumar exactamente el total.',
+  'group.expenseAmountsIncomplete': 'Termina de escribir los importes fijados.',
+  'group.expenseAmountsZero':
+    'Cada cuota tiene que ser mayor que cero. Desmarca a quien no participe.',
+
+  // El selector de emojis. Las categorias son las de Unicode, con nuestra voz.
+  'emoji.search': 'Buscar',
+  'emoji.recent': 'Recientes',
+  'emoji.empty': 'Ningún emoji coincide.',
+  'emoji.tone': 'Tono de piel',
+  'emoji.toneDefault': 'Sin tono',
+  'emoji.group.smileys': 'Caras',
+  'emoji.group.people': 'Personas',
+  'emoji.group.nature': 'Naturaleza',
+  'emoji.group.food': 'Comida',
+  'emoji.group.places': 'Viajes',
+  'emoji.group.activities': 'Actividades',
+  'emoji.group.objects': 'Objetos',
+  'emoji.group.symbols': 'Símbolos',
+  'emoji.group.flags': 'Banderas',
   'nav.notifications': 'Notificaciones',
   'nav.profile': 'Perfil',
 
@@ -128,13 +502,24 @@ export const esES = {
 
   'notifications.empty': 'No hay notificaciones.',
   'notifications.emptyHint': 'Los avisos de tus grupos aparecerán aquí.',
+  /* Los avisos de grupo (F09/ADR-003 §7), uno por clase. */
+  'notifications.groups': 'Grupos',
+  'notice.edit': 'Se corrigió un gasto',
+  'notice.profile': 'Se modificó el grupo',
+  'notice.departure': '{name} ha salido del grupo',
+  'notice.settlement': '{name} dado por saldado',
+  'notice.payment': 'Pago registrado con {name}',
+  'notice.paymentAnnulled': 'Pago eliminado con {name}',
+  'notice.byMe': 'Tú',
+  'notice.unread': 'Sin leer',
+  'notice.open': 'Abrir {group}',
 
   /*
-   * Las incidencias de la cola, y NINGUNA palabra de su maquinaria: ADR-028 §15
+   * Las incidencias de la cola, y NINGUNA palabra de su maquinaria: F07/ADR-001 §15
    * prohíbe que cola, clave, intención, entrada, estado o código lleguen a la
    * pantalla. Lo que se dice es el movimiento y qué le pasó.
    *
-   * El botón afirmativo es «Sí» y no «Reintentar» (ADR-029 §1): la frase ya
+   * El botón afirmativo es «Sí» y no «Reintentar» (F07/ADR-002 §1): la frase ya
    * pregunta, así que los botones contestan.
    */
   'incident.expenseNotMade':
@@ -254,12 +639,12 @@ export const esES = {
   'home.categoriesMore': 'Ver todas las categorías',
   'home.categoriesLess': 'Ver menos categorías',
   'home.categoryUnknown': 'Sin categoría conocida',
-  // Sin estadísticas confirmadas no se fabrica un reparto (ADR-028 §8): se dice
+  // Sin estadísticas confirmadas no se fabrica un reparto (F07/ADR-001 §8): se dice
   // que no está, no que no hay gastos.
   'home.categoriesUnavailable': 'Reparto no disponible',
   'home.categoriesUnavailableHint': 'Aparecerá en cuanto se pueda calcular.',
 
-  // Los dos bloqueos temporales de ADR-028 §10: se explican con su motivo y su
+  // Los dos bloqueos temporales de F07/ADR-001 §10: se explican con su motivo y su
   // condición de salida, en vez de apagar el control y callar.
   'home.adjustBlockedTitle': 'Espera a que termine de guardarse',
   'home.adjustBlockedBody':
@@ -277,6 +662,24 @@ export const esES = {
   'home.movementCollapse': 'Toca para cerrar el detalle',
   'home.detailDate': 'Fecha',
   'home.detailTime': 'Hora',
+  /* El gasto compartido visto desde Personal: tres hechos, tres etiquetas. */
+  'home.detailGroup': 'Grupo',
+  'home.detailPaid': 'Pagaste',
+  'home.detailYourShare': 'Tu parte',
+  'home.sharedGroupUnknown': 'Gasto compartido',
+  /* Mi cuota, desplegada en Gastos: concepto, quién pagó, cuánto en total. */
+  'home.detailConcept': 'Concepto',
+  'home.detailPaidBy': 'Pagado por',
+  'home.detailTotal': 'Importe total',
+  'home.sharedPayerUnknown': 'Alguien del grupo',
+  'home.sharedManagedInGroup': 'Se edita y se elimina desde el grupo.',
+  /* El pago registrado en un grupo (F09/ADR-007). */
+  'home.paymentTo': 'Pago realizado a {name}',
+  'home.paymentFrom': 'Pago recibido de {name}',
+  'home.detailCounterpart': 'Con',
+  'home.paymentNotEditable': 'Un pago no se edita: elimínalo y registra otro.',
+  'home.deletePaymentBody':
+    '¿Quieres eliminar este pago? La obligación que cerró en el grupo volverá a estar pendiente.',
   'home.editMovement': 'Editar movimiento',
   'home.deleteMovement': 'Eliminar movimiento',
   'home.deleteMovementBody': '¿Quieres eliminar este movimiento?',
@@ -321,16 +724,17 @@ export const esES = {
   'entry.categoryChosen': 'Categoría: {name}',
   'entry.categoryHint': 'Elige una categoría',
   // Sin conexión y sin haber cargado nunca el catálogo no hay categoría que
-  // elegir, y no se inventa ninguna (ADR-028 §16).
+  // elegir, y no se inventa ninguna (F07/ADR-001 §16).
   'entry.categoriesOffline': 'Conéctate una vez para poder elegir categoría',
   'entry.categoryUnknown': 'Sin nombre',
   'entry.dateLabel': 'Fecha',
   'entry.dateTitle': 'Fecha',
+  'entry.timeTitle': 'Hora',
   'entry.scopePending': 'Preparando tu Modo Personal',
   'entry.transferSoon': 'Las transferencias llegan más adelante',
   'entry.saveFailed': 'No se pudo guardar. Inténtalo otra vez',
   // La base local no respondió: la hoja se queda y se puede reintentar aquí
-  // mismo. No se envía nada directamente para salvarlo (ADR-028 §1).
+  // mismo. No se envía nada directamente para salvarlo (F07/ADR-001 §1).
   'entry.queueFailed': 'No se pudo guardar en este dispositivo. Inténtalo otra vez',
 
   'sample.income': 'Ingreso',

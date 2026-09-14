@@ -1,7 +1,7 @@
 /**
  * LA PROYECCIÓN OPTIMISTA: una sola, pura y compartida.
  *
- * ADR-028 §8. Inicio enseña `snapshot confirmado del servidor + comandos
+ * F07/ADR-001 §8. Inicio enseña `snapshot confirmado del servidor + comandos
  * locales todavía no reconciliados`, y todas sus superficies —Disponible,
  * Ingresos, Gastos, donut, leyenda y la lista— leen ESTA función. Ninguna
  * tarjeta suma nada por su cuenta.
@@ -9,8 +9,8 @@
  * **No es una segunda aritmética.** Los efectos de una entrada local salen de
  * `derivePersonalExpense` y `derivePersonalIncome`, y los agregados de
  * `deriveBalance` y `deriveEconomicTotal`: la misma implementación de
- * referencia que la frontera del servidor reproduce exactamente (ADR-002 §7,
- * ADR-009 §1) y cuya paridad afirman los vectores compartidos. Todo es `bigint`
+ * referencia que la frontera del servidor reproduce exactamente (F01/ADR-001 §7,
+ * F03/ADR-006 §1) y cuya paridad afirman los vectores compartidos. Todo es `bigint`
  * en unidad mínima bajo una definición monetaria; `sumMoney` rechaza mezclar
  * definiciones. Lo único que se añade aquí es el agrupamiento por
  * `category_id`, que no es una regla económica sino una suma exacta agrupada.
@@ -53,7 +53,7 @@
  *
  * ═══ AN ENTRY UNDER A DIFFERENT MONETARY DEFINITION ═══
  *
- * Painted, never summed. ADR-028 §14: it keeps its amount, its currency and its
+ * Painted, never summed. F07/ADR-001 §14: it keeps its amount, its currency and its
  * effective date, and produces no effect at all until somebody resolves it. The
  * ISO code does not make it aggregable — the definition's identity is compared.
  *
@@ -83,6 +83,7 @@ import {
   scopeId,
   sumMoney,
 } from '@/domain';
+import { type PersonalEntryPayload, personalPayloadOf } from '@/lib/offline/command';
 import type { QueueEntry } from '@/lib/offline/queue-entry';
 
 import type { EntryScope } from './entry-enqueue';
@@ -94,7 +95,7 @@ import type { PersonalStatistics, StatisticsCategory } from './statistics';
  * Una fila tal como la pinta Inicio, venga del servidor o de la cola.
  *
  * `client_operation_id` no es una etiqueta: la interfaz no lo enseña ni lo
- * distingue con color, contador ni acción propia (ADR-028, invariante 13). Está
+ * distingue con color, contador ni acción propia (F07/ADR-001, invariante 13). Está
  * para que la ruta sepa que esa fila **todavía no tiene versión vigente** y
  * bloquee corregir y anular con su explicación (§10).
  */
@@ -108,7 +109,7 @@ export type ProjectedOperation = PersonalOperation & {
    * under.
    *
    * Almost always the scope's. It stops being so when the base currency moved
-   * underneath an already captured entry (ADR-003 §7, ADR-028 §14): that row
+   * underneath an already captured entry (F02/ADR-001 §7, F07/ADR-001 §14): that row
    * keeps its amount and ITS currency, so whoever paints it has to format it
    * with the scale and code it carried, never with the current ones. Formatting
    * it with the new scale would silently reinterpret the amount.
@@ -119,7 +120,7 @@ export type ProjectedOperation = PersonalOperation & {
    * Whether this row enters the Disponible, the totals and the breakdown.
    *
    * `false` only in the case above: the entry is painted, but there is no
-   * common definition to sum it under (ADR-028 §14 — "produces no effect").
+   * common definition to sum it under (F07/ADR-001 §14 — "produces no effect").
    */
   readonly counted: boolean;
 };
@@ -217,9 +218,9 @@ function shown(entries: readonly QueueEntry[], scope: EntryScope): QueueEntry[] 
  * Whether this entry may be SUMMED into the scope's aggregates.
  *
  * Only if its monetary snapshot is the definition in force. If it is not, there
- * is no common definition to aggregate under (ADR-003 §3) and converting is
+ * is no common definition to aggregate under (F02/ADR-001 §3) and converting is
  * F11's job: the boundary will settle it with
- * `CURRENCY_CONVERSION_UNSUPPORTED`, and ADR-028 §14 fixes the treatment — **it
+ * `CURRENCY_CONVERSION_UNSUPPORTED`, and F07/ADR-001 §14 fixes the treatment — **it
  * keeps its amount, its currency and its effective date, and produces no
  * effect**.
  *
@@ -231,7 +232,7 @@ function shown(entries: readonly QueueEntry[], scope: EntryScope): QueueEntry[] 
  * currency that is not those aggregates'.
  *
  * **The ISO code plays no part.** Two different definitions can both show
- * "EUR" and are not aggregable (ADR-003 §3, `AGENTS.md` §1): identity is
+ * "EUR" and are not aggregable (F02/ADR-001 §3, `AGENTS.md` §1): identity is
  * compared, never the code.
  */
 function contributes(entry: QueueEntry, scope: EntryScope): boolean {
@@ -247,56 +248,81 @@ export function projectHome(input: ProjectionInput): ProjectedHome {
   });
   const sid = scopeId(scope.scopeId);
 
-  const locals: LocalEffects[] = shown(input.entries, scope).map((entry) => {
-    /*
-     * Effects are derived under the ENTRY's definition — the one it declared —
-     * and not under the scope's current one. They always coincide except when
-     * the base moved underneath (§14), and there deriving with the current one
-     * would reinterpret the amount. What decides whether those effects are
-     * AGGREGATED is `counted`; `sumMoney` backstops it by refusing any mix.
-     */
-    const own = currencyDefinition({
-      id: entry.currency.definitionId,
-      code: entry.currency.code,
-      scale: entry.currency.scale,
+  /*
+   * **Sólo movimientos.** Desde F9 la cola tambien lleva creaciones de grupo, y
+   * una de ellas no tiene importe, ni fecha, ni concepto: se descarta AQUI, por
+   * el tipo de comando, en vez de leerle campos que no existen mas abajo.
+   */
+  const locals: LocalEffects[] = shown(input.entries, scope)
+    .filter((entry) => personalPayloadOf(entry.commandType, entry.payload) !== null)
+    .map((entry) => {
+      /*
+       * Effects are derived under the ENTRY's definition — the one it declared —
+       * and not under the scope's current one. They always coincide except when
+       * the base moved underneath (§14), and there deriving with the current one
+       * would reinterpret the amount. What decides whether those effects are
+       * AGGREGATED is `counted`; `sumMoney` backstops it by refusing any mix.
+       */
+      const own = currencyDefinition({
+        id: entry.currency.definitionId,
+        code: entry.currency.code,
+        scale: entry.currency.scale,
+      });
+      /*
+       * El payload, estrechado por el TIPO DE COMANDO. Una entrada que no es un
+       * movimiento —desde F9 la cola tambien lleva creaciones de grupo— no tiene
+       * estos campos, y la proyeccion de Personal no la proyecta.
+       */
+      const movimiento = entry.payload as PersonalEntryPayload;
+
+      const amount = moneyFromMinorString(String(movimiento.amount), own);
+      const effects =
+        entry.commandType === 'personal_income.create'
+          ? derivePersonalIncome({ scope: sid, amount })
+          : derivePersonalExpense({ scope: sid, amount });
+      const balance = effects[0].balance as Money;
+      const time = text(movimiento.effective_time);
+      const date = String(movimiento.effective_date);
+
+      const row: ProjectedOperation = {
+        operation_id: entry.clientOperationId,
+        operation_class:
+          entry.commandType === 'personal_income.create' ? 'personal_income' : 'personal_expense',
+        scope_id: entry.scopeId,
+        currency_definition_id: entry.currency.definitionId,
+        balance_amount: moneyToMinorString(balance),
+        original_amount: String(movimiento.amount),
+        effective_date: date,
+        // El servidor publica `time` como HH:MM:SS; el payload lleva HH:MM.
+        effective_time: time === null ? null : `${time}:00`,
+        concept: text(movimiento.concept),
+        category_id: text(movimiento.category_id),
+        target_balance: null,
+        // Sin versión vigente: no hay CAS que enviar, y por eso no se corrige ni se anula.
+        current_version_id: '',
+        previous_version_id: null,
+        version_no: 1,
+        operation_created_at: entry.createdAt,
+        /*
+         * **Un movimiento de la cola nunca viene de un grupo.** La proyección
+         * de Personal sólo proyecta `personal_income.create` y
+         * `personal_expense.create`; un gasto compartido no pasa por esta cola
+         * —F07/ADR-001 no se extendió para correcciones ni para grupos— así que las
+         * tres columnas son `null` por lo que la fila ES, no por falta de dato.
+         */
+        group_scope_id: null,
+        group_display_name: null,
+        your_share: null,
+        payment_counterpart: null,
+        render_key: entry.clientOperationId,
+        client_operation_id: entry.clientOperationId,
+        currency_code: entry.currency.code,
+        currency_scale: entry.currency.scale,
+        counted: contributes(entry, scope),
+      };
+
+      return { entry, effects, row, inRange: inRange(date, range) };
     });
-    const amount = moneyFromMinorString(String(entry.payload.amount), own);
-    const effects =
-      entry.commandType === 'personal_income.create'
-        ? derivePersonalIncome({ scope: sid, amount })
-        : derivePersonalExpense({ scope: sid, amount });
-    const balance = effects[0].balance as Money;
-    const time = text(entry.payload.effective_time);
-    const date = String(entry.payload.effective_date);
-
-    const row: ProjectedOperation = {
-      operation_id: entry.clientOperationId,
-      operation_class:
-        entry.commandType === 'personal_income.create' ? 'personal_income' : 'personal_expense',
-      scope_id: entry.scopeId,
-      currency_definition_id: entry.currency.definitionId,
-      balance_amount: moneyToMinorString(balance),
-      original_amount: String(entry.payload.amount),
-      effective_date: date,
-      // El servidor publica `time` como HH:MM:SS; el payload lleva HH:MM.
-      effective_time: time === null ? null : `${time}:00`,
-      concept: text(entry.payload.concept),
-      category_id: text(entry.payload.category_id),
-      target_balance: null,
-      // Sin versión vigente: no hay CAS que enviar, y por eso no se corrige ni se anula.
-      current_version_id: '',
-      previous_version_id: null,
-      version_no: 1,
-      operation_created_at: entry.createdAt,
-      render_key: entry.clientOperationId,
-      client_operation_id: entry.clientOperationId,
-      currency_code: entry.currency.code,
-      currency_scale: entry.currency.scale,
-      counted: contributes(entry, scope),
-    };
-
-    return { entry, effects, row, inRange: inRange(date, range) };
-  });
 
   /** The ones that do share a definition with the scope: the only summable. */
   const counted = locals.filter((local) => local.row.counted);
@@ -354,7 +380,7 @@ export function projectHome(input: ProjectionInput): ProjectedHome {
       aliases.get(op.operation_id) ?? input.aliases.get(op.operation_id) ?? op.operation_id,
     client_operation_id: null,
     // A server row is always under the scope's base currency: the effect's
-    // composite FK makes that structural (ADR-013, invariant 12).
+    // composite FK makes that structural (F03/ADR-010, invariant 12).
     currency_code: scope.currencyCode,
     currency_scale: scope.currencyScale,
     counted: true,

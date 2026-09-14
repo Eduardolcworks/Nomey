@@ -12,7 +12,7 @@
  * session. None of those stops the generation - they produce a project that
  * builds and misbehaves.
  *
- * WHY IT IS NOT IN CI. `android/` is a local artefact of ADR-030: it is never
+ * WHY IT IS NOT IN CI. `android/` is a local artefact of F08/ADR-001: it is never
  * versioned, so there is nothing for CI to check. This runs on the machine that
  * just generated it, which is the only place the question exists.
  *

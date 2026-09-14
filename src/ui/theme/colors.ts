@@ -58,6 +58,8 @@ export const Colors = {
     borderInteractive: '#8A8A8A',
 
     accent: '#B98C00',
+    /** El par claro del lila. Andamiaje: la experiencia enviada es la oscura. */
+    joinAccent: '#5B3FBF',
     accentPressed: '#916E00',
     onAccent: '#FFFFFF',
 
@@ -95,6 +97,19 @@ export const Colors = {
     borderInteractive: '#707070',
 
     accent: BRAND_YELLOW,
+    /**
+     * Lila, y sólo para el icono de unirse a un grupo.
+     *
+     * **Es un color NUEVO en la paleta**, pedido para distinguir «únete» de
+     * «crear» sin repetir el amarillo de marca, que en Nomey significa «esto es
+     * lo tuyo» y aquí diría lo contrario. Medido sobre `surfaceRaised`
+     * —#151515, el fondo de la tarjeta que lo lleva—: **8,3:1**, holgado para
+     * un icono y suficiente incluso si algún día acompaña a un texto.
+     *
+     * **Nunca es el único signo de nada**: va siempre con su etiqueta al lado,
+     * que es lo que exige `design-direction.md` §8.
+     */
+    joinAccent: '#B9A0FF',
     /** Pressed / active accent. 9.6:1 on background, 9.0:1 under onAccent. */
     accentPressed: '#D9A800',
     /** The only foreground permitted on top of `accent`. */

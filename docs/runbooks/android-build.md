@@ -2,8 +2,8 @@
 
 > **Cómo dejar una máquina Windows capaz de generar el proyecto Android de
 > Nomey con CNG.** La decisión que hay detrás es
-> [ADR-030](../adr/ADR-030-native-code-model.md); los entornos y las variantes,
-> [ADR-031](../adr/ADR-031-environments-and-variants.md) y
+> [F08/ADR-001](../adr/F08/ADR-001-native-code-model.md); los entornos y las variantes,
+> [F08/ADR-002](../adr/F08/ADR-002-environments-and-variants.md) y
 > [`environments.md`](environments.md).
 >
 > **Cubre hasta la development build de Development instalada en un aparato.**
@@ -155,7 +155,7 @@ node scripts/with-variant.mjs development prebuild --platform android --clean
 
 Nunca un `expo prebuild` a secas: la variante se nombra en voz alta, y sin
 nombrarla se resolvería `development` por defecto —que hoy es lo mismo, pero
-deja la identidad implícita, que es justo lo que ADR-031 evita—.
+deja la identidad implícita, que es justo lo que F08/ADR-002 evita—.
 
 Y a continuación, siempre:
 
@@ -345,7 +345,7 @@ Nomey; es el aparato.
 ## 9 · Qué es artefacto y qué es fuente
 
 **`/android` y `/ios` son artefactos.** Están en `.gitignore`, se regeneran sin
-pérdida y **no se editan a mano jamás** — ADR-030 §1.
+pérdida y **no se editan a mano jamás** — F08/ADR-001 §1.
 
 Una edición manual sobrevive exactamente hasta el siguiente `prebuild --clean`,
 que la borra sin avisar. Peor: mientras dura, funciona, así que se convierte en
@@ -402,27 +402,27 @@ Reproduce dentro del binario propio la matriz que la Fase 7 validó en Expo Go
 emulador `Pixel_7` y el stack local, con **dos actores desechables**,
 `f8a4-alpha@nomey.test` y `f8a4-beta@nomey.test`, retirados al terminar.
 
-| Qué                                        | Resultado                                                                                    |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| Alta, acceso y cierre en frío              | La sesión sobrevive por **SecureStore**; sin servidor sigue identificada                     |
-| Cierre de sesión                           | Vuelve a `Entrar`; la sesión siguiente no ve nada de la anterior                             |
-| Gasto e ingreso conectados                 | Cifras, filas, orden, categoría y donut, persistidos                                         |
-| Registro sin conexión                      | Proyección inmediata y sin marca de pendiente; sobrevive a `force-stop`                      |
-| Sincronización al volver el servidor       | Silenciosa y sin recargar nada; **ninguna cifra saltó**                                      |
-| Servidor, tras sincronizar                 | **3 operaciones, 3 claves.** Cero claves con más de una operación, cero conceptos duplicados |
-| Aislamiento entre actores                  | Ámbitos disjuntos; **cero ámbitos con efectos de dos actores**; cero fugas en pantalla       |
-| Incidencia ordinaria de ADR-029, `Sí`/`No` | Texto literal del ADR; `Sí` recreó la intención, `No` la resolvió sin llamar al servidor     |
+| Qué                                            | Resultado                                                                                    |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Alta, acceso y cierre en frío                  | La sesión sobrevive por **SecureStore**; sin servidor sigue identificada                     |
+| Cierre de sesión                               | Vuelve a `Entrar`; la sesión siguiente no ve nada de la anterior                             |
+| Gasto e ingreso conectados                     | Cifras, filas, orden, categoría y donut, persistidos                                         |
+| Registro sin conexión                          | Proyección inmediata y sin marca de pendiente; sobrevive a `force-stop`                      |
+| Sincronización al volver el servidor           | Silenciosa y sin recargar nada; **ninguna cifra saltó**                                      |
+| Servidor, tras sincronizar                     | **3 operaciones, 3 claves.** Cero claves con más de una operación, cero conceptos duplicados |
+| Aislamiento entre actores                      | Ámbitos disjuntos; **cero ámbitos con efectos de dos actores**; cero fugas en pantalla       |
+| Incidencia ordinaria de F07/ADR-002, `Sí`/`No` | Texto literal del ADR; `Sí` recreó la intención, `No` la resolvió sin llamar al servidor     |
 
 Tres cosas que conviene no volver a descubrir:
 
 - **Un rechazo terminal no quema la clave.** Medido: con la categoría dada de
   baja en el servidor, la frontera respondió `CATEGORY_NOT_USABLE` y el censo se
   quedó igual —mismas operaciones y **mismas claves**—, porque la reclamación de
-  ADR-011 §13 vive dentro de la misma transacción que el rechazo aborta. Pulsar
+  F03/ADR-008 §13 vive dentro de la misma transacción que el rechazo aborta. Pulsar
   `Sí` tampoco creó ninguna: la intención nueva volvió a ser rechazada.
 - **El cliente retira la categoría al pasar de Gasto a Ingreso**, y no sólo la
   oculta. Comprobado de extremo a extremo: el ingreso llegó al servidor con
-  **cero** filas de categoría, así que ADR-027 no depende de que la frontera lo
+  **cero** filas de categoría, así que F06/ADR-009 no depende de que la frontera lo
   rechace.
 - **El globo «Tools» del dev-client se solapa con el botón de Perfil** —
   `937–1005 × 213–281` sobre `903–1017 × 136–252`— y se lleva el toque. Es un

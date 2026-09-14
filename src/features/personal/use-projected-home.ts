@@ -3,8 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EntryScope } from './entry-enqueue';
 import type { DateRange } from './interval';
 import { type ProjectedHome, projectHome, type ProjectionSnapshot } from './projection';
-import { publishQueueChange, subscribeQueueChanges } from './queue-events';
-import { forgetProjecting, noteProjecting, queueStore } from './queue-runtime';
+import {
+  publishQueueChange,
+  subscribeQueueChanges,
+  forgetProjecting,
+  noteProjecting,
+  queueStore,
+} from '@/lib/offline';
 import type { PersonalHome } from './use-personal-home';
 import type { QueueEntry } from '@/lib/offline/queue-entry';
 
@@ -12,7 +17,7 @@ import type { QueueEntry } from '@/lib/offline/queue-entry';
  * LO QUE INICIO PINTA: el snapshot del servidor más la cola del actor.
  *
  * Este hook es el único consumidor de `projectHome`, y todas las superficies
- * leen lo que devuelve (ADR-028 §8, límite 4). Hace tres cosas, y ninguna es
+ * leen lo que devuelve (F07/ADR-001 §8, límite 4). Hace tres cosas, y ninguna es
  * aritmética:
  *
  * 1. **Relee la cola** cuando cambia: al encolar, cuando el worker anota una

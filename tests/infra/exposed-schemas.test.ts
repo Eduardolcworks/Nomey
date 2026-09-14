@@ -5,8 +5,8 @@ import CONFIG from '../../supabase/config.toml?raw';
 /**
  * Invariante de exposición de la Data API.
  *
- * ADR-006 §6 exige expresamente «un test automatizado que falle si `core` o
- * `sec` aparecen en cualquiera de esas dos superficies», y ADR-014 añade
+ * F03/ADR-003 §6 exige expresamente «un test automatizado que falle si `core` o
+ * `sec` aparecen en cualquiera de esas dos superficies», y F03/ADR-011 añade
  * `public` a la lista de lo que no se expone.
  *
  * Es un test de texto, no de base de datos: comprueba la configuración
@@ -31,19 +31,19 @@ describe('superficie expuesta por la Data API', () => {
   const schemas = tomlStringArray('schemas');
   const extraSearchPath = tomlStringArray('extra_search_path');
 
-  it('expone `api`, que es la superficie propia de Nomey (ADR-005 §2)', () => {
+  it('expone `api`, que es la superficie propia de Nomey (F03/ADR-002 §2)', () => {
     expect(schemas).toContain('api');
   });
 
-  it.each(NUNCA_EXPUESTOS)('no expone `%s` (ADR-006 §6)', (schema) => {
+  it.each(NUNCA_EXPUESTOS)('no expone `%s` (F03/ADR-003 §6)', (schema) => {
     expect(schemas).not.toContain(schema);
   });
 
-  it.each(NUNCA_EXPUESTOS)('no incluye `%s` en el search_path (ADR-006 §6)', (schema) => {
+  it.each(NUNCA_EXPUESTOS)('no incluye `%s` en el search_path (F03/ADR-003 §6)', (schema) => {
     expect(extraSearchPath).not.toContain(schema);
   });
 
-  it('no expone `public` (ADR-014)', () => {
+  it('no expone `public` (F03/ADR-011)', () => {
     expect(schemas).not.toContain('public');
   });
 });

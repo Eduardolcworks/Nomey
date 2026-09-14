@@ -1,5 +1,5 @@
 /**
- * La cola de escritura sin conexión — ADR-028.
+ * La cola de escritura sin conexión — F07/ADR-001.
  *
  * **F7.B entregó la persistencia; F7.C, el worker, la clasificación medida, el
  * backoff, el planificador y el coordinador.** La proyección optimista es de
@@ -13,6 +13,12 @@ export {
   payloadDefect,
   QUEUE_COMMAND_TYPES,
   type FrozenPayload,
+  type FrozenPayloadOf,
+  type GroupCreatePayload,
+  type GroupParticipantPayload,
+  groupPayloadOf,
+  type PersonalEntryPayload,
+  personalPayloadOf,
   type PayloadDefect,
   type QueueCommandType,
 } from './command';
@@ -111,3 +117,32 @@ export type {
   SessionPort,
   WorkerPorts,
 } from './worker-ports';
+
+/**
+ * EL RUNTIME DURABLE, UNO SOLO PARA TODA LA APP.
+ *
+ * Vive aquí y no en una feature porque desde F9 lo comparten Personal y Grupos,
+ * y las features no pueden importarse entre sí: dejarlo arriba habría obligado a
+ * la segunda a montar otro worker, otra persistencia y otra barrera.
+ */
+export {
+  type CommandHandler,
+  type CommandHandlers,
+  countUnsyncedEntries,
+  createDispatchingTransport,
+  ensureWorker,
+  forgetProjecting,
+  isProjecting,
+  localQueueStatus,
+  noteProjecting,
+  queueStore,
+  readBarrier,
+  setQueueIdentity,
+  wakeQueue,
+} from './queue-runtime';
+export {
+  publishQueueChange,
+  type QueueChange,
+  queueListenerCount,
+  subscribeQueueChanges,
+} from './queue-events';

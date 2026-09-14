@@ -12,6 +12,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassSurface } from './glass-surface';
 import { IconButton } from './icon-button';
 import { ThemedText } from './themed-text';
-import { SLIDE_IN, timing } from '@/ui/theme/motion-runtime';
+import { SPRING, timing } from '@/ui/theme/motion-runtime';
 import { Motion, Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 /**
@@ -140,7 +141,13 @@ export function SheetWindow({ title, closeLabel, onClosed, children }: SheetWind
 
       <View style={styles.centre} pointerEvents="box-none">
         <Animated.View
-          entering={SLIDE_IN}
+          /*
+           * SIN `entering`: la entrada la mueve `fall`, como la salida — ver
+           * `usePanelMotion`. Una animación de layout de Reanimated y una
+           * transformación animada sobre la MISMA vista son dos dueños de su
+           * posición, y con un cambio de altura durante la entrada dejaban lo
+           * dibujado en un sitio y lo tocable en otro.
+           */
           onLayout={onPanelLayout}
           /*
            * **Sin manejador de respondedor.** Quién se queda cada toque lo
@@ -226,10 +233,27 @@ export function SheetWindow({ title, closeLabel, onClosed, children }: SheetWind
  * **volver a cero es volver exactamente a la base**, sin acumular nada por
  * muchas veces que se abra y se cierre.
  *
- * **La entrada es declarativa y la salida imperativa.** Entrar no necesita
- * saber nada: `SLIDE_IN` lo resuelve al montar. Salir sí, porque hay que
- * esperar a que la hoja llegue abajo antes de deshacer la ruta — al revés no
- * habría nada que animar, la pantalla ya estaría desmontada.
+ * **Entrada y salida son el MISMO valor, `fall`, y no una animación de
+ * layout.** Antes la entrada era `SLIDE_IN` —una animación de entrada de
+ * Reanimated— y la salida este valor.
+ * Medido en el iPhone (sonda en el registro de Kong): al editar un gasto
+ * compartido, la ventana cambia de altura nada más montarse —el formulario
+ * sustituye a la carga y la tarjeta de participantes se acota al medirse—, y
+ * ese cambio, mientras la animación de entrada seguía en marcha, dejaba el
+ * panel DIBUJADO en un sitio y su área TOCABLE en otro: el toque sobre
+ * «Guardar» caía en el velo y cerraba la ventana sin guardar. Reanimated
+ * documenta la animación de entrada como dueña de la posición de la vista
+ * mientras dura, y su propio código deja en un `TODO` la actualización de
+ * layout que llega en medio (`LayoutAnimationsProxy`, caso `Update`).
+ *
+ * Con un solo dueño —la transformación animada, que Fabric compone sobre el
+ * layout vigente— el panel puede cambiar de tamaño en cualquier momento sin
+ * que lo tocable se separe de lo dibujado. La curva es la misma: el muelle de
+ * `Motion.spring` que usaba `SLIDE_IN`, respetando `ReduceMotion.System`.
+ *
+ * Salir sigue siendo imperativo porque hay que esperar a que la hoja llegue
+ * abajo antes de deshacer la ruta — al revés no habría nada que animar, la
+ * pantalla ya estaría desmontada.
  *
  * Cada valor tiene **un solo punto de escritura**, declarado antes del hook que
  * lo lee. No es estilo: es lo único que `react-hooks/immutability` admite.
@@ -245,7 +269,8 @@ function usePanelMotion({
   safeTop: number;
   done: () => void;
 }) {
-  const fall = useSharedValue(0);
+  // Nace fuera de la pantalla, por abajo, y el muelle la trae a su sitio.
+  const fall = useSharedValue(screenHeight);
   const lift = useSharedValue(0);
 
   const close = () => {
@@ -253,6 +278,13 @@ function usePanelMotion({
       if (finished) runOnJS(done)();
     });
   };
+
+  // La entrada: al montar, y sólo entonces. `close` va antes por la regla de
+  // `react-hooks/immutability`, que no admite escribir un valor que un efecto
+  // anterior ya leyó.
+  useEffect(() => {
+    fall.value = withSpring(0, SPRING);
+  }, [fall]);
 
   useEffect(() => {
     /*

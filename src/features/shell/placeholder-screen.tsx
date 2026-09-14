@@ -25,10 +25,19 @@ import { Spacing, Symbols } from '@/ui/theme';
  */
 export function PlaceholderScreen({
   title,
+  heading,
   body,
   children,
 }: {
   title: MessageKey;
+  /**
+   * Un título que NO sale del catálogo — el nombre de un grupo, por ejemplo.
+   *
+   * `title` sigue siendo obligatorio y sigue siendo lo que se enseña cuando esto
+   * falta: es el nombre del SITIO, y un dato que aún no ha llegado no puede
+   * dejar la cabecera en blanco.
+   */
+  heading?: string;
   body?: string;
   children?: React.ReactNode;
 }) {
@@ -47,7 +56,9 @@ export function PlaceholderScreen({
               router.back();
             }}
           />
-          <ThemedText variant="title">{t(title)}</ThemedText>
+          <ThemedText variant="title" numberOfLines={1} style={styles.heading}>
+            {heading ?? t(title)}
+          </ThemedText>
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
@@ -65,6 +76,10 @@ export function PlaceholderScreen({
 
 const styles = StyleSheet.create({
   screen: {
+    flex: 1,
+  },
+  heading: {
+    /* Se queda con el sitio que sobra: un nombre largo se recorta, no desborda. */
     flex: 1,
   },
   header: {

@@ -7,7 +7,7 @@ import { createSqliteCatalogueCache } from '../../src/lib/offline/sqlite-catalog
 import { openTestDatabase } from './offline-sqlite';
 
 /**
- * El catálogo cacheado (ADR-028 §16).
+ * El catálogo cacheado (F07/ADR-001 §16).
  *
  * Aquí sólo se comprueba el almacén: guarda una cadena por `(actor, clave)` y
  * no sabe qué hay dentro. Qué es una categoría, y qué pasa si el documento está

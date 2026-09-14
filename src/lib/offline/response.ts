@@ -1,7 +1,7 @@
 /**
  * LA CLASIFICACIÓN DE UNA RESPUESTA, ESCRITA DESDE LO MEDIDO.
  *
- * ADR-028 §11 hace depender de esta tabla la decisión más peligrosa de la fase
+ * F07/ADR-001 §11 hace depender de esta tabla la decisión más peligrosa de la fase
  * —si se puede o no proponer registrar el gasto otra vez— y exige por eso medir
  * la tripleta `estado HTTP · código de frontera · SQLSTATE` contra el stack
  * real antes de escribirla. La medida está en
@@ -49,7 +49,7 @@ export type TransportOutcome =
   /** No hubo respuesta: sin red, DNS, TCP, plazo agotado, o el cuerpo no se pudo leer. */
   | { readonly kind: 'unreachable'; readonly reason: 'offline' | 'timeout' | 'transport' };
 
-/** Las siete clases de ADR-028 §11. */
+/** Las siete clases de F07/ADR-001 §11. */
 export type ResponseClass =
   | 'success'
   | 'transport'
@@ -121,6 +121,19 @@ export function classifyResponse(
   }
 
   if (status === 408 || status === 429 || status >= 500) {
+    return classified('transport', 'retryable', code);
+  }
+
+  if (code === 'COMMAND_IN_FLIGHT') {
+    /*
+     * TRANSITORIO, no un defecto del comando. Otra sesion reclamo la misma
+     * clave y todavia no ha confirmado; cuando termine, este intento sera un
+     * replay legitimo. Reintentar es lo unico correcto — y con el backoff que
+     * ya gobierna `retryable`, para no convertirlo en un bucle apretado.
+     *
+     * **Ni se regenera la clave ni el ambito**: son los mismos, y por eso el
+     * reintento converge en vez de crear un segundo grupo.
+     */
     return classified('transport', 'retryable', code);
   }
 

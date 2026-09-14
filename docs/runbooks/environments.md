@@ -1,7 +1,7 @@
 # Entornos de Nomey
 
 > **Cómo se arranca, se resuelve y se verifica cada entorno.** La decisión que
-> hay detrás es [ADR-031](../adr/ADR-031-environments-and-variants.md); si este
+> hay detrás es [F08/ADR-002](../adr/F08/ADR-002-environments-and-variants.md); si este
 > documento la contradice, manda el ADR.
 >
 > Para levantar Supabase en local, [`local-setup.md`](local-setup.md).
@@ -254,7 +254,7 @@ artefacto sin Metro y el canal de actualización — **no el backend**.
 > entorno distinto del local». Un stack local alcanzado por otra ruta sigue
 > siendo el mismo entorno. El criterio queda **pendiente**, escrito como
 > pendiente, hasta que exista un backend alojado —
-> [ADR-031](../adr/ADR-031-environments-and-variants.md) §4.
+> [F08/ADR-002](../adr/F08/ADR-002-environments-and-variants.md) §4.
 
 **Production no tiene nada más que identidad.** Ni proyecto de backend, ni
 credenciales, ni actualización publicada, ni build. Se puede resolver su

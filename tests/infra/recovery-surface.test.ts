@@ -70,7 +70,7 @@ describe('el token nunca se queda en ningún sitio', () => {
   });
 
   it('ni se guarda a mano en ningún almacenamiento', () => {
-    // ADR-017 sigue siendo el dueño: `verifyOtp` persiste la sesión por el
+    // F05/ADR-001 sigue siendo el dueño: `verifyOtp` persiste la sesión por el
     // adaptador ya configurado, y esta feature no nombra ninguna clave.
     for (const source of [HOOK, SERVICE, PARSER]) {
       expect(source).not.toContain('AsyncStorage');

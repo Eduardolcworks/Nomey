@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
  * LA ACTIVACIÓN DE LA COLA EN F7.D, comprobada sobre el fuente.
  *
  * Lo que aquí se afirma no se puede afirmar montando nada en Vitest —son
- * decisiones de composición y de cableado— y sin embargo son las que ADR-028
+ * decisiones de composición y de cableado— y sin embargo son las que F07/ADR-001
  * hace obligatorias: una sola ruta de alta, un solo worker en la raíz, un solo
  * listener de `AppState`, y ninguna maquinaria visible en la fila.
  */
@@ -58,28 +58,34 @@ describe('el alta sale por la cola y por ninguna otra puerta', () => {
     expect(source('src/features/personal/movement-editor.tsx')).toContain('useRecordMovement');
   });
 
-  it('`sendPersonalEntry` tiene UN consumidor: el transporte de la cola', () => {
+  it('`sendPersonalEntry` tiene UN consumidor: la raíz que ensambla', () => {
+    /*
+     * Desde F9 el runtime vive en `lib/offline` y no puede conocer una feature,
+     * así que quien junta la puerta de Personal con su manejador es la raíz.
+     * Sigue habiendo **uno solo**, que es lo que esta guarda protege.
+     */
     const callers = files().filter(
       (file) =>
         file.code.includes('sendPersonalEntry') &&
         !file.path.endsWith('personal-service.ts') &&
-        !file.path.endsWith('queue-transport.ts'),
+        !file.path.endsWith('queue-transport.ts') &&
+        !file.path.endsWith('features/personal/index.ts'),
     );
-    expect(callers.map((file) => file.path)).toEqual(['src/features/personal/queue-runtime.ts']);
+    expect(callers.map((file) => file.path)).toEqual(['src/app/_layout.tsx']);
   });
 
   it('la persistencia va ANTES de publicar, publicar antes de cerrar, y despertar después', () => {
     const QUEUE = stripComments(source('src/features/personal/use-entry-queue.ts'));
     const persist = QUEUE.indexOf('await persistEntry(');
     const publish = QUEUE.indexOf('publishQueueChange({');
-    const wake = QUEUE.indexOf('coordinator.wake()');
+    const wake = QUEUE.indexOf('wakeQueue()');
     const close = QUEUE.indexOf('return true;');
     expect(persist).toBeGreaterThan(-1);
     expect(publish).toBeGreaterThan(persist);
     expect(wake).toBeGreaterThan(publish);
     expect(close).toBeGreaterThan(wake);
     // Y el despertar es una macrotarea: llega cuando la hoja ya se está cerrando.
-    expect(QUEUE).toMatch(/setTimeout\(\(\) => \{\s*coordinator\.wake\(\);\s*\}, 0\)/);
+    expect(QUEUE).toMatch(/setTimeout\(\(\) => \{\s*wakeQueue\(\);\s*\}, 0\)/);
   });
 });
 
@@ -87,15 +93,35 @@ describe('un worker, en la raíz, con el listener de AppState que ya existía', 
   const LAYOUT = stripComments(source('src/app/_layout.tsx'));
 
   it('la raíz monta el runtime una vez y cablea el primer plano por el seam de F5', () => {
-    expect(LAYOUT).toContain('<SessionProvider onForeground={wakeEntryQueue}>');
-    expect(LAYOUT).toContain('useEntryQueueRuntime(');
-    expect(LAYOUT.match(/useEntryQueueRuntime\(/g)).toHaveLength(1);
+    expect(LAYOUT).toContain('<SessionProvider onForeground={wakeQueue}>');
+    expect(LAYOUT).toContain('useQueueRuntime(');
+    expect(LAYOUT.match(/useQueueRuntime\(/g)).toHaveLength(1);
+  });
+
+  it('y la raíz sólo ENSAMBLA: ni una regla de negocio en el mapa', () => {
+    /*
+     * El reparto por tipo de comando es la única capa que puede conocer a todas
+     * las features a la vez. Lo que no puede hacer es interpretar respuestas ni
+     * construir payloads: eso vive en el módulo de cada dominio, que es lo que
+     * esta guarda comprueba — el mapa se compone de mapas, no de lógica.
+     */
+    expect(LAYOUT).toContain('const COMMAND_HANDLERS: CommandHandlers = {');
+    expect(LAYOUT).toContain('...personalCommandHandlers(sendPersonalEntry)');
+    const mapa = LAYOUT.slice(
+      LAYOUT.indexOf('const COMMAND_HANDLERS'),
+      LAYOUT.indexOf('function QueueBinding'),
+    );
+    expect(mapa).not.toContain('envelope');
+    expect(mapa).not.toContain('status');
+    expect(mapa).not.toContain('try {');
   });
 
   it('nadie más monta el runtime ni añade otro listener de AppState', () => {
     const runtimes = files().filter(
       (file) =>
-        file.code.includes('useEntryQueueRuntime(') && !file.path.endsWith('queue-runtime.ts'),
+        file.code.includes('useQueueRuntime(') &&
+        !file.path.endsWith('queue-runtime.ts') &&
+        !file.path.endsWith('features/shell/index.ts'),
     );
     expect(runtimes.map((file) => file.path)).toEqual(['src/app/_layout.tsx']);
 

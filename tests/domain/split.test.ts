@@ -47,7 +47,7 @@ function run(item: SplitCase): string[] {
   return shares.map((share) => moneyToMinorString(share.amount));
 }
 
-describe('reparto de un gasto · ADR-002 §5 · ADR-003 T11', () => {
+describe('reparto de un gasto · F01/ADR-001 §5 · F02/ADR-001 T11', () => {
   it.each(cases.map((item) => [title(item), item] as const))('%s', (_name, item) => {
     if (item.expectError !== undefined) {
       expect(() => run(item)).toThrowError(expect.objectContaining({ code: item.expectError }));

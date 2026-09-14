@@ -18,7 +18,7 @@ import { createSqliteCatalogueCache } from '../../src/lib/offline/sqlite-catalog
 import { openTestDatabase } from './offline-sqlite';
 
 /**
- * EL RESPALDO LOCAL DEL ÁMBITO (F7.D, sobre ADR-028 §13 y §16).
+ * EL RESPALDO LOCAL DEL ÁMBITO (F7.D, sobre F07/ADR-001 §13 y §16).
  *
  * Es la ampliación que F7.D añade al almacén de documentos, y se audita como se
  * auditó el catálogo: contra un SQLite de verdad y por comportamiento, no
@@ -152,7 +152,7 @@ describe('el respaldo, acotado por actor', () => {
 
     // B entra en el mismo aparato, sin haber resuelto nunca su ámbito.
     expect(await recallScope(cache, B)).toBeNull();
-    // Y el de A sigue intacto para cuando vuelva (ADR-028 §13: se conserva).
+    // Y el de A sigue intacto para cuando vuelva (F07/ADR-001 §13: se conserva).
     expect(await recallScope(cache, A)).toEqual(ready());
     db.close();
   });
@@ -200,7 +200,7 @@ describe('un respaldo bueno no lo destruye una respuesta mala', () => {
 });
 
 /**
- * NINGÚN AGREGADO ECONÓMICO SE PERSISTE (ADR-028 §8, límite 2).
+ * NINGÚN AGREGADO ECONÓMICO SE PERSISTE (F07/ADR-001 §8, límite 2).
  *
  * Lo único duradero que la app guarda de una intención es el **comando
  * inmutable** de la cola. El almacén de documentos guarda dos cosas —el

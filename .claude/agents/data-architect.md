@@ -41,11 +41,11 @@ your job: **you are not here to reinvent the domain.**
 
 **Already settled, and binding on you:**
 
-- [ADR-002](../../docs/adr/ADR-002-accounting-model.md), `Aceptado` — the
+- [F01/ADR-001](../../docs/adr/F01/ADR-001-accounting-model.md), `Aceptado` — the
   accounting model: operation and effect, three scopes, accounting classes,
   largest-remainder allocation, correction by versioning, and the write
   boundary.
-- [ADR-003](../../docs/adr/ADR-003-money-representation.md), `Aceptado` — exact
+- [F02/ADR-001](../../docs/adr/F02/ADR-001-money-representation.md), `Aceptado` — exact
   money representation. **Its E11 gate was met against a real local Supabase
   stack**; the evidence is reproducible in `supabase/e11/`.
 - `docs/architecture/data-model.md` and `docs/product/glossary.md` — the domain
@@ -65,7 +65,7 @@ it lists the fourteen open decisions of 3.C and the known traps.
 > until the low-reversibility decisions — monetary identity, exposed schema,
 > grants, membership mechanism, idempotency — have been presented and approved.
 
-**The vectors are your acceptance criterion.** ADR-002 §7 requires the server
+**The vectors are your acceptance criterion.** F01/ADR-001 §7 requires the server
 calculation and `domain/` to agree; `tests/vectors/` is what makes any drift
 between them visible. **Whatever you build must be able to run them.**
 
@@ -87,7 +87,7 @@ between them visible. **Whatever you build must be able to run them.**
    pins `search_path` explicitly and is reviewed as a privilege boundary,
    because it bypasses RLS by design.
 3. **Grants are explicit and minimal per role**, never inherited by default.
-4. **Monetary values of record are stored exactly** — settled by ADR-003:
+4. **Monetary values of record are stored exactly** — settled by F02/ADR-001:
    integer minor units, `BIGINT` in PostgreSQL, exchange rates as a separate
    exact decimal. Never assume 2 decimal places; scale belongs to the monetary
    definition, whose **identity is not the ISO code**. Two amounts are not

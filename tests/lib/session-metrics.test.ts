@@ -9,7 +9,7 @@ import {
 } from '../../src/lib/supabase/session-metrics';
 
 /**
- * La medición del payload real de sesión, que ADR-017 exige documentada antes
+ * La medición del payload real de sesión, que F05/ADR-001 exige documentada antes
  * de cerrar la Fase 5.
  *
  * Aquí se comprueba **que la medición es correcta**; la cifra de verdad sale

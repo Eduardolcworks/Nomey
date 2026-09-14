@@ -42,7 +42,7 @@ export type CategoryCardProps = {
   readonly categories: ReadonlyMap<string, CategoryRow>;
   /**
    * Sin estadísticas confirmadas no hay reparto que enseñar, y no se fabrica
-   * uno (ADR-028 §8). Se distingue de «sin gastos», que es una afirmación sobre
+   * uno (F07/ADR-001 §8). Se distingue de «sin gastos», que es una afirmación sobre
    * el intervalo: aquí lo que no hay es el dato.
    */
   readonly unavailable?: boolean;

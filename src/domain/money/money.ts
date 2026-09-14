@@ -6,7 +6,7 @@ import { sameCurrencyDefinition } from './currency-definition';
  * Un importe monetario exacto.
  *
  * `minor` es un entero en la unidad mínima de su definición monetaria: 86,20 €
- * son `8620n`. ADR-003 §2. **Nunca `number`**, ni siquiera para valores
+ * son `8620n`. F02/ADR-001 §2. **Nunca `number`**, ni siquiera para valores
  * pequeños: la regla es del tipo, no del tamaño.
  */
 export interface Money {
@@ -100,7 +100,7 @@ export function zeroMoney(currency: CurrencyDefinition): Money {
  *
  * `currency` es obligatorio si la lista puede estar vacía: sin él no existe un
  * cero que devolver, y **inventar una moneda sería exactamente la agregación
- * silenciosa que ADR-003 §3 prohíbe**.
+ * silenciosa que F02/ADR-001 §3 prohíbe**.
  */
 export function sumMoney(values: readonly Money[], currency?: CurrencyDefinition): Money {
   if (values.length === 0) {

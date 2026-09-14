@@ -6,7 +6,7 @@ import type { ExpoConfig } from 'expo/config';
  * Migrated from app.json to TypeScript so the config can branch on the
  * environment. The environment is selected with `APP_VARIANT`, and the three
  * variants, their identities and their update channels are fixed by
- * ADR-031 - `docs/adr/ADR-031-environments-and-variants.md`.
+ * F08/ADR-002 - `docs/adr/F08/ADR-002-environments-and-variants.md`.
  *
  * Bundle identifiers are permanent once an app is published to the App Store
  * or Play Store. `es.lcworks.nomey` is reverse DNS of `lcworks.es`, a domain
@@ -14,7 +14,7 @@ import type { ExpoConfig } from 'expo/config';
  * only a reinstall away from changing.
  */
 
-/** The three environments of ADR-031 §1. There is no fourth. */
+/** The three environments of F08/ADR-002 §1. There is no fourth. */
 type VariantName = 'development' | 'staging' | 'production';
 
 /**
@@ -23,7 +23,7 @@ type VariantName = 'development' | 'staging' | 'production';
  * Read the field list as the contract it is: a variant may change **who the
  * binary is** and **which update channel it listens to**, and nothing else.
  * Product behaviour is identical in the three, which is why no branch of the
- * source code ever asks which environment it is running in - ADR-031 §2.
+ * source code ever asks which environment it is running in - F08/ADR-002 §2.
  */
 type Variant = {
   readonly displayName: string;
@@ -122,7 +122,7 @@ function resolveVariant(raw: string | undefined): VariantName {
       `Nomey: APP_VARIANT="${requested}" is not a known variant. ` +
         `Use one of: ${VARIANT_NAMES.join(', ')}. ` +
         `Leaving it unset selects "${DEFAULT_VARIANT}"; production is never implicit. ` +
-        `See docs/adr/ADR-031-environments-and-variants.md.`,
+        `See docs/adr/F08/ADR-002-environments-and-variants.md.`,
     );
   }
 
@@ -293,7 +293,7 @@ const config: ExpoConfig = {
        * which exclude the SecureStore entries from Android Auto Backup and
        * from device-to-device transfer. Without it the refresh token is a
        * candidate for both. iOS gets the equivalent from the keychain
-       * accessibility constant instead - see ADR-017.
+       * accessibility constant instead - see F05/ADR-001.
        *
        * `faceIDPermission: false` deletes NSFaceIDUsageDescription rather than
        * accepting the module's default string. Nomey never passes
@@ -303,6 +303,23 @@ const config: ExpoConfig = {
        */
       'expo-secure-store',
       { configureAndroidBackup: true, faceIDPermission: false },
+    ],
+    [
+      /*
+       * Sólo la cámara, y sólo para leer un QR de invitación (F9, «Únete a un
+       * grupo»). Nomey no graba imagen, vídeo ni audio: el micrófono se
+       * desactiva (`recordAudioAndroid: false`, sin `microphonePermission`) para
+       * que ni el manifiesto ni el Info.plist declaren un permiso que el binario
+       * no usa. La cadena de propósito dice exactamente para qué se pide. Expo
+       * Go trae el módulo nativo; esto sólo cuenta en una build propia.
+       */
+      'expo-camera',
+      {
+        cameraPermission:
+          'Nomey usa la cámara sólo para leer el código QR de una invitación a un grupo.',
+        microphonePermission: false,
+        recordAudioAndroid: false,
+      },
     ],
 
     /*

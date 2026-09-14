@@ -1,0 +1,67 @@
+{
+  "$comment": [
+    "Forma canonica de un nombre visible de grupo o de participante.",
+    "",
+    "Los MISMOS vectores los reproducen dos implementaciones que no comparten",
+    "codigo: `normaliseName` en `src/features/groups/group-draft.ts` y",
+    "`sec.canonical_display_name` en PostgreSQL. Es el mismo mecanismo que",
+    "ADR-002 y ADR-009 usan para el dominio monetario: la paridad se garantiza",
+    "con vectores, no compartiendo codigo.",
+    "",
+    "Importa porque el servidor NO confia en que el cliente haya normalizado, y",
+    "porque el valor canonico entra en canonical_intent: si las dos formas",
+    "divergieran, un reintento legitimo se leeria como IDEMPOTENCY_KEY_REUSED.",
+    "",
+    "Todo caracter no imprimible va escapado a proposito: un vector que no se",
+    "puede leer en la revision no es evidencia de nada.",
+    "",
+    "out a null significa: se rechaza, no nombra nada."
+  ],
+  "cases": [
+    { "id": "ya-canonico", "in": "Ana", "out": "Ana" },
+    { "id": "extremos", "in": "  Ana  ", "out": "Ana" },
+    { "id": "interior-doble", "in": "Ana  Ruiz", "out": "Ana Ruiz" },
+    { "id": "interior-largo", "in": "Viaje  a   Lisboa", "out": "Viaje a Lisboa" },
+    { "id": "tabulador", "in": "Ana\tRuiz", "out": "Ana Ruiz" },
+    { "id": "salto-de-linea", "in": "Ana\nRuiz", "out": "Ana Ruiz" },
+    { "id": "retorno-de-carro", "in": "Ana\r\nRuiz", "out": "Ana Ruiz" },
+    { "id": "tabulacion-vertical", "in": "Ana\u000bRuiz", "out": "Ana Ruiz" },
+    { "id": "avance-de-pagina", "in": "Ana\u000cRuiz", "out": "Ana Ruiz" },
+    { "id": "mezcla", "in": " \t Ana \n\t Ruiz \r ", "out": "Ana Ruiz" },
+    { "id": "nbsp", "in": "Ana\u00a0Ruiz", "out": "Ana Ruiz" },
+    { "id": "nbsp-estrecho", "in": "Ana\u202fRuiz", "out": "Ana Ruiz" },
+    { "id": "espacio-ogham", "in": "Ana\u1680Ruiz", "out": "Ana Ruiz" },
+    { "id": "espacio-en", "in": "Ana\u2002Ruiz", "out": "Ana Ruiz" },
+    { "id": "espacio-fino", "in": "Ana\u2009Ruiz", "out": "Ana Ruiz" },
+    { "id": "separador-de-linea", "in": "Ana\u2028Ruiz", "out": "Ana Ruiz" },
+    { "id": "separador-de-parrafo", "in": "Ana\u2029Ruiz", "out": "Ana Ruiz" },
+    { "id": "espacio-matematico", "in": "Ana\u205fRuiz", "out": "Ana Ruiz" },
+    { "id": "espacio-ideografico", "in": "Ana\u3000Ruiz", "out": "Ana Ruiz" },
+    { "id": "bom", "in": "\ufeffAna\ufeffRuiz", "out": "Ana Ruiz" },
+    { "id": "nfc-se-conserva", "in": "Jos\u00e9", "out": "Jos\u00e9" },
+    { "id": "nfd-se-compone", "in": "Jose\u0301", "out": "Jos\u00e9" },
+    {
+      "id": "nfd-con-espacios",
+      "in": "  Jose\u0301   Mari\u0301a ",
+      "out": "Jos\u00e9 Mar\u00eda"
+    },
+    { "id": "acentos-no-se-quitan", "in": "Mar\u00eda", "out": "Mar\u00eda" },
+    { "id": "caja-no-se-toca", "in": "MAR\u00cdA jos\u00e9", "out": "MAR\u00cdA jos\u00e9" },
+    { "id": "enye-nfd", "in": " N\u00faria  Pin\u0303a ", "out": "N\u00faria Pi\u00f1a" },
+    {
+      "id": "cirilico",
+      "in": "  \u0410\u043d\u043d\u0430   \u041a. ",
+      "out": "\u0410\u043d\u043d\u0430 \u041a."
+    },
+    {
+      "id": "emoji-en-el-nombre",
+      "in": " Casa \ud83c\udfe0  rural ",
+      "out": "Casa \ud83c\udfe0 rural"
+    },
+    { "id": "vacio", "in": "", "out": null },
+    { "id": "solo-espacios", "in": "   ", "out": null },
+    { "id": "solo-tabuladores", "in": "\t\t", "out": null },
+    { "id": "solo-nbsp", "in": "\u00a0 \u00a0", "out": null },
+    { "id": "solo-separadores-unicode", "in": "\u2028\u205f\u3000", "out": null }
+  ]
+}

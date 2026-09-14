@@ -99,6 +99,22 @@ describe('guardas de ruta del layout raíz', () => {
         'add',
         'edit-movement',
         'edit-balance',
+        // El selector del `+` de Grupos, desde F9. Va en la rama protegida como
+        // las demás ventanas de producto: crear o unirse a un grupo son cosas
+        // de una cuenta, y sin sesión no hay nada que ofrecer.
+        'group-action',
+        'create-group',
+        // Modificar un grupo: la MISMA ventana que crearlo, en modo edición.
+        'edit-group',
+        // Compartir un grupo (F09/ADR-004): la misma ventana, con el QR.
+        'share-group',
+        // Dentro de un grupo, desde F9. La identidad del ámbito va en la ruta y
+        // es la definitiva: la misma antes y después de que el servidor lo
+        // confirme, así que el enlace no se rompe al reconciliar.
+        'group/[id]',
+        // Añadir un gasto compartido, desde F9. Ventana de producto: el grupo,
+        // sus participantes y su divisa sólo existen para una cuenta con sesión.
+        'group-expense',
         'notifications',
         'profile',
         'account',

@@ -135,7 +135,7 @@ const OK = (id = 'op-1', already = false): TransportOutcome => ({
 describe('la misma clave mientras el resultado sea desconocido', () => {
   it('RESPUESTA PERDIDA DESPUÉS DE ESCRIBIR → misma clave, una sola operación', async () => {
     /*
-     * El caso que motiva ADR-010 entero: el servidor guarda, la respuesta se
+     * El caso que motiva F03/ADR-007 entero: el servidor guarda, la respuesta se
      * pierde, el cliente no puede distinguir «no llegó» de «no me enteré».
      * Reintenta con la MISMA clave y recibe `already_processed`.
      */
@@ -496,7 +496,7 @@ describe('sesión y aislamiento', () => {
     state.actor = null;
     await worker.runOnce();
 
-    // Nunca se descartan automáticamente (ADR-028 §13).
+    // Nunca se descartan automáticamente (F07/ADR-001 §13).
     const after = await store.byId(ACTOR_A, entry.clientOperationId);
     expect(after).not.toBeNull();
     expect(after?.payload).toEqual(entry.payload);

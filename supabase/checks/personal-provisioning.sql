@@ -155,11 +155,12 @@ begin
     fallos := array_append(fallos, 'B1: nomey_provisioner no existe o no es NOLOGIN/NOBYPASSRLS/NOSUPERUSER');
   end if;
 
-  -- B2 · ninguna escritura contable. El provisioning no es un hecho contable.
+  -- B2 · ninguna escritura CONTABLE. El provisioning no es un hecho contable:
+  -- el libro (operacion, version, efecto, comando, reparto, conversion) es del
+  -- writer, y el provisioner no lo toca por ningun privilegio.
   for v_rel in select unnest(array[
       'core.operation','core.operation_version','core.effect','core.client_command',
-      'core.split','core.split_participant','core.frozen_conversion',
-      'core.participant','core.participant_user_link','core.participant_period'])
+      'core.split','core.split_participant','core.frozen_conversion'])
   loop
     if has_table_privilege('nomey_provisioner', v_rel, 'INSERT')
        or has_table_privilege('nomey_provisioner', v_rel, 'UPDATE')
@@ -167,11 +168,37 @@ begin
       fallos := array_append(fallos, format('B2: nomey_provisioner puede escribir en %s', v_rel));
     end if;
   end loop;
+  -- Las relaciones de IDENTIDAD si las escribe, y exactamente asi, por los
+  -- comandos que los ADR aceptados fijan: participantes y periodos al crear un
+  -- grupo, anadir participantes o entrar (ADR-032, ADR-035, ADR-041); el
+  -- vinculo al crear, reclamar y volver, y su borrado al rectificar la propia
+  -- reclamacion (ADR-035, ADR-037). Nada de UPDATE de tabla, nada de DELETE de
+  -- participantes ni de periodos.
+  if not has_table_privilege('nomey_provisioner', 'core.participant', 'INSERT')
+     or has_table_privilege('nomey_provisioner', 'core.participant', 'UPDATE')
+     or has_table_privilege('nomey_provisioner', 'core.participant', 'DELETE') then
+    fallos := array_append(fallos, 'B2c: nomey_provisioner sobre core.participant: se espera solo INSERT (ADR-032/ADR-035)');
+  end if;
+  if not has_table_privilege('nomey_provisioner', 'core.participant_user_link', 'INSERT')
+     or not has_table_privilege('nomey_provisioner', 'core.participant_user_link', 'DELETE')
+     or has_table_privilege('nomey_provisioner', 'core.participant_user_link', 'UPDATE') then
+    fallos := array_append(fallos, 'B2d: nomey_provisioner sobre core.participant_user_link: se espera INSERT y DELETE (ADR-035, ADR-037)');
+  end if;
+  if not has_table_privilege('nomey_provisioner', 'core.participant_period', 'INSERT')
+     or has_table_privilege('nomey_provisioner', 'core.participant_period', 'DELETE')
+     or not has_column_privilege('nomey_provisioner', 'core.participant_period', 'valid_until', 'UPDATE')
+     or has_column_privilege('nomey_provisioner', 'core.participant_period', 'valid_from', 'UPDATE') then
+    fallos := array_append(fallos, 'B2e: nomey_provisioner sobre core.participant_period: se espera INSERT y UPDATE solo de valid_until (ADR-034, ADR-041)');
+  end if;
 
-  -- B2b · ni DELETE sobre lo suyo.
-  if has_table_privilege('nomey_provisioner', 'core.scope', 'DELETE')
-     or has_table_privilege('nomey_provisioner', 'core.membership', 'DELETE') then
-    fallos := array_append(fallos, 'B2b: nomey_provisioner puede borrar ambitos o membresias');
+  -- B2b · ningun DELETE de ambitos: un ambito no se borra por ningun camino.
+  --       La membresia si se borra, y solo por los comandos que la retiran
+  --       (salir, ADR-034; rectificar la reclamacion, ADR-037).
+  if has_table_privilege('nomey_provisioner', 'core.scope', 'DELETE') then
+    fallos := array_append(fallos, 'B2b: nomey_provisioner puede borrar ambitos');
+  end if;
+  if not has_table_privilege('nomey_provisioner', 'core.membership', 'DELETE') then
+    fallos := array_append(fallos, 'B2f: nomey_provisioner no puede retirar una membresia (salir, ADR-034)');
   end if;
 
   -- B3 · GUARDA CONTRA EL MODO DE FALLO SILENCIOSO. E21 lo midio tres veces:

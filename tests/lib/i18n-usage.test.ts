@@ -40,6 +40,24 @@ function screen(relative: string): string {
   return SCREENS.find((candidate) => candidate.path === relative)?.text ?? '';
 }
 
+/**
+ * La pantalla SIN sus comentarios.
+ *
+ * Lo que estas guardas persiguen es lo que se **renderiza**: un `€` incrustado,
+ * una fecha compuesta a mano. Un `€` dentro de una explicación no se pinta, y
+ * exigir que la prosa no lo nombre obligaría a describir el contrapeso de la
+ * cifra sin poder decir de qué símbolo se está hablando — peor documentación a
+ * cambio de ninguna garantía.
+ *
+ * Lo que sigue cubierto es todo lo que puede acabar en pantalla: una cadena, un
+ * literal de plantilla o un texto en JSX. Nada de eso vive en un comentario.
+ */
+function screenCode(relative: string): string {
+  return screen(relative)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+}
+
 describe('claves de traducción', () => {
   const keys = Object.keys(esES);
   const consumers = FILES.filter((file) => !file.path.startsWith('lib/i18n/'));
@@ -78,15 +96,15 @@ describe('nada visible queda incrustado', () => {
   });
 
   it.each(SCREEN_PATHS)('%s no lleva un símbolo monetario', (relative) => {
-    expect(screen(relative)).not.toMatch(/[€£¥]/);
+    expect(screenCode(relative)).not.toMatch(/[€£¥]/);
     // `$` sólo cuenta como símbolo si acompaña a una cifra: en TypeScript
     // aparece en cada interpolación de template literal.
-    expect(screen(relative)).not.toMatch(/\$\s?\d/);
+    expect(screenCode(relative)).not.toMatch(/\$\s?\d/);
   });
 
   it.each(SCREEN_PATHS)('%s no formatea una fecha a mano', (relative) => {
     // La vía correcta es `lib/format`, que localiza y no desplaza el día.
-    expect(screen(relative)).not.toMatch(/DD?\/MM|MM\/DD/);
-    expect(screen(relative)).not.toMatch(/toLocaleDateString\(\s*\)/);
+    expect(screenCode(relative)).not.toMatch(/DD?\/MM|MM\/DD/);
+    expect(screenCode(relative)).not.toMatch(/toLocaleDateString\(\s*\)/);
   });
 });

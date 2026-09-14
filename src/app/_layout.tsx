@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { type ReactNode, useEffect } from 'react';
@@ -6,7 +6,10 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { isRecoveryActive, RecoveryProvider, useRecovery, useRecoveryLink } from '@/features/auth';
-import { useEntryQueueRuntime, wakeEntryQueue } from '@/features/personal';
+import { groupCommandHandlers, sendGroupCreate, useInvitationLink } from '@/features/groups';
+import { personalCommandHandlers, sendPersonalEntry } from '@/features/personal';
+import { useQueueRuntime, AddBackdropProvider, ScopeProvider } from '@/features/shell';
+import { type CommandHandlers, wakeQueue } from '@/lib/offline';
 import {
   identityKey,
   isPublic,
@@ -15,8 +18,7 @@ import {
   SessionProvider,
   useSession,
 } from '@/features/session';
-import { AddBackdropProvider, ScopeProvider } from '@/features/shell';
-import { Colors } from '@/ui/theme';
+import { Colors, Motion } from '@/ui/theme';
 import { ThemedView } from '@/ui/components';
 
 /**
@@ -62,10 +64,10 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       {/*
        * The offline queue reuses THIS provider's `AppState` listener for its
-       * foreground trigger (ADR-028 §12): `onForeground` is the seam F7.C left
+       * foreground trigger (F07/ADR-001 §12): `onForeground` is the seam F7.C left
        * for it, and there is no second listener anywhere.
        */}
-      <SessionProvider onForeground={wakeEntryQueue}>
+      <SessionProvider onForeground={wakeQueue}>
         {/*
          * `RecoveryProvider` sits INSIDE the session provider and owns nothing it
          * owns. It models one transaction - a password recovery - over a separate,
@@ -99,6 +101,60 @@ const styles = StyleSheet.create({
 });
 
 /**
+ * EL TEMA DE NAVEGACIÓN, Y POR QUÉ HAY QUE DECLARARLO.
+ *
+ * ═══════════ QUÉ SE MIDIÓ, Y CÓMO ═══════════
+ *
+ * Al pasar de Inicio a Grupos aparecía **un fotograma gris claro a pantalla
+ * completa**. Medido en el emulador, con la transición ralentizada sólo para
+ * poder muestrearla: de 16 capturas consecutivas, una —y sólo una— tenía el
+ * **80,06 % de los píxeles por encima de L>60**, con luminancia media 64,4
+ * frente a 19,6 en Inicio y 7,4 en Grupos.
+ *
+ * La causa se aisló con dos sondas de color, cada una con una sola variable:
+ *
+ * - pintando de magenta la vista que envuelve las pestañas, el lavado salió
+ *   **morado** y aparecieron franjas magenta en los bordes laterales: durante el
+ *   desplazamiento de 16 pt las escenas dejan ver lo que hay detrás;
+ * - fijando `colors.background` del tema de navegación en verde, el lavado salió
+ *   **verde entero**, incluida la franja de la barra de estado.
+ *
+ * La segunda es la concluyente: **el color del destello es exactamente
+ * `colors.background` del tema de navegación**.
+ *
+ * ═══════════ POR QUÉ ERA CLARO ═══════════
+ *
+ * Sin `ThemeProvider`, react-navigation usa su tema por omisión, cuyo
+ * `background` es `rgb(242, 242, 242)` — gris claro. Y ese color no es
+ * decorativo: `elements/Screen` envuelve cada escena en un `<Background>` que lo
+ * pinta, y el navegador de pestañas aplica a ESA MISMA vista el estilo animado
+ * de la transición. Con las dos escenas cruzándose a media opacidad, el gris
+ * deja de estar tapado y se ve entero.
+ *
+ * `contentStyle` del `Stack` ya era negro, y no bastaba: gobierna el contenido
+ * de una pantalla del Stack, no el fondo que el navegador de pestañas pinta
+ * bajo sus escenas. Son dos capas distintas.
+ *
+ * ═══════════ POR QUÉ ESTA CORRECCIÓN Y NO OTRA ═══════════
+ *
+ * No se tapa con un retraso, ni con una capa negra provisional, ni apagando la
+ * animación: eso escondería el fotograma sin quitarlo, y seguiría ahí en cuanto
+ * cambiara la duración o alguien reactivara el movimiento. Se corrige **en la
+ * capa propietaria del color**, que es el tema de navegación, y desde la raíz de
+ * composición, que es el único sitio que ya conoce a la vez la navegación y los
+ * tokens.
+ *
+ * Parte de `DarkTheme` y **sólo sustituye `background`** por el negro real de
+ * Nomey: `DarkTheme` trae `rgb(1, 1, 1)`, que no es el mismo color que el fondo
+ * de la aplicación, y una diferencia de un punto es un borde visible en un
+ * degradado. Lo demás del tema se hereda en vez de inventarse.
+ */
+const NAVIGATION_THEME = {
+  ...DarkTheme,
+  colors: { ...DarkTheme.colors, background: Colors.dark.background },
+};
+
+/**
  * Ties the scope's lifetime to whoever is signed in.
  *
  * The smallest thing that can do this, and it has to live here. `features/`
@@ -122,19 +178,42 @@ function ScopeBinding({ children }: { children: ReactNode }) {
 }
 
 /**
+ * QUIÉN MANDA CADA TIPO DE COMANDO.
+ *
+ * **Esta es la única capa que puede conocerlos a todos a la vez.** El runtime
+ * vive en `lib/offline` y no puede importar una feature; `features/shell` no
+ * importa a ninguna otra feature; y Personal y Grupos no se importan entre sí.
+ * La raíz ensambla, y nada más: aquí no hay ninguna regla de negocio ni ninguna
+ * interpretación de respuesta, que siguen viviendo en el módulo de cada
+ * dominio.
+ *
+ * Fuera del componente porque es una constante: reconstruirlo en cada render
+ * no cambiaría nada —el worker se crea una sola vez— pero invitaría a pensar
+ * que sí.
+ */
+const COMMAND_HANDLERS: CommandHandlers = {
+  ...personalCommandHandlers(sendPersonalEntry),
+  ...groupCommandHandlers(sendGroupCreate),
+};
+
+/**
  * Mounts the offline queue's worker ONCE, tied to whoever is signed in.
  *
- * Same reasoning as `ScopeBinding`: the queue lives in `features/personal` and
- * may not ask the session who the actor is, so the composition root hands it
- * the identity. The worker is a process, not screen state - mounting it inside
- * the add sheet would kill it mid-request every time the sheet closed - which
- * is why it sits here, above the navigator, and nowhere else (ADR-028 §12).
+ * Same reasoning as `ScopeBinding`: the queue may not ask the session who the
+ * actor is, so the composition root hands it the identity — and now also the
+ * handler map. The worker is a process, not screen state: mounting it inside
+ * the add sheet would kill it mid-request every time the sheet closed, which
+ * is why it sits here, above the navigator, and nowhere else (F07/ADR-001 §12).
  *
  * Renders nothing of its own; it exists to run one hook inside the provider.
  */
 function QueueBinding({ children }: { children: ReactNode }) {
   const { state } = useSession();
-  useEntryQueueRuntime(state.status === 'signed-in' ? state.identity.userId : '', state.status);
+  useQueueRuntime(
+    state.status === 'signed-in' ? state.identity.userId : '',
+    state.status,
+    COMMAND_HANDLERS,
+  );
   return <>{children}</>;
 }
 
@@ -162,6 +241,12 @@ function RootNavigator() {
    * an ordinary session and a recovery transaction never coexist.
    */
   useRecoveryLink({ sessionStatus: state.status });
+  /*
+   * Y el enlace de invitación (F09/ADR-004), con el mismo criterio: un solo
+   * oyente, por encima de las ramas, que sólo deja el token esperando. Quién
+   * lo usa —la hoja de «Únete»— y cuándo —con sesión— lo deciden las pestañas.
+   */
+  useInvitationLink();
 
   /*
    * The recovery surface wins over both ordinary branches while it is active.
@@ -205,111 +290,207 @@ function RootNavigator() {
    */
   return (
     <AddBackdropProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: Colors.dark.background },
-        }}>
-        {/*
-         * `Stack.Protected` is NAVIGATION, not security. It decides what can be
-         * reached from inside the app; it does not decide what the server will
-         * answer. Without a session PostgREST refuses with 42501 whatever the
-         * client renders, and RLS remains the only authorisation boundary.
-         */}
-        <Stack.Protected guard={isPublic(state) && !recovering}>
-          <Stack.Screen name="(auth)" />
-        </Stack.Protected>
-
-        {/*
-         * The recovery branch, governed by the transaction rather than by the
-         * session.
-         *
-         * It is NOT part of `(auth)` and NOT part of the product. The session it
-         * runs on lives in the ephemeral client's memory and is never persisted,
-         * so it cannot be restored, cannot be refreshed, and cannot survive the
-         * process - which is exactly what stops a recovery link from becoming an
-         * ordinary login by killing the app halfway through.
-         *
-         * Nothing navigates into or out of it. Redeeming the link opens it and
-         * the controller closes it; the tree follows both by itself.
-         */}
-        <Stack.Protected guard={recovering}>
-          <Stack.Screen name="(recovery)" />
-        </Stack.Protected>
-
-        <Stack.Protected guard={isSignedIn(state) && !recovering}>
-          <Stack.Screen name="(tabs)" />
+      <ThemeProvider value={NAVIGATION_THEME}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: Colors.dark.background },
+          }}>
           {/*
-           * **`transparentModal` NO basta, y aquí está la prueba.**
-           *
-           * Las `screenOptions` de arriba dan a TODA pantalla un `contentStyle`
-           * con el negro del tema. Es correcto para las demás —una pantalla
-           * opaca sobre un fondo opaco—, pero una ventana modal que debe dejar
-           * ver lo de detrás se estaba pintando encima un rectángulo negro
-           * completo: la presentación era transparente y el CONTENIDO no.
-           *
-           * Es la causa de que el fondo se viera negro, y explica también por
-           * qué ninguna intensidad de desenfoque cambiaba nada: no había nada
-           * que desenfocar, había un panel negro por delante.
-           *
-           * La excepción es sólo de esta pantalla; las demás conservan su fondo.
+           * `Stack.Protected` is NAVIGATION, not security. It decides what can be
+           * reached from inside the app; it does not decide what the server will
+           * answer. Without a session PostgREST refuses with 42501 whatever the
+           * client renders, and RLS remains the only authorisation boundary.
            */}
-          <Stack.Screen
-            name="add"
-            options={{
-              presentation: 'transparentModal',
-              animation: 'fade',
-              contentStyle: { backgroundColor: 'transparent' },
-            }}
-          />
-          {/*
-           * **La misma presentación que «Añadir movimiento», y por lo mismo.**
-           * Sin `contentStyle` transparente, las `screenOptions` de arriba le
-           * darían el negro del tema: la presentación sería transparente y el
-           * CONTENIDO no, y detrás de la ventana se vería un rectángulo negro
-           * en vez de Inicio desenfocado.
-           */}
-          {/*
-           * **Las tres ventanas se presentan igual**, y no por casualidad: sin
-           * `contentStyle` transparente, las `screenOptions` de arriba les darían
-           * el negro del tema, y detrás de la ventana se vería un rectángulo
-           * negro en vez de Inicio desenfocado.
-           */}
-          <Stack.Screen
-            name="edit-movement"
-            options={{
-              presentation: 'transparentModal',
-              animation: 'fade',
-              contentStyle: { backgroundColor: 'transparent' },
-            }}
-          />
-          <Stack.Screen
-            name="edit-balance"
-            options={{
-              presentation: 'transparentModal',
-              animation: 'fade',
-              contentStyle: { backgroundColor: 'transparent' },
-            }}
-          />
-          <Stack.Screen name="notifications" />
-          <Stack.Screen name="profile" />
-          <Stack.Screen name="account" />
-        </Stack.Protected>
+          <Stack.Protected guard={isPublic(state) && !recovering}>
+            <Stack.Screen name="(auth)" />
+          </Stack.Protected>
 
-        {/*
-         * The development surfaces, behind BOTH the session and `__DEV__`.
-         *
-         * They were previously registered unconditionally, with only the links
-         * to them in Profile behind `__DEV__` - which left the routes reachable
-         * by URL in a release build. Guarding them here closes that, and keeps
-         * them from becoming a public door around the sign-in branch.
-         */}
-        <Stack.Protected guard={isSignedIn(state) && !recovering && __DEV__}>
-          <Stack.Screen name="diagnostics" />
-          <Stack.Screen name="states" />
-          <Stack.Screen name="session-probe" />
-        </Stack.Protected>
-      </Stack>
+          {/*
+           * The recovery branch, governed by the transaction rather than by the
+           * session.
+           *
+           * It is NOT part of `(auth)` and NOT part of the product. The session it
+           * runs on lives in the ephemeral client's memory and is never persisted,
+           * so it cannot be restored, cannot be refreshed, and cannot survive the
+           * process - which is exactly what stops a recovery link from becoming an
+           * ordinary login by killing the app halfway through.
+           *
+           * Nothing navigates into or out of it. Redeeming the link opens it and
+           * the controller closes it; the tree follows both by itself.
+           */}
+          <Stack.Protected guard={recovering}>
+            <Stack.Screen name="(recovery)" />
+          </Stack.Protected>
+
+          <Stack.Protected guard={isSignedIn(state) && !recovering}>
+            <Stack.Screen name="(tabs)" />
+            {/*
+             * **`transparentModal` NO basta, y aquí está la prueba.**
+             *
+             * Las `screenOptions` de arriba dan a TODA pantalla un `contentStyle`
+             * con el negro del tema. Es correcto para las demás —una pantalla
+             * opaca sobre un fondo opaco—, pero una ventana modal que debe dejar
+             * ver lo de detrás se estaba pintando encima un rectángulo negro
+             * completo: la presentación era transparente y el CONTENIDO no.
+             *
+             * Es la causa de que el fondo se viera negro, y explica también por
+             * qué ninguna intensidad de desenfoque cambiaba nada: no había nada
+             * que desenfocar, había un panel negro por delante.
+             *
+             * La excepción es sólo de esta pantalla; las demás conservan su fondo.
+             */}
+            <Stack.Screen
+              name="add"
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
+            {/*
+             * **La misma presentación que «Añadir movimiento», y por lo mismo.**
+             * Sin `contentStyle` transparente, las `screenOptions` de arriba le
+             * darían el negro del tema: la presentación sería transparente y el
+             * CONTENIDO no, y detrás de la ventana se vería un rectángulo negro
+             * en vez de Inicio desenfocado.
+             */}
+            {/*
+             * **Las tres ventanas se presentan igual**, y no por casualidad: sin
+             * `contentStyle` transparente, las `screenOptions` de arriba les darían
+             * el negro del tema, y detrás de la ventana se vería un rectángulo
+             * negro en vez de Inicio desenfocado.
+             */}
+            <Stack.Screen
+              name="edit-movement"
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
+            <Stack.Screen
+              name="edit-balance"
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
+            {/*
+             * El selector del `+` de Grupos, con la MISMA presentación que las
+             * otras tres: sin `contentStyle` transparente se vería un rectángulo
+             * negro detrás en vez de Grupos desenfocado.
+             */}
+            <Stack.Screen
+              name="group-action"
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
+            {/*
+             * La ventana de crear grupo, apilada SOBRE el selector.
+             *
+             * Misma presentación que las demás: transparente, con fundido y sin
+             * fondo propio. Se apila en vez de reemplazar porque cerrarla tiene
+             * que devolver al selector para poder escoger la otra opción.
+             */}
+            <Stack.Screen
+              name="create-group"
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
+            {/*
+             * Modificar un grupo: la MISMA ventana que crearlo, en modo edición,
+             * apilada sobre el interior del grupo o sobre la lista.
+             */}
+            <Stack.Screen
+              name="edit-group"
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
+            {/* Compartir un grupo: la misma ventana, con el QR y la hoja del sistema. */}
+            <Stack.Screen
+              name="share-group"
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
+            {/*
+             * Dentro de un grupo. Una pantalla apilada corriente, con la identidad
+             * definitiva del ámbito en la ruta: la misma antes y después de que el
+             * servidor lo confirme, así que el enlace nunca se rompe.
+             *
+             * **Con fundido, y por la cabecera.** Entre Inicio y Grupos la barra
+             * principal no se mueve, porque vive por encima de las pestañas; el
+             * grupo es otra pantalla del Stack y pinta la MISMA barra, en el mismo
+             * sitio y con el mismo punto (los dos leen el mismo estado de avisos).
+             * Con el deslizamiento por defecto la barra entraba y salía con la
+             * pantalla; con el fundido, dos barras idénticas se cruzan píxel a
+             * píxel y lo que se ve es una barra quieta mientras el contenido se
+             * funde —la misma familia de transición que las ventanas de la app—.
+             *
+             * **Al volver, igual, también con el gesto.** `animation` decide la
+             * entrada y la vuelta por la flecha (react-native-screens anima el
+             * pop con la animación de la pantalla que se va), pero en iOS el
+             * DESLIZAMIENTO de retroceso usa la transición nativa del sistema
+             * —el deslizamiento— salvo que se le diga que use la misma
+             * (`animationMatchesGesture`, el `customAnimationOnSwipe` de
+             * react-native-screens). Medido en el iPhone (2026-09-14): la barra
+             * se quedaba quieta al entrar y se desplazaba al volver. Con esto
+             * el gesto funde igual que la flecha; el gesto sigue existiendo.
+             */}
+            <Stack.Screen
+              name="group/[id]"
+              options={{
+                animation: 'fade',
+                animationDuration: Motion.screen.duration,
+                animationMatchesGesture: true,
+              }}
+            />
+            {/*
+             * Añadir un gasto compartido. La MISMA presentación que el alta de
+             * Personal —transparente, con fundido y sin fondo propio—, porque es
+             * la misma ventana: lo que cambia es lo que lleva dentro.
+             */}
+            <Stack.Screen
+              name="group-expense"
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
+            <Stack.Screen name="notifications" />
+            <Stack.Screen name="profile" />
+            <Stack.Screen name="account" />
+          </Stack.Protected>
+
+          {/*
+           * The development surfaces, behind BOTH the session and `__DEV__`.
+           *
+           * They were previously registered unconditionally, with only the links
+           * to them in Profile behind `__DEV__` - which left the routes reachable
+           * by URL in a release build. Guarding them here closes that, and keeps
+           * them from becoming a public door around the sign-in branch.
+           */}
+          <Stack.Protected guard={isSignedIn(state) && !recovering && __DEV__}>
+            <Stack.Screen name="diagnostics" />
+            <Stack.Screen name="states" />
+            <Stack.Screen name="session-probe" />
+          </Stack.Protected>
+        </Stack>
+      </ThemeProvider>
     </AddBackdropProvider>
   );
 }

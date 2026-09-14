@@ -2,7 +2,7 @@
  * ═══════════ LA RUTA DE ALTA, DESDE F7.D ═══════════
  *
  * Dar de alta un gasto o un ingreso pasa **siempre** por aquí, y hace
- * exactamente esto y en este orden (ADR-028 §1):
+ * exactamente esto y en este orden (F07/ADR-001 §1):
  *
  *   1  validar el borrador y construir el payload UNA vez   `persistEntry`
  *   2  generar `client_operation_id`                        `newClientOperationId`
@@ -21,7 +21,7 @@
  * y no en la misma vuelta: la continuación de quien espera este `enqueue` es
  * una microtarea, así que la hoja ya está cerrándose cuando la primera lectura
  * de SQLite del worker arranca. La hoja no depende de la red ni de la cola, y
- * el orden 5 → 6 queda como ADR-028 §1 lo escribe.
+ * el orden 5 → 6 queda como F07/ADR-001 §1 lo escribe.
  *
  * Lo que este hook NO hace: no monta el worker —lo hace la raíz con
  * `useEntryQueueRuntime`— ni suscribe nada. Sólo encola.
@@ -31,8 +31,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { persistEntry, type EntryScope, type PersistFailure } from './entry-enqueue';
 import type { EntryDraft } from './movement-entry';
-import { publishQueueChange } from './queue-events';
-import { ensureWorker, queueStore, setQueueIdentity } from './queue-runtime';
+import { publishQueueChange, queueStore, setQueueIdentity, wakeQueue } from '@/lib/offline';
 import { newClientOperationId } from '@/lib/id';
 import type { SessionStatus } from '@/lib/offline';
 
@@ -47,7 +46,7 @@ export type EntryQueue = {
    *
    * `resolving` es la entrada terminal que esta intención sustituye cuando la
    * hoja se abrió desde `Revisar`. Con ella, persistir y resolver la incidencia
-   * son la misma transacción (ADR-029 §4).
+   * son la misma transacción (F07/ADR-002 §4).
    */
   readonly enqueue: (
     draft: EntryDraft,
@@ -85,7 +84,6 @@ export function useEntryQueue(actorId: string, status: SessionStatus): EntryQueu
         setQueueIdentity(actorId, status);
 
         setSaving(true);
-        const { coordinator } = await ensureWorker();
         const store = await queueStore();
 
         // 1 · 2 · 3 — en `persistEntry`, que es puro y está probado con la base
@@ -115,7 +113,8 @@ export function useEntryQueue(actorId: string, status: SessionStatus): EntryQueu
         // 6 · despertar, en la siguiente macrotarea: después de que quien llama
         // haya cerrado la hoja (5). No se espera nada de la red.
         setTimeout(() => {
-          coordinator.wake();
+          // El worker lo arranca la raíz; aquí sólo se le da un toque.
+          wakeQueue();
         }, 0);
 
         return true;

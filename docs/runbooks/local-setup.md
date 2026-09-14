@@ -224,7 +224,7 @@ Starting database  →  Applying migration ...  →  Starting containers  →  h
 ```
 
 **Las migraciones se aplican antes de arrancar PostgREST.** Es lo que hace
-viable la decisión de [ADR-014](../adr/ADR-014-data-api-schema-exposure.md): con
+viable la decisión de [F03/ADR-011](../adr/F03/ADR-011-data-api-schema-exposure.md): con
 `schemas = ["api", …]` el schema ya existe cuando PostgREST carga su caché, y no
 se reproduce el `503` que sí ocurre si se cambia la configuración sin la
 migración.
@@ -304,7 +304,7 @@ docker exec -i supabase_db_Nomey psql -U postgres -d postgres \
 
 > **Los dos últimos se encadenan con el prólogo de vectores.** `psql` corre
 > dentro del contenedor y no ve el checkout, así que `tests/vectors/*.json`
-> viajan por la misma entrada estándar. ADR-002 §7 exige que la implementación
+> viajan por la misma entrada estándar. F01/ADR-001 §7 exige que la implementación
 > de PL/pgSQL reproduzca esos vectores exactamente, y esa comprobación es el
 > único detector de deriva frente a `src/domain/`.
 
@@ -348,7 +348,7 @@ el ámbito duplicado exactamente.
 Hay una comprobación que **no puede ser un fichero de `supabase/checks/`**: una
 sola sesión de `psql` no tiene concurrencia, y una simulación secuencial pasaría
 también con el lock quitado. El protocolo de serialización de
-[ADR-013](../adr/ADR-013-persisted-vs-derived.md) §11 se comprueba con sesiones
+[F03/ADR-010](../adr/F03/ADR-010-persisted-vs-derived.md) §11 se comprueba con sesiones
 simultáneas de verdad, igual que hizo E15-C:
 
 ```bash
@@ -432,7 +432,7 @@ con su caso positivo y su caso negativo · los importes salen como string JSON.
 > **Consecuencia práctica:** los tests de aislamiento a nivel de base de datos
 > no necesitan usuarios reales, y el job de CI no tiene que arrancar GoTrue.
 
-### La tripleta de cada clase de respuesta · puerta de aceptación de ADR-028
+### La tripleta de cada clase de respuesta · puerta de aceptación de F07/ADR-001
 
 ```bash
 ./scripts/offline-taxonomy-probe.sh
@@ -440,7 +440,7 @@ con su caso positivo y su caso negativo · los importes salen como string JSON.
 
 **Es una comprobación permanente, no instrumentación de un bloque.** Mide sobre
 el stack real la tripleta `estado HTTP · código de frontera · SQLSTATE` de cada
-clase de respuesta de ADR-028 §11, que es de donde sale el mapa de
+clase de respuesta de F07/ADR-001 §11, que es de donde sale el mapa de
 `src/lib/offline/response.ts`. La razón de que siga aquí: de esa clasificación
 depende si se puede o no proponer registrar el gasto otra vez, y equivocarse
 **duplica dinero**. Si un día la frontera cambia un estado o un código, esto lo
@@ -465,7 +465,7 @@ Lo que hay que saber para leerla:
 
 > **`core.operation.current_version_id` es `NOT NULL`.** Su limpieza no puede
 > «soltar» el puntero antes de borrar la versión; la FK compuesta es diferible
-> (ADR-011 §7), así que borra versión y operación en una transacción con
+> (F03/ADR-008 §7), así que borra versión y operación en una transacción con
 > `set constraints all deferred`. Con `ON_ERROR_STOP=0` esto fallaba en silencio
 > y dejaba operaciones huérfanas — de ahí que use `ON_ERROR_STOP=1`.
 
@@ -486,7 +486,7 @@ from pg_available_extensions where name = 'btree_gist';
 ```
 
 Debe devolver una fila. Si el entorno objetivo **no la ofreciera**,
-[ADR-012](../adr/ADR-012-participant-identity.md) §5 obliga a **revisar el
+[F03/ADR-009](../adr/F03/ADR-009-participant-identity.md) §5 obliga a **revisar el
 mecanismo** —su alternativa G, validación procedural, exige serializar para ser
 correcta bajo concurrencia—, no a sustituirlo preventivamente.
 

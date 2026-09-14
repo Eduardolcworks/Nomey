@@ -156,7 +156,7 @@ export function MovementEditor({
        * **Y sólo cuando la clase lo admite.** `usesCategory` es la misma puerta
        * que en el alta: un ingreso no monta el botón, no reserva su hueco y no
        * puede mandar categoría, porque `personal_income` la rechaza por forma
-       * (ADR-027). Su fila queda exactamente como estaba, contrapeso incluido.
+       * (F06/ADR-009). Su fila queda exactamente como estaba, contrapeso incluido.
        */
       aside={
         usesCategory(draft.kind) ? (

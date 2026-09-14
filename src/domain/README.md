@@ -36,7 +36,7 @@ influencia son los argumentos que recibe.
 **Fuera de esta capa, por decisión:** la autorización —quién puede registrar
 qué—, la idempotencia y la selección de la versión vigente pertenecen a la
 frontera de escritura. **La minimización del número de pagos para saldar un
-grupo no está implementada**: ADR-002 no fija ningún algoritmo normativo, y
+grupo no está implementada**: F01/ADR-001 no fija ningún algoritmo normativo, y
 inventar una heurística acoplaría cliente y servidor a algo no decidido.
 
 ## Invariantes
@@ -56,14 +56,14 @@ inventar una heurística acoplaría cliente y servidor a algo no decidido.
   `src/lib/format`. Aquí solo hay aritmética.
 
 > La **representación concreta** la fija
-> [ADR-003](../../docs/adr/ADR-003-money-representation.md), aceptado: entero en
+> [F02/ADR-001](../../docs/adr/F02/ADR-001-money-representation.md), aceptado: entero en
 > unidad mínima con `bigint`. Ojo: en TypeScript un `number` es
 > un double IEEE-754, exacto solo para enteros hasta 2^53 — "usar un entero"
 > también es una elección con límites, no una salida de la pregunta.
 
 ## Implementación de referencia
 
-Esta capa **no es solo el cálculo del cliente**. ADR-002 §7 exige que la frontera
+Esta capa **no es solo el cálculo del cliente**. F01/ADR-001 §7 exige que la frontera
 de escritura autoritativa del servidor produzca exactamente los mismos
 resultados, y es lo que hace visible cualquier deriva entre las
 dos implementaciones. **Los vectores son la fuente única de expectativas**: no se

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { PersonalEntryPayload } from '../../src/lib/offline/command';
 
 import type { PersonalOperation } from '../../src/features/personal/movement';
 import {
@@ -15,7 +16,7 @@ import {
 } from '../../src/lib/offline/queue-entry';
 
 /**
- * LA PROYECCIÓN OPTIMISTA, pura y sin pantalla (ADR-028 §8, §9, §10).
+ * LA PROYECCIÓN OPTIMISTA, pura y sin pantalla (F07/ADR-001 §8, §9, §10).
  *
  * Todo lo que se afirma aquí es lo que las superficies de Inicio pintan, porque
  * todas leen esta función y ninguna suma por su cuenta. Los importes son
@@ -79,7 +80,7 @@ function entry(over: {
     actorId: ACTOR,
     scopeId: over.scopeId ?? SCOPE,
     commandType: kind === 'income' ? 'personal_income.create' : 'personal_expense.create',
-    payload,
+    payload: payload as unknown as PersonalEntryPayload,
     currency: { definitionId: over.currencyId ?? CURRENCY, code: 'EUR', scale: 2 },
     createdAt: over.createdAt ?? `2026-09-03T21:40:${String(seq % 60).padStart(2, '0')}.000Z`,
   });
@@ -108,6 +109,10 @@ function serverOp(over: Partial<PersonalOperation> = {}): PersonalOperation {
     previous_version_id: null,
     version_no: 1,
     operation_created_at: '2026-09-03T20:00:00.000Z',
+    group_scope_id: null,
+    group_display_name: null,
+    your_share: null,
+    payment_counterpart: null,
     ...over,
   };
 }
@@ -438,7 +443,7 @@ describe('terminales, transitorios y aislamiento', () => {
 });
 
 /**
- * EL CAMBIO DE DEFINICIÓN MONETARIA (ADR-003 §7, ADR-028 §14).
+ * EL CAMBIO DE DEFINICIÓN MONETARIA (F02/ADR-001 §7, F07/ADR-001 §14).
  *
  * La ruta es real y está medida: `api.set_personal_base_currency` sólo se niega
  * —`BASE_CURRENCY_LOCKED · 409`— cuando el ámbito YA tiene efectos, así que un

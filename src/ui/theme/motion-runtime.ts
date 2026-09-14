@@ -1,7 +1,9 @@
 import {
+  Easing,
   ReduceMotion,
   SlideInDown,
   useSharedValue,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -85,6 +87,33 @@ const PRESS = timing(Motion.press.duration);
  * propio `useAnimatedStyle`. Esto no sabe qué está animando, y hasta ahí llega
  * la abstracción.
  */
+/**
+ * EL ACUSE DE UN TOQUE SOBRE UNA CIFRA QUE SE EDITA: 1 → `scaleTo` → 1, y
+ * vuelve aunque el foco se quede. Subida rápida —el `timing` corto de
+ * `Motion.press`, 90 ms— y vuelta suave en `timing` con salida amortiguada,
+ * 130 ms: unos 220 ms en total y SIN muelle, porque un rebote encima de una
+ * cifra que se va a leer es ruido. Se dispara en `onPressIn` y vuelve sola;
+ * los dos tramos respetan el ajuste de movimiento reducido. Hook por la misma
+ * razón que `usePressScale`: el valor se escribe dentro, nunca desde un
+ * manejador en línea.
+ */
+export function useFigurePop(scaleTo: number) {
+  const scale = useSharedValue(1);
+
+  return {
+    scale,
+    onPressIn: () => {
+      scale.value = withSequence(withTiming(scaleTo, PRESS), withTiming(1, FIGURE_RETURN));
+    },
+  };
+}
+
+/** La vuelta de la cifra: suave, sin rebote, y lo que falta hasta ~220 ms. */
+const FIGURE_RETURN = {
+  ...timing(130),
+  easing: Easing.out(Easing.quad),
+} as const;
+
 export function usePressScale() {
   const scale = useSharedValue(1);
 

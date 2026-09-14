@@ -8,8 +8,8 @@ E11 midió la dirección de **lectura** —servidor hacia cliente— y demostró
 `JSON.parse` degrada los números grandes. E14 mide la dirección contraria.
 
 E14 mide. **No decide nada**: la garantía es normativa en
-[ADR-003](../../docs/adr/ADR-003-money-representation.md) §6 y el contrato de
-transporte en [ADR-008](../../docs/adr/ADR-008-exact-data-boundary.md).
+[F02/ADR-001](../../docs/adr/F02/ADR-001-money-representation.md) §6 y el contrato de
+transporte en [F03/ADR-005](../../docs/adr/F03/ADR-005-exact-data-boundary.md).
 
 > **No forma parte del esquema de Nomey.** Vive fuera de `supabase/migrations/`
 > —directorio que **todavía no existe**— a propósito. Se aplica y se retira a
@@ -141,7 +141,7 @@ Con un payload `jsonb`, sobre exactamente los mismos bytes:
 
 **No se modificó `config.toml`.** Las funciones viven en `public` porque es el
 único schema expuesto por defecto y la medición necesita atravesar PostgREST de
-verdad. Eso **no expresa ninguna preferencia de topología**: ADR-005 ya decidió
+verdad. Eso **no expresa ninguna preferencia de topología**: F03/ADR-002 ya decidió
 que la persistencia de Nomey no vive en `public`.
 
 ## Salidas

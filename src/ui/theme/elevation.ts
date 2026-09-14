@@ -63,7 +63,7 @@ export type GlassToken = {
  * Nothing was traded for it: white text on them still measures 16-17:1 over
  * black and 11.5:1 over the worst backdrop tested.
  */
-export type GlassLevel = 'regular' | 'bar' | 'heavy' | 'action';
+export type GlassLevel = 'regular' | 'bar' | 'heavy' | 'action' | 'join';
 
 export const Glass: Record<GlassLevel, GlassToken> = {
   /** Cards, panels, controls at rest. */
@@ -173,6 +173,31 @@ export const Glass: Record<GlassLevel, GlassToken> = {
       { offsetX: 0, offsetY: 10, blurRadius: 24, color: 'rgba(255, 224, 138, 0.16)' },
     ],
   },
+  /**
+   * EL MISMO CRISTAL DE LA ACCIÓN, EN LILA.
+   *
+   * **Es una traducción de tono, no un material nuevo.** Cada valor es el de
+   * `action` con su hue girado: cuerpo oscuro teñido, borde y glifo en el color,
+   * y los mismos lavados asimétricos —luz pequeña y alta, sombra grande y baja—
+   * que son lo que hace que el disco lea como una lente y no como un botón de
+   * gel. Las alfas y los radios **no se tocan**: cambiarlos daría dos emblemas
+   * de distinta construcción, que es justo lo que no se quiere cuando tienen que
+   * leerse como la misma pieza en dos colores.
+   *
+   * Existe porque «crear» y «unirse» deben distinguirse por color sin dejar de
+   * ser lo mismo. El amarillo de Nomey significa «esto es tuyo»; para entrar en
+   * algo de otro hacía falta otro tono.
+   */
+  join: {
+    tint: 'rgba(70, 58, 105, 0.80)',
+    border: 'rgba(185, 160, 255, 0.58)',
+    highlight: 'rgba(226, 214, 255, 0.60)',
+    lens: [
+      { offsetX: 0, offsetY: 12, blurRadius: 28, color: 'rgba(214, 200, 255, 0.12)', inset: true },
+      { offsetX: 0, offsetY: -18, blurRadius: 26, color: 'rgba(14, 10, 26, 0.45)', inset: true },
+      { offsetX: 0, offsetY: 10, blurRadius: 24, color: 'rgba(214, 200, 255, 0.16)' },
+    ],
+  },
 };
 
 /**
@@ -203,6 +228,20 @@ export const GlassAndroid = {
      */
     border: 'rgba(255, 255, 255, 0.22)',
     highlight: 'rgba(255, 255, 255, 0.26)',
+  },
+  join: {
+    /*
+     * La misma corrección que `action`, con el tono girado y nada más. Si el
+     * ámbar necesita bajar el borde y ensanchar el halo en Android, el lila
+     * necesita exactamente lo mismo: es el mismo material.
+     */
+    border: 'rgba(185, 160, 255, 0.50)',
+    highlight: 'rgba(226, 214, 255, 0.30)',
+    lens: [
+      { offsetX: 0, offsetY: 12, blurRadius: 28, color: 'rgba(214, 200, 255, 0.12)', inset: true },
+      { offsetX: 0, offsetY: -18, blurRadius: 26, color: 'rgba(14, 10, 26, 0.45)', inset: true },
+      { offsetX: 0, offsetY: 3, blurRadius: 40, color: 'rgba(198, 176, 255, 0.20)' },
+    ],
   },
   action: {
     /*

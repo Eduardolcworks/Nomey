@@ -14,7 +14,7 @@ export type FlowCardProps = {
   /**
    * Exacto, en unidad mínima, tal como sale de la proyección. `null` cuando no
    * hay estadísticas confirmadas: entonces no se fabrica una cifra, se enseña el
-   * mismo marcador que el Disponible (ADR-028 §8).
+   * mismo marcador que el Disponible (F07/ADR-001 §8).
    */
   readonly total: string | null;
   readonly currencyCode: string;
@@ -31,7 +31,7 @@ export type FlowCardProps = {
  *
  * **El total llega agregado por el servidor y no se suma aquí.** Es exacto
  * aunque la lista de dentro venga paginada, que es justamente la separación que
- * ADR-026 introdujo: cifras exactas por agregación, listas por página.
+ * F06/ADR-008 introdujo: cifras exactas por agregación, listas por página.
  *
  * **Verde y rojo no son la señal, son el refuerzo.** La tarjeta lleva además
  * icono direccional, etiqueta y **signo explícito** en el importe —

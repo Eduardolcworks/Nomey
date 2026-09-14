@@ -64,22 +64,25 @@ export type DebtSnapshot =
   /** El snapshot llegó. `amounts` es la colección de deudas, y puede ser vacía. */
   | { readonly loaded: true; readonly amounts: readonly string[] };
 
-/**
- * Las deudas que el Modo Personal puede tener hoy: ninguna, y por estructura.
+/*
+ * ══════════ AQUÍ VIVÍA `PERSONAL_DEBT_AMOUNTS`, Y SE HA RETIRADO ══════════
  *
- * **No es una suposición, y por eso puede producir un cero CONOCIDO.** Una
- * dimensión de deuda sólo llega a un ámbito personal a través de
- * `core.participant_user_link` —es el vínculo por el que `api.claimed_dimension`
- * atribuye las dos puntas de una deuda (ADR-016)—, esa relación **no tiene ruta
- * de escritura para nadie** salvo el propietario de la base, y hasta F10 no
- * existe el comando que la abra. Medido: cero vínculos y cero efectos de deuda
- * en ámbitos personales.
+ * Era una colección vacía constante, justificada por una ausencia que entonces
+ * era cierta: nada producía dimensión de deuda, `core.participant_user_link`
+ * no tenía ruta de escritura, y la constante decía exactamente eso.
  *
- * **Lo que cambia en F9/F10 es esta constante, y nada más.** En cuanto haya
- * deudas reales se pasa la colección de verdad y `homeDebt` ya las suma, con su
- * signo, sin tocar la tarjeta ni esta lógica.
+ * **Dejó de ser cierta en F9.** `api.create_group` escribe el vínculo del
+ * creador y `record_group_expense` asienta efectos de deuda, así que la
+ * constante pasó de describir el mundo a contradecirlo: la tarjeta afirmaba
+ * `0,00 €` con deudas reales encima, y como el cero era «conocido» no había
+ * ningún estado que delatara el fallo.
+ *
+ * Quien pasa ahora la colección es la ruta de Inicio, que es la única capa que
+ * puede ver Personal y Grupos a la vez. **Y no se ha sustituido por otra
+ * constante**: si no hay lectura, `homeDebt` recibe `{ loaded: false }` y la
+ * tarjeta dice «no disponible». La lección es la que ya estaba escrita arriba:
+ * cero y desconocido son dos respuestas, y sólo una de ellas es una cifra.
  */
-export const PERSONAL_DEBT_AMOUNTS: readonly string[] = [];
 
 /**
  * Resuelve la deuda a partir del snapshot cargado.

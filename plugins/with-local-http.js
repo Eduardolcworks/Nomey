@@ -12,7 +12,7 @@
  * **Por qué un plugin local y no una opción de configuración.** Expo SDK 57 no
  * expone ninguna: `usesCleartextTraffic` aparece en `@expo/config-plugins`
  * únicamente como atributo del manifiesto, y no existe en el esquema de
- * `@expo/config-types@57`. [ADR-030](../docs/adr/ADR-030-native-code-model.md)
+ * `@expo/config-types@57`. [F08/ADR-001](../docs/adr/F08/ADR-001-native-code-model.md)
  * §3 ya decidió qué hacer en ese caso: un config plugin local y versionado. Éste
  * es el primero de Nomey.
  *

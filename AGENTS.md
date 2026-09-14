@@ -95,7 +95,7 @@ backed by an accepted ADR. Otherwise it belongs in an ADR, not here.
 - **The monetary definition has a stable internal identity. The ISO 4217 code is
   a visible attribute of it, not that identity.** Two amounts are **not**
   aggregable merely because they share an ISO code: the same code can belong to
-  different definitions over time. The full rules are in ADR-003 and are not
+  different definitions over time. The full rules are in F02/ADR-001 and are not
   restated here.
 - **Decimal scale belongs to the monetary definition.** EUR has 2, JPY has 0.
   Never hardcode 2 decimals.
@@ -114,7 +114,7 @@ backed by an accepted ADR. Otherwise it belongs in an ADR, not here.
 > ratios, animated counters) may use floating point, but must never feed back
 > into a value of record.
 
-**Settled — [ADR-003](docs/adr/ADR-003-money-representation.md), status
+**Settled — [F02/ADR-001](docs/adr/F02/ADR-001-money-representation.md), status
 `Aceptado`.** Amounts are integer minor units (`bigint` / `BIGINT`), exchange
 rates are a separate exact decimal, and nothing monetary crosses JSON as a
 number. Read the ADR before writing anything that touches money.
@@ -151,10 +151,10 @@ Two consequences that hold regardless of how any of this is stored:
   cash movements makes whoever pays for dinners look reckless and whoever never
   pays look frugal. Both figures are wrong and neither throws an error.
 
-**Settled — [ADR-002](docs/adr/ADR-002-accounting-model.md) and
-[ADR-011](docs/adr/ADR-011-operation-version-model.md)** for how the facts are
+**Settled — [F01/ADR-001](docs/adr/F01/ADR-001-accounting-model.md) and
+[F03/ADR-008](docs/adr/F03/ADR-008-operation-version-model.md)** for how the facts are
 represented (operation, immutable version, effect with separate dimensions), and
-**[ADR-013](docs/adr/ADR-013-persisted-vs-derived.md)** for which are stored and
+**[F03/ADR-010](docs/adr/F03/ADR-010-persisted-vs-derived.md)** for which are stored and
 which are derived: balances, debts, statistics, totals and both `Disponible`
 figures are **derived from the effects of the current version**, and there is no
 economic cache in v1. Physical names still belong to the migrations.
@@ -173,8 +173,8 @@ Without this, the result is duplicate money in production with no clean way to
 deduplicate afterwards.
 
 **Settled for the client origin —
-[ADR-010](docs/adr/ADR-010-client-operation-idempotency.md) and
-[ADR-011](docs/adr/ADR-011-operation-version-model.md) §5.** A UUID generated and
+[F03/ADR-007](docs/adr/F03/ADR-007-client-operation-idempotency.md) and
+[F03/ADR-008](docs/adr/F03/ADR-008-operation-version-model.md) §5.** A UUID generated and
 persisted by the client before the first attempt, unique per
 `(actor, client_operation_id)` **across every operation class**, compared
 **only** on the server, and held by a separate command relation — not by the
@@ -220,22 +220,22 @@ Rules:
 - **A `SECURITY DEFINER` owner that neither owns the table nor holds
   `BYPASSRLS` is still subject to RLS**, including on writes. **E16 measured
   it**, and it is what makes the authoritative writer of
-  [ADR-009](docs/adr/ADR-009-authoritative-write-boundary.md) a second barrier
+  [F03/ADR-006](docs/adr/F03/ADR-006-authoritative-write-boundary.md) a second barrier
   rather than an escape hatch. Never assume a definer function is above RLS —
   check who owns it.
 
-**Settled — [ADR-007](docs/adr/ADR-007-membership-rls.md).** The RLS of the
+**Settled — [F03/ADR-004](docs/adr/F03/ADR-004-membership-rls.md).** The RLS of the
 persistence schema is the row-level authority, evaluated under the real user's
 identity through `security_invoker` views; membership is resolved by a reduced
 `SECURITY DEFINER` helper that takes the scope and never an arbitrary user; and
 **no membership claims go in the JWT**, because a claim in the token keeps
 someone's access alive until it refreshes.
 
-**Settled — [ADR-005](docs/adr/ADR-005-schema-topology.md).** There is a
+**Settled — [F03/ADR-002](docs/adr/F03/ADR-002-schema-topology.md).** There is a
 dedicated schema for the exposed surface, and the accounting tables are not
 reachable through it.
 
-**Settled — [ADR-014](docs/adr/ADR-014-data-api-schema-exposure.md).** `public`
+**Settled — [F03/ADR-011](docs/adr/F03/ADR-011-data-api-schema-exposure.md).** `public`
 is **not** exposed either. The list is `["api", "graphql_public"]`, and
 `extra_search_path` is unchanged — they are two different parameters. The
 config change lands **in the same commit that creates the `api` schema**:
@@ -257,7 +257,7 @@ Three invariants, all decided:
 - **Claiming a participant requires proof of authorization.** A name match, or
   an unverified email match, is **not** proof.
 
-**Settled — [ADR-012](docs/adr/ADR-012-participant-identity.md).**
+**Settled — [F03/ADR-009](docs/adr/F03/ADR-009-participant-identity.md).**
 
 - The participant is **contextual per scope**, not global, and participants of
   different scopes are **never correlated automatically**. The reason is
@@ -422,7 +422,7 @@ setup and the reason are in
 - Run anything against production.
 - Commit `.env`, keys, certificates or provisioning profiles.
 - Edit `/ios` or `/android`. They are generated artefacts and stay git-ignored —
-  **settled by [ADR-030](docs/adr/ADR-030-native-code-model.md), which chose CNG
+  **settled by [F08/ADR-001](docs/adr/F08/ADR-001-native-code-model.md), which chose CNG
   with config plugins for the whole project.** Native code of Nomey's own goes
   in a **versioned local config plugin**, behind a single boundary in
   `src/lib/`; `features/` never touches a native API directly. Leaving CNG
@@ -451,6 +451,27 @@ accepted**: superseding one means writing a new ADR, not editing the old.
 
 Any change that contradicts an accepted ADR updates it **in the same PR**. Use
 the `adr` skill to draft one.
+
+**ADRs are organised by phase, one folder per roadmap phase (`F00` … `F19`),
+each numbered independently from `ADR-001`.** The full identity of a decision
+is **phase and number** — `F09/ADR-007`, never "ADR-007" on its own. Rules
+that keep parallel work on different phases from colliding:
+
+- **Create an ADR in the folder of the phase that originates the decision**,
+  not the one that later uses it. A cross-cutting decision has one principal
+  location; other phases cite it.
+- **Check that phase's index (`docs/adr/FNN/README.md`) before picking a
+  number**, and take the next free one. Never reserve numbers.
+- **Always reference phase and number**, in docs, comments, tests and scripts.
+- **Never renumber an existing decision to insert another.**
+- **If two branches create the same identifier within a phase, resolve it
+  before integrating** and update the references of the one that moves.
+- **An ADR from another phase is cited; it is never copied or silently
+  redefined.**
+
+The old single numbering (`ADR-001` … `ADR-041`) survives on purpose in
+migrations, SQL checks, probes and shared vectors, whose integrity outweighs a
+comment; the permanent equivalence table is in `docs/adr/README.md`.
 
 ---
 
@@ -485,7 +506,7 @@ the `adr` skill to draft one.
 on 2026-08-27, Phase 5 (identity and session) on 2026-08-28, Phase 6 (Modo
 Personal) on 2026-09-03 and Phase 7 (quick entry, offline and sync) on
 2026-09-04 — **the latter validated on Android; iOS is not physically tested**.
-**ADR-001 through ADR-031 are accepted**; ADR-003 met its E11 gate against a
+**the 31 ADRs of phases F00–F08 are accepted** (see `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a
 real local Supabase stack.
 
 **Phase 8 is OPEN** — internal distribution and environments. It is split into
@@ -493,7 +514,7 @@ real local Supabase stack.
 (Google Play). Two of its four original closure criteria are still **pending**,
 so the phase cannot be declared closed; the state criterion by criterion is in
 the [roadmap](docs/product/roadmap.md), Fase 8, and the environment contract is
-in [ADR-031](docs/adr/ADR-031-environments-and-variants.md) with its runbook in
+in [F08/ADR-002](docs/adr/F08/ADR-002-environments-and-variants.md) with its runbook in
 [`docs/runbooks/environments.md`](docs/runbooks/environments.md).
 
 **Never build without naming the variant.** `APP_VARIANT` selects the identity —
@@ -526,7 +547,7 @@ and eleven reproducible probes that measured the decisions behind the schema
 reference implementation of the financial domain in `src/domain/`, with shared
 test vectors in `tests/vectors/` and a Vitest suite — 116 tests. **The
 authoritative server write boundary will have to reproduce those vectors
-exactly** (ADR-002 §7).
+exactly** (F01/ADR-001 §7).
 
 **What does not exist yet.** No screens with economic function, and no
 provisioning for Groups — nothing creates a group, a participant, a
@@ -536,7 +557,7 @@ seed them as `postgres`.
 
 **The Modo Personal has a route, and the app does not use it yet.**
 `api.ensure_personal_scope` creates the scope and its membership under a third
-role, `nomey_provisioner` — [ADR-019](docs/adr/ADR-019-personal-provisioning.md).
+role, `nomey_provisioner` — [F06/ADR-001](docs/adr/F06/ADR-001-personal-provisioning.md).
 It is safe, idempotent and verified over HTTP with a real JWT, but **no client
 code calls it**, so a freshly confirmed account still has no personal scope until
 something does. Wiring it into the authenticated lifecycle is F6.E, and it comes
@@ -545,7 +566,7 @@ before Inicio consumes the scope.
 **Inicio shows real money, and the app finally provisions the scope.** F6.E
 wired `api.ensure_personal_scope` — F6.A left it ready and nothing called it —
 and built the screen on the read surfaces. It also added a FIFTH surface,
-`api.personal_statistics(p_from, p_to)`, because none of ADR-025’s four
+`api.personal_statistics(p_from, p_to)`, because none of F06/ADR-007’s four
 aggregates over an interval and doing it on the client was measured to be
 unsafe: PostgREST 16.1 refuses aggregate functions (`PGRST123`) and `max_rows`
 caps a request at 1000, so `Año` past a thousand movements would have shown an
@@ -557,14 +578,14 @@ economic dimension of a personal scope is produced by exactly
 the payer’s cash with no economic effect — and a check asserts the categories
 sum to `expense_total` to the minor unit. And **adjustments stay out of
 statistics with no clause excluding them**: they produce no economic dimension.
-[ADR-026](docs/adr/ADR-026-personal-statistics.md).
+[F06/ADR-008](docs/adr/F06/ADR-008-personal-statistics.md).
 
 **The Modo Personal can finally be read, and the unit is the operation.** F6.D
 added `api.personal_operation` (one row per operation, current version),
 `api.personal_operation_version` (the correction history), `api.personal_balance`
 (the Disponible, derived and already aggregated) and
 `api.observed_balance(uuid[])`. Four things to know before touching any of it.
-**The observation leaves through a FUNCTION and never a view** — the ADR-023
+**The observation leaves through a FUNCTION and never a view** — the F06/ADR-005
 guard still demands ZERO `api` views over `core.balance_observation`, so a new
 guard bounds the single function that may read it rather than the old one being
 relaxed. **The history cannot publish a signed amount**: a superseded version’s
@@ -574,7 +595,7 @@ class whitelist bounds the LIST, never the BALANCE** — the Disponible derives
 from every current effect, and from F9 the two need not agree. And **a page
 costs three queries, not 1+N**: the list publishes `previous_version_id` and the
 observation takes an array.
-[ADR-025](docs/adr/ADR-025-personal-read-surface.md); falsifications, including
+[F06/ADR-007](docs/adr/F06/ADR-007-personal-read-surface.md); falsifications, including
 the one that did NOT falsify, in `supabase/checks/read-surface.sql`.
 
 **The balance is serialized, observed and annullable.** F6.C added
@@ -590,9 +611,9 @@ once under lock, per version and per scope, insert-only, and a catalogue guard
 fails if any `api` view derives the `Disponible` from it. And **deleting a
 movement is a version with no effects** — nothing is deleted, `current_version_id`
 stays the only authority on what counts, and annulment is terminal in F6.
-[ADR-022](docs/adr/ADR-022-balance-target-and-serialization.md),
-[ADR-023](docs/adr/ADR-023-balance-observation.md) and
-[ADR-024](docs/adr/ADR-024-annulment.md); races measured in `supabase/e22/`.
+[F06/ADR-004](docs/adr/F06/ADR-004-balance-target-and-serialization.md),
+[F06/ADR-005](docs/adr/F06/ADR-005-balance-observation.md) and
+[F06/ADR-006](docs/adr/F06/ADR-006-annulment.md); races measured in `supabase/e22/`.
 
 **The category belongs to the expense, and its icon is a semantic key.** A pass over F6.B, driven by the visual
 review of F6.E, retired the three income categories along with Suministros and Educación — with
@@ -618,7 +639,7 @@ keep straight before touching any of it.
   because `expo-symbols` renders Android only from an explicit pair — an iOS name
   in the database left Android with no icon, with nowhere to fix it.
 
-[ADR-027](docs/adr/ADR-027-expense-only-categories.md), which supersedes ADR-021
+[F06/ADR-009](docs/adr/F06/ADR-009-expense-only-categories.md), which supersedes F06/ADR-003
 §1–§5 and nothing else: logical deactivation, renaming reaching history, the
 `nomey_provisioner` write boundary and `api.category` all stand.
 
@@ -632,13 +653,13 @@ apart** — the time is a nullable column on the version, the concept lives in
 only where the fact exists, so **no class invents a synthetic value** — and **a
 writer of one class can no longer correct an operation of another**, guarded in
 `sec.persist_version`, which all eight pass through.
-[ADR-020](docs/adr/ADR-020-version-content-and-time.md) and
-[ADR-021](docs/adr/ADR-021-category-catalogue.md).
+[F06/ADR-002](docs/adr/F06/ADR-002-version-content-and-time.md) and
+[F06/ADR-003](docs/adr/F06/ADR-003-category-catalogue.md).
 
 **Migrations have started.** `supabase/migrations/` holds eighteen. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
-verified, and so is ADR-014: `api` is served and `public`, `core` and `sec`
+verified, and so is F03/ADR-011: `api` is served and `public`, `core` and `sec`
 answer `406 PGRST106`.
 
 > `supabase/e11`–`e21` were disposable evidence over toy models and **must never
@@ -653,8 +674,8 @@ every migration from zero and runs the SQL checks.
 
 **Scope, participant, membership and effect are migrated too.** `core.scope`,
 `core.participant`, `core.membership` and `core.effect` exist with the helper
-`sec.is_member(uuid)` of ADR-007, RLS from birth, the client read path of
-ADR-013 §10 and the writer's `WITH CHECK` measured in E20. Four points worth
+`sec.is_member(uuid)` of F03/ADR-004, RLS from birth, the client read path of
+F03/ADR-010 §10 and the writer's `WITH CHECK` measured in E20. Four points worth
 knowing before touching them:
 
 - **An effect's currency is the base currency of its scope, structurally.** A
@@ -663,7 +684,7 @@ base_currency_definition_id)` enforces it, and the same FK makes the base
   currency unchangeable once effects exist — invariant 12, as structure rather
   than as validation.
 - **The three participants an effect names belong to the effect's own scope**,
-  also by composite FK. That is what makes ADR-012 §1's "contextual" structural.
+  also by composite FK. That is what makes F03/ADR-009 §1's "contextual" structural.
 - **`core.membership` is current authorization, never history.** The row exists
   ⇔ the membership is active. If historical membership is ever needed it gets
   modelled deliberately; do not reinterpret this relation.
@@ -674,7 +695,7 @@ base_currency_definition_id)` enforces it, and the same FK makes the base
 **The participant-account link and the presence periods are migrated too.**
 `core.participant_user_link` and `core.participant_period` exist, with
 `btree_gist` in the `extensions` schema. Keep three things straight — collapsing
-any two of them is the mistake ADR-012 exists to prevent:
+any two of them is the mistake F03/ADR-009 exists to prevent:
 
 | Relation                     | Question it answers                        |
 | ---------------------------- | ------------------------------------------ |
@@ -700,14 +721,14 @@ any two of them is the mistake ADR-012 exists to prevent:
   assumed. The runbook carries the query to run before any real deploy.
 
 **The contextual split and the frozen conversion are migrated too, and with
-them the persisted-fact inventory of ADR-013 §1 is complete.** `core.split`,
+them the persisted-fact inventory of F03/ADR-010 §1 is complete.** `core.split`,
 `core.split_participant` and `core.frozen_conversion` exist. Everything that ADR
 declares authoritative-persisted now has a home; what remains in 3.C is derived
 surface and the write boundary, not new facts.
 
 - **The frozen rate is stored as `(coefficient, scale)`, not `numeric`** —
-  [ADR-015](docs/adr/ADR-015-frozen-rate-physical-representation.md), which
-  supersedes exactly that prescription of ADR-003 §4 and nothing else. `12` is
+  [F03/ADR-012](docs/adr/F03/ADR-012-frozen-rate-physical-representation.md), which
+  supersedes exactly that prescription of F02/ADR-001 §4 and nothing else. `12` is
   the maximum scale, **not a fixed one**: magnitude and precision trade off
   against each other.
 - **The converted amount is not persisted.** It is reproducible from the
@@ -716,7 +737,7 @@ surface and the write boundary, not new facts.
 - **`split_participant.resolved_amount` is not the same fact as
   `effect.economic_amount`.** They coincide for a group expense and diverge in
   the couple's final split, where resolved shares become _balance_ effects in
-  two different personal scopes. ADR-013 §1 persists both on purpose.
+  two different personal scopes. F03/ADR-010 §1 persists both on purpose.
 - **The `ordinal` is the tie-break input**, not decoration. Together with the
   payer it is what makes the spare cent land on the same person on a replay.
 - **"Every split has at least one participant" is NOT structural.** A header
@@ -728,16 +749,16 @@ surface and the write boundary, not new facts.
 **Version lineage is only partly structural, by design.** The composite FKs
 guarantee the predecessor and the pointer belong to the same operation; that the
 predecessor is _exactly_ the previously current version — and therefore the
-absence of branching — is reserved to the authoritative boundary by ADR-011 §11.
+absence of branching — is reserved to the authoritative boundary by F03/ADR-008 §11.
 Do not describe the lineage as "linear" on the strength of the constraints
 alone.
 
 **The canonical projection and economic attribution are migrated too, and with
 them `api` finally has a real client surface.** `core.current_effect` is the
-canonical projection of ADR-013 §9 — the only relation allowed to depend
+canonical projection of F03/ADR-010 §9 — the only relation allowed to depend
 directly on `core.effect`, enforced by a catalogue check. On top of it,
 `api.personal_effect` and `api.claimed_dimension()` answer **who an amount
-belongs to**, per [ADR-016](docs/adr/ADR-016-economic-attribution.md).
+belongs to**, per [F03/ADR-013](docs/adr/F03/ADR-013-economic-attribution.md).
 
 - **Attribution is per dimension, never per row.** Balance and participant-less
   economic belong to the **owner** of the personal scope; economic with a
@@ -768,15 +789,15 @@ are `SECURITY DEFINER` **owned by `nomey_writer`** — the opposite of
 `api.claimed_dimension()`, and deliberately so: a read boundary must cross RLS,
 a write boundary must stay under it (E16). Do not unify them.
 
-- **One public function per operation class**, per ADR-009 §1 — whose own
+- **One public function per operation class**, per F03/ADR-006 §1 — whose own
   examples share an accounting class, which is what proves `operation_class` is
-  the _type_ of operation (ADR-013 §2), not the accounting class of ADR-002 §3.
+  the _type_ of operation (F03/ADR-010 §2), not the accounting class of F01/ADR-001 §3.
   They are different vocabularies in different columns; the fixtures that
   conflated them were corrected.
 - **Create and correct share a function**, distinguished by `operation_id` +
   `expected_version_id` in the payload and by `command_type` for idempotency.
-- **Claim the idempotency key before the CAS** (ADR-011 §13), and authorize
-  after the claim (ADR-010 §5). A replay never re-derives, re-authorizes or
+- **Claim the idempotency key before the CAS** (F03/ADR-008 §13), and authorize
+  after the claim (F03/ADR-007 §5). A replay never re-derives, re-authorizes or
   creates a version.
 - **The only permitted exception handler is the claim's `unique_violation`.**
   Any other turns a failure into a partial write.
@@ -784,12 +805,12 @@ a write boundary must stay under it (E16). Do not unify them.
   until the FX resolution rule exists. `core.frozen_conversion` therefore has
   no write route, and the writer has no `INSERT` on it.
 - **Parity with `src/domain/` is the shared vectors, not shared code**
-  (ADR-009 §1). `scripts/vectors-prelude.sh` pipes `tests/vectors/*.json` into
+  (F03/ADR-006 §1). `scripts/vectors-prelude.sh` pipes `tests/vectors/*.json` into
   the checks, because psql runs inside the container and cannot read the
   checkout. **22 of 22** split vectors and **19 of 20** scenarios are
   reproduced; the one left out needs FX and is refused, not faked.
 
-**The three classes that touch debt follow ADR-013 §11**, and five things about
+**The three classes that touch debt follow F03/ADR-010 §11**, and five things about
 them are easy to get wrong later:
 
 - **The scopes are locked before the operation row**, and before the debt is

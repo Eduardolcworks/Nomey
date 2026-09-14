@@ -80,7 +80,7 @@ const featureZones = featureNames.map((name) => ({
 }));
 
 const MONEY_PURITY =
-  'No binary floating point in monetary arithmetic (ADR-003). Use bigint and the helpers in domain/money.';
+  'No binary floating point in monetary arithmetic (F02/ADR-001). Use bigint and the helpers in domain/money.';
 
 const boundaries = [
   {
@@ -90,7 +90,7 @@ const boundaries = [
     },
   },
   {
-    // No binary floating point in monetary arithmetic. ADR-003 forbids number
+    // No binary floating point in monetary arithmetic. F02/ADR-001 forbids number
     // for values of record, and the failure it prevents is silent: a wrong
     // amount that never throws. A lint rule makes it checkable instead of
     // declarative. Number.isInteger and friends stay legal - only the

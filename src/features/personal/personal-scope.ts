@@ -109,7 +109,7 @@ export function recommendedCurrencyCode(
  * `api.ensure_personal_scope` is idempotent by state and always returns the
  * same scope for the same account, but it needs the network. Without it the
  * entry sheet could not know WHERE a movement lands and Inicio could not paint
- * even the local intentions — exactly what ADR-028 §8 requires to be visible.
+ * even the local intentions — exactly what F07/ADR-001 §8 requires to be visible.
  * So the last correct result is stored per actor in the same document store as
  * the catalogue (§16) and used **only as a fallback** when the network fails.
  *
@@ -119,10 +119,10 @@ export function recommendedCurrencyCode(
  * **And it can go stale in the one thing that matters.** The base currency of a
  * scope **with no effects** is changed by `api.set_personal_base_currency`,
  * which only refuses — `BASE_CURRENCY_LOCKED · 409` — once there are movements.
- * A freshly created scope is exactly that case, and it is the route ADR-028 §14
+ * A freshly created scope is exactly that case, and it is the route F07/ADR-001 §14
  * walks through with numbers. So this document can name a definition that is no
  * longer the current one, and **the ISO code will not give it away**: two
- * different definitions can both show "EUR" (ADR-003 §3, and
+ * different definitions can both show "EUR" (F02/ADR-001 §3, and
  * `core.currency_definition` deliberately has no uniqueness on `code`).
  *
  * What stops that from reinterpreting an amount is not this cache, but **that
@@ -131,7 +131,7 @@ export function recommendedCurrencyCode(
  * - every queue entry freezes ITS definition when captured, and the projection
  *   aggregates by comparing that identity with the current one — never the code;
  * - an entry under another definition is still painted with its amount and its
- *   currency, and enters no aggregate (ADR-028 §14);
+ *   currency, and enters no aggregate (F07/ADR-001 §14);
  * - and the boundary finishes the job: `CURRENCY_CONVERSION_UNSUPPORTED · 422`,
  *   state `conflict`, review.
  *

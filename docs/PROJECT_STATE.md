@@ -13,24 +13,26 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-09-13**, al cerrar **F11.A** —las decisiones de multimoneda, sin implementación—.
+Actualizado el **2026-09-14**, al cerrar la **Fase 9** (Grupos, gastos
+compartidos y deudas) y al integrar el cierre de **F11.A** (decisiones de
+multimoneda, sin implementación).
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                                                                                                           |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Fase en curso**       | **Fase 8 — Distribución interna y entornos.** **F8.A0 … F8.A5** cerrados: hay build propia de Android y un Staging autónomo con su canal de actualización |
-| **Última fase cerrada** | **Fase 7 — Entrada rápida, offline y sincronización** (A … E), el 2026-09-04. **Validada en Android; iOS sin probar físicamente**                         |
-| **ADR aceptados**       | ADR-001 … ADR-032                                                                                                                                         |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **La Fase 7 no lo tocó**                                                             |
-| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**: el alta se encola, se proyecta al instante y se sincroniza sola                                   |
-| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                                              |
+|                         |                                                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes). **Fase 11** abierta: **F11.A** cerrada (contrato, sin implementación). F10 **no abierta** |
+| **Última fase cerrada** | **Fase 9 — Grupos, gastos compartidos y deudas**, el 2026-09-14. **Validada en iPhone (Expo Go) y en el emulador Android**                                                           |
+| **ADR aceptados**       | 41 de 42 (F00–F09 y F11; F00/ADR-001 sigue Propuesto), organizados por fase en `docs/adr/FNN/`                                                                                       |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **46 migraciones**: la última alinea el CAS del pago con la vista de saldos                                     |
+| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver                                                 |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                                                                         |
 
 **La Fase 8 está ABIERTA.** F8.A0 aceptó
-[ADR-030](adr/ADR-030-native-code-model.md) y
-[ADR-031](adr/ADR-031-environments-and-variants.md) y partió la fase en tres
+[F08/ADR-001](adr/F08/ADR-001-native-code-model.md) y
+[F08/ADR-002](adr/F08/ADR-002-environments-and-variants.md) y partió la fase en tres
 bloques trazables; **F8.A1 hizo ejecutable ese contrato**, **F8.A2 dejó la
 cadena nativa lista**, **F8.A3 compiló, instaló y validó la primera build
 propia de Android** , **F8.A4 demostró que esa build se comporta como
@@ -40,8 +42,55 @@ cerrada ni puede estarlo todavía**, porque dos de sus cuatro criterios
 originales siguen sin cumplirse; el estado criterio a criterio está en el
 [roadmap](product/roadmap.md), Fase 8.
 
+**La Fase 9 está CERRADA (2026-09-14).** Sus cinco criterios están
+contrastados uno a uno en el [roadmap](product/roadmap.md) (Fase 9, «Estado de
+cierre») y la evidencia, en el
+[seguimiento de F9](architecture/phase-9-progress.md). Lo que dejó, y con qué
+garantías:
+
+- **Grupos con identidad generada por el cliente y provisioning atómico**
+  (`api.create_group`, F09/ADR-001/033), edición del perfil
+  (`api.update_group_profile`), invitación por enlace o QR con
+  previsualización y canje (`create_group_invitation`, `preview_invitation`,
+  `redeem_invitation`, `revoke_group_invitation`, F09/ADR-004).
+- **Gasto de grupo con pagador único y participantes por operación**, reparto
+  `equal` con resto determinista (los mismos 22 vectores en dominio y
+  servidor), corrección y anulación versionadas; lecturas `group_operation`,
+  `group_split_participant`, `group_summary`, `group_balance`,
+  `group_pending_pair`, `group_reopened_pair`.
+- **Pagos sugeridos y «Saldado» como pago declarado** (`record_group_payment`,
+  F09/ADR-007): caja en los dos Personales y deuda, la declare el pagador o el
+  receptor; CAS sobre la foto de netos que la pantalla enseñó; no se edita, se
+  anula. **Salir exige neto cero** y la salida reasigna los pares compensados
+  sin dinero (novación, F09/ADR-007 C8); **volver a entrar** conserva la identidad
+  (F09/ADR-010); **asociar un fantasma a la propia cuenta** es fusión de lectura
+  con caja histórica incorporada una vez (F09/ADR-009); **retirar** a un fantasma
+  (F09/ADR-005) y **deshacer la propia reclamación** (F09/ADR-006).
+- **Avisos internos en la campana** (`core.group_notice`, seis `kind`:
+  `edit`, `profile`, `departure`, `settlement`, `payment`,
+  `payment_annulled`; F09/ADR-003 §7). **Por decisión de producto (2026-09-14)
+  el alta de un gasto y la reincorporación NO avisan**; el invariante 15 de
+  `data-model.md` quedó fijado así. No hay push.
+- **Verificado:** 46 migraciones reconstruidas desde cero en una pila
+  aislada con la suite SQL completa (30/30, carreras incluidas en CI);
+  `vitest` 130 ficheros / 3737 tests; `npm run verify` limpio; validación
+  manual en iPhone (Expo Go) y emulador Android: gasto pagado por otro
+  miembro con el mismo resultado, reparto idéntico en los dos aparatos,
+  «Saldado» con un solo pago, propuesta caducada entre dos aparatos sin
+  segundo pago.
+
+**Lo que la Fase 9 deja fuera, a propósito:** conversión monetaria (**F11**:
+`CURRENCY_CONVERSION_UNSUPPORTED`), roles dentro del ámbito (no existen;
+`core.membership` no tiene columna de rol), revocar el vínculo de otro y
+fusionar cuentas (**F10**), la transferencia ordenada desde la app (F12,
+invariante 14) y la «liquidación sólo deuda» del escenario 4.5, que sigue en
+el writer (`record_debt_settlement`) sin superficie en la app. Trasladados
+como tareas explícitas, no como funcionalidad: la **retirada técnica de
+`api.settle_participant`** y la incidencia de **ParticipantField** (no
+reproducida).
+
 **F11.A está CERRADA, y es sólo contrato: la multimoneda todavía no existe en el
-código.** [ADR-032](adr/ADR-032-fx-rate-resolution.md) fija lo que F11.B y F11.C
+código.** [F11/ADR-001](adr/F11/ADR-001-fx-rate-resolution.md) fija lo que F11.B y F11.C
 implementarán; hoy toda operación en una moneda distinta de la base sigue
 respondiendo `CURRENCY_CONVERSION_UNSUPPORTED · 422`. Lo que una fase futura no
 debe deducir por su cuenta:
@@ -50,8 +99,11 @@ debe deducir por su cuenta:
   Fráncfort** —la publicación del BCE con la fecha de referencia más reciente
   anterior a X— y **se fija una sola vez**. La conversión es inmediata, y ni la
   hora de la operación ni el momento de sincronizar cambian el tipo.
-- **Moneda extranjera sólo en gasto e ingreso personales**, y en gasto de grupo
-  cuando se integre F9.
+- **Moneda extranjera sólo en gasto e ingreso personales y en gasto de grupo**,
+  sobre el contrato de F9. **Pagos declarados, novación, salida, reincorporación
+  y caja incorporada al asociar quedan fuera de la conversión**: quien tiene un
+  Personal en otra moneda que la del grupo sigue sin poder liquidar ni salir con
+  saldo pendiente.
 - **La cobertura es por moneda y par, nunca por país.** ARS, COP y CLP siguen en
   el catálogo y no se convierten, porque el BCE no las cubre.
 - **No hay tipo manual**, y un tipo congelado no se toca.
@@ -59,8 +111,8 @@ debe deducir por su cuenta:
   `FX_RATE_NOT_YET_AVAILABLE · 503` y el conflicto de base, que conserva
   `CURRENCY_CONVERSION_UNSUPPORTED`.
 - **El payload llevará la base asumida al capturar**
-  (`expected_base_currency_definition_id`), y el contrato de Grupos deberá poder
-  transportarla.
+  (`expected_base_currency_definition_id`); `record_group_expense` la
+  incorporará en una migración nueva sobre su cuerpo vigente de F9.
 
 **F8.A1 dejó el contrato de entornos funcionando, y no hay ninguna build.** Las
 tres variantes se resuelven, se comparan y se exportan. Lo que hay que saber
@@ -118,9 +170,9 @@ saber es esto:
 - **`prebuild --clean` de Development se ejecuta y se verifica**, con
   `scripts/android-project-check.mjs`: identidad `es.lcworks.nomey.dev`, **cero
   rastro de Staging o Producción**, updates apagadas y sin canal, plugins
-  aplicados —incluidas las reglas de backup de ADR-017—, colores del tema y
+  aplicados —incluidas las reglas de backup de F05/ADR-001—, colores del tema y
   ninguna credencial dentro. **No hizo falta ninguna edición manual**, que es lo
-  que ADR-030 exigía demostrar.
+  que F08/ADR-001 exigía demostrar.
 - **`/android` sigue ignorado y es un artefacto.** Se edita `app.config.ts` o un
   plugin y se regenera; una edición a mano sobrevive hasta el siguiente
   `--clean` y desaparece sin avisar.
@@ -194,9 +246,9 @@ volver a deducir:
   servidor fue **silenciosa y sin recargar nada**, y ninguna cifra saltó.
 - **Un rechazo terminal no quema la clave.** Con la frontera respondiendo
   `CATEGORY_NOT_USABLE`, el censo se quedó igual —mismas operaciones y mismas
-  claves—: la reclamación de ADR-011 §13 vive dentro de la transacción que el
+  claves—: la reclamación de F03/ADR-008 §13 vive dentro de la transacción que el
   rechazo aborta. Pulsar `Sí` en la incidencia tampoco creó ninguna.
-- **La forma excepcional de ADR-029 no tiene ruta manual, y sí tiene pruebas.**
+- **La forma excepcional de F07/ADR-002 no tiene ruta manual, y sí tiene pruebas.**
   Sus dos disparos son condiciones que el cliente no puede producir: `conflict`
   exige una moneda distinta de la base del ámbito —hoy sólo EUR, e inmutable con
   efectos— y `review` exige reutilizar una clave, justo lo que el cliente evita.
@@ -244,7 +296,7 @@ lo que no conviene volver a deducir:
 - **Una build de release NO habla HTTP sin cifrar**, y eso no se ve venir: el
   `usesCleartextTraffic` de la plantilla vive **sólo** en el manifiesto de debug.
   Lo concede `plugins/with-local-http.js` —el primer config plugin local de
-  Nomey, ADR-030 §3— acotado a `127.0.0.1` y `localhost`, y **sólo para Staging**.
+  Nomey, F08/ADR-001 §3— acotado a `127.0.0.1` y `localhost`, y **sólo para Staging**.
   Production no lo lleva, comprobado sobre su proyecto generado.
 - **El ciclo de `expo-updates` son DOS arranques.** El primero descarga en
   segundo plano, el segundo arranca la actualización. Una prueba de un solo
@@ -255,7 +307,7 @@ lo que no conviene volver a deducir:
   `version` y compilar de nuevo.
 - **El criterio 2 de la Fase 8 sigue abierto.** Staging apunta al **mismo stack
   local** por `adb reverse`: independiente de la red, **no** de este ordenador ni
-  del cable. ADR-031 §4, que no se reinterpreta.
+  del cable. F08/ADR-002 §4, que no se reinterpreta.
 
 Cuatro cosas más que conviene tener claras antes de tocar cualquier cosa nativa:
 
@@ -280,7 +332,7 @@ Cuatro cosas más que conviene tener claras antes de tocar cualquier cosa nativa
   publicar.** El amarillo es el predeterminado y el negro es el distintivo de
   Premium. El comportamiento —activarlo con la suscripción, alternarlo desde
   Ajustes, volver al amarillo al terminar, y **no** cambiar por ello la estética
-  interior— es **trabajo de F14**; ADR-030 §5 sólo fija que el modelo de build
+  interior— es **trabajo de F14**; F08/ADR-001 §5 sólo fija que el modelo de build
   lo admite y cómo. No hay selector, ni entitlement, ni cambio de icono
   implementado.
 
@@ -295,7 +347,7 @@ Cuatro cosas de la Fase 7 que una fase futura tiene que conocer:
 - **El alta sale por la cola y por ninguna otra puerta.** La escritura directa
   para altas ya no existe; `personal-service` la refuerza con una guarda.
   `useRecordMovement` se queda sólo con las correcciones, que tienen CAS propio
-  y **no se encolan** (ADR-028 §4).
+  y **no se encolan** (F07/ADR-001 §4).
 - **La proyección optimista es una excepción acotada y una sola función.** Todas
   las superficies de Inicio leen `projectHome`, que reutiliza `src/domain/effects`
   para que cliente y frontera sean la misma aritmética. **No se persiste ningún
@@ -306,7 +358,7 @@ Cuatro cosas de la Fase 7 que una fase futura tiene que conocer:
   antes del transporte. Sin esa barrera, un movimiento se cuenta dos veces.
 - **La campana es la única superficie visible de la cola**, con dos formas y
   ninguna palabra de la maquinaria en pantalla
-  ([ADR-029](adr/ADR-029-incident-labels-and-review-destination.md)).
+  ([F07/ADR-002](adr/F07/ADR-002-incident-labels-and-review-destination.md)).
 
 **La Fase 6 sigue CERRADA** y su handoff vigente:
 [`phase-6-handoff.md`](architecture/phase-6-handoff.md).
@@ -315,7 +367,7 @@ Cuatro cosas de la Fase 7 que una fase futura tiene que conocer:
 propósito: catálogo monetario sembrado con identidades fijas, un **tercer rol**
 `nomey_provisioner`, y las funciones que crean el ámbito con su membresía y
 eligen su moneda. La decisión es
-[ADR-019](adr/ADR-019-personal-provisioning.md) y la evidencia,
+[F06/ADR-001](adr/F06/ADR-001-personal-provisioning.md) y la evidencia,
 [`supabase/e21/`](../supabase/e21/README.md).
 
 > **Backend sí, app todavía no.** `api.ensure_personal_scope` existe, es segura e
@@ -368,10 +420,10 @@ categoría e historial con su «Editado». Y **la app por fin llama a**
 `api.ensure_personal_scope`, que F6.A dejó lista y nadie invocaba — hasta
 ahora una cuenta recién confirmada no tenía Modo Personal. Trajo además una
 quinta superficie de lectura, `api.personal_statistics`, porque ninguna de las
-cuatro de ADR-025 agrega por intervalo y agregarlo en cliente habría dado una
+cuatro de F06/ADR-007 agrega por intervalo y agregarlo en cliente habría dado una
 cifra incompleta que no falla: medido, PostgREST 16.1 rechaza los agregados
 con `PGRST123` y `max_rows` corta en 1000.
-[ADR-026](adr/ADR-026-personal-statistics.md).
+[F06/ADR-008](adr/F06/ADR-008-personal-statistics.md).
 
 > Los controles que dejó como affordance —editar, eliminar y ajustar— son los
 > mismos que F6.F conectó, sin rehacerlos.
@@ -381,7 +433,7 @@ La **operación** es la unidad que se lee, no el efecto; una corrección deja
 visible **qué había antes** —importe, concepto, categoría y hora, cada uno tal
 como aquella versión lo declaró—; el **Disponible** se deriva y se entrega ya
 agregado; y las **anuladas** no asoman por ninguna de las tres vistas. La
-decisión es [ADR-025](adr/ADR-025-personal-read-surface.md).
+decisión es [F06/ADR-007](adr/F06/ADR-007-personal-read-surface.md).
 
 > **Backend sí, app todavía no**, igual que A, B y C. Las consultas concretas
 > del cliente y las pantallas son de F6.E y F6.F.
@@ -391,9 +443,9 @@ pantalla. El cliente declara el saldo que dice tener y **el servidor deriva el
 delta bajo lock**; cada escritura de saldo deja una **fotografía congelada** del
 antes y el después que **nunca alimenta el Disponible**; y eliminar un
 movimiento es una **versión sin efectos** que no borra nada. Las decisiones son
-[ADR-022](adr/ADR-022-balance-target-and-serialization.md),
-[ADR-023](adr/ADR-023-balance-observation.md) y
-[ADR-024](adr/ADR-024-annulment.md); la evidencia de las carreras,
+[F06/ADR-004](adr/F06/ADR-004-balance-target-and-serialization.md),
+[F06/ADR-005](adr/F06/ADR-005-balance-observation.md) y
+[F06/ADR-006](adr/F06/ADR-006-annulment.md); la evidencia de las carreras,
 [`supabase/e22/`](../supabase/e22/README.md).
 
 **F6.B dio anatomía al movimiento**, también sin pantalla: **concepto**
@@ -401,13 +453,13 @@ obligatorio, **categoría**, **hora efectiva**, y el **ingreso como clase real**
 —la octava función, que el modelo contemplaba desde la Fase 1 sin ruta de
 escritura—. Y cerró la obligación que dejó F6.A: **una clase ya no puede
 corregir una operación de otra**. Las decisiones son
-[ADR-020](adr/ADR-020-version-content-and-time.md) y
-[ADR-021](adr/ADR-021-category-catalogue.md).
+[F06/ADR-002](adr/F06/ADR-002-version-content-and-time.md) y
+[F06/ADR-003](adr/F06/ADR-003-category-catalogue.md).
 
 **La categoría es del gasto, y su icono es una clave semántica.** Con datos
 reales en pantalla se vio que las tres categorías de ingreso no clasificaban
 nada —parafraseaban el concepto que la persona ya había escrito—, así que
-**ADR-027** las retira junto a Suministros y Educación, deja diez de gasto y
+**F06/ADR-009** las retira junto a Suministros y Educación, deja diez de gasto y
 saca la categoría de `core.movement_detail` a `core.expense_category`, una
 relación propia con clave primaria sobre la versión. Tres cosas que conviene no
 confundir después. **«Todo gasto tiene categoría» NO es una garantía
@@ -420,7 +472,7 @@ qué apunta, lo que cambia su intención canónica y por tanto su idempotencia; 
 acepta porque no hay producción. Y **el icono dejó de ser un nombre de SF
 Symbol**: la base guarda una clave semántica de vocabulario cerrado y el cliente
 resuelve el par `{ ios, android }`, porque un nombre de iOS dejaba Android sin
-icono. [ADR-027](adr/ADR-027-expense-only-categories.md).
+icono. [F06/ADR-009](adr/F06/ADR-009-expense-only-categories.md).
 
 **La Fase 5 está cerrada**, con sus cuatro criterios del roadmap cumplidos y
 verificados: se puede registrar, entrar, salir y recuperar el acceso; la sesión
@@ -491,29 +543,63 @@ el writer— crea ámbitos y membresías, que es lo único que el escritor conta
 
 ## Superficie `api` disponible
 
-**Escritura — ocho funciones de clase.** Una por clase de operación,
+**Escritura — nueve funciones de clase.** Una por clase de operación,
 payload `jsonb` único, `GRANT EXECUTE` solo a `authenticated`:
 
 ```
 record_adjustment          record_group_expense
 record_personal_expense    record_debt_settlement
 record_personal_income     record_settlement_by_transfer
-record_external_transfer
+record_external_transfer   record_group_payment
 record_internal_transfer
 ```
+
+**`record_group_payment` es sólo alta** (F09/ADR-007): un pago hecho fuera de la
+app que declara el pagador o el receptor, con la foto de netos que la pantalla
+enseñó (`expected_positions` → `SETTLEMENT_STALE` si cambió). El servidor lo
+descompone sobre las obligaciones vigentes —par directo, caminos, novación— o
+lo rehúsa (`PAYMENT_NOT_APPLICABLE`), mueve la caja de los dos Personales y
+no escribe efecto económico. **No se edita** (`PAYMENT_NOT_EDITABLE`): se
+anula —por cualquiera de las dos partes, tengan o no membresía— y se
+registra otro. Las partes viven en `core.payment_detail` y lo que cerró o
+reasignó, fila a fila, en `core.payment_allocation` (persistido al registrar;
+se conserva al anular, porque los efectos superados no se leen: F03/ADR-010 §9).
 
 Alta y corrección **comparten función**: las distingue `operation_id` +
 `expected_version_id` en el payload.
 
+**Y una décima de F9, `api.settle_participant`**, de la clase
+`participant_settlement` (F09/ADR-003 §4), **sin UI desde F09/ADR-007 y con retirada
+técnica pendiente y explícita** —revocar su `EXECUTE` y retirar el hook, con
+los checks reescritos; F09/ADR-007 «Decisiones cerradas y pendientes» §4, cuya
+condición ya se cumple en la base local—; mientras tanto: los miembros dan por resueltos TODOS los
+pares pendientes de quien salió, en una operación con un efecto de deuda por
+par, contra las cantidades que la confirmación enseñó (`SETTLEMENT_STALE` si
+cambiaron) y con la retirada en `core.participant_retirement`. Sin pares no hay
+operación: cero pendiente no es una liquidación de cero. Las dos liquidaciones
+exigen desde entonces **ambos extremos activos**, sea cual sea la fecha
+(`PARTICIPANT_INACTIVE`), y un retirado no vuelve a adquirir ni a alterar deuda
+(`PARTICIPANT_RETIRED`).
+
+**`api.retire_participant` es la misma retirada con otra guardia** —sin cuenta
+en vez de inactivo— sobre `sec.retire_participant_core` (F09/ADR-005). Y
+**`api.unclaim_participant` deshace una reclamación** (F09/ADR-006): del
+provisioner, sólo el propio actor miembro, contra la reclamación que creó su
+vínculo actual (`participant_user_link.claim_command_id`, que
+`api.group_participant` publica sólo sobre la fila propia), rehusada con las
+operaciones que lo impiden si hay caja vigente en su Personal por ese grupo
+(`UNCLAIM_BLOCKED_CASH`, `details` con `operations`). Borra vínculo y
+membresía; conserva efectos, presencia, historial y autoría.
+
 **Más `api.annul_operation`, que no es una clase.** Anular no deriva efectos, así
 que una sola función vale para las ocho y no contradice «una por clase» de
-ADR-009 §1.
+F03/ADR-006 §1.
 
 **El ajuste declara `delta` o `target_balance`, exactamente uno.** Con objetivo,
 **el servidor deriva el delta bajo lock**: el cliente no calcula nada sobre una
 lectura que puede haber caducado. `target_balance` es el saldo declarado **al
 reconciliar**, y no hay reconstrucción `as-of`
-— [ADR-022](adr/ADR-022-balance-target-and-serialization.md).
+— [F06/ADR-004](adr/F06/ADR-004-balance-target-and-serialization.md).
 
 **Y una clase no corrige a otra.** La guarda vive en `sec.persist_version`, por
 donde pasan las ocho para existir, y usa la clase que cada una ya le pasaba: no
@@ -531,32 +617,61 @@ ensure_personal_scope        crea ámbito + membresía, o devuelve el existente
 set_personal_base_currency   cambia la moneda si el ámbito nunca tuvo un efecto
 ```
 
+**Y las de Grupos, idempotentes por clave (F09/ADR-002):** `create_group`,
+`update_group_profile`, desde F09/ADR-004 `create_group_invitation`,
+`revoke_group_invitation` y `redeem_invitation` —más `preview_invitation`, un
+definer de `postgres` que sólo publica lo necesario para elegir identidad—, y,
+desde F09/ADR-003, `leave_group` —borra UNA membresía,
+cierra la presencia con el día de salida EXCLUIDO, registra `core.group_departure`
+y avisa a los que quedan; ni un efecto, ni una operación, ni el vínculo—, que
+desde F09/ADR-007 C8 **sale a NETO cero**: con neto distinto de cero responde
+`LEAVE_BLOCKED_DEBT` con el neto y los pares, bajo el cerrojo de identidad,
+sin escribir nada; a cero con pares vivos, la salida los **reasigna** entre
+los demás sin dinero (operación `departure_novation` del writer,
+`sec.record_departure_novation`, sólo deuda, no anulable, procedencia en
+`core.group_departure.novation_operation_id`). Y **`api.associate_participant`**
+(F09/ADR-009) asocia un participante sin cuenta a la identidad propia: fusión de
+lectura en `core.current_effect` (`core.participant_merge`), caja histórica
+completada una sola vez por el writer (`sec.incorporate_participant_cash`)
+sólo en el Personal del actor.
+
+**Todo lo que lee o cambia identidad de grupo toma el cerrojo de rango 1**
+(`sec.lock_participant_claims`, migración `20260912150000`): diez funciones,
+entre ellas `annul_operation`, `record_debt_settlement` y
+`record_group_payment`; la guarda de catálogo `group-identity-lock.sql` lo
+vigila. **Y la obligación de quien salió es intocable** (F09/ADR-008): un alta
+retro-fechada, una corrección o una anulación de gasto que cambie lo que se
+le atribuye —deuda por par, cuota o caja— se rehúsa entera con
+`DEPARTED_OBLIGATION_CHANGED · 422`; concepto, categoría y cambios sólo entre
+activos siguen permitidos.
+
 **Lectura:**
 
-| Objeto                           | Qué da                                                        |
-| -------------------------------- | ------------------------------------------------------------- |
-| `api.personal_operation`         | **La lista.** Una fila por operación, con su versión vigente  |
-| `api.personal_operation_version` | El **historial** de correcciones, una fila por versión        |
-| `api.personal_balance`           | El **Disponible**, derivado. Una fila, y `0` si no hay nada   |
-| `api.observed_balance(uuid[])`   | La observación de ADR-023, **por lote**. Ilustrativa          |
-| `api.personal_statistics(…)`     | Totales e reparto por categoría de un **intervalo**           |
-| `api.personal_effect`            | Saldo y económica **sin participante**. De aquí, estadísticas |
-| `api.claimed_dimension()`        | Económica **con participante** y deuda, por vínculo           |
-| `api.personal_scope`             | El ámbito del actor, con su moneda base y su escala           |
-| `api.currency_definition`        | Las 20 definiciones sembradas, para el selector               |
-| `api.category`                   | Categorías de sistema y **propias**. Ni ve las ajenas         |
+| Objeto                           | Qué da                                                                                                                      |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `api.personal_operation`         | **La lista.** Una fila por operación, con su versión vigente                                                                |
+| `api.personal_operation_version` | El **historial** de correcciones, una fila por versión                                                                      |
+| `api.personal_balance`           | El **Disponible**, derivado. Una fila, y `0` si no hay nada                                                                 |
+| `api.observed_balance(uuid[])`   | La observación de F06/ADR-005, **por lote**. Ilustrativa                                                                    |
+| `api.personal_statistics(…)`     | Totales e reparto por categoría de un **intervalo**                                                                         |
+| `api.personal_expense_share(…)`  | Mis **cuotas** de gastos compartidos del intervalo, con contexto: lo que el desglose de Gastos añade para explicar el total |
+| `api.personal_effect`            | Saldo y económica **sin participante**. De aquí, estadísticas                                                               |
+| `api.claimed_dimension()`        | Económica **con participante** y deuda, por vínculo                                                                         |
+| `api.personal_scope`             | El ámbito del actor, con su moneda base y su escala                                                                         |
+| `api.currency_definition`        | Las 20 definiciones sembradas, para el selector                                                                             |
+| `api.category`                   | Categorías de sistema y **propias**. Ni ve las ajenas                                                                       |
 
 **La unidad de lectura es la operación, y `api.personal_effect` no cambió.**
-Conserva su propósito de ADR-016 —atribución por dimensión, y con ella las
-estadísticas de ADR-002 §4— y no se convirtió en lista de movimientos. Tres
+Conserva su propósito de F03/ADR-013 —atribución por dimensión, y con ella las
+estadísticas de F01/ADR-001 §4— y no se convirtió en lista de movimientos. Tres
 cosas más que conviene no volver a deducir, todas de
-[ADR-025](adr/ADR-025-personal-read-surface.md):
+[F06/ADR-007](adr/F06/ADR-007-personal-read-surface.md):
 
 - **Una página cuesta tres consultas, no 1+N.** La lista publica
-  `previous_version_id` —no `version_no - 1`, que ADR-011 §11 nunca hizo
+  `previous_version_id` —no `version_no - 1`, que F03/ADR-008 §11 nunca hizo
   estructural— y la observación **toma un array**.
 - **La observación sale por una FUNCIÓN y jamás por una vista.** La guarda de
-  ADR-023 sigue exigiendo **cero** vistas de `api` sobre ella; lo que se añadió
+  F06/ADR-005 sigue exigiendo **cero** vistas de `api` sobre ella; lo que se añadió
   es una guarda **nueva** que acota a una sola función, no una relajación.
 - **La lista blanca de clases acota la LISTA, nunca el SALDO.** El `Disponible`
   se deriva de todos los efectos vigentes; en F6 coinciden porque sólo tres
@@ -575,7 +690,10 @@ create_custom_category   rename_custom_category   set_custom_category_active
 `VERSION_CONFLICT` 409 · `BASE_CURRENCY_LOCKED` 409 · `CATEGORY_NAME_TAKEN` 409 ·
 `OPERATION_ANNULLED` 409 · `OPERATION_CLASS_MISMATCH` 422 · `CATEGORY_NOT_USABLE` 422 ·
 `CURRENCY_CONVERSION_UNSUPPORTED` 422 · `CURRENCY_NOT_SUPPORTED` 422 ·
-`CURRENCY_CODE_AMBIGUOUS` 422 · y los códigos de dominio de
+`CURRENCY_CODE_AMBIGUOUS` 422 · `LEAVE_BLOCKED_DEBT` 409 · `SETTLEMENT_STALE` 409 ·
+`PAYMENT_NOT_EDITABLE` 422 · `PAYMENT_NOT_APPLICABLE` 422 ·
+`DEPARTED_OBLIGATION_CHANGED` 422 · `PARTICIPANT_MERGED` 422/409 ·
+`PARTICIPANT_LINKED` 409 · `UNCLAIM_BLOCKED_MERGE` 409 · y los códigos de dominio de
 `src/domain/errors.ts`, también 422.
 
 `src/types/database.ts` se **genera** sobre `api` y nunca se escribe a mano.
@@ -664,7 +782,7 @@ Lo que conviene no re-descubrir:
 - **La purga normal del almacenamiento es de `auth-js`, y no se duplica.**
   `_signOut` borra la sesión a través del adaptador, que aquí es el troceado, y
   cuyo `removeItem` ya purga manifiesto y chunks. Escribir una segunda purga
-  «por seguridad» sería reimplementar lo que posee ADR-017.
+  «por seguridad» sería reimplementar lo que posee F05/ADR-001.
 - **Un error de `signOut` no significa «sigues dentro».** Medido: si falla la
   llamada remota, la librería borra la sesión local **primero** y devuelve el
   error después. Sólo hay un caso que deja dentro —token caducado y refresh
@@ -692,7 +810,7 @@ Lo que conviene no re-descubrir:
 - **El almacenamiento trocea siempre**, y su seguridad es una sola regla: el
   manifiesto se escribe el último y se borra el primero. Una escritura
   interrumpida degrada a _sin sesión_, jamás a media sesión.
-  [ADR-017](adr/ADR-017-secure-session-storage.md).
+  [F05/ADR-001](adr/F05/ADR-001-secure-session-storage.md).
 - **React Native 0.86 no cumple el contrato `URL.protocol`** que exige
   `supabase-js`: su `URL` global no tiene setter de `protocol` y el constructor
   del cliente asigna a uno. Lo resuelve `react-native-url-polyfill` en un único
@@ -747,7 +865,7 @@ splash fallara, lo que se ve es el fondo de la app, nunca una pantalla.
 
 ### La recuperación de acceso, y por qué está fuera de la sesión
 
-La rige **[ADR-018](adr/ADR-018-ephemeral-recovery-session.md)**, y su decisión
+La rige **[F05/ADR-002](adr/F05/ADR-002-ephemeral-recovery-session.md)**, y su decisión
 es una frontera, no un matiz: **una sesión nacida de un enlace de correo no es
 una sesión ordinaria de Nomey, no se persiste y nunca se promociona.**
 
@@ -783,11 +901,11 @@ una sesión ordinaria de Nomey, no se persiste y nunca se promociona.**
 ```
 
 **Supera el umbral histórico de ~2 KB que menciona la documentación de Expo**, así
-que **el troceado de ADR-017 queda validado contra una sesión real**: una sola
+que **el troceado de F05/ADR-001 queda validado contra una sesión real**: una sola
 entrada habría estado en riesgo en iOS, y la decisión no era hipotética. Con esto
-**la medición que ADR-017 dejaba pendiente está RESUELTA**.
+**la medición que F05/ADR-001 dejaba pendiente está RESUELTA**.
 
-**ADR-017 no se toca.** Un ADR aceptado es inmutable —`docs/adr/README.md`—, y el
+**F05/ADR-001 no se toca.** Un ADR aceptado es inmutable —`docs/adr/README.md`—, y el
 estado y la evidencia actuales viven aquí. La decisión que registra sigue siendo
 la misma: se trocea siempre, y la cifra la valida en vez de cambiarla.
 
@@ -809,7 +927,12 @@ la misma: se trocea siempre, y la cifra la valida en vez de cambiarla.
 6. **Saldos, deudas, estadísticas y disponibles son derivados**, sin caché en v1.
 7. **Toda escritura que pueda alterar el saldo o la deuda vigentes bloquea los
    ámbitos afectados**, en un **único** orden ascendente, **antes** de leer.
-   Una serialización parcial no serializa nada.
+   Una serialización parcial no serializa nada. **La identidad de un grupo
+   —membresía, vínculo, presencia, retiro— se lee y se cambia sólo bajo el
+   cerrojo de identidad del grupo (`sec.lock_participant_claims`), tomado
+   después de la clave de idempotencia y antes de las filas de ámbito**; un
+   Modo Personal resuelto por vínculo sin ese cerrojo delante es un defecto,
+   y `supabase/checks/group-identity-lock.sql` lo detecta en el catálogo.
 8. **Idempotencia por comando**: el UUID lo genera el cliente, la comparación es
    solo del servidor, y el replay se resuelve **antes** de autorizar y del CAS.
 9. **Los efectos referencian al participante contextual, nunca al usuario.**
@@ -822,7 +945,7 @@ la misma: se trocea siempre, y la cifra la valida en vez de cambiarla.
 13. **El tipo de cambio de una operación es el tipo del día de su fecha
     efectiva**: el último disponible al comenzar ese día en hora de Fráncfort,
     fijado una sola vez. No depende de la hora, de la sincronización ni del país,
-    y nunca lo aporta el cliente (ADR-032).
+    y nunca lo aporta el cliente (F11/ADR-001).
 
 ---
 
@@ -836,6 +959,18 @@ solo usa `format()` y deriva la forma del locale con sondas, en una única vía
 para todos los runtimes. **Nada que se ejecute en el dispositivo se da por
 verificado porque pase en Vitest**, que corre sobre V8.
 
+**Las estadísticas personales pueden sumar monedas distintas.** Medido el
+2026-09-14 sobre las 46 migraciones: con base personal EUR y una cuota de un
+grupo en JPY pagado por otra persona, `api.personal_statistics` devuelve
+`expense_total = 3500` como EUR (10,00 EUR propios + 2500 JPY de cuota). La cuota
+compartida de `20260910120000_personal_statistics_shared_share.sql` se suma sin
+filtrar por moneda, y basta con **participar sin pagar** en un grupo cuya base
+difiere de la del Personal: no hace falta ninguna conversión. Contradice
+F02/ADR-001 §3. La deuda de Inicio **no** tiene este problema: se niega a sumar
+monedas distintas. Excluir, convertir o separar esas cuotas es una decisión de
+F11.C; el detalle está en
+[F11/ADR-001](adr/F11/ADR-001-fx-rate-resolution.md#contraste-con-f9).
+
 ---
 
 ## Decisiones aplazadas relevantes
@@ -844,28 +979,32 @@ Ninguna bloqueó el cierre de la Fase 5. El detalle completo, con motivo y
 destino de cada una,
 está en [`model-coverage.md`](architecture/model-coverage.md).
 
-| Aplazado                                        | Dónde queda                                              |
-| ----------------------------------------------- | -------------------------------------------------------- |
-| **Google**, requisito de producto               | Prerrequisito en **F8.A**; implementación, posterior     |
-| **Apple**, requisito de producto                | Prerrequisito en **F8.B**; implementación, posterior     |
-| **Entorno realmente distinto del local**        | Criterio 2 de F8, **pendiente**. Sin fecha               |
-| **Tester externo real**                         | Criterio 3 de F8, **pendiente**. Sin fecha               |
-| **Icono alternativo negro de Premium**          | **F14** — decidido en ADR-030 §5, sin implementar        |
-| **Cuenta de Apple, firma y TestFlight**         | **F8.B**, puerta obligatoria antes de F14                |
-| **Google Play e Internal Testing**              | **F8.C**, cuando exista una beta Android real            |
-| **Subida real de la foto de perfil**            | Bloque posterior, con decisión propia                    |
-| **Timeout de las operaciones de autenticación** | Deuda abierta, sin ADR                                   |
-| Persistencia de la preferencia de idioma        | Con la UI de Ajustes                                     |
-| ~~Resolución autoritativa del FX~~              | **Decidida en F11.A** — ADR-032; implementación en F11.B |
-| **Cambio de divisa base con historia**          | **F11**. Elegirla ya se puede (F6.A)                     |
-| **Provisioning** de Grupos y participantes      | **F9** y **F10**                                         |
-| **Modo Pareja** completo, con su `Cierre`       | Su fase                                                  |
-| Mecanismo de claim, revocación y fusión         | **F10**                                                  |
-| Notificación                                    | Abierto                                                  |
-| Acceso residual                                 | Abierto                                                  |
-| ~~Anulación, distinta de la corrección~~        | **Resuelta en F6.C** — ADR-024                           |
-| Idempotencia de recurrencias e importaciones    | Abierto                                                  |
-| Preflight de `btree_gist` en producción         | Antes del primer deploy                                  |
+| Aplazado                                        | Dónde queda                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Google**, requisito de producto               | Prerrequisito en **F8.A**; implementación, posterior                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Apple**, requisito de producto                | Prerrequisito en **F8.B**; implementación, posterior                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Entorno realmente distinto del local**        | Criterio 2 de F8, **pendiente**. Sin fecha                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Tester externo real**                         | Criterio 3 de F8, **pendiente**. Sin fecha                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Icono alternativo negro de Premium**          | **F14** — decidido en F08/ADR-001 §5, sin implementar                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Cuenta de Apple, firma y TestFlight**         | **F8.B**, puerta obligatoria antes de F14                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Invitación pulsable desde WhatsApp**          | **F8.B**, con la build propia: enlace HTTPS sobre un dominio por acordar, Universal Links (iOS) y App Links (Android). Hasta entonces, QR y «Pegar enlace» (F09/ADR-004). Condiciones en el seguimiento de F9                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Google Play e Internal Testing**              | **F8.C**, cuando exista una beta Android real                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Subida real de la foto de perfil**            | Bloque posterior, con decisión propia                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Timeout de las operaciones de autenticación** | Deuda abierta, sin ADR                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Persistencia de la preferencia de idioma        | Con la UI de Ajustes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ~~Resolución autoritativa del FX~~              | **Decidida en F11.A** — F11/ADR-001; implementación en F11.B                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Cambio de divisa base con historia**          | **F11**. Elegirla ya se puede (F6.A)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Provisioning** de Grupos                      | **HECHO** — `api.create_group`, F9 (F09/ADR-001)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ~~Unión por enlace o QR, y edición del perfil~~ | **HECHO** — `update_group_profile` (F09/ADR-001), `redeem_invitation` (F09/ADR-004); **Compartir grupo** con QR y hoja del sistema sobre la misma invitación                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Modo Pareja** completo, con su `Cierre`       | Su fase                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ~~Mecanismo de claim~~                          | **Cerrado por F09/ADR-004**: la invitación autoriza; reclamar = vincular                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Revocación de un vínculo y fusión de duplicados | **Rectificar la propia reclamación: HECHO** — `api.unclaim_participant` (F09/ADR-006). **Asociar un fantasma a la propia cuenta: HECHO** — `api.associate_participant` (F09/ADR-009, Aceptado; validado en iPhone). Revocar por otro y fusionar cuentas: **F10**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Notificación                                    | **Hecha en F9** — `core.group_notice`, una relación con seis `kind` (ediciones, perfil, salidas, liquidaciones, pagos, anulaciones); campana del cliente (F09/ADR-003 §7). **Sin aviso por alta de gasto ni reincorporación** (decisión de producto, 2026-09-14); sin push                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ~~Acceso residual~~                             | **Cerrado por F09/ADR-003**: no existe. Quien sale conserva su Personal por vínculo y no ve nada más del grupo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Salir de un grupo y pagos registrados           | **HECHO** — `api.leave_group` a neto cero con novación de salida (F09/ADR-007 C8, `LEAVE_BLOCKED_DEBT`), `api.record_group_payment` (clase `group_payment`, sin edición, anulable por las partes), Pagos sugeridos «Los míos»/«Todos» con «Saldado» (F09/ADR-007, Aceptado); la obligación de quien salió es intocable (F09/ADR-008, Aceptado). `api.settle_participant` queda sin UI para el estado heredado. **Volver tras salir: HECHO** — `redeem_invitation` con `choice = 'rejoin'` recupera la identidad de entonces y abre un periodo desde hoy (F09/ADR-010, Aceptado; migración `20260914140000` aplicada a la base local y validada en el iPhone). La guarda de sobreliquidación sólo rehúsa lo que empeora el par (`20260914150000`, aplicada a la base local). **Pendiente:** validar en dispositivo lo demás |
+| ~~Anulación, distinta de la corrección~~        | **Resuelta en F6.C** — F06/ADR-006                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Idempotencia de recurrencias e importaciones    | Abierto                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Preflight de `btree_gist` en producción         | Antes del primer deploy                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 > **La foto de perfil, y qué está hecho exactamente:** la **affordance** está
 > terminada y aprobada en dispositivo —hueco circular con iniciales o silueta,
@@ -886,11 +1025,15 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 > fallo, reintentaría, y la primera llamada terminaría después — dos altas y una
 > respuesta que nadie sabe interpretar.
 
-> **Lo que sigue sin provisioning, y lo que ya no.** Nada crea todavía un Grupo
-> ni un participante, así que `record_group_expense` y las dos liquidaciones no
-> son alcanzables de extremo a extremo por un cliente real; los checks siembran
-> ese estado como `postgres`. **El Modo Personal ya tiene ruta**: F6.A la
-> construyó, el check HTTP crea el suyo por ella y desde F6.E la app la usa.
+> **Lo que sigue sin provisioning, y lo que ya no.** **El Modo Personal tiene
+> ruta** desde F6.A, y la app la usa desde F6.E. **El Grupo también la tiene
+> desde F9**: `api.create_group` crea ámbito, membresía, perfil, el participante
+> del creador con su vínculo y el resto de participantes, en una sola
+> transacción. Lo que sigue faltando es el **vínculo de un participante con OTRA
+> cuenta** —la reclamación, cuyo mecanismo es de F10— y las **presencias**, así
+> que `record_group_expense` y las dos liquidaciones **todavía no son
+> alcanzables de extremo a extremo** por un cliente real: los checks siguen
+> sembrando ese estado como `postgres`.
 
 ---
 
@@ -940,7 +1083,11 @@ comprueba un test.
   dice donde faltaría.
 - **Perfil y Notificaciones cuelgan de la cabecera**, no de la barra, y ambos
   destinos raíz comparten ese grupo de acciones.
-- **Crear un grupo no es el `+`**: vive en el contenido de Grupos.
+- **Crear un grupo sale del `+` de Grupos, y no de un botón dentro del
+  contenido.** Desde F9 ese `+` abre un selector con dos opciones —crear un
+  grupo o unirse a uno—; sólo la primera hace algo. El enunciado anterior
+  —«crear un grupo vive en el contenido de Grupos»— describía el estado vacío de
+  F4 y ya no es cierto.
 
 **Glass y profundidad táctil ya tienen consumidores reales** —barra, botón de
 acción, pulsador de ámbito, cards y sheets— y se validaron en iPhone físico.
@@ -982,25 +1129,26 @@ una feature escribible real.
 
 ## Qué consultar, y cuándo
 
-| Necesitas…                                      | Lee                                                                                         |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Reglas del repositorio y del agente             | [`AGENTS.md`](../AGENTS.md)                                                                 |
-| Semántica contable y escenarios                 | [`architecture/data-model.md`](architecture/data-model.md)                                  |
-| Dónde vive cada concepto del modelo             | [`architecture/model-coverage.md`](architecture/model-coverage.md)                          |
-| Una decisión y su porqué                        | [`adr/README.md`](adr/README.md) — ADR-001 … ADR-032                                        |
-| Secuencia de fases y criterios de cierre        | [`product/roadmap.md`](product/roadmap.md)                                                  |
-| Vocabulario                                     | [`product/glossary.md`](product/glossary.md)                                                |
-| Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                                |
-| **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · ADR-030 · ADR-031                      |
-| **Multimoneda: el contrato de F11**             | [`adr/ADR-032-fx-rate-resolution.md`](adr/ADR-032-fx-rate-resolution.md) · roadmap, Fase 11 |
-| Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)                        |
-| Cómo quedó la Fase 5, ya cerrada                | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)                        |
-| Cómo quedó la Fase 4, ya cerrada                | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                                  |
-| Cómo se usan i18n y el formateo                 | [`src/lib/README.md`](../src/lib/README.md)                                                 |
-| Levantar el entorno, migrar, ejecutar checks    | [`runbooks/local-setup.md`](runbooks/local-setup.md)                                        |
-| **Arrancar, resolver o verificar un entorno**   | [`runbooks/environments.md`](runbooks/environments.md)                                      |
-| **Preparar la cadena nativa y generar Android** | [`runbooks/android-build.md`](runbooks/android-build.md)                                    |
-| **Por qué** la Fase 3 quedó como quedó          | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico          |
+| Necesitas…                                      | Lee                                                                                                  |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Reglas del repositorio y del agente             | [`AGENTS.md`](../AGENTS.md)                                                                          |
+| Semántica contable y escenarios                 | [`architecture/data-model.md`](architecture/data-model.md)                                           |
+| Dónde vive cada concepto del modelo             | [`architecture/model-coverage.md`](architecture/model-coverage.md)                                   |
+| Una decisión y su porqué                        | [`adr/README.md`](adr/README.md) — índice general y tabla de equivalencias con la numeración antigua |
+| Secuencia de fases y criterios de cierre        | [`product/roadmap.md`](product/roadmap.md)                                                           |
+| Vocabulario                                     | [`product/glossary.md`](product/glossary.md)                                                         |
+| Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                                         |
+| **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · F08/ADR-001 · F08/ADR-002                       |
+| **Continuar la Fase 9**                         | [`product/roadmap.md`](product/roadmap.md), Fase 9 · F09/ADR-001 · F09/ADR-002 · F07/ADR-001         |
+| **Multimoneda: el contrato de F11**             | [`adr/F11/ADR-001-fx-rate-resolution.md`](adr/F11/ADR-001-fx-rate-resolution.md) · roadmap, Fase 11  |
+| Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)                                 |
+| Cómo quedó la Fase 5, ya cerrada                | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)                                 |
+| Cómo quedó la Fase 4, ya cerrada                | [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                                           |
+| Cómo se usan i18n y el formateo                 | [`src/lib/README.md`](../src/lib/README.md)                                                          |
+| Levantar el entorno, migrar, ejecutar checks    | [`runbooks/local-setup.md`](runbooks/local-setup.md)                                                 |
+| **Arrancar, resolver o verificar un entorno**   | [`runbooks/environments.md`](runbooks/environments.md)                                               |
+| **Preparar la cadena nativa y generar Android** | [`runbooks/android-build.md`](runbooks/android-build.md)                                             |
+| **Por qué** la Fase 3 quedó como quedó          | [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md) — histórico                   |
 
 **Evidencia empírica:** `supabase/e11/` … `supabase/e20/`. Son sondas
 desechables sobre maquetas y **nunca deben convertirse en migración**.

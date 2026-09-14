@@ -1,7 +1,7 @@
 /**
  * EL CATÁLOGO DE CATEGORÍAS, GUARDADO PARA CUANDO NO HAYA RED.
  *
- * ADR-028 §16. Un gasto exige `category_id` y el catálogo viene de
+ * F07/ADR-001 §16. Un gasto exige `category_id` y el catálogo viene de
  * `api.category`, así que sin red y sin haberlo cargado nunca **no hay nada que
  * encolar**: no se inventa una categoría ni se manda un gasto sin ella, que la
  * frontera rechazaría por forma.
@@ -13,7 +13,7 @@
  *
  * **Y esto no es una caché económica.** Nombres, iconos y estado de alta o baja
  * son presentación y selección; ninguna cifra pasa por aquí, así que la tercera
- * capa de ADR-013 §1 sigue vacía.
+ * capa de F03/ADR-010 §1 sigue vacía.
  */
 
 import type { CatalogueCache } from '@/lib/offline';
@@ -25,7 +25,7 @@ export const CATEGORY_CACHE_KEY = 'categories';
  * Lo que se guarda de cada categoría.
  *
  * Es la fila de `api.category` tal cual, **incluida `is_active`**: las retiradas
- * se conservan porque el histórico necesita saber nombrarlas (ADR-021 §7), y
+ * se conservan porque el histórico necesita saber nombrarlas (F06/ADR-003 §7), y
  * quien pinta un selector es quien las filtra. Guardar sólo las vigentes dejaría
  * un gasto de hace un año sin nombre de categoría.
  */

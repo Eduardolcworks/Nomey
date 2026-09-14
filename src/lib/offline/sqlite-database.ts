@@ -6,7 +6,7 @@
  * más importa el módulo nativo, y todo lo demás queda comprobable sin él.
  *
  * **La base no se cifra y no guarda secretos.** Sí guarda importes y conceptos
- * mientras una intención está pendiente (ADR-028 §5, §19), así que vive en el
+ * mientras una intención está pendiente (F07/ADR-001 §5, §19), así que vive en el
  * sandbox de la app, dura lo mínimo y su contenido no se registra jamás.
  *
  * **El config plugin de `expo-sqlite` NO se añade.** Sólo hace falta para FTS,

@@ -7,7 +7,7 @@
 > nombres de las tablas, en la interfaz y en las conversaciones — y ahí ya no se
 > arregla.
 >
-> Referencias: [ADR-002](../adr/ADR-002-accounting-model.md) ·
+> Referencias: [F01/ADR-001](../adr/F01/ADR-001-accounting-model.md) ·
 > [modelo de datos](../architecture/data-model.md).
 
 ---
@@ -152,7 +152,7 @@ contraria a la existente.
 
 ## Moneda e importe
 
-Referencia: [ADR-003](../adr/ADR-003-money-representation.md).
+Referencia: [F02/ADR-001](../adr/F02/ADR-001-money-representation.md).
 
 ### Definición monetaria
 

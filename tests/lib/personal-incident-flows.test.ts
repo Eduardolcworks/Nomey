@@ -105,7 +105,7 @@ describe('1 · abrir «Revisar» y marcharse', () => {
 
     /*
      * Abrir es navegar. La resolución vive DENTRO de la transacción que crea la
-     * sustituta (ADR-029 §4), así que cerrar la hoja sin guardar no ejecuta
+     * sustituta (F07/ADR-002 §4), así que cerrar la hoja sin guardar no ejecuta
      * ninguna escritura: aquí eso es, literalmente, no llamar a nada.
      */
     expect(await incidents(store)).toHaveLength(1);
@@ -122,7 +122,7 @@ describe('1 · abrir «Revisar» y marcharse', () => {
     expect(review).not.toContain('dismiss(');
     expect(review).not.toContain('retry(');
     expect(review).not.toContain('store');
-    // Lo único que hace es navegar, a uno de los dos destinos de ADR-029 §2.
+    // Lo único que hace es navegar, a uno de los dos destinos de F07/ADR-002 §2.
     expect(review).toContain("router.dismissTo('/')");
     expect(review).toContain("pathname: '/add'");
   });
@@ -397,6 +397,10 @@ describe('9 · 10 · transitorios y vuelta de la red', () => {
               previous_version_id: null,
               version_no: 1,
               operation_created_at: '2026-09-04T10:00:00.000Z',
+              group_scope_id: null,
+              group_display_name: null,
+              your_share: null,
+              payment_counterpart: null,
             },
           ],
           total: 1,

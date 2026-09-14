@@ -99,7 +99,7 @@ ni fecha a mano.
 ## `offline`, implementado en la Fase 7.B y 7.C
 
 La cola de escritura sin conexión de
-[ADR-028](../../docs/adr/ADR-028-offline-command-queue-and-optimistic-projection.md).
+[F07/ADR-001](../../docs/adr/F07/ADR-001-offline-command-queue-and-optimistic-projection.md).
 **F7.B entregó la persistencia; F7.C, el worker y todo lo que lo hace
 automático**: la taxonomía de respuestas medida contra el stack, el backoff, el
 planificador dirigido por `next_attempt_at` y el coordinador que los une. La
@@ -117,7 +117,7 @@ offline/
 ├── sqlite-catalogue-cache.ts adaptador
 ├── sqlite-database.ts        lo ÚNICO que nombra expo-sqlite
 ├── response.ts               la clasificación de una respuesta, desde lo medido
-├── backoff.ts                el backoff de ADR-028 §12, con reloj y RNG inyectados
+├── backoff.ts                el backoff de F07/ADR-001 §12, con reloj y RNG inyectados
 ├── worker-ports.ts           los puertos del worker: store, transporte, red, sesión…
 ├── sync-worker.ts            una petición en vuelo, FIFO por actor, wake retenido
 ├── retry-scheduler.ts        UN temporizador, puesto al `next_attempt_at` más próximo
@@ -139,7 +139,7 @@ Lo que conviene no volver a deducir:
   y además impide que una pasada en vuelo rearme el temporizador. La prueba que
   fuerza esa ventana exacta es `tests/lib/offline-retained-wake.test.ts`.
 - **Un fallo de SQLite es infraestructura del cliente, no una respuesta.** No
-  pasa por la clasificación de ADR-028 §11: no mueve ninguna entrada a
+  pasa por la clasificación de F07/ADR-001 §11: no mueve ninguna entrada a
   `rejected`, `review` ni `conflict`, no borra ni crea claves, y no abre la
   puerta directa. La pasada se interrumpe, `wake()` no rechaza nunca, y el
   coordinador reintenta la base con el mismo backoff y **el mismo temporizador**
@@ -150,7 +150,7 @@ Lo que conviene no volver a deducir:
   estado para F7.E; `local-failure.ts` fija qué se guarda del error —nombre y
   código, jamás el mensaje—. `tests/lib/offline-local-failure.test.ts`.
 - **La secuencia de reconciliación es durable, y es el paso 2 del esquema.**
-  ADR-028 §9 compara `confirm_seq` con `snapshot.seq`, así que el contador no
+  F07/ADR-001 §9 compara `confirm_seq` con `snapshot.seq`, así que el contador no
   puede vivir en memoria —tras reabrir volvería a cero y una confirmación nueva
   parecería anterior a un snapshot viejo— ni derivarse de las entradas, que se
   podan. Vive en `reconcile_cursor`, por actor, y sólo crece:

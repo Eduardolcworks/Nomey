@@ -54,7 +54,7 @@ export function SessionProvider({
    * F7's offline queue needs the same foreground signal this provider already
    * listens for, and `features/` may not import `features/` — so the callback
    * arrives as a prop, exactly as `ScopeProvider` receives the identity.
-   * ADR-028 §12 forbids a second `AppState` listener, which is the whole point.
+   * F07/ADR-001 §12 forbids a second `AppState` listener, which is the whole point.
    */
   onForeground?: () => void;
 }) {
@@ -68,7 +68,7 @@ export function SessionProvider({
 
   useEffect(() => {
     const stop = startSessionLifecycle({
-      // ADR-028 §12: reuse the listener this lifecycle already owns.
+      // F07/ADR-001 §12: reuse the listener this lifecycle already owns.
       onForeground,
       auth: authPort,
       appState: appStatePort,

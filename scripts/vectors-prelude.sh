@@ -3,8 +3,8 @@
 # Emite el SQL que mete los vectores compartidos en una tabla temporal, para
 # que un check pueda comprobarlos contra la implementacion de PostgreSQL.
 #
-# ADR-002 §7 obliga a que la frontera autoritativa reproduzca EXACTAMENTE los
-# vectores de `tests/vectors/`, y ADR-009 §1 asume que el calculo se escribe por
+# F01/ADR-001 §7 obliga a que la frontera autoritativa reproduzca EXACTAMENTE los
+# vectores de `tests/vectors/`, y F03/ADR-006 §1 asume que el calculo se escribe por
 # segunda vez y que **la paridad se garantiza con los vectores, no compartiendo
 # codigo**. Este script es lo que hace que esa comprobacion sea posible sin
 # duplicar las expectativas dentro del check.
@@ -24,7 +24,7 @@ cd "$(dirname "$0")/.."
 
 echo 'create temporary table vector_doc (name text primary key, doc jsonb);'
 
-for name in scenarios split conversion rounding; do
+for name in scenarios split conversion rounding display-names; do
   printf "insert into vector_doc values ('%s', \$VEC\$" "$name"
   cat "tests/vectors/${name}.json"
   printf '$VEC$::jsonb);\n'

@@ -14,7 +14,7 @@ import { createSqliteQueueStore } from '../../src/lib/offline/sqlite-queue-store
 import { openTestDatabase } from './offline-sqlite';
 
 /**
- * El esquema local y su `PRAGMA user_version` (ADR-028 §5).
+ * El esquema local y su `PRAGMA user_version` (F07/ADR-001 §5).
  *
  * La mitad interesante no es que una base vacía se cree bien —eso pasa siempre
  * la primera vez— sino los dos casos que sólo aparecen meses después: reabrir
@@ -59,7 +59,7 @@ describe('la migración sobre un SQLite real', () => {
     const tables = await db.getAllAsync<{ name: string }>(
       "select name from sqlite_master where type = 'table' order by name",
     );
-    // El cursor de reconciliación es del paso 2 (F7.D, ADR-028 §9).
+    // El cursor de reconciliación es del paso 2 (F7.D, F07/ADR-001 §9).
     expect(tables.map((row) => row.name)).toEqual([
       'catalogue_cache',
       'queue_entry',

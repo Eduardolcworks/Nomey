@@ -48,7 +48,7 @@ export type AuthResult =
  * The name goes into `options.data`, which becomes the user's
  * `user_metadata` - presentation only. It is NOT an identity: it never
  * appears in RLS, never resolves a membership or a scope, and never stands in
- * for the JWT's `sub`. `AGENTS.md` and ADR-016 are unambiguous that ownership
+ * for the JWT's `sub`. `AGENTS.md` and F03/ADR-013 are unambiguous that ownership
  * and membership are the authorities, and a display name is neither.
  *
  * With confirmations mandatory this never returns a session, and that is the
@@ -92,7 +92,7 @@ export async function signIn(raw: Credentials): Promise<AuthResult> {
  * `removeItem` is an unconditional purge of the manifest and every possible
  * chunk. **There is therefore no second purge to write for the ordinary
  * path**, and writing one "just in case" would be a parallel implementation
- * of something ADR-017 already owns.
+ * of something F05/ADR-001 already owns.
  *
  * The outcomes, all four of them:
  *
@@ -236,7 +236,7 @@ export async function requestPasswordReset(rawEmail: string): Promise<AuthResult
  *
  * 1. It POSTs the hash to `/verify` and saves the returned session through the
  *    configured storage - which is Nomey's chunked keychain store. **No
- *    second storage path and no manual persistence**: ADR-017 keeps owning the
+ *    second storage path and no manual persistence**: F05/ADR-001 keeps owning the
  *    session, and this feature never learns a key name.
  * 2. It emits **`PASSWORD_RECOVERY`** rather than `SIGNED_IN`. That event is
  *    what the session lifecycle turns into the `recovering` state, so recovery
@@ -319,7 +319,7 @@ export async function completeRecovery(rawPassword: string): Promise<RecoveryCom
    * The lost revocation is not the same class of problem as F5.D's: that
    * session was never persisted, so discarding the client removes it from the
    * device entirely. What survives is a refresh token on the server that
-   * nothing on this phone can reach - the orphan ADR-018 already accepts.
+   * nothing on this phone can reach - the orphan F05/ADR-002 already accepts.
    */
   try {
     const { error } = await ephemeral.auth.signOut({ scope: 'local' });

@@ -12,7 +12,7 @@ import { deriveDebts } from './debt';
  * Derivación de operación → efectos.
  *
  * Es el cálculo que la frontera de escritura autoritativa del servidor deberá
- * **reproducir exactamente** (ADR-002 §7), y por eso vive aquí junto a los
+ * **reproducir exactamente** (F01/ADR-001 §7), y por eso vive aquí junto a los
  * vectores compartidos.
  *
  * **Fuera de esta capa:** quién tiene derecho a registrar cada operación. La
@@ -90,7 +90,7 @@ export interface GroupExpenseInput {
   /**
    * **Opcional a propósito.** Un participante puede figurar en repartos
    * existiendo **con o sin usuario** (`data-model.md` §6), y el pagador es
-   * siempre un participante (ADR-002 §5). Cuando quien pagó no tiene Modo
+   * siempre un participante (F01/ADR-001 §5). Cuando quien pagó no tiene Modo
    * Personal, no hay ningún ámbito interno del que descontar: el gasto es
    * igualmente real, y el dinero salió de un sitio que Nomey no representa.
    *
@@ -114,7 +114,7 @@ export interface GroupExpenseInput {
  *
  * `total` y `paidFromPayerScope` se piden por separado porque una operación
  * puede tener **varias conversiones derivadas**, una por ámbito alcanzado
- * (ADR-003 §1): si el Grupo y el Modo Personal del pagador tienen monedas base
+ * (F02/ADR-001 §1): si el Grupo y el Modo Personal del pagador tienen monedas base
  * distintas, no son el mismo número y ninguno se reconstruye desde el otro.
  */
 export function deriveGroupExpense(input: GroupExpenseInput): Effect[] {
@@ -276,7 +276,7 @@ export function deriveExternalTransfer(input: { scope: ScopeId; delta: Money }):
  * Escenario 4.6 · pagar una deuda mediante transferencia.
  *
  * Una sola operación con dos hechos distintos: la transferencia mueve saldo y
- * la liquidación modifica la deuda. **No se fusionan** (ADR-002 §3).
+ * la liquidación modifica la deuda. **No se fusionan** (F01/ADR-001 §3).
  */
 export function deriveSettlementByTransfer(input: {
   from: { scope: ScopeId; amount: Money };

@@ -14,7 +14,7 @@ import type { StorageBackend } from '../../src/lib/supabase/chunked-storage';
  *
  * Ninguna de estas cuatro es una preferencia de estilo:
  *
- * - `schema: 'api'` — sin él el cliente pide `public`, que ADR-014 retiró de
+ * - `schema: 'api'` — sin él el cliente pide `public`, que F03/ADR-011 retiró de
  *   los schemas expuestos, y **todas** las llamadas responden 406 PGRST106.
  * - `storage` — sin él la sesión se guarda donde decida la librería.
  * - `persistSession` — es el criterio 2 del cierre de la fase.

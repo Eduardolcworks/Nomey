@@ -16,7 +16,7 @@ export interface Debt {
 /**
  * Deudas netas derivadas de los efectos de un ámbito.
  *
- * **La deuda es un saldo continuo, no una máquina de estados** (ADR-002,
+ * **La deuda es un saldo continuo, no una máquina de estados** (F01/ADR-001,
  * consecuencias): una liquidación es un efecto con delta negativo sobre el
  * mismo par, así que **los pagos parciales salen gratis** — pagar 30 de 100
  * deja 70 sin ningún concepto adicional.
@@ -84,7 +84,7 @@ export function deriveDebts(
  *
  * Es el componente de deuda de `Disponible tras saldar`. **No calcula esa
  * magnitud completa**: sumarle el disponible actual cruza ámbitos y exige
- * reglas de agregación que ADR-003 §3 no permite aplicar en silencio.
+ * reglas de agregación que F02/ADR-001 §3 no permite aplicar en silencio.
  */
 export function netDebtPosition(
   debts: readonly Debt[],

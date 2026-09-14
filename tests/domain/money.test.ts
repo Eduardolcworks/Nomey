@@ -76,7 +76,7 @@ function run(item: MoneyCase): string {
   }
 }
 
-describe('aritmética monetaria exacta · ADR-003 §2 §3', () => {
+describe('aritmética monetaria exacta · F02/ADR-001 §2 §3', () => {
   it.each(cases.map((item) => [title(item), item] as const))('%s', (_name, item) => {
     if (item.expectError !== undefined) {
       expect(() => run(item)).toThrowError(expect.objectContaining({ code: item.expectError }));

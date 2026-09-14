@@ -162,7 +162,7 @@ Nivel de aislamiento: el de por defecto, `READ COMMITTED`.
 
 **No se modificó `config.toml`.** Los objetos viven en `public` porque es el
 único schema expuesto por defecto y E15-A necesita atravesar PostgREST de
-verdad. Eso **no expresa ninguna preferencia de topología**: ADR-005 ya decidió
+verdad. Eso **no expresa ninguna preferencia de topología**: F03/ADR-002 ya decidió
 que la persistencia de Nomey no vive en `public`.
 
 ## Salidas

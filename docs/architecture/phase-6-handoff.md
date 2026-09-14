@@ -81,7 +81,7 @@ Era la condición sin la cual F6 no podía abrir: sin `scope` con `owner_user_id
 **y** su fila de `core.membership` —las dos, invariante 11— el dueño no ve ni
 sus propios efectos.
 
-La decisión es [ADR-019](../adr/ADR-019-personal-provisioning.md). La evidencia
+La decisión es [F06/ADR-001](../adr/F06/ADR-001-personal-provisioning.md). La evidencia
 medida, [`supabase/e21/`](../../supabase/e21/README.md).
 
 ### Lo que hay que saber para construir encima
@@ -132,7 +132,7 @@ medida, [`supabase/e21/`](../../supabase/e21/README.md).
 
 **1 · `api.personal_scope` no puede llevar una columna «¿queda alguna huella
 contable?».** La primera versión tenía un `is_currency_locked` resuelto con un
-`EXISTS` sobre `core.effect`, y **la guarda de catálogo de ADR-013 §9 lo
+`EXISTS` sobre `core.effect`, y **la guarda de catálogo de F03/ADR-010 §9 lo
 rechazó**: la única relación autorizada a depender directamente de `core.effect`
 es la proyección canónica. Y **no se arregla leyendo `core.current_effect`**,
 porque sería incorrecto —lo que bloquea la moneda es haber tenido algún efecto
@@ -172,7 +172,7 @@ Seis cosas que conviene no volver a deducir:
 - **`Otros` es una fila real**, no la ausencia de categoría: el caso nulo no
   existe en ninguna parte, ni en el modelo, ni en la frontera, ni en la UX.
 - **~~Los catálogos de gasto y de ingreso son distintos~~** — **sustituido por
-  [ADR-027](../adr/ADR-027-expense-only-categories.md)**. Las familias
+  [F06/ADR-009](../adr/F06/ADR-009-expense-only-categories.md)**. Las familias
   desaparecieron: la categoría es exclusiva del gasto, vive en
   `core.expense_category` y el ingreso no la lleva. La FK compuesta que hacía
   estructural la familia se fue con ella, y **lo que la sustituye no es una FK
@@ -184,7 +184,7 @@ Seis cosas que conviene no volver a deducir:
   corregir aunque no pueda **asignarse** de nuevo — sin esa excepción, dar de baja
   dejaría incorregible todo lo que la usara.
 - **Concepto, categoría y hora entran en la intención canónica** —la categoría
-  sólo en la del gasto, desde ADR-027—. Un reintento con cualquiera de ellos
+  sólo en la del gasto, desde F06/ADR-009—. Un reintento con cualquiera de ellos
   materialmente distinto es conflicto, no replay. Y
   `Mercadona` ≠ `MERCADONA`: la canonicalización recorta y normaliza a NFC, y
   **no pliega mayúsculas**.
@@ -207,7 +207,7 @@ Seis cosas que conviene no volver a deducir:
 api.personal_operation           la lista. UNA FILA POR OPERACION
 api.personal_operation_version   el historial de correcciones, por version
 api.personal_balance             el Disponible, derivado y ya agregado
-api.observed_balance(uuid[])     la observacion de ADR-023, POR LOTE
+api.observed_balance(uuid[])     la observacion de F06/ADR-005, POR LOTE
 ```
 
 **Cuatro objetos, ni uno más, y ningún `GRANT` nuevo sobre `core`** — que la
@@ -217,10 +217,10 @@ preguntando nada que la RLS no hubiera previsto.
 Cinco cosas que conviene no volver a deducir:
 
 - **La observación sale por una función y no por una vista**, y no es
-  preferencia: el check de ADR-023 exige **cero** vistas de `api` dependientes de
+  preferencia: el check de F06/ADR-005 exige **cero** vistas de `api` dependientes de
   `core.balance_observation`. Convertir ese cero en «exactamente una» habría
   debilitado el invariante literal; una función lo consigue **sin tocarlo**,
-  porque ADR-013 §9 ya escribe las lecturas económicas con `BEGIN ATOMIC` para
+  porque F03/ADR-010 §9 ya escribe las lecturas económicas con `BEGIN ATOMIC` para
   que el catálogo las cubra. La guarda nueva acota esa única vía.
 - **El historial no puede publicar un importe firmado.** Los efectos de una
   versión superada están en `core.effect`, que ninguna vista puede leer, así que
@@ -237,7 +237,7 @@ Cinco cosas que conviene no volver a deducir:
   `authenticated` no tiene `USAGE` sobre `core`, y sin JWT PostgREST responde
   `401 / 42501` antes de que la RLS tenga nada que decidir.
 
-La decisión es [ADR-025](../adr/ADR-025-personal-read-surface.md). Se verifica
+La decisión es [F06/ADR-007](../adr/F06/ADR-007-personal-read-surface.md). Se verifica
 con `supabase/checks/read-surface.sql` y con la **sección 11** de
 `scripts/http-boundary-check.sh`, las dos en CI.
 
@@ -268,9 +268,9 @@ Seis cosas que conviene no volver a deducir:
 - **La quinta superficie existe porque se midió que hacía falta**: PostgREST
   16.1 rechaza los agregados con `PGRST123` y `max_rows` corta en 1000, así
   que agregar en cliente habría dado una cifra incompleta que no falla.
-  [ADR-026](../adr/ADR-026-personal-statistics.md).
+  [F06/ADR-008](../adr/F06/ADR-008-personal-statistics.md).
 - **«Hoy» es el calendario del DISPOSITIVO, no el de UTC.** `effective_date` no
-  lleva zona y el par fecha+hora es un reloj de pared (ADR-020 §3): leerlo en UTC
+  lleva zona y el par fecha+hora es un reloj de pared (F06/ADR-002 §3): leerlo en UTC
   movería de día los movimientos registrados de noche, y no fallaría nada.
 - **El «Editado» compara importe declarado con importe declarado.** La versión
   anterior no tiene importe firmado, así que el signo lo pone la presentación a
@@ -409,7 +409,7 @@ intervalo y su círculo de calendario, y los `IconButton` rellenos.
 ### Reglas de dominio que el bloque NO tocó
 
 - **Un ingreso no lleva categoría.** El selector no se monta, no reserva hueco y
-  no puede mandarla: `personal_income` la rechaza por forma (ADR-027). Su
+  no puede mandarla: `personal_income` la rechaza por forma (F06/ADR-009). Su
   ventana conserva la distribución `importe | €` con su contrapeso.
 - Importes, porcentajes, reparto del donut, cálculo monetario, validación,
   idempotencia e historial: intactos. Cambiar la categoría produce una versión
@@ -456,13 +456,13 @@ un oráculo de la clase de una operación ajena. `OPERATION_CLASS_MISMATCH · 42
 
 **Falsificada:** retirando la guarda, el writer de ingreso corrige un gasto y
 G7 mide la corrupción —dos efectos vigentes con clase contable ajena a la de su
-operación—. Ver [ADR-020](../adr/ADR-020-version-content-and-time.md) §6.
+operación—. Ver [F06/ADR-002](../adr/F06/ADR-002-version-content-and-time.md) §6.
 
 ### ~~Para F6.C~~ · **RESUELTAS en F6.C**
 
 - **La hora del ajuste**: sí, y **obligatoria**. Un ajuste por objetivo es por
   naturaleza una observación en un instante, y una lista mixta necesita **un**
-  criterio de orden. Sigue **sin concepto ni categoría**, como decidió ADR-020.
+  criterio de orden. Sigue **sin concepto ni categoría**, como decidió F06/ADR-002.
 - **El bloqueo del saldo** usa el mismo orden global ascendente que la deuda, y
   `sec.lock_debt_scopes` pasó a `sec.lock_scopes`: **un mecanismo, un nombre, un
   orden**. Ninguna función queda huérfana del protocolo — participan las **siete**
@@ -476,7 +476,7 @@ operación—. Ver [ADR-020](../adr/ADR-020-version-content-and-time.md) §6.
 Las siete, y tres con un matiz que conviene leer entero:
 
 - **La unidad es la operación**, y `api.personal_effect` se conservó intacta
-  para su propósito de ADR-016.
+  para su propósito de F03/ADR-013.
 - **Las anuladas fuera de la superficie normal.** Y con un matiz medido: lo que
   hoy las excluye es la **proyección canónica** —una anulación no tiene efectos,
   así que no aporta fila—. La cláusula `version_kind = 'record'` es
@@ -486,20 +486,20 @@ Las siete, y tres con un matiz que conviene leer entero:
 - **La vía interna de la trazabilidad NO es el cliente leyendo `core`.**
   `authenticated` no tiene `USAGE` sobre ese schema, así que `api` es su única
   puerta. La vía es que el hecho permanece íntegro en `core` bajo acceso
-  privilegiado, más la legibilidad bajo RLS que ADR-024 §D6 ya falsificó.
+  privilegiado, más la legibilidad bajo RLS que F06/ADR-006 §D6 ya falsificó.
 - **`observed_balance_after` sale por una FUNCIÓN**, `api.observed_balance`, y
-  jamás por una vista: la guarda de ADR-023 sigue exigiendo cero vistas. Lo que
+  jamás por una vista: la guarda de F06/ADR-005 sigue exigiendo cero vistas. Lo que
   se añadió es una guarda **nueva** que acota a una sola función.
 - **La línea del ajuste** compone el objetivo —`target_balance`, en la lista— y
   el «antes» —`observed_balance_before`, en la función—. Dos fuentes, como
   estaba decidido.
 - **«¿Ha tenido algún efecto alguna vez?» NO se expone**, y es decisión tomada,
-  no olvido: `core.effect` está cerrado a vistas **y a funciones** (ADR-013 §9),
+  no olvido: `core.effect` está cerrado a vistas **y a funciones** (F03/ADR-010 §9),
   `core.current_effect` responde a otra pregunta, y ningún consumidor de F6 la
   necesita. La autoridad sigue siendo `api.set_personal_base_currency` con su
   `BASE_CURRENCY_LOCKED · 409`.
 
-La decisión completa es [ADR-025](../adr/ADR-025-personal-read-surface.md).
+La decisión completa es [F06/ADR-007](../adr/F06/ADR-007-personal-read-surface.md).
 
 ## 3 sexies · La corrección del modelo de categorías
 
@@ -552,7 +552,7 @@ script **siguiente**. Ninguna de las dos enmudece ya.
   `previous_version_id` de la página, para la línea tachada del «Editado»; y
   `observed_balance([…ids])` para el «antes» del ajuste. **Nunca una llamada por
   fila**: la función toma un array precisamente para eso.
-- **El predecesor es `previous_version_id`, no `version_no - 1`.** ADR-011 §11
+- **El predecesor es `previous_version_id`, no `version_no - 1`.** F03/ADR-008 §11
   no hizo estructural que el predecesor sea la versión anterior.
 - **Los dos importes no son el mismo dato.** `balance_amount` es lo que la
   operación mueve en el saldo, firmado; `original_amount` es el importe
@@ -571,7 +571,7 @@ script **siguiente**. Ninguna de las dos enmudece ya.
   falta es el **ámbito**, que es el caso de F6.E.
 - **La observación se rotula como observación del sistema**, nunca como «el saldo
   que tenías aquel día»: corregir hoy un movimiento de hace tres meses observa el
-  saldo de hoy (ADR-023 §5).
+  saldo de hoy (F06/ADR-005 §5).
 - **La categoría se resuelve contra `api.category`**, que la lista sólo publica
   por `category_id`. Es lo que hace que renombrar alcance al histórico sin que
   nadie propague nada, y lo que permite que una categoría dada de baja siga
@@ -610,7 +610,7 @@ manejador, anuncia el vuelo.
   el diálogo como dato— y es el que toca reutilizar.
 - **El CAS es `current_version_id`**, que la lista ya publica. No hace falta
   una consulta extra para corregir ni para anular.
-- **Anular es terminal** (ADR-024 §6): una operación anulada no admite versiones
+- **Anular es terminal** (F06/ADR-006 §6): una operación anulada no admite versiones
   nuevas y responde `OPERATION_ANNULLED · 409`. La interfaz no debe ofrecer
   «restaurar», que es producto que nadie ha diseñado.
 - **Tras escribir hay que refrescar, y el hook ya tiene la puerta:**

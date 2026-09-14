@@ -17,7 +17,7 @@ const category = (id: string, total: string, count = 1): StatisticsCategory => (
 
 describe('toMinor', () => {
   /**
-   * `BigInt` y nunca `Number`. ADR-008 §1 hace que los importes crucen como
+   * `BigInt` y nunca `Number`. F03/ADR-005 §1 hace que los importes crucen como
    * texto precisamente para que nadie los pase por un `double`, y E11 midió que
    * un `int8` por encima de 2^53 se degrada en silencio al parsearse.
    */

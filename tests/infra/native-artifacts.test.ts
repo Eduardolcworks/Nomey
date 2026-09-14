@@ -12,7 +12,7 @@ import RUNBOOK from '../../docs/runbooks/android-build.md?raw';
 /**
  * Las carpetas nativas son artefactos, y el runbook no puede decir otra cosa.
  *
- * **Por qué hace falta un test para un documento.** El modo de fallo de ADR-030
+ * **Por qué hace falta un test para un documento.** El modo de fallo de F08/ADR-001
  * no es que alguien reescriba el ADR: es que un runbook, con toda la buena
  * intención, escriba «y luego edita el `AndroidManifest.xml`». Esa frase
  * funciona, se copia, y sobrevive exactamente hasta el siguiente
@@ -35,7 +35,7 @@ describe('el runbook de Android no documenta la edición manual', () => {
 
   it('dice que las carpetas nativas no se editan a mano', () => {
     expect(RUNBOOK).toMatch(/no se editan a mano jamás/i);
-    expect(RUNBOOK).toContain('ADR-030');
+    expect(RUNBOOK).toContain('F08/ADR-001');
   });
 
   it('y manda el cambio a la configuración, no al proyecto generado', () => {
@@ -44,7 +44,7 @@ describe('el runbook de Android no documenta la edición manual', () => {
 
   it('nombra la variante en cada generación, en vez de dejarla implícita', () => {
     // `expo prebuild` a secas resolvería el defecto, que hoy es development;
-    // documentarlo así dejaría la identidad implícita, que es lo que ADR-031
+    // documentarlo así dejaría la identidad implícita, que es lo que F08/ADR-002
     // §2 evita.
     expect(RUNBOOK).toContain('node scripts/with-variant.mjs development prebuild');
     expect(RUNBOOK).not.toMatch(/^\s*npx expo prebuild/m);
@@ -119,7 +119,7 @@ describe('la inspección del proyecto generado sigue preguntando lo que importa'
     expect(ANDROID_CHECK).toMatch(/deberia escuchar/);
   });
 
-  it('y que las reglas de backup de la sesión siguen aplicadas — ADR-017', () => {
+  it('y que las reglas de backup de la sesión siguen aplicadas — F05/ADR-001', () => {
     expect(ANDROID_CHECK).toContain('secure_store_backup_rules');
     expect(ANDROID_CHECK).toContain('secure_store_data_extraction_rules');
   });

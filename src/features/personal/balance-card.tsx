@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { currencyDefinition, money } from '@/domain';
 import { useFormat } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n';
-import { GlassSurface, IconButton, ThemedText } from '@/ui/components';
+import { AmountPlate, IconButton, ThemedText } from '@/ui/components';
 import {
   HomeCardRelief,
   homeCardSurface,
@@ -75,7 +75,7 @@ const LABEL_ALIGN = Spacing.sm;
  *
  * **La cifra viene de `api.personal_balance` y no se calcula aquí.** El
  * servidor la deriva de la proyección canónica; el cliente no descarga
- * movimientos para sumarlos, que es lo que ADR-025 existe para evitar.
+ * movimientos para sumarlos, que es lo que F06/ADR-007 existe para evitar.
  *
  * **`null` no es cero.** Mientras el saldo no se pueda afirmar se pinta un
  * marcador de posición sin cifra, en vez de un `0` que se leería como un dato.
@@ -91,6 +91,8 @@ const LABEL_ALIGN = Spacing.sm;
  * neumorfismo a los **controles que responden**, y éste no responde a nada. Por
  * eso va con `depth="flat"`: conserva el brillo del borde que lo separa del
  * fondo y **no** toma el sombreado táctil, para que no se lea como un botón.
+ * Ese material vive desde F9 en [`AmountPlate`](../../ui/components/amount-plate.tsx),
+ * porque Grupos necesita la misma pieza y las features no se importan entre sí.
  *
  * **El amarillo es identidad**, no decoración: es la única cifra de la pantalla
  * que responde «cuánto tengo». Medido en `colors.ts`: 13,2:1.
@@ -143,11 +145,15 @@ export function BalanceCard({
         {/*
          * El sub-bloque de Deudas. NO es interactivo y no debe parecerlo: sin
          * `Pressable`, sin rol de botón y sin sombreado táctil.
+         *
+         * **El material lo pone `AmountPlate`, en `ui/`.** Estaba escrito aquí
+         * hasta que Grupos necesitó exactamente la misma pieza, y dos features no
+         * pueden importarse entre sí: copiarla habría sido tener dos oblongos que
+         * se separan al primer retoque. Lo que se movió es sólo lo neutral —el
+         * cristal, el radio, la profundidad y el orden etiqueta/cifra—; qué
+         * significa la cifra y de qué color va sigue decidiéndose aquí.
          */}
-        <GlassSurface level="regular" depth="flat" radius={Radius.md} style={styles.debt}>
-          <ThemedText variant="caption" themeColor="textTertiary">
-            {t('home.debts')}
-          </ThemedText>
+        <AmountPlate label={t('home.debts')}>
           {/*
            * `amountRow` y no `amountHero`: presencia suficiente para leerse como
            * una magnitud de la tarjeta, sin disputarle la jerarquía al
@@ -167,7 +173,7 @@ export function BalanceCard({
               {format.money(money(debt.minor, definition))}
             </ThemedText>
           )}
-        </GlassSurface>
+        </AmountPlate>
       </View>
 
       {/*
@@ -214,12 +220,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
     paddingTop: LABEL_ALIGN,
     gap: Spacing.xs,
-  },
-  debt: {
-    alignItems: 'flex-start',
-    paddingVertical: LABEL_ALIGN,
-    paddingHorizontal: Spacing.md,
-    gap: Spacing.xxs,
   },
   /*
    * En el flujo y alineado a la derecha, así que cae bajo el oblongo sin

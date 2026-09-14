@@ -101,7 +101,7 @@ describe('las categorías', () => {
 
   /**
    * Una categoría propia lleva texto literal escrito por su dueño y **no se
-   * traduce** (ADR-021).
+   * traduce** (F06/ADR-003).
    */
   it('una categoría propia se muestra tal cual la escribió su dueño', () => {
     const index = indexCategories([
@@ -194,7 +194,7 @@ describe('las opciones del menú de categorías', () => {
   });
 
   /**
-   * **Nunca un identificador ni una clave cruda** (ADR-021). En un menú del
+   * **Nunca un identificador ni una clave cruda** (F06/ADR-003). En un menú del
    * sistema no hay dónde poner un aviso, así que la opción no está.
    */
   it('una categoría sin nombre resoluble no se ofrece', () => {
