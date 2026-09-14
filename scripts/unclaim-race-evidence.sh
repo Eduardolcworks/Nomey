@@ -65,6 +65,12 @@ delete from core.split_participant where scope_id = '${G}';
 delete from core.split where scope_id = '${G}';
 delete from core.effect where scope_id in ('${G}','${PSA}','${PSB}');
 delete from core.client_command where created_by in ('${UA}','${UB}') and command_type <> 'group.create';
+-- F10/ADR-001 (20260915120000): la linea base y los sujetos de cada instancia
+-- son insert-only y referencian versiones y participantes; la fixture los
+-- borra como postgres antes que a sus destinos. Ana (PB) tiene una instancia
+-- por carrera; la de Edu (PA) se conserva con el grupo.
+delete from core.link_baseline b using core.operation o where o.id = b.operation_id and o.created_by in ('${UA}','${UB}');
+delete from core.link_baseline_subject where participant_id = '${PB}';
 delete from core.operation_version where created_by in ('${UA}','${UB}');
 delete from core.operation where created_by in ('${UA}','${UB}');
 delete from core.participant_user_link where scope_id = '${G}' and user_id = '${UB}';
@@ -84,6 +90,7 @@ delete from core.invitation_attempt where user_id in ('${UA}','${UB}');
 delete from core.group_invitation where scope_id = '${G}';
 delete from core.client_command where created_by in ('${UA}','${UB}');
 delete from core.participant_retirement where scope_id = '${G}';
+delete from core.link_baseline_subject s using core.participant p where p.id = s.participant_id and p.scope_id = '${G}';
 delete from core.participant_user_link where scope_id = '${G}';
 delete from core.membership where scope_id in ('${G}','${PSA}','${PSB}');
 delete from core.participant_period where participant_id in (select id from core.participant where scope_id = '${G}');

@@ -81,6 +81,8 @@ contar() {
 
 limpiar() {
   "${DB[@]}" >/dev/null 2>&1 <<SQL
+delete from core.link_baseline_subject where participant_id in (select id from core.participant where scope_id in (select id from core.scope where kind = 'group'));
+delete from core.link_baseline;
 delete from core.participant_user_link where scope_id in (select id from core.scope where kind = 'group');
 delete from core.participant          where scope_id in (select id from core.scope where kind = 'group');
 delete from core.membership           where scope_id in (select id from core.scope where kind = 'group');

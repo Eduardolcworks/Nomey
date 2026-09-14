@@ -226,6 +226,10 @@ delete from core.expense_category x using core.operation_version ov
 delete from core.movement_detail d using core.operation_version ov
   where ov.id = d.operation_version_id and ov.created_by in (${ACTORES});
 delete from core.effect where scope_id in (${MIOS});
+-- F10/ADR-001 (20260915120000): linea base y sujetos de las instancias creadas por
+-- estos actores, antes que sus versiones y participantes.
+delete from core.link_baseline b using core.operation o where o.id = b.operation_id and o.created_by in (${ACTORES});
+delete from core.link_baseline_subject s using core.participant p where p.id = s.participant_id and p.scope_id in (${MIOS});
 delete from core.operation_version where created_by in (${ACTORES});
 delete from core.operation where created_by in (${ACTORES});
 delete from core.participant_period where participant_id in
