@@ -25,7 +25,7 @@ en que cerró la **Fase 9** (Grupos, gastos compartidos y deudas).
 | **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes) y **Fase 10** (ciclo de vida del vínculo: F10.A0 y F10.A1 cerrados, F10.A2 … C0 pendientes). F11 **no abierta** |
 | **Última fase cerrada** | **Fase 9 — Grupos, gastos compartidos y deudas**, el 2026-09-14. **Validada en iPhone (Expo Go) y en el emulador Android**                                                                                |
 | **ADR aceptados**       | 41 de 42 (F00–F10; F00/ADR-001 sigue Propuesto), organizados por fase en `docs/adr/FNN/`                                                                                                                  |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **46 migraciones**: la última alinea el CAS del pago con la vista de saldos                                                          |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **47 migraciones**: la última deja el modelo persistente de la instancia de vínculo (F10.A2.1)                                       |
 | **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver                                                                      |
 | **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                                                                                              |
 
@@ -663,11 +663,12 @@ completada una sola vez por el writer (`sec.incorporate_participant_cash`)
 sólo en el Personal del actor.
 
 **Todo lo que lee o cambia identidad de grupo toma el cerrojo de rango 1**
-(`sec.lock_participant_claims`, migración `20260912150000`): once funciones,
-entre ellas `annul_operation`, `record_debt_settlement`,
-`record_group_payment` y `associate_participant`; la guarda de catálogo
-`group-identity-lock.sql` vigila diez de ellas —`associate_participant` falta
-de su lista, deuda registrada en F10.A0—. **Y la obligación de quien salió es intocable** (F09/ADR-008): un alta
+(`sec.lock_participant_claims`, migración `20260912150000`): doce funciones
+desde `20260915120000`, entre ellas `annul_operation`,
+`record_debt_settlement`, `record_group_payment`, `associate_participant` y
+`create_group` —toda alta de instancia de vínculo escribe su línea base y su
+`S0` bajo el cerrojo, F10/ADR-001 §3—; la guarda de catálogo
+`group-identity-lock.sql` vigila las doce. **Y la obligación de quien salió es intocable** (F09/ADR-008): un alta
 retro-fechada, una corrección o una anulación de gasto que cambie lo que se
 le atribuye —deuda por par, cuota o caja— se rehúsa entera con
 `DEPARTED_OBLIGATION_CHANGED · 422`; concepto, categoría y cambios sólo entre

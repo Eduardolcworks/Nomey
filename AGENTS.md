@@ -567,7 +567,7 @@ Two artefacts closed Phase 5 and are worth knowing about:
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
 and twelve reproducible probes that measured the decisions behind the schema
-(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **46
+(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **47
 migrations** rebuilt from zero in CI with 30 SQL checks and seven real-session
 race scripts. A pure reference implementation of the financial domain in
 `src/domain/`, with shared test vectors in `tests/vectors/` that the server
@@ -680,7 +680,7 @@ writer of one class can no longer correct an operation of another**, guarded in
 [F06/ADR-002](docs/adr/F06/ADR-002-version-content-and-time.md) and
 [F06/ADR-003](docs/adr/F06/ADR-003-category-catalogue.md).
 
-**Migrations have started.** `supabase/migrations/` holds 46. The first is the
+**Migrations have started.** `supabase/migrations/` holds 47. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is F03/ADR-011: `api` is served and `public`, `core` and `sec`

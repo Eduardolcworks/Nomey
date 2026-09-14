@@ -2,8 +2,8 @@
 -- EL CERROJO DE IDENTIDAD DEL GRUPO · guardas de catalogo
 -- ============================================================================
 --
--- Migraciones 20260912150000 y 20260912170000 (pagos y anulacion tambien
--- toman el rango 1). No prueba carreras (eso lo hacen, con dos sesiones
+-- Migraciones 20260912150000, 20260912170000 (pagos y anulacion tambien
+-- toman el rango 1) y 20260915120000 (asociar y crear grupo). No prueba carreras (eso lo hacen, con dos sesiones
 -- reales, scripts/unclaim-race-evidence.sh, group-payment-race-evidence.sh y
 -- departed-obligation-race-evidence.sh): prueba que las funciones VIVAS
 -- siguen el orden del protocolo, leyendo sus cuerpos del catalogo, para que una
@@ -63,7 +63,12 @@ begin
     ('api.unclaim_participant'),
     ('api.annul_operation'),
     ('api.record_debt_settlement'),
-    ('api.record_group_payment')) as t(name)
+    ('api.record_group_payment'),
+    -- F09/ADR-009 (deuda anotada en F10.A0) y F10/ADR-001 §3 (toda alta de
+    -- instancia escribe su linea base y su S0 bajo el cerrojo, create_group
+    -- incluida: 20260915120000).
+    ('api.associate_participant'),
+    ('api.create_group')) as t(name)
   loop
     perform pg_temp.antes(r.name, 'sec.lock_participant_claims(', 'sec.assert_member(');
     perform pg_temp.antes(r.name, 'sec.lock_participant_claims(', 'sec.is_member(');
@@ -78,7 +83,7 @@ begin
     perform pg_temp.antes(r.name, 'sec.lock_participant_claims(', 'sec.lock_scopes(');
     perform pg_temp.antes(r.name, 'sec.lock_participant_claims(', 'sec.lock_and_cas(');
   end loop;
-  raise notice 'OK · B · diez funciones toman el cerrojo antes de leer o cambiar identidad, y antes de las filas';
+  raise notice 'OK · B · doce funciones toman el cerrojo antes de leer o cambiar identidad, y antes de las filas';
 
   -- C · la clave de idempotencia va ANTES del cerrojo (0 < 1), donde la hay
   --     por insercion: los writers (begin_command) y el provisioner
@@ -92,6 +97,8 @@ begin
   perform pg_temp.antes('api.leave_group',                   'core.provisioning_command', 'sec.lock_participant_claims(');
   perform pg_temp.antes('api.redeem_invitation',             'core.provisioning_command', 'sec.lock_participant_claims(');
   perform pg_temp.antes('api.unclaim_participant',            'core.provisioning_command', 'sec.lock_participant_claims(');
+  perform pg_temp.antes('api.associate_participant',          'core.provisioning_command', 'sec.lock_participant_claims(');
+  perform pg_temp.antes('api.create_group',                   'core.provisioning_command', 'sec.lock_participant_claims(');
   raise notice 'OK · C · la clave se reclama antes del cerrojo';
 
   -- D · orden 2 < 3 en quien tiene los dos.
@@ -117,7 +124,7 @@ begin
   -- F · el aislamiento del provisioner se conserva: reclamar y salir toman
   --     SOLO el cerrojo (rectificar tambien); ninguna fila de ambito (E6 de group-provisioning: el
   --     provisioner no ve grupos de los que el actor no es miembro).
-  for r in select name, body from fn where name in ('api.redeem_invitation', 'api.leave_group', 'api.unclaim_participant') loop
+  for r in select name, body from fn where name in ('api.redeem_invitation', 'api.leave_group', 'api.unclaim_participant', 'api.associate_participant', 'api.create_group') loop
     if r.body like '%sec.lock_scopes(%' then
       raise exception 'F: % toma filas de ambito como provisioner', r.name;
     end if;

@@ -53,7 +53,7 @@ describe('el servidor', () => {
     // annul_operation, record_debt_settlement y record_group_payment toman el rango 1: la guarda lo vigila.
     expect(GUARD).toContain("('api.annul_operation'),");
     expect(GUARD).toContain("('api.record_debt_settlement'),");
-    expect(GUARD).toContain("('api.record_group_payment')) as t(name)");
+    expect(GUARD).toContain("('api.record_group_payment'),");
   });
 
   it('la evidencia es contra las funciones REALES: las ayudas sólo leen y envuelven', () => {
