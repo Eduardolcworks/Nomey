@@ -1,4 +1,4 @@
-# F10 — Participantes sin cuenta
+# F10 — Identidad contextual y ciclo de vida del vínculo
 
 **Alcance:** el ciclo de vida del vínculo entre una cuenta y una identidad
 contextual, bajo un principio de producto: **ninguna cuenta adjudica
@@ -41,6 +41,6 @@ Se citan, no se copian ni se redefinen:
 - [F09/ADR-004](../F09/ADR-004-group-invitations.md) — Invitaciones a un Grupo y unión directa
 - [F09/ADR-005](../F09/ADR-005-retire-unlinked-participant.md) — Retirar a un participante sin cuenta
 - [F09/ADR-006](../F09/ADR-006-unclaim-participant.md) — Rectificar una reclamación (F10/ADR-001 la generaliza y la supera en un punto)
-- [F09/ADR-008](../F09/ADR-008-departed-obligation-immutable.md) — La obligación de quien salió es intocable (patrón de comparación por multiconjunto)
+- [F09/ADR-008](../F09/ADR-008-departed-obligation-immutable.md) — La obligación de quien salió es intocable (comparación de atribución por versión, punto de partida del operador que F10/ADR-001 debe definir)
 - [F09/ADR-009](../F09/ADR-009-associate-ghost-to-own-account.md) — Asociar un participante sin cuenta a la propia cuenta
 - [F09/ADR-010](../F09/ADR-010-rejoin-after-departure.md) — Volver a entrar en un grupo tras salir

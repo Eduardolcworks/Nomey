@@ -228,7 +228,9 @@ válida**, por dos motivos medidos:
    instancia sin generar ninguna atribución que pertenezca a esa etapa.
 
 **Candidato a evaluar en el ADR, no arquitectura decidida** — línea base por
-instancia, tomada bajo el cerrojo:
+instancia, tomada bajo el cerrojo. `link_baseline` es un **candidato de
+persistencia**; el **operador de comparación** no está definido y lo define el
+ADR:
 
 - Al crear el vínculo (ya bajo rango 1), se persiste para esa instancia la
   versión vigente de cada operación cuya versión vigente atribuye algo al
@@ -236,32 +238,44 @@ instancia, tomada bajo el cerrojo:
   `create` y `new` la línea base es vacía por construcción: el participante
   nace con el vínculo.
 - Al dejar la instancia, bajo el cerrojo, para cada operación cuya versión
-  vigente atribuye algo al participante se compara el **multiconjunto de
-  atribución** (cuota económica; deuda por par y dirección con importe; el
-  patrón de `sec.departed_effects_of_version`, F09/ADR-008) entre la versión
-  vigente y la versión de la línea base (vacía si la operación no está en
-  ella). **Bloquea si la versión vigente contiene algún elemento que no está en
-  la línea base.**
+  vigente atribuye algo al participante se compara la **atribución** de la
+  versión vigente con la de la versión de la línea base (ausente si la
+  operación no está en ella), por operación y con procedencia. **Qué relación
+  de comparación decide «hay algo de lo que desprenderse» es lo que el ADR debe
+  definir**, y tiene que distinguir, como mínimo: la misma obligación que
+  disminuye · la misma obligación que aumenta · una obligación que desaparece ·
+  una obligación nueva · la sustitución de una obligación por otra del mismo
+  importe · el cambio de participantes o de dirección · la vuelta exacta al
+  estado de la línea base. Una comparación por presencia de elementos con
+  importe (el multiconjunto de F09/ADR-008) no basta por sí sola: 100 → 50 no
+  es «el mismo elemento», y el resultado aprobado exige que no bloquee.
+  Alternativa a estudiar, sin decidirla aquí: una **identidad semántica de la
+  atribución** (operación, dimensión, participantes y sentido) más su
+  **cantidad o delta** frente a la línea base.
 
-Cómo responde a cada caso pedido:
+Resultado de producto aprobado, que el operador que el ADR defina debe
+reproducir:
 
-| Caso                                                                     | Resultado con la línea base                                          |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| Operación creada durante la instancia                                    | No está en la línea base → cualquier atribución bloquea              |
-| Operación anterior corregida durante la instancia sólo en concepto/fecha | Multiconjunto idéntico → no bloquea                                  |
-| Operación creada durante la instancia y corregida después                | Sigue fuera de la línea base → bloquea mientras atribuya algo        |
-| Deuda preexistente que **sube** durante la instancia                     | Elemento nuevo (importe distinto) → bloquea                          |
-| Deuda preexistente que **baja** durante la instancia                     | Subconjunto → no bloquea (no hay nada de lo que desprenderse)        |
-| Cuota nueva añadida durante la instancia a un gasto histórico            | Elemento nuevo → bloquea                                             |
-| Anulación o corrección que elimina lo nacido durante la instancia        | La versión vigente ya no atribuye nada → no bloquea                  |
-| Liquidación, pago o novación que me nombra durante la instancia          | Elemento nuevo → bloquea (actividad de la etapa; el ADR lo confirma) |
+| Caso                                                                     | Resultado aprobado                                            |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Operación creada durante la instancia                                    | No está en la línea base → cualquier atribución bloquea       |
+| Operación anterior corregida durante la instancia sólo en concepto/fecha | Atribución idéntica → no bloquea                              |
+| Operación creada durante la instancia y corregida después                | Sigue fuera de la línea base → bloquea mientras atribuya algo |
+| Obligación preexistente que **sube** durante la instancia (100 → 150)    | El incremento es atribuible a la instancia → bloquea          |
+| Obligación preexistente que **baja** durante la instancia (100 → 50)     | No bloquea por esos 50: no hay nada de lo que desprenderse    |
+| Obligación preexistente sustituida por otra del mismo importe            | Bloquea: es otra obligación, aunque el neto coincida          |
+| Cambio de deudor, acreedor o dimensión conservando el neto               | Bloquea: no se oculta por igualdad de neto                    |
+| Cuota nueva añadida durante la instancia a un gasto histórico            | Bloquea mientras siga vigente                                 |
+| Cuota añadida y después revertida exactamente al estado de la línea base | No bloquea                                                    |
+| Anulación o corrección que elimina lo nacido durante la instancia        | La versión vigente ya no atribuye nada → no bloquea           |
+| Liquidación, pago o novación que me nombra durante la instancia          | Bloquea (actividad de la etapa; el ADR lo confirma)           |
 
-Alternativas que el ADR debe comparar: (b) registrar en cada versión la
-instancia de vínculo de cada participante nombrado al escribirla —toca los
-nueve writers y sigue necesitando la comparación—; (c) un contador de época
-por ámbito incrementado bajo el cerrojo —más maquinaria para la misma
-pregunta—. La línea base persiste **más procedencia en vez de inferirla**,
-que es lo pedido.
+Alternativas de persistencia que el ADR debe comparar: (b) registrar en cada
+versión la instancia de vínculo de cada participante nombrado al escribirla
+—toca los nueve writers y sigue necesitando el operador—; (c) un contador de
+época por ámbito incrementado bajo el cerrojo —más maquinaria para la misma
+pregunta—. La línea base persiste **más procedencia en vez de inferirla**, que
+es lo pedido.
 
 **Vínculos existentes al introducir el modelo.** Una línea base vacía **no es
 semánticamente neutra**: si P debía 100 antes de que A lo reclamase, A no

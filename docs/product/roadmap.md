@@ -669,7 +669,7 @@ de las dos es funcionalidad nueva ni condiciona F10.
 
 ---
 
-### Fase 10 — Participantes sin cuenta
+### Fase 10 — Identidad contextual y ciclo de vida del vínculo
 
 `PRODUCTO` · **ABIERTA el 2026-09-14** · _beta cerrada recomendable desde aquí_
 
