@@ -1,13 +1,12 @@
 # F9 · Nota de continuidad (2026-09-09)
 
-> **Qué es esto.** Una nota de trabajo de una fase **abierta**, escrita al
-> interrumpirse la sesión por una incidencia del entorno (Docker Desktop no
-> arranca: `initializing Ingest server … remove sailor-ingest.sock`, sin acceso
-> al archivo). **No es un handoff** y no sustituye a
-> `PROJECT_STATE.md`, que no se toca por esto. Se borra cuando F9 cierre y su
-> handoff la reemplace.
->
-> Todo lo que sigue está **sin commit**: 128 entradas en el diff.
+> **Qué es esto.** El seguimiento de trabajo de la Fase 9, empezado como nota
+> de continuidad y **conservado al cerrar la fase (2026-09-14) como su registro
+> de evidencia**: el roadmap (Fase 9, «Estado de cierre») y `PROJECT_STATE.md`
+> lo citan. **No es un handoff** —F9 no tiene uno— y no sustituye a
+> `PROJECT_STATE.md`, que manda sobre el estado actual. Lo que dice de
+> «pendiente» o «sin validar» describe el momento en que se escribió; el estado
+> final está en el cierre del roadmap.
 
 ## Lo que está implementado Y validado
 

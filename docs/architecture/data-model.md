@@ -942,12 +942,17 @@ física de los datos autoritativos de cada versión**, el **reparto contextual p
 canónica de efectos vigentes** y el **protocolo de serialización de la deuda**,
 en [F03/ADR-010](../adr/F03/ADR-010-persisted-vs-derived.md).
 
-**Pendiente en otros ADR:** el **mecanismo de prueba del claim**, la **revocación** y
-la **fusión de participantes**, delegados por F03/ADR-009 a F10 · el **acceso
-residual** de quien sale de un ámbito con saldo pendiente, que sigue sin
-representación física · idempotencia de **recurrencias, importaciones bancarias
-y backend** · **origen,
-frecuencia y regla de selección de los tipos de cambio**, que F02/ADR-001 dejó fuera
-de alcance y F03/ADR-006 §8 subraya que **no está decidida** · la **anulación** como
-concepto distinto de la corrección · conciliación entre un movimiento importado
-y la pata personal de una operación compuesta.
+**Resuelto después:** el **mecanismo de prueba del claim** (F09/ADR-004), la
+**rectificación propia** (F09/ADR-006), la **asociación de un fantasma**
+(F09/ADR-009) y la **anulación** como concepto distinto de la corrección
+(F06/ADR-006).
+
+**Pendiente en otros ADR:** el **ciclo de vida del vínculo propio**, la **cesión
+consentida** y la **fusión fantasma ↔ fantasma** (F10; la revocación del
+vínculo de otro queda **prohibida** por principio) · el **acceso residual** de
+quien sale de un ámbito con saldo pendiente, acotado por F09/ADR-007 C6 a los
+pagos propios y general en F12 · idempotencia de **recurrencias, importaciones
+bancarias y backend** · **origen, frecuencia y regla de selección de los tipos
+de cambio**, que F02/ADR-001 dejó fuera de alcance y F03/ADR-006 §8 subraya que
+**no está decidida** · conciliación entre un movimiento importado y la pata
+personal de una operación compuesta.
