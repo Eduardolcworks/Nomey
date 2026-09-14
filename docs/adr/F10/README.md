@@ -21,14 +21,18 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 
 ## ADR de esta fase
 
-Ninguno redactado todavía. Los dos previstos, en este orden:
+| ADR                                               | Título                                                                         | Estado    | Fecha      | Bloque |
+| ------------------------------------------------- | ------------------------------------------------------------------------------ | --------- | ---------- | ------ |
+| [F10/ADR-001](ADR-001-link-instance-lifecycle.md) | Ciclo de vida de una instancia propia de vínculo cuenta ↔ identidad contextual | Propuesto | 2026-09-14 | F10.A1 |
 
-| ADR             | Tema                                                                                                                                                                                                 | Bloque | Estado    |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | --------- |
-| **F10/ADR-001** | Principio de no adjudicación · ciclo de vida del vínculo propio (regla temporal de obligaciones, `link_id` y `origin_command_id`, hecho de baja, disputas sin consentimiento, expulsión inexistente) | F10.A1 | Pendiente |
-| **F10/ADR-002** | Cesión consentida atómica (`identity_handover`) o su aplazamiento · fusión fantasma ↔ fantasma sobre la matriz económica medida                                                                      | F10.B0 | Pendiente |
+Previsto, sin redactar:
 
-Lo que cada uno recibe como insumo está en `phase-10-opening.md` §5 y §6.
+| ADR             | Tema                                                                                                                            | Bloque | Estado    |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------ | --------- |
+| **F10/ADR-002** | Cesión consentida atómica (`identity_handover`) o su aplazamiento · fusión fantasma ↔ fantasma sobre la matriz económica medida | F10.B0 | Pendiente |
+
+Lo que cada uno recibe como insumo está en `phase-10-opening.md` §5 y §6; el
+primero ya está redactado sobre esos insumos y las mediciones de F10.A1.
 
 ## Decisiones de otras fases que esta fase aplica
 
