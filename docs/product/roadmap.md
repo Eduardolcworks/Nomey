@@ -788,9 +788,9 @@ grupo que se quedó sin miembros. Merece decisión futura; no es de identidad.
 efectiva** · conversión en la app · jerarquía visual del importe original frente
 al derivado · conflicto de sincronización cuando cambia la moneda base.
 
-**Dependencias.** F9 · F02/ADR-001 aceptado · proveedor de tipos contratado o
-elegido. **El hilo de selección de proveedor conviene abrirlo en F9**, porque es
-una dependencia externa.
+**Dependencias.** F9 · F02/ADR-001 aceptado · ~~proveedor de tipos contratado o
+elegido~~ **cumplida: tipos de referencia del BCE, sin contrato**
+([F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md) §3.1).
 
 **Cierre.**
 
@@ -806,8 +806,46 @@ una dependencia externa.
 
 **Puertas.**
 
-- **Proveedor de tipos de cambio.** Su granularidad y su histórico condicionan
-  la política de selección que F02/ADR-001 dejó abierta.
+- ~~**Proveedor de tipos de cambio.** Su granularidad y su histórico condicionan
+  la política de selección que F02/ADR-001 dejó abierta.~~
+  **Resuelta el 2026-09-13 por [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md):**
+  tipos de referencia del BCE sobre un catálogo propio; el tipo del día X es el
+  último disponible al comenzar X en hora de Fráncfort, fijado una sola vez; y la
+  cobertura es por moneda y par, nunca por país.
+
+#### La fase se ejecuta en cuatro bloques
+
+La partición es de **ejecución**: los cinco criterios de cierre siguen siendo los
+de arriba, y no se reescriben.
+
+| Bloque    | Qué contiene                                                                                                                                                                                                                                             | Estado                                                                 |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **F11.A** | **Fuente y resolución.** Decisiones y contrato, sin implementación: fuente, tipo de cada día, cobertura, clases con moneda extranjera, resultados del resolver, derivación y conflicto de base                                                           | **Cerrado** el 2026-09-13 — F11/ADR-001 aceptado                       |
+| **F11.B** | **Conversión y persistencia.** Catálogo, fijación diaria del tipo e ingesta, correspondencia de códigos, resolver y derivación en SQL, escritura de `core.frozen_conversion` y su procedencia, paridad por vectores                                      | **Siguiente** · no se despliega ni se habilita en producción sin F11.C |
+| **F11.C** | **Lecturas, estadísticas y offline/sync.** Superficies de lectura, estadísticas sobre la magnitud convertida, espera de tipo en la cola, proyección, conflicto de base y presentación del original y el convertido                                       | Pendiente de F11.B                                                     |
+| **F11.D** | **Integración, validación y cierre.** Decidir los dos casos abiertos (caja del fantasma asociado, `exact_amounts` en moneda extranjera), habilitar después el gasto de grupo en moneda extranjera —F11.B no lo habilita— y verificar los cinco criterios | Pendiente de F11.C · F9 cerrada e integrada                            |
+
+**F11.A está cerrada.** Lo que decide
+[F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md):
+
+1. **Una operación con fecha efectiva X usa el último tipo definitivo disponible
+   al comenzar X** —las 00:00 en hora de Fráncfort—, y se convierte en el acto.
+   El tipo de cada día se fija una sola vez: ni la hora de la operación ni el
+   momento de sincronizar lo cambian, y nunca se usa una publicación posterior.
+2. **Admiten moneda extranjera** el gasto personal, el ingreso personal y el
+   gasto de grupo sobre el contrato de F9. Transferencias, ajustes y
+   liquidaciones —incluido el pago declarado de F9— quedan fuera de F11.
+3. **ARS, COP y CLP siguen en el catálogo** y no se convierten mientras la
+   fuente no las cubra. La restricción es por moneda y par, **nunca por país**.
+4. **No existe tipo manual.** Corregir fecha o moneda provoca una nueva
+   resolución; el tipo congelado no se toca.
+5. **«Moneda no cubierta», «todavía no disponible» y «conflicto de base» son
+   resultados distintos:** `FX_CURRENCY_NOT_COVERED · 422`,
+   `FX_RATE_NOT_YET_AVAILABLE · 503` y el conflicto de base, que conserva
+   `CURRENCY_CONVERSION_UNSUPPORTED · 422`.
+6. **El payload lleva la base asumida al capturar**, y un desajuste es conflicto,
+   nunca conversión silenciosa. **`record_group_expense` la incorporará** en
+   una migración nueva sobre su cuerpo vigente de F9, sin cambiar sus reglas.
 
 ---
 
@@ -1086,14 +1124,14 @@ de tienda, despliegue y operación.
 
 ## Trabajo paralelizable
 
-| Trabajo                                                       | En paralelo con |
-| ------------------------------------------------------------- | --------------- |
-| Runner de tests y vectores de prueba derivados de F01/ADR-001 | 3.A             |
-| Arquitectura UX e i18n (F4 completa)                          | 3.C             |
-| Cuentas de desarrollador y firma (**F8.B**)                   | antes de F14    |
-| **Proveedor, contrato y viabilidad del agregador bancario**   | **desde F9**    |
-| Selección de proveedor de tipos de cambio                     | desde F9        |
-| Configuración de productos de suscripción en las tiendas      | desde F12       |
+| Trabajo                                                                | En paralelo con |
+| ---------------------------------------------------------------------- | --------------- |
+| Runner de tests y vectores de prueba derivados de F01/ADR-001          | 3.A             |
+| Arquitectura UX e i18n (F4 completa)                                   | 3.C             |
+| Cuentas de desarrollador y firma (**F8.B**)                            | antes de F14    |
+| **Proveedor, contrato y viabilidad del agregador bancario**            | **desde F9**    |
+| ~~Selección de proveedor de tipos de cambio~~ · **hecha: F11/ADR-001** | desde F9        |
+| Configuración de productos de suscripción en las tiendas               | desde F12       |
 
 ---
 
@@ -1112,8 +1150,11 @@ Ordenadas por riesgo.
    — [F08/ADR-002](../adr/F08/ADR-002-environments-and-variants.md) §5.
 3. **Revisión de App Store y Google Play (F14 y F19).** Las suscripciones tienen
    reglas propias y rechazos frecuentes en la primera vuelta.
-4. **Proveedor de tipos de cambio (F11).** Su granularidad y su histórico
-   condicionan la política de selección que F02/ADR-001 dejó abierta.
+4. ~~**Proveedor de tipos de cambio (F11).**~~ **Resuelto el 2026-09-13** —
+   [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md): tipos de referencia
+   del Banco Central Europeo. Sigue siendo una fuente externa: si su publicación
+   o la ingesta fallan, las operaciones afectadas quedan _todavía no
+   disponibles_, sin sustituir el tipo por uno antiguo (F11/ADR-001 §3.4).
 5. **Infraestructura de notificaciones push (F9).** Depende de cómo se resuelva
    la puerta de esa fase.
 6. **Comportamiento de PostgREST (3.A).** Puede obligar a introducir una capa de
@@ -1130,7 +1171,7 @@ Ordenadas por riesgo.
 | 8    | ~~ADR de código nativo~~ · **cumplida: [F08/ADR-001](../adr/F08/ADR-001-native-code-model.md)**                              |
 | 9    | Qué significa «notificación»: en la app, o push                                                                              |
 | 10   | ~~ADR de invitación y reclamación~~ · **cumplida: F09/ADR-004**. Ahora: `F10/ADR-001` antes de A2, `F10/ADR-002` antes de B1 |
-| 11   | Proveedor de tipos de cambio con histórico                                                                                   |
+| 11   | ~~Proveedor de tipos de cambio con histórico~~ · **cumplida: [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md)**       |
 | 15   | Presentación de agregaciones entre definiciones monetarias                                                                   |
 | 16   | ~~ADR de código nativo aceptado~~ · **cumplida: F08/ADR-001**                                                                |
 | 17   | ADR de conciliación · contrato y viabilidad regulatoria                                                                      |

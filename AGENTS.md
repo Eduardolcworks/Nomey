@@ -527,8 +527,8 @@ comment; the permanent equivalence table is in `docs/adr/README.md`.
 closed on 2026-08-27, Phase 5 (identity and session) on 2026-08-28, Phase 6
 (Modo Personal) on 2026-09-03, Phase 7 (quick entry, offline and sync) on
 2026-09-04 and Phase 9 (groups, shared expenses and debts) on 2026-09-14 —
-validated on an iPhone (Expo Go) and the Android emulator. **40 of the 41 ADRs
-of phases F00–F09 are accepted** (F00/ADR-001 is still Proposed; see
+validated on an iPhone (Expo Go) and the Android emulator. **42 of the 43 ADRs
+of phases F00–F11 are accepted** (F00/ADR-001 is still Proposed; see
 `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a real local
 Supabase stack.
 
@@ -538,6 +538,13 @@ account's identity** (§5). F10.A0 reconciled its original scope, which F9 had
 already closed, and rewrote the closure criteria in the
 [roadmap](docs/product/roadmap.md); start at
 [`docs/architecture/phase-10-opening.md`](docs/architecture/phase-10-opening.md).
+
+**Phase 11 is OPEN**, and only **F11.A** is closed: the contract for resolving
+exchange rates, [F11/ADR-001](docs/adr/F11/ADR-001-fx-rate-resolution.md), with
+no implementation. Every operation in a currency other than the base of a
+reached scope is still refused with `CURRENCY_CONVERSION_UNSUPPORTED`; what is
+decided, and what stays out of F11, is in
+[`docs/architecture/phase-11-progress.md`](docs/architecture/phase-11-progress.md).
 
 **Phase 8 is OPEN** — internal distribution and environments. It is split into
 **F8.A** (now), **F8.B** (Apple, a mandatory gate before F14) and **F8.C**
@@ -840,9 +847,13 @@ a write boundary must stay under it (E16). Do not unify them.
   creates a version.
 - **The only permitted exception handler is the claim's `unique_violation`.**
   Any other turns a failure into a partial write.
-- **Cross-currency is refused**, with `CURRENCY_CONVERSION_UNSUPPORTED` (422),
-  until the FX resolution rule exists. `core.frozen_conversion` therefore has
-  no write route, and the writer has no `INSERT` on it.
+- **Cross-currency is refused**, with `CURRENCY_CONVERSION_UNSUPPORTED` (422).
+  [F11/ADR-001](docs/adr/F11/ADR-001-fx-rate-resolution.md) opens conversion
+  only for `personal_expense`, `personal_income` and `group_expense`: F11.B
+  replaces the refusal for the two personal classes, group expenses wait for
+  F11.D, and every other class keeps the refusal. Until F11.B,
+  `core.frozen_conversion` has no write route, and the writer has no `INSERT`
+  on it.
 - **Parity with `src/domain/` is the shared vectors, not shared code**
   (F03/ADR-006 §1). `scripts/vectors-prelude.sh` pipes `tests/vectors/*.json` into
   the checks, because psql runs inside the container and cannot read the
