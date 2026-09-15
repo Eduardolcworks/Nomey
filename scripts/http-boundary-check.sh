@@ -187,10 +187,13 @@ PA=a0000000-0000-4000-8000-00000000aa01
 PB=a0000000-0000-4000-8000-00000000bb01
 GX=a0000000-0000-4000-8000-00000000ff01
 GY=a0000000-0000-4000-8000-00000000ff02
+GZ=a0000000-0000-4000-8000-00000000ff03   # seccion 13: dejar la instancia de vinculo (F10/ADR-001)
 XA=b0000000-0000-4000-8000-00000000aa01
 XB=b0000000-0000-4000-8000-00000000bb01
 YA=b0000000-0000-4000-8000-00000000aa02
 YB=b0000000-0000-4000-8000-00000000bb02
+ZA=b0000000-0000-4000-8000-00000000aa03
+ZB=b0000000-0000-4000-8000-00000000bb03
 
 retirar() {
   # SIN enmudecer el error: una retirada que falla en silencio deja residuo
@@ -210,12 +213,16 @@ retirar() {
   # El orden importa: esto corre ANTES de `borrar_usuarios`, asi que las
   # subconsultas sobre `auth.users` todavia resuelven.
   local ACTORES="select id from auth.users where email like 'nomey-http-%'"
-  local MIOS="select id from core.scope where id in ('${PA}','${PB}','${GX}','${GY}') or owner_user_id in (${ACTORES})"
+  local MIOS="select id from core.scope where id in ('${PA}','${PB}','${GX}','${GY}','${GZ}') or owner_user_id in (${ACTORES})"
 
   "${DB[@]}" -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 set constraints all deferred;
 delete from core.client_command where created_by in (${ACTORES});
+-- F10/ADR-001 (20260916120000): el hecho de baja y sus avisos, antes que los
+-- comandos y el ambito que referencian.
+delete from core.group_notice where scope_id in (${MIOS});
+delete from core.participant_unlink where scope_id in (${MIOS});
 delete from core.split_participant where scope_id in (${MIOS});
 delete from core.split where scope_id in (${MIOS});
 delete from core.balance_observation where scope_id in (${MIOS});
@@ -226,11 +233,16 @@ delete from core.expense_category x using core.operation_version ov
 delete from core.movement_detail d using core.operation_version ov
   where ov.id = d.operation_version_id and ov.created_by in (${ACTORES});
 delete from core.effect where scope_id in (${MIOS});
+-- F10/ADR-001 (20260915120000): linea base y sujetos de las instancias creadas por
+-- estos actores, antes que sus versiones y participantes.
+delete from core.link_baseline b using core.operation o where o.id = b.operation_id and o.created_by in (${ACTORES});
+delete from core.link_baseline_subject s using core.participant p where p.id = s.participant_id and p.scope_id in (${MIOS});
 delete from core.operation_version where created_by in (${ACTORES});
 delete from core.operation where created_by in (${ACTORES});
 delete from core.participant_period where participant_id in
   (select id from core.participant where scope_id in (${MIOS}));
 delete from core.participant_user_link where scope_id in (${MIOS});
+delete from core.provisioning_command where created_by in (${ACTORES});
 delete from core.membership where scope_id in (${MIOS});
 delete from core.participant where scope_id in (${MIOS});
 delete from core.scope where id in (${MIOS});
@@ -272,6 +284,18 @@ insert into core.participant_user_link (participant_id, scope_id, user_id) value
 insert into core.participant_period (participant_id, valid_from, valid_until) values
   ('${XA}','2020-01-01',null), ('${XB}','2020-01-01',null),
   ('${YA}','2020-01-01',null), ('${YB}','2020-01-01',null);
+-- GZ, para la seccion 13: dos instancias de vinculo bien formadas (F10/ADR-001
+-- §1, §3) —S0 = el propio participante, linea base vacia, como las de un
+-- create/new— sin origen: la siembra no pasa por ningun comando.
+insert into core.scope (id,kind,base_currency_definition_id) values ('${GZ}','group','${EUR}');
+insert into core.participant (id, scope_id, display_name) values ('${ZA}','${GZ}','A'), ('${ZB}','${GZ}','B');
+insert into core.membership (scope_id, user_id) values ('${GZ}','${ua}'), ('${GZ}','${ub}');
+insert into core.participant_user_link (participant_id, scope_id, user_id) values
+  ('${ZA}','${GZ}','${ua}'), ('${ZB}','${GZ}','${ub}');
+insert into core.link_baseline_subject (link_id, participant_id)
+  select l.link_id, l.participant_id from core.participant_user_link l where l.scope_id = '${GZ}';
+insert into core.participant_period (participant_id, valid_from, valid_until) values
+  ('${ZA}','2020-01-01',null), ('${ZB}','2020-01-01',null);
 commit;
 SQL
 }
@@ -1327,6 +1351,132 @@ esac
 
 # ============================================================================
 echo ""
+# ============================================================================
+echo ""
+echo "== 13 · dejar la instancia de vinculo, por HTTP y con JWT ajeno (F10/ADR-001) =="
+# Lo que solo la ruta real demuestra: que el link_id que el cliente cita es el
+# que leyo en SU fila de api.group_participant y ninguna otra, que citar la
+# instancia de otra cuenta con un JWT real responde LO MISMO que una
+# inexistente (§8), que el replay viaja como replay, que el rechazo por
+# atribucion entrega `details.operations` con el importe como TEXTO, y que
+# `identity_released` no llega al cliente vigente (§10).
+LINK_ZA=$("${DBQ[@]}" <<SQL 2>/dev/null
+select link_id from core.participant_user_link where participant_id = '${ZA}';
+SQL
+)
+LINK_ZA=$(tr -d '[:space:]' <<<"${LINK_ZA}")
+LINK_ZB=$("${DBQ[@]}" <<SQL 2>/dev/null
+select link_id from core.participant_user_link where participant_id = '${ZB}';
+SQL
+)
+LINK_ZB=$(tr -d '[:space:]' <<<"${LINK_ZB}")
+
+filas_gz() { # tok -> JSON de api.group_participant en GZ
+  curl -s "${API}/rest/v1/group_participant?scope_id=eq.${GZ}&select=participant_id,is_self,is_linked,link_id" \
+    -H "apikey: ${KEY}" -H "Authorization: Bearer $1"
+}
+# 13.1 · A ve su link_id en su fila y NUNCA el de B; B, lo simetrico.
+v=$(filas_gz "${TOK_A}" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+  const a=JSON.parse(s), za=a.find(r=>r.participant_id===process.argv[1]), zb=a.find(r=>r.participant_id===process.argv[2]);
+  console.log(a.length===2 && za && za.is_self===true && za.link_id===process.argv[3] && zb && zb.is_self===false && zb.link_id===null ? "ok" : JSON.stringify(a));
+})' "${ZA}" "${ZB}" "${LINK_ZA}")
+[ "${v}" = "ok" ] && ok "A lee su propio link_id en api.group_participant y el de B no se publica" || fallo "group_participant para A: ${v}"
+
+# 13.2 · B, con JWT real, cita la instancia de A (con el participante de A, y con el
+#        suyo): en los dos casos la respuesta uniforme, y nada se escribe.
+comprobar_error "JWT ajeno, instancia y participante de A" unlink_participant "${TOK_B}" "{
+  \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d1\",\"command_contract_version\":1,
+  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZA}\",\"link_id\":\"${LINK_ZA}\"}" \
+  LINK_SUPERSEDED 409
+comprobar_error "JWT ajeno, participante propio con la instancia de A" unlink_participant "${TOK_B}" "{
+  \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d2\",\"command_contract_version\":1,
+  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZB}\",\"link_id\":\"${LINK_ZA}\"}" \
+  LINK_SUPERSEDED 409
+n=$("${DBQ[@]}" <<SQL 2>/dev/null
+select (select count(*) from core.participant_user_link where scope_id = '${GZ}')
+     + (select count(*) from core.participant_unlink where scope_id = '${GZ}')
+     + (select count(*) from core.provisioning_command where command_type = 'participant.unlink' and created_by = '${UID_B}');
+SQL
+)
+[ "$(tr -d '[:space:]' <<<"${n}")" = "2" ] && ok "los dos rechazos no escribieron nada: ni hecho, ni clave, ni vinculo tocado" || fallo "tras los rechazos: $(tr -d '[:space:]' <<<"${n}")"
+
+# 13.3 · A deja su instancia con SU link_id; el replay devuelve lo mismo.
+r=$(rpc unlink_participant "${TOK_A}" "$(env_payload "{
+  \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d3\",\"command_contract_version\":1,
+  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZA}\",\"link_id\":\"${LINK_ZA}\"}")")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+UNLINK_ID=$(printf '%s' "${c}" | jget unlink_id)
+if [ "${e}" = "200" ] && [ "$(printf '%s' "${c}" | jget already_processed)" = "false" ] && [ -n "${UNLINK_ID}" ] \
+   && [ "$(printf '%s' "${c}" | jget link_id)" = "${LINK_ZA}" ]; then
+  ok "A dejo su instancia: 200, con el hecho y el link_id que cito"
+else
+  fallo "unlink_participant de A: ${e} ${c}"
+fi
+r=$(rpc unlink_participant "${TOK_A}" "$(env_payload "{
+  \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d3\",\"command_contract_version\":1,
+  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZA}\",\"link_id\":\"${LINK_ZA}\"}")")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+[ "${e}" = "200" ] && [ "$(printf '%s' "${c}" | jget already_processed)" = "true" ] && [ "$(printf '%s' "${c}" | jget unlink_id)" = "${UNLINK_ID}" ] \
+  && ok "el replay por HTTP devuelve el MISMO hecho, ya procesado" || fallo "replay: ${e} ${c}"
+# 13.4 · clave nueva contra la instancia terminada (§9): uniforme.
+comprobar_error "segunda baja con clave nueva" unlink_participant "${TOK_A}" "{
+  \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d4\",\"command_contract_version\":1,
+  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZA}\",\"link_id\":\"${LINK_ZA}\"}" \
+  LINK_SUPERSEDED 409
+
+# 13.5 · A ya no ve el grupo; B ve a ZA disponible y sin cuenta; el aviso existe en
+#        core y NO llega a la vista del cliente vigente.
+v=$(filas_gz "${TOK_A}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);console.log(Array.isArray(a)&&a.length===0?"ok":JSON.stringify(a))})')
+[ "${v}" = "ok" ] && ok "A ya no lee nada del grupo (sin membresia, la RLS no devuelve filas)" || fallo "group_participant para A tras la baja: ${v}"
+v=$(filas_gz "${TOK_B}" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+  const a=JSON.parse(s), za=a.find(r=>r.participant_id===process.argv[1]);
+  console.log(za && za.is_linked===false && za.link_id===null ? "ok" : JSON.stringify(a));
+})' "${ZA}")
+[ "${v}" = "ok" ] && ok "B ve al participante de A sin cuenta (disponible) y sin link_id" || fallo "group_participant para B: ${v}"
+n=$("${DBQ[@]}" <<SQL 2>/dev/null
+select count(*) from core.group_notice where scope_id = '${GZ}' and kind = 'identity_released' and recipient_user_id = '${UID_B}';
+SQL
+)
+[ "$(tr -d '[:space:]' <<<"${n}")" = "1" ] && ok "identity_released persistido en core para B" || fallo "avisos en core: $(tr -d '[:space:]' <<<"${n}")"
+v=$(curl -s "${API}/rest/v1/group_notice?scope_id=eq.${GZ}&select=kind" -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_B}" \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);console.log(Array.isArray(a)&&a.length===0?"ok":JSON.stringify(a))})')
+[ "${v}" = "ok" ] && ok "y oculto a api.group_notice del cliente vigente (§10)" || fallo "group_notice para B: ${v}"
+
+# 13.6 · B registra un gasto que lo nombra y despues intenta dejar: el rechazo por
+#        atribucion viaja como 409 con details.operations, importe como TEXTO.
+r=$(rpc record_group_expense "${TOK_B}" "$(env_payload "{
+  \"client_operation_id\":\"a2000000-0000-4000-8000-0000000000d5\",\"command_contract_version\":1,
+  \"scope_id\":\"${GZ}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"3000\",\"effective_date\":\"2026-02-10\",
+  \"concept\":\"Cena de GZ\",\"category_id\":\"${CAT_GASTO}\",\"payer_participant_id\":\"${ZB}\",
+  \"participants\":[\"${ZA}\",\"${ZB}\"],\"split_method\":{\"kind\":\"equal\"}}")")
+[ "$(estado_de "${r}")" = "200" ] && ok "B registro un gasto en GZ que nombra a ZA (fantasma) y a ZB" || fallo "gasto en GZ: ${r}"
+r=$(rpc unlink_participant "${TOK_B}" "$(env_payload "{
+  \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d6\",\"command_contract_version\":1,
+  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZB}\",\"link_id\":\"${LINK_ZB}\"}")")
+e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
+v=$(printf '%s' "${c}" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+  try { const b=JSON.parse(s); const d=JSON.parse(b.details); const o=d.operations;
+    console.log(b.code==="UNLINK_BLOCKED_ATTRIBUTION" && Array.isArray(o) && o.length===1 && o[0].operation_class==="group_expense"
+      && o[0].amount==="3000" && typeof o[0].amount==="string" && o[0].concept==="Cena de GZ" && o[0].reason==="attribution" ? "ok" : s);
+  } catch (e) { console.log(s); }
+})')
+[ "${e}" = "409" ] && [ "${v}" = "ok" ] && ok "UNLINK_BLOCKED_ATTRIBUTION · 409 con details.operations: clase, concepto, importe como texto y motivo" || fallo "baja de B: ${e} ${c}"
+n=$("${DBQ[@]}" <<SQL 2>/dev/null
+select (select count(*) from core.participant_user_link where participant_id = '${ZB}')
+     + (select count(*) from core.participant_unlink where participant_id = '${ZB}');
+SQL
+)
+[ "$(tr -d '[:space:]' <<<"${n}")" = "1" ] && ok "el rechazo no toco el vinculo de B ni dejo hecho" || fallo "tras el rechazo de B: $(tr -d '[:space:]' <<<"${n}")"
+
+# 13.7 · el wrapper legado sigue vivo y rehusa lo que no es una reclamacion.
+comprobar_error "unclaim_participant sin reclamacion detras" unclaim_participant "${TOK_B}" "{
+  \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d7\",\"command_contract_version\":1,
+  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZB}\",\"claim_command_id\":\"a2000000-0000-4000-8000-0000000000d8\"}" \
+  CLAIM_SUPERSEDED 409
+
 echo "== retirada =="
 retirar
 borrar_usuarios
@@ -1343,7 +1493,7 @@ borrar_usuarios
 resto=$("${DBQ[@]}" <<SQL 2>/dev/null
 with mios as (
   select id from core.scope
-   where id in ('${PA}','${PB}','${GX}','${GY}')
+   where id in ('${PA}','${PB}','${GX}','${GY}','${GZ}')
       or owner_user_id in (select id from auth.users where email like 'nomey-http-%')
 )
 select (select count(*) from core.operation o

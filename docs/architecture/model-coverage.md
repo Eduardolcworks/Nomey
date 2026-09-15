@@ -141,10 +141,9 @@ traer el estado del ámbito, la bilateralidad y el reparto final.
 invitación válida (F09/ADR-004); reclamar es vincular más membresía, sin tocar
 hechos; la rectificación propia (F09/ADR-006), la asociación de un fantasma
 (F09/ADR-009) y la reincorporación (F09/ADR-010) también están.
-`core.participant_user_link` la escriben `create_group`, `redeem_invitation` y
-`unclaim_participant`, siempre para el propio actor. **Queda en F10** el ciclo
-de vida del vínculo propio, su identidad y procedencia, la cesión consentida
-atómica y la fusión fantasma ↔ fantasma; **revocar el vínculo de otro está
+`core.participant_user_link` la escriben `create_group` y `redeem_invitation`,
+y la borra `unlink_participant` (F10/ADR-001; `unclaim_participant` es su wrapper), siempre para el propio actor; cada instancia lleva `link_id` y `origin_command_id`, con su `S0` y su línea base (`core.link_baseline_subject`, `core.link_baseline`) y su hecho de baja (`core.participant_unlink`). **Queda en F10**
+el cliente de la baja, la cesión consentida atómica y la fusión fantasma ↔ fantasma; **revocar el vínculo de otro está
 prohibido** por principio ([`phase-10-opening.md`](phase-10-opening.md)).
 
 **Aplazado — acceso residual.**

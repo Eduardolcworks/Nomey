@@ -384,12 +384,12 @@ interacción con retirados · cadenas de fusión · nombres y presentación
 
 ## 7 · Deuda técnica descubierta en A0
 
-| Hallazgo                                                                                                                                                           | Dónde se salda             |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
-| `api.associate_participant` toma `sec.lock_participant_claims` y **no está** en la lista B de `supabase/checks/group-identity-lock.sql` (diez funciones; son once) | A2                         |
-| `scripts/associate-race-evidence.sh` y `scripts/rejoin-race-evidence.sh` existen y **no corren en CI**                                                             | A2                         |
-| `sec.payment_counterpart_name` publica el nombre crudo del origen fusionado (§3.5)                                                                                 | B0 decide                  |
-| F09/ADR-009 «Consecuencias» cita una guarda de catálogo «ninguna agregación sin canónico» que **no existe** (la resolución vive en `core.current_effect`)          | anotado en `F09/README.md` |
+| Hallazgo                                                                                                                                                           | Dónde se salda                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| `api.associate_participant` toma `sec.lock_participant_claims` y **no está** en la lista B de `supabase/checks/group-identity-lock.sql` (diez funciones; son once) | A2 — **saldado** (2026-09-15) |
+| `scripts/associate-race-evidence.sh` y `scripts/rejoin-race-evidence.sh` existen y **no corren en CI**                                                             | A2 — **saldado** (2026-09-15) |
+| `sec.payment_counterpart_name` publica el nombre crudo del origen fusionado (§3.5)                                                                                 | B0 decide                     |
+| F09/ADR-009 «Consecuencias» cita una guarda de catálogo «ninguna agregación sin canónico» que **no existe** (la resolución vive en `core.current_effect`)          | anotado en `F09/README.md`    |
 
 ---
 

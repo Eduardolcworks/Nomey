@@ -200,6 +200,24 @@ detectar los contenedores **ya existentes** sin recrearlos.
 
 `db reset` recrea la base y aplica **todas** las migraciones desde cero.
 
+> ### Una migración puede negarse a aplicarse sobre una base con historia
+>
+> `20260915120000_link_instance_schema.sql` (F10/ADR-001 §11) rellena la
+> identidad, la procedencia y la línea base de cada vínculo existente **sólo
+> cuando son demostrables a partir de los hechos persistidos** —nunca por
+> `created_at` ni `linked_at`— y **aborta con diagnóstico** si encuentra un
+> vínculo cuya línea base al nacer no puede reconstruirse (una reclamación de
+> un participante que ya tenía versiones que lo nombraban, o un participante
+> con más de una instancia). No hay producción: en ese caso la base local es
+> material de pruebas y **se reinicia** (`db reset`) en vez de inventar una
+> línea base. Desde cero la migración no tiene nada que rellenar y siempre
+> pasa; contra la base local del 2026-09-14 (14 vínculos) pasó sin reinicio.
+>
+> `20260916120000_unlink_participant.sql` (F10/ADR-001 §12) retira
+> `core.participant_unclaim` con la misma postura: si la tabla tuviera filas
+> **no las traslada a ciegas** —no llevan `link_id`— y se detiene. Contra la
+> base local del 2026-09-15 (0 filas) pasó sin reinicio.
+
 > ### `db reset` no relee `config.toml`
 >
 > **Un cambio en `config.toml` no llega a los contenedores con `db reset`.** Ese

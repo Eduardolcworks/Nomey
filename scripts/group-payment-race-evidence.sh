@@ -58,6 +58,10 @@ delete from core.split_participant where scope_id = '${G}';
 delete from core.split where scope_id = '${G}';
 delete from core.effect where scope_id in ('${G}','${PSA}','${PSB}','${PSC}');
 delete from core.client_command where created_by in ('${UA}','${UB}','${UC}');
+-- F10/ADR-001 (20260915120000): linea base y sujetos de cada instancia, insert-only,
+-- referencian versiones y participantes: se borran como postgres antes que ellos.
+delete from core.link_baseline b using core.link_baseline_subject s, core.participant p where s.link_id = b.link_id and p.id = s.participant_id and p.scope_id = '${G}';
+delete from core.link_baseline_subject s using core.participant p where p.id = s.participant_id and p.scope_id = '${G}';
 delete from core.operation_version where created_by in ('${UA}','${UB}','${UC}');
 delete from core.operation where created_by in ('${UA}','${UB}','${UC}');
 delete from core.participant_user_link where scope_id = '${G}';

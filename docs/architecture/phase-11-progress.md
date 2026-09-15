@@ -38,7 +38,9 @@ anterior», como permite el protocolo.
 ### Negativas de conversión vigentes
 
 Medido sobre el catálogo vivo de una pila aislada levantada desde cero con las 46
-migraciones:
+migraciones de F9. Las dos de F10.A2 (`20260915120000` y `20260916120000`) no
+llaman a `sec.assert_no_conversion` ni redefinen ninguna de estas funciones
+(leído en el repositorio, no medido en catálogo):
 
 - **Nueve funciones** llaman a `sec.assert_no_conversion`, con quince llamadas:
   `record_personal_expense` (1), `record_personal_income` (1),
@@ -122,9 +124,10 @@ No es una regla nueva: resulta de aplicar a la vez ADR ya aceptados.
     [Decisiones abiertas](#decisiones-abiertas).
 - **La base asumida en el gasto de grupo.** F11/ADR-001 §11 ya exige que
   `record_group_expense` la transporte. Añadirla a su lista de campos y a su
-  intención canónica es una migración **posterior a
-  `20260914160000_positions_cas_visible_participants.sql`**, partiendo del
-  cuerpo vigente de F9 para no revertir ninguna de sus reglas.
+  intención canónica es una migración **posterior a la última vigente**, partiendo
+  del cuerpo vigente de la función (hoy el de
+  `20260912170000_group_payments_and_departed.sql`) para no revertir ninguna de
+  las reglas de F9.
 
 ## Limitaciones conocidas
 

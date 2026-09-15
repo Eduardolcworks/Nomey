@@ -284,12 +284,18 @@ left may rejoin with its identity.
 adjudicates another account's identity.** There is no revocation of someone
 else's link, no expulsion and no moderator role — the provisioner's policies
 on the link and the membership are already self-only, and F10 guards that in
-the catalogue. What F10 decides: leaving **any** own link instance under a
-temporal rule (cash and any economic attribution born during that instance
-block; earlier history does not), a stable identity and a separate provenance
-for each link instance, a consented **atomic** identity handover between two
-accounts or its explicit deferral, and whether two ghosts may be merged. Start
-at [`docs/architecture/phase-10-opening.md`](docs/architecture/phase-10-opening.md).
+the catalogue. **Settled by
+[F10/ADR-001](docs/adr/F10/ADR-001-link-instance-lifecycle.md) and migrated
+(F10.A2):** every link instance has a stable identity (`link_id`) and a
+separate provenance (`origin_command_id`); an account may leave **any** own
+link instance (`api.unlink_participant`) under a temporal rule — current cash
+and any economic attribution born during that instance block, compared
+against a baseline frozen when the instance was born, with raw participant ids
+and signed quantities; earlier history does not block — and the client still
+consumes the F9 surface through a compatibility wrapper until F10.A3. What F10
+still decides: a consented **atomic** identity handover between two accounts
+or its explicit deferral, and whether two ghosts may be merged. Start at
+[`docs/architecture/phase-10-opening.md`](docs/architecture/phase-10-opening.md).
 
 ### 6. Internationalisation
 
@@ -574,11 +580,11 @@ Two artefacts closed Phase 5 and are worth knowing about:
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
 and twelve reproducible probes that measured the decisions behind the schema
-(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **46
-migrations** rebuilt from zero in CI with 30 SQL checks and seven real-session
+(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **48
+migrations** rebuilt from zero in CI with 31 SQL checks and ten real-session
 race scripts. A pure reference implementation of the financial domain in
 `src/domain/`, with shared test vectors in `tests/vectors/` that the server
-boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 130 files.
+boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 132 files.
 Screens with economic function exist for the Modo Personal (F6, F7) and for
 Groups (F9): creating, inviting, shared expenses, balances, declared payments,
 leaving and rejoining.
@@ -687,7 +693,7 @@ writer of one class can no longer correct an operation of another**, guarded in
 [F06/ADR-002](docs/adr/F06/ADR-002-version-content-and-time.md) and
 [F06/ADR-003](docs/adr/F06/ADR-003-category-catalogue.md).
 
-**Migrations have started.** `supabase/migrations/` holds 46. The first is the
+**Migrations have started.** `supabase/migrations/` holds 48. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is F03/ADR-011: `api` is served and `public`, `core` and `sec`
@@ -742,14 +748,14 @@ any two of them is the mistake F03/ADR-009 exists to prevent:
   provisioner, and only for the actor itself.** The link is created by
   `create_group`, `redeem_invitation` (claim or new) and never for a third
   party — every provisioner policy on it and on `core.membership` is
-  `user_id = sec.request_actor_id()` — and deleted only by the claimant's own
-  `unclaim_participant` (F09/ADR-006). Periods are opened by `create_group` and
+  `user_id = sec.request_actor_id()` — and deleted only by its own holder,
+  leaving that link instance (`unlink_participant`, F10/ADR-001; `unclaim_participant` of F09/ADR-006 survives as a wrapper over it until the client moves). Periods are opened by `create_group` and
   `redeem_invitation` and closed by `leave_group` and the retirement core; the
   writer may close them under a membership policy (F09/ADR-005). **Nothing
   lets one account alter another account's link or membership**, and F10 keeps
   it that way (§5).
 - **The client never reads either relation.** It sees `is_linked`, `is_self`
-  and, only on its own row, `claim_command_id` through `api.group_participant`;
+  and, only on its own row, `link_id` (and `claim_command_id`, kept for the current client) through `api.group_participant`;
   which global account is behind a contextual identity is never published
   (F03/ADR-009 §1). "Which effects are mine" is answered by
   `api.claimed_dimension()` and the reduced definers of F9.

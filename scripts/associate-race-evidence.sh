@@ -58,9 +58,13 @@ delete from core.split_participant where scope_id = '${G}';
 delete from core.split where scope_id = '${G}';
 delete from core.effect where scope_id in ('${G}','${PSA}','${PSB}','${PSC}');
 delete from core.client_command where created_by in ('${UA}','${UB}','${UC}') and command_type <> 'group.create';
+-- F10/ADR-001 (20260915120000): la linea base de una instancia referencia versiones
+-- (insert-only): se borra como postgres antes que ellas. Los vinculos y sus sujetos
+-- se conservan entre carreras; los borra el limpiado final.
+delete from core.link_baseline b using core.operation o where o.id = b.operation_id and o.created_by in ('${UA}','${UB}','${UC}');
 delete from core.operation_version where created_by in ('${UA}','${UB}','${UC}');
 delete from core.operation where created_by in ('${UA}','${UB}','${UC}');
-delete from core.provisioning_command where created_by in ('${UB}','${UC}');
+delete from core.provisioning_command where created_by in ('${UB}','${UC}') and command_type <> 'invitation.redeem'; -- el origen de sus instancias (F10/ADR-001) se conserva con el vinculo
 commit;
 SQL
 }
@@ -71,6 +75,8 @@ limpiar() {
 begin;
 set constraints all deferred;
 delete from core.client_command where created_by in ('${UA}','${UB}','${UC}');
+delete from core.link_baseline b using core.link_baseline_subject s, core.participant p where s.link_id = b.link_id and p.id = s.participant_id and p.scope_id = '${G}';
+delete from core.link_baseline_subject s using core.participant p where p.id = s.participant_id and p.scope_id = '${G}';
 delete from core.participant_user_link where scope_id = '${G}';
 delete from core.membership where scope_id in ('${G}','${PSA}','${PSB}','${PSC}');
 delete from core.participant_period where participant_id in (select id from core.participant where scope_id = '${G}');
