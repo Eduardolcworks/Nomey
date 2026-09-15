@@ -10,15 +10,35 @@
 
 ## Estado
 
-| Bloque    | Estado                                                                               |
-| --------- | ------------------------------------------------------------------------------------ |
-| **F11.A** | **Cerrado**: contrato de fuente y resolución en F11/ADR-001. Sin implementación      |
-| **F11.B** | Pendiente: catálogo, fijación diaria, ingesta, resolver en SQL, conversión congelada |
-| **F11.C** | Pendiente: lecturas, estadísticas, cola sin conexión y presentación                  |
-| **F11.D** | Pendiente: integración del gasto de grupo y cierre de los criterios de la fase       |
+| Bloque    | Estado                                                                                                                          |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **F11.A** | **Cerrado**: contrato de fuente y resolución en F11/ADR-001. Sin implementación                                                 |
+| **F11.B** | Pendiente: catálogo, fijación diaria, ingesta, resolver en SQL, conversión congelada. **No se despliega sin F11.C** (ver abajo) |
+| **F11.C** | Pendiente: lecturas, estadísticas, cola sin conexión y presentación                                                             |
+| **F11.D** | Pendiente: integración del gasto de grupo y cierre de los criterios de la fase                                                  |
 
 **Hoy no existe ninguna conversión.** Toda operación en una moneda distinta de
 la base de un ámbito alcanzado responde `CURRENCY_CONVERSION_UNSUPPORTED · 422`.
+
+### Dependencia de planificación: F11.B no se despliega sin F11.C
+
+**Decisión de planificación del 2026-09-15, no una decisión sobre el modelo
+monetario.** F11.B **no se considera completo ni desplegable por separado de
+F11.C** en cuanto habilite operaciones personales en moneda extranjera. Antes de
+desplegarlo o habilitarlo en producción tiene que estar resuelto cómo se
+comportan `api.personal_operation` y las lecturas y estadísticas afectadas.
+
+- **Por qué.** F11/ADR-001 («En contra») ya enumera los supuestos vigentes que
+  dejan de cumplirse solos y asigna a F11.C preservarlos (§12):
+  `api.personal_operation` publica `original_amount` junto a la moneda del
+  **efecto**, y la comprobación de F06/ADR-008 §6 (suma de categorías =
+  `expense_total`) exige sumar la magnitud convertida. Con F11.B desplegado y
+  F11.C pendiente, un gasto en USD en un Personal en EUR se listaría con su
+  importe en USD etiquetado como EUR, sin ningún error (inferido de la
+  definición vigente de la vista; no medido).
+- **Qué no cambia.** Ni el contrato de F11/ADR-001 ni el reparto de trabajo de
+  su §12: F11.C sigue siendo quien implementa esas lecturas. F11.C no se
+  implementa ahora.
 
 ## Integración con F9 (2026-09-14)
 
@@ -60,16 +80,16 @@ admite moneda extranjera. Ver [Decisiones abiertas](#decisiones-abiertas).
 
 ### Funciones compartidas
 
-| Función                            | Qué añadió F9                                                                                        | Qué necesitará F11                                                                                                                                                                                                                                                                                                         | Compatibilidad                                                    |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `api.record_group_expense`         | Concepto, hora, categoría por defecto, avisos de edición, cerrojo de identidad, guardas canónicas    | Resolver **todas** sus conversiones **antes del reparto**, no en sus dos puntos de negativa (ver [cómo se lee junto a F9](#cómo-se-lee-f11adr-001-junto-al-protocolo-de-f9)), y transportar la base asumida (F11/ADR-001 §10 y §11). **No se habilita moneda extranjera antes de que F11.D decida los dos casos abiertos** | Compatible, en una migración nueva sobre su cuerpo vigente        |
-| `api.annul_operation`              | Autorización por partes de `group_payment`, cerrojo de rango 1, identidad canónica, sobreliquidación | Nada: anular crea una versión sin efectos y sin conversión                                                                                                                                                                                                                                                                 | Compatible sin cambios                                            |
-| `sec.persist_version`              | `OPERATION_NOT_ANNULLABLE` para `departure_novation`                                                 | Nada en F11.A; F11.B no debe rodear sus guardas de clase y de anulación                                                                                                                                                                                                                                                    | Compatible                                                        |
-| `api.record_debt_settlement`       | Cerrojo de rango 1 y ambos extremos activos                                                          | Nada: es una liquidación                                                                                                                                                                                                                                                                                                   | Conserva su negativa                                              |
-| `api.claimed_dimension`            | La deuda exige vínculo y membresía, excepción C6, resolución canónica                                | Nada en F11.A: cada fila ya lleva su `currency_definition_id`                                                                                                                                                                                                                                                              | Compatible                                                        |
-| `api.personal_operation`           | Fila de gasto de grupo con `your_share`, clase `group_payment` con contraparte                       | Publicar moneda original y convertida conservando esas clases y su contexto (F11.C)                                                                                                                                                                                                                                        | Compatible, recreando desde el cuerpo vigente                     |
-| `api.group_operation`              | Cuota del actor como suma de sus identidades canónicas (F09/ADR-009)                                 | Publicar la moneda original: hoy etiqueta `total_amount` (el importe original) con la moneda del efecto, lo que sólo es correcto sin conversión (F11.C)                                                                                                                                                                    | Compatible, recreando desde el cuerpo vigente                     |
-| `sec.incorporate_participant_cash` | Caja histórica del fantasma asociado, escrita una vez (F09/ADR-009)                                  | **Sin decidir** (F11.D): ver [decisiones abiertas](#decisiones-abiertas)                                                                                                                                                                                                                                                   | Correcta hoy sólo porque ningún gasto de grupo admite otra moneda |
+| Función                            | Qué añadió F9                                                                                        | Qué necesitará F11                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Compatibilidad                                                    |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| `api.record_group_expense`         | Concepto, hora, categoría por defecto, avisos de edición, cerrojo de identidad, guardas canónicas    | Resolver **todas** sus conversiones **tras el cerrojo de identidad** (necesita el Modo Personal del pagador) y **antes de escribir el reparto resultante**, que se calcula sobre el total convertido junto con las cuotas, las deudas y la guarda de sobreliquidación; no sólo en sus dos puntos de negativa, y sin obligar a convertir antes del replay ni de lo que hoy precede a reclamar el comando (ver [cómo se lee junto a F9](#cómo-se-lee-f11adr-001-junto-al-protocolo-de-f9)). Transportar la base asumida (F11/ADR-001 §10 y §11). **No se habilita moneda extranjera antes de que F11.D decida los dos casos abiertos** | Compatible, en una migración nueva sobre su cuerpo vigente        |
+| `api.annul_operation`              | Autorización por partes de `group_payment`, cerrojo de rango 1, identidad canónica, sobreliquidación | Nada: anular crea una versión sin efectos y sin conversión                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Compatible sin cambios                                            |
+| `sec.persist_version`              | `OPERATION_NOT_ANNULLABLE` para `departure_novation`                                                 | Nada en F11.A; F11.B no debe rodear sus guardas de clase y de anulación                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Compatible                                                        |
+| `api.record_debt_settlement`       | Cerrojo de rango 1 y ambos extremos activos                                                          | Nada: es una liquidación                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Conserva su negativa                                              |
+| `api.claimed_dimension`            | La deuda exige vínculo y membresía, excepción C6, resolución canónica                                | Nada en F11.A: cada fila ya lleva su `currency_definition_id`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Compatible                                                        |
+| `api.personal_operation`           | Fila de gasto de grupo con `your_share`, clase `group_payment` con contraparte                       | Publicar moneda original y convertida conservando esas clases y su contexto (F11.C)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Compatible, recreando desde el cuerpo vigente                     |
+| `api.group_operation`              | Cuota del actor como suma de sus identidades canónicas (F09/ADR-009)                                 | Publicar la moneda original: hoy etiqueta `total_amount` (el importe original) con la moneda del efecto, lo que sólo es correcto sin conversión (F11.C)                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Compatible, recreando desde el cuerpo vigente                     |
+| `sec.incorporate_participant_cash` | Caja histórica del fantasma asociado, escrita una vez (F09/ADR-009)                                  | **Sin decidir** (F11.D): ver [decisiones abiertas](#decisiones-abiertas)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Correcta hoy sólo porque ningún gasto de grupo admite otra moneda |
 
 **El contrato vigente de `record_group_expense`** (cuerpo de
 `20260912170000_group_payments_and_departed.sql`): exige `currency_definition_id`
@@ -85,7 +105,7 @@ no pasa por la cola sin conexión**: la cola admite `personal_expense.create`,
 No es una regla nueva: resulta de aplicar a la vez ADR ya aceptados.
 
 - **La conversión no se inserta donde hoy están las guardas: se resuelve antes
-  del reparto.** En el cuerpo vigente de `record_group_expense`
+  de escribir el reparto resultante.** En el cuerpo vigente de `record_group_expense`
   (`20260912170000_group_payments_and_departed.sql`) el reparto se calcula en
   la línea 520 con `sec.resolve_split` sobre el importe **declarado**, antes de
   reclamar el comando, y ese `v_resolved` es el que escriben las cuotas, las
@@ -198,6 +218,14 @@ Casos que F11/ADR-001 no resuelve y que ninguna decisión de producto cubre.
 > habilitar un flujo que hoy escribiría importes erróneos sin error. F11.B sí
 > implementa el resolver y la conversión de `personal_expense` y
 > `personal_income`.
+>
+> **Cómo se lee con F11/ADR-001 §12, sin modificarlo.** §12 asigna a F11.B la
+> retirada de `sec.assert_no_conversion` para las clases de §4 y a F11.D la
+> integración del gasto de grupo con F9, y §4 admite el gasto de grupo «al
+> integrarse Grupos (F9)». Esta condición sólo precisa el orden de ejecución
+> dentro de la fase: para `group_expense`, esa retirada se hace dentro de la
+> integración de F11.D. El ADR aceptado no cambia: ni su texto, ni las clases
+> que admiten moneda extranjera, ni los resultados ni el orden de su §6.
 
 ### Caja incorporada al asociar un fantasma que pagó un gasto de grupo (F11.D)
 

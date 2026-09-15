@@ -164,6 +164,12 @@ debe deducir por su cuenta:
   en `record_group_expense`; se habilita en F11.D, después de decidir los dos
   casos. Habilitarla antes haría que `sec.incorporate_participant_cash`
   escribiera la caja de un gasto en USD como si fuera la base del Personal.
+- **F11.B no se despliega sin F11.C** (dependencia de planificación, no una
+  decisión monetaria): antes de habilitar en producción operaciones personales
+  en moneda extranjera tienen que estar resueltas `api.personal_operation` y las
+  lecturas y estadísticas afectadas, que hoy publicarían el importe original con
+  la moneda del efecto
+  ([seguimiento de F11](architecture/phase-11-progress.md#dependencia-de-planificación-f11b-no-se-despliega-sin-f11c)).
 - **Liquidar entre bases distintas sigue sin poderse, y es conocido.** F9 ya lo
   restringe: quien tiene un Personal en otra moneda que la del grupo no puede
   declarar ni recibir un pago, y por eso tampoco salir con saldo. **No es un
