@@ -709,16 +709,16 @@ aceptado antes de B1.
 
 #### Bloques
 
-| Sub-bloque | Qué es                                                                                  | Estado      |
-| ---------- | --------------------------------------------------------------------------------------- | ----------- |
-| **F10.A0** | Apertura: reconciliación F9/F10, criterios nuevos, mediciones previas, deuda documental | **Cerrado** |
-| **F10.A1** | `F10/ADR-001`: principio de no adjudicación y ciclo de vida del vínculo propio          | **Cerrado** |
-| **F10.A2** | Backend de A1: instancia y procedencia del vínculo, desvinculación, guardas, carreras   | Pendiente   |
-| **F10.A3** | Cliente de A1                                                                           | Pendiente   |
-| **F10.B0** | `F10/ADR-002`: cesión consentida (`identity_handover`) y fusión fantasma ↔ fantasma     | Pendiente   |
-| **F10.B1** | Backend de lo que B0 apruebe                                                            | Pendiente   |
-| **F10.B2** | Cliente de B0                                                                           | Pendiente   |
-| **F10.C0** | Cierre: regresión, criterios, documentación, `PROJECT_STATE` y handoff                  | Pendiente   |
+| Sub-bloque | Qué es                                                                                  | Estado                                                                       |
+| ---------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **F10.A0** | Apertura: reconciliación F9/F10, criterios nuevos, mediciones previas, deuda documental | **Cerrado**                                                                  |
+| **F10.A1** | `F10/ADR-001`: principio de no adjudicación y ciclo de vida del vínculo propio          | **Cerrado**                                                                  |
+| **F10.A2** | Backend de A1: instancia y procedencia del vínculo, desvinculación, guardas, carreras   | **Implementado**, pendiente de revisión y merge (se cierra al mergear la PR) |
+| **F10.A3** | Cliente de A1                                                                           | Pendiente                                                                    |
+| **F10.B0** | `F10/ADR-002`: cesión consentida (`identity_handover`) y fusión fantasma ↔ fantasma     | Pendiente                                                                    |
+| **F10.B1** | Backend de lo que B0 apruebe                                                            | Pendiente                                                                    |
+| **F10.B2** | Cliente de B0                                                                           | Pendiente                                                                    |
+| **F10.C0** | Cierre: regresión, criterios, documentación, `PROJECT_STATE` y handoff                  | Pendiente                                                                    |
 
 **Cierre.** Sustituye a los cuatro criterios originales, cumplidos por F9.
 

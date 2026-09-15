@@ -60,7 +60,9 @@ begin
     ('api.settle_participant'),
     ('api.leave_group'),
     ('api.redeem_invitation'),
-    ('api.unclaim_participant'),
+    -- F10/ADR-001 (20260916120000): la baja vive en sec.unlink_instance; el
+    -- wrapper api.unclaim_participant delega en el y no toma nada por si mismo.
+    ('sec.unlink_instance'),
     ('api.annul_operation'),
     ('api.record_debt_settlement'),
     ('api.record_group_payment'),
@@ -96,7 +98,7 @@ begin
   perform pg_temp.antes('api.annul_operation',               'sec.begin_command(',     'sec.lock_participant_claims(');
   perform pg_temp.antes('api.leave_group',                   'core.provisioning_command', 'sec.lock_participant_claims(');
   perform pg_temp.antes('api.redeem_invitation',             'core.provisioning_command', 'sec.lock_participant_claims(');
-  perform pg_temp.antes('api.unclaim_participant',            'core.provisioning_command', 'sec.lock_participant_claims(');
+  perform pg_temp.antes('sec.unlink_instance',                'core.provisioning_command', 'sec.lock_participant_claims(');
   perform pg_temp.antes('api.associate_participant',          'core.provisioning_command', 'sec.lock_participant_claims(');
   perform pg_temp.antes('api.create_group',                   'core.provisioning_command', 'sec.lock_participant_claims(');
   raise notice 'OK · C · la clave se reclama antes del cerrojo';
@@ -124,7 +126,7 @@ begin
   -- F · el aislamiento del provisioner se conserva: reclamar y salir toman
   --     SOLO el cerrojo (rectificar tambien); ninguna fila de ambito (E6 de group-provisioning: el
   --     provisioner no ve grupos de los que el actor no es miembro).
-  for r in select name, body from fn where name in ('api.redeem_invitation', 'api.leave_group', 'api.unclaim_participant', 'api.associate_participant', 'api.create_group') loop
+  for r in select name, body from fn where name in ('api.redeem_invitation', 'api.leave_group', 'api.unclaim_participant', 'sec.unlink_instance', 'api.unlink_participant', 'api.associate_participant', 'api.create_group') loop
     if r.body like '%sec.lock_scopes(%' then
       raise exception 'F: % toma filas de ambito como provisioner', r.name;
     end if;

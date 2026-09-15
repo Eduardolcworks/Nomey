@@ -212,6 +212,11 @@ detectar los contenedores **ya existentes** sin recrearlos.
 > material de pruebas y **se reinicia** (`db reset`) en vez de inventar una
 > línea base. Desde cero la migración no tiene nada que rellenar y siempre
 > pasa; contra la base local del 2026-09-14 (14 vínculos) pasó sin reinicio.
+>
+> `20260916120000_unlink_participant.sql` (F10/ADR-001 §12) retira
+> `core.participant_unclaim` con la misma postura: si la tabla tuviera filas
+> **no las traslada a ciegas** —no llevan `link_id`— y se detiene. Contra la
+> base local del 2026-09-15 (0 filas) pasó sin reinicio.
 
 > ### `db reset` no relee `config.toml`
 >

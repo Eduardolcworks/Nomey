@@ -88,13 +88,13 @@ describe('la evidencia', () => {
       '4a · rectificar (retiene 3 s) → salir Ana',
       '4b · salir Ana (retiene 3 s) → rectificar',
       'select api.unclaim_participant(',
-      "grep -q 'UNCLAIM_BLOCKED_CASH'",
+      "grep -q 'UNLINK_BLOCKED_ATTRIBUTION'",
       'ESPERA=',
       'exigir_base_local',
     ]) {
       expect(RACE).toContain(marker);
     }
-    // La rectificacion es la funcion REAL (20260912160000), como la cuenta que reclamo.
+    // La rectificacion es la funcion REAL (wrapper de F10/ADR-001 §11 desde 20260916120000), como la cuenta que reclamo.
     expect(RACE).not.toContain('raise notice');
     expect(CI).toContain('bash scripts/unclaim-race-evidence.sh');
   });

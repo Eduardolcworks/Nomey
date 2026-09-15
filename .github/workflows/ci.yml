@@ -296,19 +296,15 @@ jobs:
       - name: Retire participant checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/retire-participant.sql
 
-      # Group identity lock (migration 20260912150000): catalogue guard that the
-      # live bodies of claim, retire, settle, leave and the two writers that
-      # resolve a Personal through a link take sec.lock_participant_claims
-      # before reading membership/link/period/retirement, before lock_scopes,
-      # and after the idempotency claim; and that NO function resolves a
-      # Personal through a link without it (this is what watches F11's writer
-      # rewrites). Read-only.
-      # Rectify a claim (F09/ADR-006, migration 20260912160000) against the REAL
-      # function: permitted vs blocked cash, provisioner permissions and
-      # isolation, retry after a later claim, absent/ambiguous provenance,
-      # history and effects intact, Personal and access, expired invitation.
-      - name: Unclaim participant checks
-        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/unclaim-evidence.sql
+      # Leaving an own link instance (F10/ADR-001, migration 20260916120000)
+      # against the REAL functions: the economic rule per instance (§2.5, 15
+      # cases as debtor and as creditor), merges before and during (§4), the
+      # create/new/claim situations (§5), the exact effect of leaving (§6), the
+      # fact (§7), LINK_SUPERSEDED uniform (§8), replay, identity_released
+      # persisted and hidden from the current client (§10), and the legacy
+      # wrapper api.unclaim_participant (§11). Rollback.
+      - name: Unlink participant checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/unlink-evidence.sql
 
       # Registered group payments and leaving without debt (F09/ADR-007 v3,
       # migration 20260912170000) against the REAL functions: pending pairs,
@@ -378,9 +374,9 @@ jobs:
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/link-instance.sql
 
       # Catalogue guard: the live bodies of the twelve functions that read or
-      # change identity (annul_operation, record_debt_settlement,
-      # record_group_payment, associate_participant and create_group included)
-      # take the rank-1 lock in protocol order.
+      # change identity (sec.unlink_instance -the single implementation behind
+      # unlink_participant and the unclaim_participant wrapper-, associate_participant
+      # and create_group included) take the rank-1 lock in protocol order.
       - name: Group identity lock guard
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/group-identity-lock.sql
 
@@ -413,6 +409,25 @@ jobs:
       # the waiting session's wait is measured.
       - name: Group identity lock races (real sessions)
         run: bash scripts/unclaim-race-evidence.sh
+
+      # Leaving an own link instance under real concurrency (F10/ADR-001 §9):
+      # unlink vs a new expense naming P, a correction, a payment, an annulment,
+      # leave, a foreign claim, associate and retire, both orders; double unlink
+      # (replay and LINK_SUPERSEDED); replay against a later instance; two
+      # simultaneous legacy wrapper calls. The waiting session's wait is measured.
+      - name: Unlink races (real sessions)
+        run: bash scripts/unlink-race-evidence.sh
+
+      # Folding a ghost into one's own identity: two accounts at once, a double
+      # press with one key, and associate vs an expense naming the ghost, both
+      # orders (F09/ADR-009; recorded as A2 debt in phase-10-opening.md §7).
+      - name: Associate races (real sessions)
+        run: bash scripts/associate-race-evidence.sh
+
+      # Rejoining after leaving: two rejoins at once (two keys, then one key),
+      # and rejoin vs a same-day expense naming the participant (F09/ADR-010).
+      - name: Rejoin races (real sessions)
+        run: bash scripts/rejoin-race-evidence.sh
 
       # Payments vs leaving vs annulment as two real sessions (F09/ADR-007 C5):
       # pay→leave, blocked leave→pay (+retry), double confirmation (one payment,
