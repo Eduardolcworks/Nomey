@@ -75,6 +75,8 @@ limpiar() {
 begin;
 set constraints all deferred;
 delete from core.client_command where created_by in ('${UA}','${UB}','${UC}');
+delete from core.link_baseline b using core.link_baseline_subject s, core.participant p where s.link_id = b.link_id and p.id = s.participant_id and p.scope_id = '${G}';
+delete from core.link_baseline_subject s using core.participant p where p.id = s.participant_id and p.scope_id = '${G}';
 delete from core.participant_user_link where scope_id = '${G}';
 delete from core.membership where scope_id in ('${G}','${PSA}','${PSB}','${PSC}');
 delete from core.participant_period where participant_id in (select id from core.participant where scope_id = '${G}');

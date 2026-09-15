@@ -71,6 +71,10 @@ sustituye se cita.
   bloquea exactamente eso y conserva el caso B (historia anterior a la
   reclamación). El resto de ADR-006 —regla de caja, protocolo de identidad,
   carreras, hecho de baja como patrón— sigue en pie y F10/ADR-001 lo cita.
+  **Implementado en F10.A2 (2026-09-15, migración `20260916120000`):**
+  `api.unclaim_participant` es desde entonces un wrapper de compatibilidad
+  sobre `sec.unlink_instance` —misma firma, semántica de F10/ADR-001—;
+  `UNCLAIM_BLOCKED_MERGE` y `core.participant_unclaim` ya no existen.
 - **F09/ADR-009 — estado:** validado en el iPhone por el propietario el
   2026-09-14 (`PROJECT_STATE.md`), aunque su cabecera diga «sin validar en
   dispositivo». **Guarda de catálogo:** «Consecuencias» cita una guarda
