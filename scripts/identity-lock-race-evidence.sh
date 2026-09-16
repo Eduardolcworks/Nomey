@@ -53,7 +53,6 @@ limpiar_actividad() {
 begin;
 set constraints all deferred;
 delete from core.group_notice where scope_id = '${G}';
-delete from core.group_departure where scope_id = '${G}';
 delete from core.balance_observation where scope_id in ('${G}','${PSA}','${PSB}');
 delete from core.expense_category x using core.operation_version ov where ov.id = x.operation_version_id and ov.created_by in ('${UA}','${UB}');
 delete from core.movement_detail d using core.operation_version ov where ov.id = d.operation_version_id and ov.created_by in ('${UA}','${UB}');
@@ -88,6 +87,8 @@ delete from core.client_command where created_by in ('${UA}','${UB}');
 delete from core.participant_retirement where scope_id = '${G}';
 delete from core.link_baseline_subject s using core.participant p where p.id = s.participant_id and p.scope_id = '${G}';
 delete from core.participant_user_link where scope_id = '${G}';
+-- F10/ADR-003 (20260918120000): el vinculo historico referencia su salida (departure_id); la salida se borra DESPUES del vinculo.
+delete from core.group_departure where scope_id = '${G}';
 delete from core.membership where scope_id in ('${G}','${PSA}','${PSB}');
 delete from core.participant_period where participant_id in (select id from core.participant where scope_id = '${G}');
 delete from core.participant where scope_id = '${G}';
