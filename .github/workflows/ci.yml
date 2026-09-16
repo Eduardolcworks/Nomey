@@ -356,6 +356,22 @@ jobs:
       - name: Link lifecycle checks
         run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/link-lifecycle.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
 
+      # The Personal start after the guest (F10/ADR-005): the guest-origin mark,
+      # the insert-only decision, include as identity, fresh as a cutoff that
+      # leaves prior group history out of balance/history/statistics/shares but
+      # never out of debts, later operations in, prior ones edited still out,
+      # derive_balance = personal_balance, auto-include on a first access with
+      # no history.
+      - name: Personal start checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/personal-start.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # The two closures F10/ADR-004 assigned to C0: retiring (or settling) a
+      # merge source is refused with PARTICIPANT_MERGED, and a merge is one hop
+      # by catalogue — a source is never a target, a target is never a source,
+      # no re-pointing — whoever writes the row.
+      - name: Merge invariant checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/merge-invariants.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
       # Oversettlement guards refuse only what a correction or annulment
       # worsens (pair oriented by its settlements); the canonical
       # 5000/4000 → 3000 example still refuses.
@@ -430,6 +446,12 @@ jobs:
       # no partial write, not even its idempotency key.
       - name: Departed obligation races (real sessions)
         run: bash scripts/departed-obligation-race-evidence.sh
+
+      # The Personal start decision vs a group expense that writes the same
+      # personal cash, as two real sessions (F10/ADR-005 §5): serialized by the
+      # scope lock, and the instants reflect the serial order.
+      - name: Personal start races (real sessions)
+        run: bash scripts/personal-start-race-evidence.sh
 
       # Balance serialization. Reproduces, corrected, the two races measured in
       # supabase/e22: two concurrent target adjustments land on the target, and
