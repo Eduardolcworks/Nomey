@@ -84,15 +84,15 @@ se han escrito.
 Recogen un análisis en curso y **no obligan a nadie**. No son fuente normativa:
 lo es el ADR correspondiente, cuando se acepta.
 
-| Documento                                                                      | Fase | Qué es                                                                                                               |
-| ------------------------------------------------------------------------------ | ---- | -------------------------------------------------------------------------------------------------------------------- |
-| [`architecture/money-representation.md`](architecture/money-representation.md) | 2    | Evidencia medida, decisiones confirmadas y alternativas descartadas que preceden a **F02/ADR-001**. **No normativo** |
-| [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md)         | 3    | Continuidad de 3.C y **el porqué** de cada pieza. **Histórico** desde el cierre de F3, y no normativo                |
-| [`architecture/phase-3c-design.md`](architecture/phase-3c-design.md)           | 3    | Análisis de 3.C por bloques: D1–D11, evidencia E12 y alternativas. **No normativo**, también para lo ya aprobado     |
-| [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                     | 4    | Bloques de F4, decisiones que la abren y dirección **provisional** de navegación. **No normativo**                   |
-| [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)           | 5    | Lo que la Fase 6 hereda de la 5: qué existe, qué no se reabre y qué invariantes no romper. **No normativo**          |
-| [`architecture/phase-6-handoff.md`](architecture/phase-6-handoff.md)           | 6    | Estado de la Fase 6 bloque a bloque, y las obligaciones que cada uno deja al siguiente. **No normativo**             |
-| [`architecture/phase-11-progress.md`](architecture/phase-11-progress.md)       | 11   | Seguimiento de F11: estado, contraste con F9 y limitaciones conocidas. **No normativo**; la decisión es F11/ADR-001  |
+| Documento                                                                      | Fase | Qué es                                                                                                                                                   |
+| ------------------------------------------------------------------------------ | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`architecture/money-representation.md`](architecture/money-representation.md) | 2    | Evidencia medida, decisiones confirmadas y alternativas descartadas que preceden a **F02/ADR-001**. **No normativo**                                     |
+| [`architecture/phase-3c-handoff.md`](architecture/phase-3c-handoff.md)         | 3    | Continuidad de 3.C y **el porqué** de cada pieza. **Histórico** desde el cierre de F3, y no normativo                                                    |
+| [`architecture/phase-3c-design.md`](architecture/phase-3c-design.md)           | 3    | Análisis de 3.C por bloques: D1–D11, evidencia E12 y alternativas. **No normativo**, también para lo ya aprobado                                         |
+| [`ux/phase-4-plan.md`](ux/phase-4-plan.md)                                     | 4    | Bloques de F4, decisiones que la abren y dirección **provisional** de navegación. **No normativo**                                                       |
+| [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)           | 5    | Lo que la Fase 6 hereda de la 5: qué existe, qué no se reabre y qué invariantes no romper. **No normativo**                                              |
+| [`architecture/phase-6-handoff.md`](architecture/phase-6-handoff.md)           | 6    | Estado de la Fase 6 bloque a bloque, y las obligaciones que cada uno deja al siguiente. **No normativo**                                                 |
+| [`architecture/phase-11-progress.md`](architecture/phase-11-progress.md)       | 11   | Seguimiento de F11: estado, contraste con F9 y limitaciones conocidas. **No normativo**; la decisión es F11/ADR-001, sustituido en parte por F11/ADR-002 |
 
 Al aceptarse el ADR que lo cierra, se decide si el documento se conserva como
 historial de análisis o se retira.

@@ -836,6 +836,8 @@ de arriba, y no se reescriben.
    al comenzar X** —las 00:00 en hora de Fráncfort—, y se convierte en el acto.
    El tipo de cada día se fija una sola vez: ni la hora de la operación ni el
    momento de sincronizar lo cambian, y nunca se usa una publicación posterior.
+   [F11/ADR-002](../adr/F11/ADR-002-per-currency-daily-rate.md) lo precisa
+   **por moneda**, con un límite de una publicación de antigüedad.
 2. **Admiten moneda extranjera** el gasto personal, el ingreso personal y el
    gasto de grupo sobre el contrato de F9. Transferencias, ajustes y
    liquidaciones —incluido el pago declarado de F9— quedan fuera de F11.
@@ -1156,9 +1158,11 @@ Ordenadas por riesgo.
    reglas propias y rechazos frecuentes en la primera vuelta.
 4. ~~**Proveedor de tipos de cambio (F11).**~~ **Resuelto el 2026-09-13** —
    [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md): tipos de referencia
-   del Banco Central Europeo. Sigue siendo una fuente externa: si su publicación
-   o la ingesta fallan, las operaciones afectadas quedan _todavía no
-   disponibles_, sin sustituir el tipo por uno antiguo (F11/ADR-001 §3.4).
+   del Banco Central Europeo. Sigue siendo una fuente externa: si la ingesta
+   falla o la observación no es válida, los días sin fijar quedan _todavía no
+   disponibles_; una moneda retrasada una publicación usa su tipo anterior y,
+   con más retraso, no tiene tipo ese día
+   ([F11/ADR-002](../adr/F11/ADR-002-per-currency-daily-rate.md)).
 5. **Infraestructura de notificaciones push (F9).** Depende de cómo se resuelva
    la puerta de esa fase.
 6. **Comportamiento de PostgREST (3.A).** Puede obligar a introducir una capa de

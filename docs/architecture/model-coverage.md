@@ -219,8 +219,10 @@ Ver §4 de este documento: Modo Pareja.
 ~~**Aplazado — resolución autoritativa del FX.**~~ _(punto 3 del cierre)_
 **DECIDIDO en F11.A** por [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md): tipos
 de referencia del BCE sobre un catálogo propio; el tipo del día X es el último
-disponible al comenzar X en hora de Fráncfort, fijado una sola vez; y la cobertura
-es por moneda y par. **La implementación es de F11.B**: hasta entonces, las nueve
+disponible al comenzar X en hora de Fráncfort, fijado una sola vez —por moneda y
+con un límite de una publicación de antigüedad en
+[F11/ADR-002](../adr/F11/ADR-002-per-currency-daily-rate.md)—; y
+la cobertura es por moneda y par. **La implementación es de F11.B**: hasta entonces, las nueve
 funciones de escritura que llaman a `sec.assert_no_conversion` —y
 `sec.incorporate_participant_cash`, que lanza el mismo código— siguen exigiendo
 que la moneda sea la base de **todos** los ámbitos alcanzados y, si no,
@@ -308,20 +310,20 @@ no altera `core.client_command`.
 
 Ninguno queda sin sitio. Resumen de dónde vive cada uno:
 
-| Invariantes          | Dónde se sostienen                                                                                                                                                                                                                       |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 · 2 · 22 · 23 · 24 | **Estructural**: `bigint` en unidad mínima, FK de moneda                                                                                                                                                                                 |
-| 3 · 9 · 25           | **Runtime**: reparto y conversión, con vectores compartidos                                                                                                                                                                              |
-| 4 · 5 · 6 · 8 · 20   | **Runtime**: qué efectos produce cada clase                                                                                                                                                                                              |
-| 7                    | **Derivable**: lista de admitidos de estadísticas                                                                                                                                                                                        |
-| 10                   | **Estructural**: el autor no entra en la derivación                                                                                                                                                                                      |
-| 11                   | **Persistido**: versiones inmutables + proyección canónica                                                                                                                                                                               |
-| 12                   | **Estructural**: FK compuesta `(scope, currency)`                                                                                                                                                                                        |
-| 13 · 14 · 15         | 13 y 14 **runtime**; **15 aplazado** (notificación)                                                                                                                                                                                      |
-| 16 · 17 · 18         | **Aplazados**: Modo Pareja                                                                                                                                                                                                               |
-| 19                   | **Runtime** para el origen cliente; **aplazado** el resto                                                                                                                                                                                |
-| 21                   | **Fuera del dominio**: monetización (§12)                                                                                                                                                                                                |
-| 26 · 27 · 28         | 26 **decidido en F02/ADR-001 §5**; 27 **en F02/ADR-001 §4**, con la regla del día de F11/ADR-001 §3 y las correcciones de F03/ADR-010 §6; 28 **en F11/ADR-001 §10**; implementación en F11.B, F11.C y F11.D; 27 parcialmente estructural |
+| Invariantes          | Dónde se sostienen                                                                                                                                                                                                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 · 2 · 22 · 23 · 24 | **Estructural**: `bigint` en unidad mínima, FK de moneda                                                                                                                                                                                                             |
+| 3 · 9 · 25           | **Runtime**: reparto y conversión, con vectores compartidos                                                                                                                                                                                                          |
+| 4 · 5 · 6 · 8 · 20   | **Runtime**: qué efectos produce cada clase                                                                                                                                                                                                                          |
+| 7                    | **Derivable**: lista de admitidos de estadísticas                                                                                                                                                                                                                    |
+| 10                   | **Estructural**: el autor no entra en la derivación                                                                                                                                                                                                                  |
+| 11                   | **Persistido**: versiones inmutables + proyección canónica                                                                                                                                                                                                           |
+| 12                   | **Estructural**: FK compuesta `(scope, currency)`                                                                                                                                                                                                                    |
+| 13 · 14 · 15         | 13 y 14 **runtime**; **15 aplazado** (notificación)                                                                                                                                                                                                                  |
+| 16 · 17 · 18         | **Aplazados**: Modo Pareja                                                                                                                                                                                                                                           |
+| 19                   | **Runtime** para el origen cliente; **aplazado** el resto                                                                                                                                                                                                            |
+| 21                   | **Fuera del dominio**: monetización (§12)                                                                                                                                                                                                                            |
+| 26 · 27 · 28         | 26 **decidido en F02/ADR-001 §5**; 27 **en F02/ADR-001 §4**, con la regla del día de F11/ADR-001 §3 (por moneda en F11/ADR-002) y las correcciones de F03/ADR-010 §6; 28 **en F11/ADR-001 §10**; implementación en F11.B, F11.C y F11.D; 27 parcialmente estructural |
 
 ---
 
