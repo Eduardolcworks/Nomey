@@ -208,15 +208,20 @@ describe('los controles que no pasan por GlassSurface', () => {
   it('el botón de acción monta la capa con el radio del control', () => {
     const fuente = code('ui/components/action-button.tsx');
     expect(fuente).toContain(
-      '<DepthLayer state={estado(pressed, primary)} radius={Radius.full} />',
+      '<DepthLayer state={tactileState(pressed, primary)} radius={Radius.full} />',
     );
     /*
-     * La vista y la capa leen el MISMO estado, resuelto una sola vez. Con el
+     * La vista y la capa leen el MISMO estado, resuelto una sola vez en
+     * `action-button-style` (`surface.depth` = `tactileState`). Con el
      * material neutro pedido, la profundidad se apaga en Android por la misma
      * función que usa el dock, no por una lista escrita aquí.
      */
-    expect(fuente).toContain('const tacto = estado(pressed, primary);');
-    expect(fuente).toContain('boxShadow: neutro ? emphasisDepth(tacto) : surfaceDepth(tacto),');
+    expect(fuente).toContain(
+      'const surface = actionSurface({ tone, disabled, pressed, neutral: neutro, theme });',
+    );
+    expect(fuente).toMatch(
+      /boxShadow:\s*depth === null\s*\?\s*undefined\s*:\s*neutro\s*\?\s*emphasisDepth\(depth\)\s*:\s*surfaceDepth\(depth\),/,
+    );
     expect(fuente).toContain('<ControlMaterial radius={Radius.full} fill={!pressed} />');
   });
 });

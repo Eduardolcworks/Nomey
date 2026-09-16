@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import FIELD from '../../src/features/auth/auth-field.tsx?raw';
 import ICON_BUTTON from '../../src/ui/components/icon-button.tsx?raw';
-import SIGN_IN from '../../src/app/(auth)/sign-in.tsx?raw';
+import SIGN_IN from '../../src/features/auth/sign-in-form.tsx?raw';
+import SIGN_IN_SCREEN from '../../src/app/(auth)/sign-in.tsx?raw';
 import SIGN_UP from '../../src/app/(auth)/sign-up.tsx?raw';
 import FORGOT from '../../src/app/(auth)/forgot-password.tsx?raw';
+import GUEST_SIGN_UP from '../../src/features/auth/guest-sign-up.tsx?raw';
 import NEW_PASSWORD from '../../src/app/(recovery)/new-password.tsx?raw';
 import ES from '../../src/lib/i18n/messages/es-ES.ts?raw';
 import EN from '../../src/lib/i18n/messages/en.ts?raw';
@@ -23,14 +25,25 @@ import EN from '../../src/lib/i18n/messages/en.ts?raw';
 
 describe('el ojo está en Entrar y en ningún otro formulario', () => {
   it('revisa de verdad lo que dice revisar', () => {
+    // El formulario de Entrar es SignInForm (presentacion); la pantalla lo conecta al Auth real.
     expect(FIELD).toContain('revealable');
     expect(SIGN_IN).toContain('AuthField');
+    expect(SIGN_IN_SCREEN).toContain('<SignInForm');
   });
 
-  it('sólo la contraseña de Entrar lo pide', () => {
+  it('lo piden la contraseña de Entrar y la de «Crea tu cuenta» del invitado, y ninguna más', () => {
     // El alcance se acordó acotado: el alta, la recuperación y la contraseña
-    // nueva se quedan exactamente como estaban.
+    // nueva se quedan exactamente como estaban. La conversion del invitado
+    // (F10.A3) reutiliza el MISMO patron, sin implementacion propia.
     expect(SIGN_IN).toMatch(/^\s*revealable$/m);
+    expect(GUEST_SIGN_UP).toMatch(/^\s*revealable$/m);
+    // Con `revealable`, el campo manda sobre `secureTextEntry`: oculta de partida.
+    expect(GUEST_SIGN_UP).not.toContain('secureTextEntry');
+    expect(GUEST_SIGN_UP).not.toMatch(/setRevealed|revealPresentation|Symbols\.(eye|reveal)/);
+    // Y el hint del minimo real sigue en el mismo campo.
+    expect(GUEST_SIGN_UP).toContain(
+      "hint={t('auth.passwordMinimum', { count: PASSWORD_MIN_LENGTH })}",
+    );
     for (const [name, source] of [
       ['sign-up', SIGN_UP],
       ['forgot-password', FORGOT],

@@ -1018,7 +1018,9 @@ describe('la barra superior se queda, el saludo sube', () => {
 
   it('y el saludo con el selector vive DENTRO', () => {
     const home = code('app/(tabs)/index.tsx');
-    const scroll = home.slice(home.indexOf('<ScrollView'), home.indexOf('</ScrollView>'));
+    // El ULTIMO ScrollView: el primero es la puerta de acceso de la simulacion
+    // de invitado (solo desarrollo), que no lleva saludo.
+    const scroll = home.slice(home.lastIndexOf('<ScrollView'), home.lastIndexOf('</ScrollView>'));
     expect(scroll).toContain('{greeting}');
     expect(home).toContain('const greeting = <HomeGreeting name={greetingName} />');
     // Y es el primer elemento del contenido, por delante del saldo.

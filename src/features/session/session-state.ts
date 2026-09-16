@@ -28,6 +28,22 @@ export type SessionIdentity = {
    * the caller decides what to show, because only the caller knows where.
    */
   readonly displayName: string | null;
+  /**
+   * A GUEST: a real GoTrue anonymous session (`is_anonymous` on the user and
+   * in the JWT), not a second identity of Nomey's own. Same `auth.users.id`,
+   * same `sec.request_actor_id()`, same RLS: the server treats a guest as any
+   * authenticated actor. What differs is only what the app shows — no Modo
+   * Personal until the guest creates an account, which keeps this very id
+   * (`convertGuest`: `updateUser`, never a second `signUp`).
+   */
+  readonly isAnonymous: boolean;
+  /**
+   * The address a guest asked to become an account with, while GoTrue still
+   * waits for its confirmation (`new_email`). `null` otherwise. Presentation:
+   * the state flips to a normal account when the SERVER says so (the next
+   * refreshed token carries `is_anonymous: false`), never because this is set.
+   */
+  readonly pendingEmail: string | null;
 };
 
 export type SessionState =
@@ -66,6 +82,10 @@ export type AuthenticatedUser = {
    * trusted to have the shape we expect.
    */
   readonly user_metadata?: Readonly<Record<string, unknown>> | null;
+  /** GoTrue's own mark of an anonymous user. Absent on older payloads: not anonymous. */
+  readonly is_anonymous?: boolean;
+  /** The email change GoTrue is waiting to confirm, if any. */
+  readonly new_email?: string | null;
 };
 
 /**
@@ -93,6 +113,9 @@ export function stateFromUser(user: AuthenticatedUser | null | undefined): Sessi
       userId: user.id,
       email: user.email ?? null,
       displayName: displayName === '' ? null : displayName,
+      isAnonymous: user.is_anonymous === true,
+      pendingEmail:
+        typeof user.new_email === 'string' && user.new_email !== '' ? user.new_email : null,
     },
   };
 }
@@ -116,6 +139,15 @@ export function isPublic(state: SessionState): boolean {
 
 export function isSignedIn(state: SessionState): boolean {
   return state.status === 'signed-in';
+}
+
+/**
+ * Signed in as a GUEST: an anonymous session. Signed in for every purpose the
+ * server cares about — Grupos, invitations, expenses, payments — and shown the
+ * access gate instead of Modo Personal and Perfil until it becomes an account.
+ */
+export function isGuest(state: SessionState): boolean {
+  return state.status === 'signed-in' && state.identity.isAnonymous;
 }
 
 /**

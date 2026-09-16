@@ -1,17 +1,10 @@
 import { Pressable, StyleSheet, type ViewStyle } from 'react-native';
 
+import { actionSurface, tactileState } from './action-button-style';
 import { ControlMaterial } from './control-material';
 import { DepthLayer } from './depth-layer';
 import { ThemedText } from './themed-text';
-import {
-  controlEdge,
-  emphasisDepth,
-  Radius,
-  Spacing,
-  surfaceDepth,
-  type TactileState,
-  useTheme,
-} from '@/ui/theme';
+import { controlEdge, emphasisDepth, Radius, Spacing, surfaceDepth, useTheme } from '@/ui/theme';
 
 export type ActionButtonProps = {
   label: string;
@@ -20,11 +13,12 @@ export type ActionButtonProps = {
    * `primary` is a filled control for the one action a surface is asking for;
    * `secondary` is outlined, for anything alongside it.
    *
-   * `brand` is the yellow call to action, and it exists for one situation: a
-   * card that asks a question about money and needs the answer that CONTINUES
-   * to be obvious. It rides on `accent` / `accentPressed` / `onAccent`, the
-   * same three tokens the sheet's save button uses, so there is one yellow in
-   * the app and not two.
+   * `brand` is the yellow call to action: the one answer a surface asks for
+   * and needs to be obvious at a glance — the incident card's «continue», and
+   * the guest's «Crear cuenta» in Inicio and Perfil. It rides on `accent` /
+   * `accentPressed` / `onAccent`, the same three tokens the sheet's save
+   * button uses, so there is one yellow in the app and not two. Disabled, it
+   * is a GREY switched-off control, never a pale yellow (`action-button-style`).
    */
   tone?: 'primary' | 'secondary' | 'brand';
   disabled?: boolean;
@@ -112,46 +106,26 @@ export function ActionButton({
       hitSlop={size === 'compact' ? COMPACT_HIT_SLOP : undefined}
       style={({ pressed }) => {
         /*
-         * El estado táctil, resuelto UNA vez. Lo leen el fondo de la vista y la
-         * capa de relieve, y tienen que ser la misma expresión: dos escrituras
-         * equivalentes se separan en cuanto una cambie.
+         * La superficie, resuelta UNA vez y en un sitio puro
+         * (`action-button-style`): fondo, borde, relieve y opacidad salen de la
+         * misma decision que lee el texto de abajo, y esa decision se prueba
+         * sin renderer. El amarillo de `brand` es opaco y se pinta solo: sin
+         * material ni capa de relieve encima, que lo taparian.
          */
-        const tacto = estado(pressed, primary);
-
-        if (brand) {
-          /*
-           * El amarillo es opaco y se pinta solo: ni material neutro ni capa de
-           * relieve encima, que lo taparían. El tacto lo lleva `accentPressed`,
-           * que es el token que ya existe para eso.
-           */
-          return [
-            styles.button,
-            size === 'compact' ? styles.compact : null,
-            {
-              backgroundColor: pressed ? theme.accentPressed : theme.accent,
-              borderColor: 'transparent',
-              opacity: disabled ? 0.5 : 1,
-            },
-            style,
-          ];
-        }
-
+        const surface = actionSurface({ tone, disabled, pressed, neutral: neutro, theme });
+        const depth = surface.depth;
         return [
           styles.button,
           size === 'compact' ? styles.compact : null,
           {
-            backgroundColor: pressed
-              ? theme.surfaceSunken
-              : primary
-                ? theme.surfaceRaised
-                : theme.surface,
-            borderColor: neutro
-              ? controlEdge(primary ? theme.borderInteractive : theme.border)
-              : primary
-                ? theme.borderInteractive
-                : theme.border,
-            boxShadow: neutro ? emphasisDepth(tacto) : surfaceDepth(tacto),
-            opacity: disabled ? 0.5 : 1,
+            backgroundColor: surface.backgroundColor,
+            borderColor: surface.neutralEdge
+              ? controlEdge(surface.borderColor)
+              : surface.borderColor,
+            // The shadow is always a token state through the platform helpers.
+            boxShadow:
+              depth === null ? undefined : neutro ? emphasisDepth(depth) : surfaceDepth(depth),
+            opacity: surface.opacity,
           },
           style,
         ];
@@ -172,11 +146,13 @@ export function ActionButton({
              */
             <ControlMaterial radius={Radius.full} fill={!pressed} />
           ) : (
-            <DepthLayer state={estado(pressed, primary)} radius={Radius.full} />
+            <DepthLayer state={tactileState(pressed, primary)} radius={Radius.full} />
           )}
           <ThemedText
             variant={size === 'compact' ? 'caption' : 'label'}
-            themeColor={disabled ? 'textDisabled' : brand ? 'onAccent' : 'text'}
+            themeColor={
+              actionSurface({ tone, disabled, pressed, neutral: neutro, theme }).textColor
+            }
             numberOfLines={1}>
             {label}
           </ThemedText>
@@ -184,17 +160,6 @@ export function ActionButton({
       )}
     </Pressable>
   );
-}
-
-/**
- * El estado tactil del boton, en un solo sitio.
- *
- * Lo leen la sombra de la vista y la capa de proyeccion, y tienen que coincidir:
- * dos expresiones equivalentes se separan en cuanto una cambie.
- */
-function estado(pressed: boolean, primary: boolean): TactileState {
-  if (pressed) return 'pressed';
-  return primary ? 'selected' : 'raised';
 }
 
 /** Lo que le falta a 32 de alto para tocarse como 44. */

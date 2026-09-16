@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useGroupNotices, useOpenPendingInvitation } from '@/features/groups';
 import { useIncidents } from '@/features/personal';
-import { isSignedIn, useSession } from '@/features/session';
+import { isGuest, isSignedIn, useSession } from '@/features/session';
 import {
   AddBackdrop,
   AppTopBar,
@@ -217,6 +217,14 @@ export default function TabsLayout() {
           ) : null}
 
           <Tabs
+            /*
+             * WHERE A GUEST LANDS. Evaluated when the tabs mount — right after
+             * «Entrar como invitado», or at launch with a restored guest session
+             * — so a guest starts on Grupos, the one place it can use; a normal
+             * account starts on Inicio as always. No navigation call, no
+             * intermediate screen: the navigator's own initial route.
+             */
+            initialRouteName={isGuest(state) ? 'groups' : 'index'}
             screenOptions={{
               headerShown: false,
               animation: reduceMotion ? 'none' : 'shift',
@@ -263,6 +271,12 @@ export default function TabsLayout() {
            */}
           <NomeyDock
             activeRoute={activeRoute}
+            /*
+             * A guest has no Modo Personal to add to: on Inicio the `+` would
+             * open the personal entry behind the access gate. On Grupos it is
+             * the normal group action, exactly as for an account.
+             */
+            canAdd={!(isGuest(state) && activeRoute === 'index')}
             onSelect={(route) => {
               router.navigate(route === 'index' ? '/' : '/groups');
             }}

@@ -35,10 +35,16 @@ export type AuthFieldProps = Omit<TextInputProps, 'style' | 'placeholderTextColo
    * botón lo cambia.
    */
   readonly revealable?: boolean;
+  /**
+   * Una ayuda discreta debajo del campo («Mínimo 6 caracteres»). Texto
+   * terciario, nunca una alerta: dice la regla antes de que falle, y se lee al
+   * enfocar el campo (`accessibilityHint`).
+   */
+  readonly hint?: string;
 };
 
 export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthField(
-  { label, editable = true, revealable = false, ...input },
+  { label, editable = true, revealable = false, hint, ...input },
   ref,
 ) {
   const { t } = useTranslation();
@@ -84,6 +90,7 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
           // The label is already next to the field visually; naming it here is
           // what makes the two one control for a screen reader.
           accessibilityLabel={label}
+          accessibilityHint={hint ?? input.accessibilityHint}
           onFocus={(event) => {
             setFocused(true);
             input.onFocus?.(event);
@@ -128,6 +135,11 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
           </View>
         ) : null}
       </View>
+      {hint === undefined ? null : (
+        <ThemedText variant="caption" themeColor="textTertiary">
+          {hint}
+        </ThemedText>
+      )}
     </View>
   );
 });

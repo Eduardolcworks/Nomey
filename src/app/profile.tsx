@@ -1,12 +1,25 @@
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Alert, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { AccountAvatar, DisplayNameEditor } from '@/features/auth';
-import { useSession } from '@/features/session';
+import {
+  AccountAvatar,
+  buildSignOutConfirmation,
+  DisplayNameEditor,
+  signOut,
+  useAuthSubmit,
+} from '@/features/auth';
+import { isGuest, useSession } from '@/features/session';
 import { PlaceholderScreen } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
-import { GlassSurface, Icon, type IconProps, Section, ThemedText } from '@/ui/components';
+import {
+  ActionButton,
+  GlassSurface,
+  Icon,
+  type IconProps,
+  Section,
+  ThemedText,
+} from '@/ui/components';
 import { Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 /**
@@ -47,12 +60,91 @@ export default function ProfileScreen() {
    * provider re-renders, and this follows without anything pushing it.
    */
   const displayName = state.status === 'signed-in' ? state.identity.displayName : null;
+  const { submit: leave, state: leaving } = useAuthSubmit();
 
   const general: readonly Option[] = [
     { icon: Symbols.language, label: t('profile.languageCurrency') },
     { icon: Symbols.appearance, label: t('profile.appearance') },
     { icon: Symbols.shortcuts, label: t('profile.shortcuts') },
   ];
+
+  /*
+   * INVITADO: Perfil conserva su estructura —lista de ajustes, cerrar
+   * sesion— y ensena arriba UNA accion de cuenta, «CREAR CUENTA», que lleva
+   * a la pestaña Inicio, donde vive el formulario de conversion (una sola
+   * implementacion; ni modal ni ruta duplicada). Sin nombre editable, ni
+   * planes, ni «Cuenta»: dependen de una cuenta completa. Las opciones
+   * generales se quedan: son preferencias del dispositivo, no de la cuenta,
+   * y esta es la estructura sobre la que creceran (apariencia, ayuda,
+   * privacidad…). Al final, «Cerrar sesion»: es una sesion REAL y se cierra
+   * como tal; la confirmacion dice lo que cuesta (no se recupera).
+   */
+  if (isGuest(state)) {
+    const confirmGuestSignOut = () => {
+      const confirmation = buildSignOutConfirmation(
+        {
+          title: t('account.signOutConfirmTitle'),
+          body: t('account.guestSignOutConfirmBody'),
+          cancel: t('action.cancel'),
+          confirm: t('account.signOut'),
+        },
+        () => {
+          void leave(signOut);
+        },
+      );
+      Alert.alert(
+        confirmation.title,
+        confirmation.body,
+        confirmation.buttons.map((button) => ({
+          text: button.label,
+          style: button.role,
+          onPress: button.onPress,
+        })),
+        { cancelable: true },
+      );
+    };
+    return (
+      <PlaceholderScreen title="nav.profile">
+        {/* `brand`: el amarillo de la app, siempre habilitado (solo navega a Inicio). */}
+        <ActionButton
+          label={t('auth.signUpAction')}
+          tone="brand"
+          onPress={() => {
+            router.navigate('/');
+          }}
+        />
+
+        <Section title={t('profile.general')}>
+          <OptionGroup>
+            {general.map((option, index) => (
+              <OptionRow
+                key={option.label}
+                icon={option.icon}
+                label={option.label}
+                first={index === 0}
+                soon
+              />
+            ))}
+          </OptionGroup>
+        </Section>
+
+        {/* Texto, no boton: la salida es una accion secundaria. En rojo, porque termina la sesion. */}
+        <ThemedText
+          variant="bodySmall"
+          themeColor="negative"
+          accessibilityRole="link"
+          onPress={leaving.status === 'running' ? undefined : confirmGuestSignOut}
+          style={styles.signOut}>
+          {leaving.status === 'running' ? t('account.signOutBusy') : t('account.signOut')}
+        </ThemedText>
+        {leaving.status === 'failed' ? (
+          <ThemedText variant="bodySmall" themeColor="negative" accessibilityRole="alert">
+            {t(leaving.messageKey)}
+          </ThemedText>
+        ) : null}
+      </PlaceholderScreen>
+    );
+  }
 
   return (
     <PlaceholderScreen title="nav.profile">
@@ -239,6 +331,8 @@ function SoonPill() {
 }
 
 const styles = StyleSheet.create({
+  /** La salida del invitado: un enlace gris, al nivel de «recuperar», nunca un boton. */
+  signOut: { textAlign: 'center', paddingVertical: Spacing.sm },
   identity: {
     alignItems: 'center',
     gap: Spacing.md,

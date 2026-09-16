@@ -184,7 +184,15 @@ refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project.
 enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
-enable_anonymous_sign_ins = false
+#
+# ON since F10.A3 (modo Invitado real): «Entrar como invitado» is a real
+# GoTrue anonymous session (POST /signup with no credentials; `is_anonymous`
+# in the JWT), the same `auth.users.id` the app keeps when the guest later
+# creates an account through `updateUser`. A hosted project must switch the
+# same option on in the Dashboard (Authentication → Sign In / Providers →
+# Allow anonymous sign-ins) or via `supabase config push`: this file does not
+# reach a remote project by itself, and nothing here pretends it does.
+enable_anonymous_sign_ins = true
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.

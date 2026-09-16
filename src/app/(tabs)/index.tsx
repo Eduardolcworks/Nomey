@@ -36,7 +36,8 @@ import {
   type ReopenedDebt,
   useGroups,
 } from '@/features/groups';
-import { useSession } from '@/features/session';
+import { GuestSignUp } from '@/features/auth';
+import { isGuest, useSession } from '@/features/session';
 import { DOCK_HEIGHT, HomeGreeting, useAddBackdrop, useScope } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -73,6 +74,10 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { state } = useSession();
+  /* Una sesion anonima real (`is_anonymous`): Inicio es «Crea tu cuenta». */
+  const guest = isGuest(state);
+  const guestName = state.status === 'signed-in' ? state.identity.displayName : null;
+  const guestPendingEmail = state.status === 'signed-in' ? state.identity.pendingEmail : null;
   const { scope: activeScope } = useScope();
   const router = useRouter();
   const backdrop = useAddBackdrop();
@@ -475,7 +480,24 @@ export default function HomeScreen() {
        * segura de arriba; esta pantalla sólo pide los laterales.
        */}
       <SafeAreaView style={styles.screen} edges={['left', 'right']}>
-        {!personal ? (
+        {guest ? (
+          /*
+           * INVITADO: Inicio es «Crea tu cuenta» y nada mas. Sin login, sin
+           * recuperar, sin «Entrar como invitado» (ya lo es), sin proveedores
+           * (F8.B): la unica accion de cuenta es convertir ESTE usuario anonimo
+           * en cuenta, con el mismo id (F05/ADR-003 §3). El Personal interno
+           * existe igual; su UI llega cuando la cuenta exista.
+           */
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
+            contentContainerStyle={[
+              styles.gate,
+              { paddingBottom: DOCK_HEIGHT + insets.bottom + Spacing.xl },
+            ]}>
+            <GuestSignUp initialName={guestName} pendingEmail={guestPendingEmail} />
+          </ScrollView>
+        ) : !personal ? (
           <>
             {greeting}
             {/*
@@ -907,6 +929,12 @@ const styles = StyleSheet.create({
   centre: {
     flex: 1,
     padding: Spacing.lg,
+  },
+  /* La puerta de acceso del invitado (preview): los margenes de AuthScreen, dentro de la pestana. */
+  gate: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xxl,
+    gap: Spacing.lg,
   },
   /**
    * El contenido de debajo del saludo.

@@ -335,6 +335,198 @@ describe('ciclo de vida de la sesión', () => {
     });
   });
 
+  describe('la conversion de un invitado se descubre preguntando al servidor (F05/ADR-003)', () => {
+    /*
+     * Lo MEDIDO contra GoTrue, reproducido con fakes: tras confirmar el correo
+     * fuera de la app, la sesion GUARDADA sigue diciendo anonimo (user y JWT),
+     * `GET /user` con ese mismo token ya dice cuenta, y el refresh trae la
+     * sesion nueva con el mismo sub. El ciclo pregunta (fetchUser) al
+     * restaurar, al volver al primer plano y, mientras siga pendiente, cada
+     * tanto; y refresca (refreshSession) solo cuando la respuesta es que ya
+     * hay cuenta. El refresco entra por onAuthStateChange como todo lo demas.
+     */
+    const GUEST: AuthenticatedUser = { id: 'x', email: '', is_anonymous: true };
+    const PENDING: AuthenticatedUser = {
+      id: 'x',
+      email: '',
+      is_anonymous: true,
+      new_email: 'yo@nomey.test',
+    };
+    const ACCOUNT: AuthenticatedUser = { id: 'x', email: 'yo@nomey.test', is_anonymous: false };
+
+    function conversionHarness(server: { user: AuthenticatedUser | null }) {
+      const a = fakeAuth();
+      const s = fakeAppState('active');
+      const timers = fakeTimers();
+      const emitted: SessionState[] = [];
+      const calls = { fetch: 0, refresh: 0 };
+      const auth: AuthPort = {
+        ...a.auth,
+        fetchUser: async () => {
+          calls.fetch += 1;
+          return server.user;
+        },
+        refreshSession: async () => {
+          calls.refresh += 1;
+          // La libreria persiste la sesion nueva y avisa por el unico canal.
+          a.emit(server.user);
+        },
+      };
+      const stop = startSessionLifecycle({
+        auth,
+        appState: s.appState,
+        emit: (state) => emitted.push(state),
+        setTimer: timers.setTimer,
+        clearTimer: timers.clearTimer,
+      });
+      const flush = async () => {
+        for (let i = 0; i < 6; i += 1) await Promise.resolve();
+      };
+      const last = () => emitted[emitted.length - 1];
+      return { ...a, ...s, timers, emitted, calls, stop, flush, last };
+    }
+
+    it('A · pendiente → confirma fuera → vuelve al primer plano: cuenta normal, mismo uid', async () => {
+      const server = { user: PENDING as AuthenticatedUser | null };
+      const h = conversionHarness(server);
+      h.emit(PENDING);
+      await h.flush();
+      expect(h.calls.fetch).toBe(1); // al saber que hay conversion pendiente, pregunta ya
+      expect(h.calls.refresh).toBe(0); // y no refresca: el servidor aun dice anonimo
+      // El correo se confirma en otro dispositivo.
+      server.user = ACCOUNT;
+      h.change('background');
+      h.change('active');
+      await h.flush();
+      expect(h.calls.fetch).toBe(2);
+      expect(h.calls.refresh).toBe(1);
+      const state = h.last();
+      expect(state.status).toBe('signed-in');
+      if (state.status === 'signed-in') {
+        expect(state.identity.userId).toBe('x');
+        expect(state.identity.isAnonymous).toBe(false);
+        expect(state.identity.pendingEmail).toBeNull();
+      }
+      h.stop();
+    });
+
+    it('B · confirma → mata la app → arranque en frio: la restauracion descubre la cuenta, mismo uid', async () => {
+      // La sesion GUARDADA dice anonimo y pendiente; el servidor ya dice cuenta.
+      const h = conversionHarness({ user: ACCOUNT });
+      h.emit(PENDING); // INITIAL_SESSION: la copia
+      await h.flush();
+      expect(h.calls.fetch).toBe(1);
+      expect(h.calls.refresh).toBe(1);
+      const state = h.last();
+      expect(state.status === 'signed-in' && !state.identity.isAnonymous).toBe(true);
+      expect(state.status === 'signed-in' ? state.identity.userId : null).toBe('x');
+      h.stop();
+    });
+
+    it('C · antes de confirmar, un reload sigue siendo invitado con la conversion pendiente', async () => {
+      const h = conversionHarness({ user: PENDING });
+      h.emit(PENDING);
+      await h.flush();
+      expect(h.calls.refresh).toBe(0);
+      const state = h.last();
+      expect(state.status === 'signed-in' && state.identity.isAnonymous).toBe(true);
+      expect(state.status === 'signed-in' ? state.identity.pendingEmail : null).toBe(
+        'yo@nomey.test',
+      );
+      h.stop();
+    });
+
+    it('D · mientras siga pendiente pregunta cada tanto, sin salir de la app; y deja de preguntar en cuanto hay cuenta', async () => {
+      const server = { user: PENDING as AuthenticatedUser | null };
+      const h = conversionHarness(server);
+      h.emit(PENDING);
+      await h.flush();
+      expect(h.timers.pendingCount()).toBe(1); // el sondeo, programado
+      h.timers.fire();
+      await h.flush();
+      expect(h.calls.fetch).toBe(2);
+      expect(h.timers.pendingCount()).toBe(1); // reprogramado mientras siga pendiente
+      server.user = ACCOUNT;
+      h.timers.fire();
+      await h.flush();
+      expect(h.calls.refresh).toBe(1);
+      const after = h.last();
+      expect(after.status === 'signed-in' && !after.identity.isAnonymous).toBe(true);
+      expect(h.timers.pendingCount()).toBe(0); // nunca un sondeo permanente
+      h.timers.fire();
+      await h.flush();
+      expect(h.calls.fetch).toBe(3);
+      h.stop();
+    });
+
+    it('un invitado SIN conversion pendiente no pregunta nada: ni al restaurar, ni al volver, ni por sondeo', async () => {
+      const h = conversionHarness({ user: GUEST });
+      h.emit(GUEST);
+      await h.flush();
+      h.change('background');
+      h.change('active');
+      await h.flush();
+      expect(h.calls.fetch).toBe(0);
+      expect(h.timers.pendingCount()).toBe(0);
+      h.stop();
+    });
+
+    it('en segundo plano el sondeo se para, y el desmontaje lo cancela', async () => {
+      const h = conversionHarness({ user: PENDING });
+      h.emit(PENDING);
+      await h.flush();
+      h.change('background');
+      expect(h.timers.pendingCount()).toBe(0);
+      h.change('active');
+      await h.flush();
+      expect(h.timers.pendingCount()).toBe(1);
+      h.stop();
+      expect(h.timers.pendingCount()).toBe(0);
+    });
+
+    it('un fetchUser que falla se comunica y no rompe nada; se vuelve a preguntar en el siguiente sondeo', async () => {
+      const onRefreshError = vi.fn();
+      const a = fakeAuth();
+      const s = fakeAppState('active');
+      const timers = fakeTimers();
+      let fails = true;
+      const stop = startSessionLifecycle({
+        auth: {
+          ...a.auth,
+          fetchUser: async () => {
+            if (fails) throw new Error('sin red');
+            return ACCOUNT;
+          },
+          refreshSession: async () => {
+            a.emit(ACCOUNT);
+          },
+        },
+        appState: s.appState,
+        emit: () => {},
+        setTimer: timers.setTimer,
+        clearTimer: timers.clearTimer,
+        onRefreshError,
+      });
+      a.emit(PENDING);
+      for (let i = 0; i < 6; i += 1) await Promise.resolve();
+      expect(onRefreshError).toHaveBeenCalledTimes(1);
+      fails = false;
+      timers.fire();
+      for (let i = 0; i < 6; i += 1) await Promise.resolve();
+      expect(timers.pendingCount()).toBe(0);
+      stop();
+    });
+
+    it('sin fetchUser/refreshSession en el puerto no pasa nada (los fakes antiguos siguen valiendo)', () => {
+      const h = harness('active');
+      h.emit(PENDING);
+      h.change('background');
+      expect(() => h.change('active')).not.toThrow();
+      expect(h.timers.pendingCount()).toBe(1);
+      h.stop();
+    });
+  });
+
   describe('errores del refresco', () => {
     it('un `startAutoRefresh` que falla se comunica y no rompe el arranque', async () => {
       const onRefreshError = vi.fn();
