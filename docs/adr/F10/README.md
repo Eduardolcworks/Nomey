@@ -2,15 +2,16 @@
 
 **Alcance:** el ciclo de vida del vínculo entre una cuenta y una identidad
 contextual, bajo un principio de producto: **ninguna cuenta adjudica
-unilateralmente la identidad de otra**. Dejar cualquier instancia propia de
-vínculo con una regla temporal de obligaciones; identidad (`link_id`) y
+unilateralmente la identidad de otra**. Identidad permanente en el grupo
+(vincularse no se deshace; salir y volver son F9); identidad (`link_id`) y
 procedencia (`origin_command_id`) de cada instancia; cesión consentida atómica
 entre dos cuentas del mismo grupo, o su aplazamiento declarado; fusión de dos
 participantes sin cuenta, decidida sobre su matriz económica; disputas sin
 consentimiento declaradas no resolubles. **Fuera:** revocación del vínculo
 ajeno, expulsión, roles, identidad anónima, recuperación global de cuenta,
-soporte administrativo. **Estado de la fase:** Abierta el 2026-09-14; F10.A0 y F10.A1
-cerrados. El detalle está en [el roadmap](../../product/roadmap.md) y la
+soporte administrativo. **Estado de la fase:** Abierta el 2026-09-14; F10.A0 … F10.A3
+cerrados (A3 el 2026-09-16); el siguiente bloque es F10.B0 (`F10/ADR-004`).
+El detalle está en [el roadmap](../../product/roadmap.md) y la
 apertura, con las mediciones previas y los insumos de cada ADR, en
 [`phase-10-opening.md`](../../architecture/phase-10-opening.md).
 
@@ -21,18 +22,24 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 
 ## ADR de esta fase
 
-| ADR                                               | Título                                                                         | Estado   | Fecha      | Bloque |
-| ------------------------------------------------- | ------------------------------------------------------------------------------ | -------- | ---------- | ------ |
-| [F10/ADR-001](ADR-001-link-instance-lifecycle.md) | Ciclo de vida de una instancia propia de vínculo cuenta ↔ identidad contextual | Aceptado | 2026-09-14 | F10.A1 |
+| ADR                                                  | Título                                                                                                                                                                              | Estado   | Fecha      | Bloque |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- | ------ |
+| [F10/ADR-001](ADR-001-link-instance-lifecycle.md)    | Ciclo de vida de una instancia propia de vínculo cuenta ↔ identidad contextual — **superado en parte** por F10/ADR-002 (§2, §4–§12, §14: la baja); §0, §1, §3 y §13 siguen vigentes | Aceptado | 2026-09-14 | F10.A1 |
+| [F10/ADR-002](ADR-002-permanent-identity.md)         | Identidad permanente en el grupo: el vínculo cuenta ↔ participante no se deshace — **precisado** por F10/ADR-003 (§2: salir termina el vínculo; §3: el copy al reclamar)            | Aceptado | 2026-09-15 | F10.A3 |
+| [F10/ADR-003](ADR-003-active-and-historical-link.md) | Vínculo activo y vínculo histórico: salir termina la identidad en el grupo, volver la reactiva o elige otra (supera la única opción al volver de F09/ADR-010)                       | Aceptado | 2026-09-15 | F10.A3 |
 
 Previsto, sin redactar:
 
 | ADR             | Tema                                                                                                                            | Bloque | Estado    |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------ | --------- |
-| **F10/ADR-002** | Cesión consentida atómica (`identity_handover`) o su aplazamiento · fusión fantasma ↔ fantasma sobre la matriz económica medida | F10.B0 | Pendiente |
+| **F10/ADR-004** | Cesión consentida atómica (`identity_handover`) o su aplazamiento · fusión fantasma ↔ fantasma sobre la matriz económica medida | F10.B0 | Pendiente |
 
 Lo que cada uno recibe como insumo está en `phase-10-opening.md` §5 y §6; el
-primero está aceptado sobre esos insumos y las mediciones de F10.A1.
+primero está aceptado sobre esos insumos y las mediciones de F10.A1; el
+segundo y el tercero son decisiones de producto tomadas durante el cliente de
+A3 (la revisión visual en el iPhone). F10/ADR-002 cita «F10/ADR-003» como el
+ADR de B0 por anticipación: ese número lo tomó el ciclo de vida del vínculo
+(el siguiente libre, sin reservas); B0 será F10/ADR-004.
 
 ## Decisiones de otras fases que esta fase aplica
 
@@ -44,7 +51,7 @@ Se citan, no se copian ni se redefinen:
 - [F09/ADR-003](../F09/ADR-003-leaving-a-group.md) — Salir de un Grupo
 - [F09/ADR-004](../F09/ADR-004-group-invitations.md) — Invitaciones a un Grupo y unión directa
 - [F09/ADR-005](../F09/ADR-005-retire-unlinked-participant.md) — Retirar a un participante sin cuenta
-- [F09/ADR-006](../F09/ADR-006-unclaim-participant.md) — Rectificar una reclamación (F10/ADR-001 la generaliza y la supera en un punto)
+- [F09/ADR-006](../F09/ADR-006-unclaim-participant.md) — Rectificar una reclamación (retirada por F10/ADR-002: la identidad es permanente)
 - [F09/ADR-008](../F09/ADR-008-departed-obligation-immutable.md) — La obligación de quien salió es intocable (comparación de atribución por versión, punto de partida del operador que F10/ADR-001 debe definir)
 - [F09/ADR-009](../F09/ADR-009-associate-ghost-to-own-account.md) — Asociar un participante sin cuenta a la propia cuenta
-- [F09/ADR-010](../F09/ADR-010-rejoin-after-departure.md) — Volver a entrar en un grupo tras salir
+- [F09/ADR-010](../F09/ADR-010-rejoin-after-departure.md) — Volver a entrar en un grupo tras salir (su única opción al volver, superada por F10/ADR-003)

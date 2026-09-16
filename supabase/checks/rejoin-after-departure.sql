@@ -11,8 +11,9 @@
 --   A · salir y volver: la misma identidad, dos periodos con el hueco entre
 --       medias, membresia; ningun participante, vinculo, operacion ni caja
 --       nuevos; la novacion de salida intacta
---   B · repetir el enlace ya dentro: nada nuevo; claim/new con vinculo:
---       REJOIN_REQUIRED; rejoin sin vinculo: REJOIN_NOT_AVAILABLE; enlace
+--   B · repetir el enlace ya dentro: nada nuevo; new con identidad anterior:
+--       REJOIN_REQUIRED; claim de una identidad con cuenta: rehusado y sin
+--       membresia; rejoin sin identidad anterior: REJOIN_NOT_AVAILABLE; enlace
 --       revocado o caducado: su estado, sin escribir
 --   C · sin reparto retroactivo: un alta fechada en la ausencia lo rehusa; la
 --       correccion de un gasto anterior que lo nombraba sigue valiendo
@@ -205,13 +206,16 @@ begin
   v := pg_temp.canjear(r.aitor, 'a8d00000-0000-4000-8000-000000000122', r.token, 'new', null, 'Aitor otra vez');
   if v <> 'OK already_member' then raise exception 'B2b: %', v; end if;
   if pg_temp.periodos(r.a1) <> v_periodos or pg_temp.huella(r.g1) <> v_huella then raise exception 'B3'; end if;
-  -- Fuera otra vez (a cero, sin pares): claim o new con vinculo se rehusan; rejoin sin vinculo se rehusa.
+  -- Fuera otra vez (a cero, sin pares): «nuevo» con identidad anterior se
+  -- rehusa (REJOIN_REQUIRED); reclamar SI esta abierto desde F10/ADR-003 §2
+  -- —lo ejerce supabase/checks/link-lifecycle.sql— pero sigue guardado: una
+  -- identidad con cuenta no se reclama; rejoin sin identidad anterior se rehusa.
   v := pg_temp.gp_leave(r.aitor, 'a8d00000-0000-4000-8000-000000000123', r.g1);
   if v <> 'OK' then raise exception 'B4: %', v; end if;
   v := pg_temp.canjear(r.aitor, 'a8d00000-0000-4000-8000-000000000124', r.token, 'new', null, 'Aitor bis');
   if v <> 'REJOIN_REQUIRED' then raise exception 'B5: %', v; end if;
-  v := pg_temp.canjear(r.aitor, 'a8d00000-0000-4000-8000-000000000125', r.token, 'claim', r.l1);
-  if v <> 'REJOIN_REQUIRED' then raise exception 'B6: %', v; end if;
+  v := pg_temp.canjear(r.aitor, 'a8d00000-0000-4000-8000-000000000125', r.token, 'claim', r.an1);
+  if v <> 'PARTICIPANT_ALREADY_CLAIMED' then raise exception 'B6: %', v; end if;
   if exists (select 1 from core.membership where scope_id = r.g1 and user_id = r.aitor) then raise exception 'B6b: un rechazo dio membresia'; end if;
   -- Una cuenta que nunca estuvo no puede «volver».
   insert into core.scope (id, kind, base_currency_definition_id, owner_user_id) values ('a8d00000-0000-4000-8000-0000000000f9', 'personal', r.eur, 'a8d00000-0000-4000-8000-0000000000b9');

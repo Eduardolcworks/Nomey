@@ -2,11 +2,13 @@ import { recoveryClient, SESSION_STORAGE_KEY, sessionStorage, supabase } from '@
 
 import {
   type AuthErrorKey,
+  convertGuestErrorKey,
   type RecoveryFailure,
   recoveryErrorKey,
   recoveryFailure,
   type RecoverySaveFailure,
   recoverySaveFailure,
+  signInAnonymouslyErrorKey,
   signInErrorKey,
   signOutErrorKey,
   signUpErrorKey,
@@ -77,10 +79,123 @@ export async function signUp(raw: Registration): Promise<AuthResult> {
 export async function signIn(raw: Credentials): Promise<AuthResult> {
   const { email, password } = normaliseCredentials(raw);
 
+  /*
+   * FAIL CLOSED FROM A GUEST SESSION. `signInWithPassword` on top of an
+   * anonymous session does not merge anything: it REPLACES the stored session
+   * with another `auth.users.id`, and every group, participant link,
+   * expense and payment the guest made stays attributed to the old id, now
+   * unreachable from this device (measured against GoTrue: nothing on the
+   * server moves ownership on sign-in). Nomey has no measured, explicit way
+   * to fold a guest identity into an existing account yet — F03/ADR-009 keeps
+   * identities contextual and F10/ADR-002 makes the group ones permanent, so
+   * a bulk change of `user_id` is a decision with its own ADR, not a side
+   * effect of a sign-in. So the guest is told, keeps the session, and can
+   * either create an account (which keeps the id) or sign out first.
+   *
+   * Read from the client's own stored session, not from React state: the
+   * service has no access to the provider and must not gain one.
+   */
+  const { data: current } = await supabase.auth.getSession();
+  if (current.session?.user.is_anonymous === true) {
+    return { ok: false, messageKey: 'authError.guestSignInBlocked' };
+  }
+
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error !== null) return { ok: false, messageKey: signInErrorKey(error) };
   return { ok: true };
+}
+
+/**
+ * «Entrar como invitado»: a real anonymous session.
+ *
+ * `signInAnonymously` is `POST /signup` with no credentials. GoTrue creates a
+ * row in `auth.users` with `is_anonymous = true`, and the session it returns
+ * carries `role: authenticated` and `is_anonymous: true` in the JWT
+ * (measured against the local stack). So for the server the guest IS an
+ * authenticated actor — `sec.request_actor_id()` reads its `sub`, RLS and
+ * the writer treat it as any member — and only the app decides what a guest
+ * gets to see. The session is stored and refreshed like any other, so it
+ * survives closing and reopening the app for as long as Supabase keeps it.
+ *
+ * As with `signIn`, no session is returned and nothing navigates from here:
+ * the provider receives the event and the tree switches branch. Where the
+ * guest lands (Grupos) is the tabs layout's decision, because it is navigation.
+ */
+export async function signInAnonymously(rawDisplayName: string): Promise<AuthResult> {
+  /*
+   * The name travels WITH the sign-up (`options.data` → `user_metadata`), not
+   * in a second `updateUser` after it: the tree switches branch on the
+   * sign-in event, and a group created a moment later needs the creator's
+   * name already there (`create_group` refuses a nameless creator). Same
+   * rule as the account name: presentation only, never an identity.
+   */
+  const displayName = normaliseDisplayName(rawDisplayName);
+  if (displayName === '') return { ok: false, messageKey: 'authError.nameRequired' };
+
+  const { error } = await supabase.auth.signInAnonymously({
+    options: { data: { display_name: displayName } },
+  });
+
+  if (error !== null) return { ok: false, messageKey: signInAnonymouslyErrorKey(error) };
+  return { ok: true };
+}
+
+/**
+ * A guest becomes an account, KEEPING its `auth.users.id`.
+ *
+ * Not `signUp`: that would mint a second user and leave every group and
+ * expense of the guest attributed to the first. The mechanism is
+ * `updateUser` on the anonymous session — `PUT /user` with the email, the
+ * password and the display name — which GoTrue applies to the SAME user.
+ * Measured against the local stack, in this order:
+ *
+ * 1. `PUT /user {email, password, data}` answers the same `id`, sets the
+ *    password at once, stores the name, and puts the address in `new_email`
+ *    with a confirmation mail sent (`enable_confirmations`, and the address
+ *    counts as an email CHANGE: an anonymous user has none to change from).
+ * 2. Until the link is followed the session stays anonymous: `is_anonymous`
+ *    is still true on refresh. Nothing is lost and nothing has moved.
+ * 3. Following the link confirms the address: `email` is set,
+ *    `is_anonymous` becomes false, and the refresh token this device already
+ *    holds keeps working — the next refreshed session is the account, same
+ *    id. The lifecycle asks for that refresh when the app returns to the
+ *    foreground, so the flip does not wait for the token to expire.
+ * 4. Signing in with the new password afterwards answers the same `id`.
+ *
+ * Memberships, participant links, the personal scope, expenses, payments and
+ * every row keyed by the actor therefore survive by construction: no row
+ * changes, because the id does not. `supabase/checks/guest-conversion.sql`
+ * and the HTTP boundary check hold that as evidence.
+ */
+export async function convertGuest(raw: Registration): Promise<AuthResult> {
+  const { email, password, displayName } = normaliseRegistration(raw);
+
+  /*
+   * ASK THE SERVER FIRST. A guest who already confirmed the email — on another
+   * device, or before this copy of the session was refreshed — is an account
+   * on the server while the stored user still says anonymous. Measured: a
+   * second `PUT /user` with the same data then answers `422 same_password`,
+   * which is not the guest's problem to understand. `getUser` is
+   * authoritative and read-only; if it says the conversion is done, the
+   * session is refreshed (the copy is replaced, the state flips) and nothing
+   * is re-submitted.
+   */
+  const { data: fresh, error: freshError } = await supabase.auth.getUser();
+  if (freshError === null && fresh.user.is_anonymous === false) {
+    const { error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError !== null) return { ok: false, messageKey: updateUserErrorKey(refreshError) };
+    return { ok: true };
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    email,
+    password,
+    data: { display_name: displayName },
+  });
+
+  if (error !== null) return { ok: false, messageKey: convertGuestErrorKey(error) };
+  return { ok: true, pendingConfirmation: true };
 }
 
 /**

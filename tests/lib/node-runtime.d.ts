@@ -37,6 +37,7 @@ declare module 'node:sqlite' {
 declare module 'node:fs' {
   export function mkdtempSync(prefix: string): string;
   export function rmSync(path: string, options?: { recursive?: boolean; force?: boolean }): void;
+  export function existsSync(path: string): boolean;
 }
 
 declare module 'node:os' {
@@ -45,4 +46,5 @@ declare module 'node:os' {
 
 declare module 'node:path' {
   export function join(...segments: string[]): string;
+  export function resolve(...segments: string[]): string;
 }

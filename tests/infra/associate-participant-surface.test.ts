@@ -13,7 +13,7 @@ import EN from '../../src/lib/i18n/messages/en.ts?raw';
 import TYPES from '../../src/types/database.ts?raw';
 import NOVATION from '../../supabase/migrations/20260914120000_departure_novation.sql?raw';
 import ASSOCIATE from '../../supabase/migrations/20260914130000_associate_participant.sql?raw';
-import UNLINK from '../../supabase/migrations/20260916120000_unlink_participant.sql?raw';
+import PERMANENT from '../../supabase/migrations/20260917120000_permanent_identity.sql?raw';
 import NOVATION_CHECK from '../../supabase/checks/departure-novation.sql?raw';
 import ASSOCIATE_CHECK from '../../supabase/checks/associate-participant.sql?raw';
 import RACE from '../../scripts/associate-race-evidence.sh?raw';
@@ -126,11 +126,11 @@ describe('asociar un fantasma a mi cuenta (20260914130000)', () => {
       "perform sec.raise_boundary('PARTICIPANT_LINKED', 'ese participante ya tiene cuenta', 409);",
     );
     expect(ASSOCIATE).toContain('v_cash := sec.incorporate_participant_cash(v_scope, v_source);');
-    // UNCLAIM_BLOCKED_MERGE nacio aqui y F10/ADR-001 §4 lo supero: la fusion ya
-    // no bloquea por si misma; lo decide la regla economica de la instancia
-    // (20260916120000, `tests/infra/unlink-surface.test.ts`).
+    // UNCLAIM_BLOCKED_MERGE nacio aqui, con la rectificacion de F9. Desde F10/ADR-002
+    // la identidad es permanente: no hay nada que deshacer, y la migracion 49 retira
+    // el wrapper que lo emitia (`tests/infra/permanent-identity-surface.test.ts`).
     expect(ASSOCIATE).toContain("perform sec.raise_boundary('UNCLAIM_BLOCKED_MERGE',");
-    expect(UNLINK).not.toContain('UNCLAIM_BLOCKED_MERGE');
+    expect(PERMANENT).toContain('drop function api.unclaim_participant(jsonb);');
     // El origen se publica como fusionado y sin fila en Saldos; «tu parte» es la suma.
     expect(ASSOCIATE).toContain('as merged_into_participant_id');
     expect(ASSOCIATE).toContain(

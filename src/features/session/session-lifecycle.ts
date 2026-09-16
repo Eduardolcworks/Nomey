@@ -44,6 +44,18 @@ export type AuthPort = {
   };
   startAutoRefresh(): Promise<void>;
   stopAutoRefresh(): Promise<void>;
+  /**
+   * The AUTHORITATIVE user, from the server (`GET /user`), not the copy the
+   * stored session carries. Optional: only the guest conversion below needs
+   * it, and the fakes in the tests need not know it exists.
+   */
+  fetchUser?(): Promise<AuthenticatedUser | null>;
+  /**
+   * Ask the server for a fresh session NOW, outside the refresh loop's own
+   * schedule: new tokens AND the fresh user, persisted, and announced through
+   * `onAuthStateChange` like everything else. Optional, as above.
+   */
+  refreshSession?(): Promise<void>;
 };
 
 /** The slice of React Native's AppState this needs. */
@@ -63,6 +75,13 @@ export type LifecycleOptions = {
   readonly clearTimer?: (handle: unknown) => void;
   /** Surfaces a rejected start/stopAutoRefresh instead of an unhandled rejection. */
   readonly onRefreshError?: (error: unknown) => void;
+  /**
+   * How often to ask the server whether a PENDING guest conversion has been
+   * confirmed, while the app is active. Only while pending: never a permanent
+   * poll. The link is followed outside the app, often on another device, so
+   * no AppState transition can be relied on to notice.
+   */
+  readonly conversionPollMs?: number;
   /**
    * Called when the app comes back to the foreground.
    *
@@ -85,6 +104,8 @@ export type LifecycleOptions = {
  * still live when it fires.
  */
 export const DEFAULT_WATCHDOG_MS = 10_000;
+/** A pending conversion is checked this often while the app is active. */
+export const DEFAULT_CONVERSION_POLL_MS = 15_000;
 
 /**
  * Start the lifecycle. Returns the teardown, which is safe to call at any time
@@ -102,10 +123,21 @@ export function startSessionLifecycle(options: LifecycleOptions): () => void {
     },
     onRefreshError,
     onForeground,
+    conversionPollMs = DEFAULT_CONVERSION_POLL_MS,
   } = options;
 
   let stopped = false;
   let answered = false;
+  /**
+   * The GUEST CONVERSION, as the last auth event described it: a guest
+   * (anonymous) who asked to become an account (`new_email` waiting for its
+   * confirmation). Presentation state on the stored user, never the
+   * authority: the authority is what `fetchUser` answers.
+   */
+  let pendingConversion = false;
+  let active = true;
+  let probing = false;
+  let poll: unknown = null;
   let watchdog: unknown = null;
   /** What the refresh loop was last told, so a repeat is not re-sent. */
   let refreshing: boolean | null = null;
@@ -129,8 +161,71 @@ export function startSessionLifecycle(options: LifecycleOptions): () => void {
     // after it already fired: `unavailable` is a holding state, not a verdict.
     answered = true;
     cancelWatchdog();
+    pendingConversion =
+      user?.is_anonymous === true && typeof user.new_email === 'string' && user.new_email !== '';
     publish(stateFromUser(user));
+    /*
+     * A RESTORED session is a COPY: the stored user and JWT say what they said
+     * when they were saved, and a guest who confirmed the email on another
+     * device (or after killing the app) is already an account on the server
+     * while this copy still says anonymous. So every event that describes a
+     * pending conversion asks the server, now — cold start included — and
+     * keeps asking while it stays pending. Once the server says the user is
+     * no longer anonymous, the refresh replaces the copy and this stops.
+     */
+    if (pendingConversion) {
+      void probeConversion();
+      schedulePoll();
+    } else {
+      cancelPoll();
+    }
   });
+
+  // ------------------------------------------------------ guest conversion --
+  /*
+   * WHY `getUser` + `refreshSession`, and not one of them alone. MEASURED
+   * against GoTrue after following the confirmation link: the stored JWT
+   * still carries `is_anonymous: true` (a token is not re-issued by a change
+   * elsewhere), `GET /user` with that very token already answers
+   * `is_anonymous: false` with the email set (authoritative, read-only, no
+   * token rotation), and `POST /token?grant_type=refresh_token` then returns
+   * a session whose user AND JWT are the account, same `sub`. So the cheap,
+   * side-effect-free question is asked first, and the session is replaced
+   * only once the answer is yes — through the library, which persists it and
+   * emits `TOKEN_REFRESHED` to the single subscriber above. Nothing here
+   * touches state directly.
+   */
+  async function probeConversion(): Promise<void> {
+    if (stopped || probing || auth.fetchUser === undefined || auth.refreshSession === undefined)
+      return;
+    probing = true;
+    try {
+      const fresh = await auth.fetchUser();
+      if (stopped || fresh === null || fresh.is_anonymous !== false) return;
+      await auth.refreshSession();
+    } catch (error: unknown) {
+      onRefreshError?.(error);
+    } finally {
+      probing = false;
+    }
+  }
+
+  function cancelPoll(): void {
+    if (poll !== null) {
+      clearTimer(poll);
+      poll = null;
+    }
+  }
+
+  function schedulePoll(): void {
+    cancelPoll();
+    if (stopped || !pendingConversion || !active) return;
+    poll = setTimer(() => {
+      poll = null;
+      void probeConversion();
+      schedulePoll();
+    }, conversionPollMs);
+  }
 
   watchdog = setTimer(() => {
     watchdog = null;
@@ -175,7 +270,17 @@ export function startSessionLifecycle(options: LifecycleOptions): () => void {
      */
     const returning = status === 'active' && !refreshing;
     applyRefresh(status === 'active');
-    if (returning && !stopped) onForeground?.();
+    active = status === 'active';
+    if (!active) cancelPoll();
+    if (returning && !stopped) {
+      onForeground?.();
+      // Back in the foreground with a conversion pending: ask now, and resume
+      // asking while it stays pending.
+      if (pendingConversion) {
+        void probeConversion();
+        schedulePoll();
+      }
+    }
   });
 
   // ------------------------------------------------------------- teardown ---
@@ -183,6 +288,7 @@ export function startSessionLifecycle(options: LifecycleOptions): () => void {
     if (stopped) return;
     stopped = true;
     cancelWatchdog();
+    cancelPoll();
     data.subscription.unsubscribe();
     appStateSubscription.remove();
     // Leave the refresh loop stopped rather than running against a client

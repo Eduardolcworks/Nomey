@@ -8,6 +8,7 @@ export {
 } from './session-lifecycle';
 export {
   identityKey,
+  isGuest,
   isPublic,
   isResolved,
   isSignedIn,

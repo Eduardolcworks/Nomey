@@ -173,9 +173,15 @@ describe('dónde se escribe el nombre', () => {
      * único suscriptor y ya mapea al usuario. Un refetch o un segundo estado
      * aquí serían una copia que puede quedarse vieja.
      */
+    // Acotado a updateDisplayName: la conversion de un invitado (convertGuest) si
+    // pregunta al servidor antes de reenviar, por un motivo medido (F05/ADR-003).
     const service = stripComments(AUTH_SERVICE);
-    expect(service).not.toContain('refreshSession');
-    expect(service).not.toContain('getUser()');
+    const rename = service.slice(
+      service.indexOf('export async function updateDisplayName'),
+      service.indexOf('export async function requestPasswordReset'),
+    );
+    expect(rename).not.toContain('refreshSession');
+    expect(rename).not.toContain('getUser()');
     expect(stripComments(EDITOR_RAW)).not.toContain('setState');
   });
 

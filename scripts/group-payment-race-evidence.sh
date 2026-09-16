@@ -50,7 +50,6 @@ set constraints all deferred;
 delete from core.group_notice where scope_id = '${G}';
 delete from core.payment_allocation where scope_id = '${G}';
 delete from core.payment_detail where scope_id = '${G}';
-delete from core.group_departure where scope_id = '${G}';
 delete from core.balance_observation where scope_id in ('${G}','${PSA}','${PSB}','${PSC}');
 delete from core.expense_category x using core.operation_version ov where ov.id = x.operation_version_id and ov.created_by in ('${UA}','${UB}','${UC}');
 delete from core.movement_detail d using core.operation_version ov where ov.id = d.operation_version_id and ov.created_by in ('${UA}','${UB}','${UC}');
@@ -65,6 +64,8 @@ delete from core.link_baseline_subject s using core.participant p where p.id = s
 delete from core.operation_version where created_by in ('${UA}','${UB}','${UC}');
 delete from core.operation where created_by in ('${UA}','${UB}','${UC}');
 delete from core.participant_user_link where scope_id = '${G}';
+-- F10/ADR-003 (20260918120000): el vinculo historico referencia su salida (departure_id); la salida se borra DESPUES del vinculo.
+delete from core.group_departure where scope_id = '${G}';
 delete from core.membership where scope_id in ('${G}','${PSA}','${PSB}','${PSC}');
 delete from core.participant_period where participant_id in (select id from core.participant where scope_id = '${G}');
 delete from core.participant where scope_id = '${G}';
@@ -116,8 +117,8 @@ anular_sql() { echo "select 'ANULAR=' || pg_temp.gp_annul('$1'::uuid, '$2'::uuid
 
 q() { "${DBQ[@]}" -c "$1" | tr -d '[:space:]'; }
 miembro()  { q "select count(*) from core.membership where scope_id = '${G}' and user_id = '$1';"; }
-pagos()    { q "select count(*) from core.operation o join core.operation_version v on v.id = o.current_version_id where o.operation_class = 'group_payment' and v.version_kind = 'record';"; }
-pago_id()  { q "select o.id from core.operation o where o.operation_class = 'group_payment' order by o.created_at limit 1;"; }
+pagos()    { q "select count(*) from core.operation o join core.operation_version v on v.id = o.current_version_id where o.operation_class = 'group_payment' and v.version_kind = 'record' and o.created_by in ('${UA}','${UB}','${UC}');"; }
+pago_id()  { q "select o.id from core.operation o where o.operation_class = 'group_payment' and o.created_by in ('${UA}','${UB}','${UC}') order by o.created_at limit 1;"; }
 pares()    { { cat "${LIB}"; echo "select pg_temp.gp_pairs('${G}'::uuid);"; } | "${DBQ[@]}" 2>/dev/null | tail -n 1 | tr -d '\n'; }
 espero()   { local e; e=$(grep -o 'ESPERA=[0-9.]*' "$1" | cut -d= -f2); if [ -n "${e}" ] && awk -v e="${e}" 'BEGIN { exit !(e >= 1.5) }'; then ok "$2 espero (${e} s)"; else fallo "$2 no espero: ESPERA=${e:-?} · $(grep -i 'error' "$1" | head -c 200)"; fi; }
 afirmar()  { [ "$1" = "$2" ] && ok "$3 = $2" || fallo "$3: esperado $2, medido $1"; }

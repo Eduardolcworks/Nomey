@@ -6,8 +6,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { currencyDefinition, money } from '@/domain';
 import {
   allOf,
-  arriveInvitation,
-  type BlockingOperation,
   fetchPendingPairs,
   FilterPanel,
   type GroupOperation,
@@ -23,12 +21,12 @@ import {
   GroupSummaryCard,
   groupSummary,
   isUnrestricted,
-  listed,
+  current,
+  mergeTimeline,
   type MovementFilters,
   type PendingPair,
   OrderSelector,
   publishGroupRecorded,
-  redeemedInvitation,
   sameFilters,
   subscribeGroupRecorded,
   useAnnulExpense,
@@ -39,7 +37,6 @@ import {
   useRecordPayment,
   useRetireParticipant,
   useAssociateParticipant,
-  useUnclaimParticipant,
 } from '@/features/groups';
 import { useEntryCategories, useIncidents } from '@/features/personal';
 import { useSession } from '@/features/session';
@@ -55,7 +52,6 @@ import {
   IconButton,
   LoadingState,
   OptionPills,
-  ThemedText,
   ThemedView,
 } from '@/ui/components';
 import { Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
@@ -285,22 +281,25 @@ export default function GroupScreen() {
     () => new Map(participants.participants.map((one) => [one.participantId, one.hasHistory])),
     [participants.participants],
   );
-  /*
-   * La reclamación que creó el vínculo PROPIO (`claim_command_id`, sólo sobre
-   * la fila de quien mira): que exista ofrece «Me equivoqué»; si ahora se
-   * puede, lo decide el servidor bajo el cerrojo (F09/ADR-006 §1).
-   */
-  const claimOf = useMemo(
-    () => new Map(participants.participants.map((one) => [one.participantId, one.claimCommandId])),
-    [participants.participants],
-  );
   /* La misma consulta como función estable, para que la propuesta no se rehaga por render. */
   const presenceLookup = useCallback(
     (participantId: string) => presenceOf.get(participantId) ?? null,
     [presenceOf],
   );
-  /* Los que se cuentan y se listan: los retirados conservan el nombre, nada más. */
-  const listedCount = participants.participants.filter(listed).length;
+  /* Los del presente: retirados y salidos con cuenta conservan el nombre, nada más. */
+  const listedCount = participants.participants.filter(current).length;
+  /*
+   * LA CRONOLOGÍA DE MOVIMIENTOS: gastos (ya filtrados y ordenados por el
+   * servidor) y pagos registrados, mezclados en el orden elegido. Vacía
+   * mientras los gastos no han llegado: sin ellos no hay lista que afirmar.
+   */
+  const timeline = useMemo(
+    () =>
+      movements.operations === null
+        ? []
+        : mergeTimeline(movements.operations, movements.payments ?? [], order),
+    [movements.operations, movements.payments, order],
+  );
 
   /*
    * ═══════ «SALDADO» SOBRE UNA PROPUESTA: registrar el pago (F09/ADR-007) ═══════
@@ -520,89 +519,6 @@ export default function GroupScreen() {
       ],
     );
   };
-  const unclaiming = useUnclaimParticipant();
-  const askUnclaim = (participantId: string, displayName: string, claimCommandId: string) => {
-    Alert.alert(
-      t('group.unclaimTitle', { name: displayName }),
-      t('group.unclaimBody', { name: displayName }),
-      [
-        { text: t('action.cancel'), style: 'cancel' },
-        {
-          text: t('group.unclaimConfirm'),
-          style: 'destructive',
-          onPress: () => {
-            void unclaiming
-              .unclaim({ scopeId: id ?? '', participantId, claimCommandId })
-              .then((outcome) => {
-                if (outcome.kind === 'done') {
-                  leaveAfterUnclaim(displayName);
-                  return;
-                }
-                if (outcome.kind === 'blocked') {
-                  Alert.alert(
-                    t('group.unclaimBlockedTitle'),
-                    blockedBody(displayName, outcome.operations),
-                    [{ text: t('action.close') }],
-                  );
-                  return;
-                }
-                if (outcome.kind === 'superseded') {
-                  Alert.alert(t('group.unclaimSupersededTitle'), t('group.unclaimSuperseded'), [
-                    { text: t('action.close'), onPress: () => participants.refresh() },
-                  ]);
-                  return;
-                }
-                Alert.alert(t('group.unclaimFailedTitle'), t('group.unclaimFailed'), [
-                  { text: t('action.close') },
-                ]);
-              });
-          },
-        },
-      ],
-    );
-  };
-  /* Lo que lo impide, descrito con lo que el actor ya ve: nunca identificadores. */
-  const blockedBody = (displayName: string, operations: readonly BlockingOperation[]) => {
-    const currency = currencyDefinition({
-      id: group?.currencyDefinitionId ?? '',
-      code: group?.currencyCode ?? '',
-      scale: group?.currencyScale ?? 2,
-    });
-    const lines = operations.map(
-      (one) =>
-        `· ${one.concept ?? t('group.unclaimBlockedTransfer')} · ${format.money(
-          money(BigInt(one.amountMinor), currency),
-        )} · ${format.date(one.effectiveDate, 'short')}`,
-    );
-    return lines.length === 0
-      ? t('group.unclaimBlockedBody', { name: displayName })
-      : `${t('group.unclaimBlockedBody', { name: displayName })}\n\n${t('group.unclaimBlockedList')}\n${lines.join('\n')}`;
-  };
-  /*
-   * Fuera del grupo, sin dejar esta pantalla con datos viejos: se vuelve a
-   * Grupos y, con la invitación en memoria, el enlace «llega» como uno pulsado
-   * y abre «Únete» → «¿Quién eres?» (o dice que caducó o se revocó).
-   */
-  const leaveAfterUnclaim = (displayName: string) => {
-    const token = redeemedInvitation(id ?? '');
-    Alert.alert(
-      t('group.unclaimDoneTitle'),
-      t(token === null ? 'group.unclaimDoneNoInvitation' : 'group.unclaimDone', {
-        name: displayName,
-      }),
-      [
-        {
-          text: t('action.close'),
-          onPress: () => {
-            router.back();
-            // El token a secas es una invitación válida para `readInvitation`.
-            if (token !== null) arriveInvitation(token);
-          },
-        },
-      ],
-    );
-  };
-
   /**
    * ELIMINAR, con la confirmación de Inicio y su misma disciplina.
    *
@@ -939,50 +855,6 @@ export default function GroupScreen() {
                           />
                         ) : null}
 
-                        {/*
-                         * LOS PAGOS REGISTRADOS (F09/ADR-007), delante de los gastos y
-                         * FUERA de los filtros: categoría, pagador e importe
-                         * hablan de un gasto, y un pago no tiene ninguna de las
-                         * tres cosas. Sólo los vigentes; un pago anulado
-                         * desaparece como un gasto anulado.
-                         */}
-                        {movements.payments !== null && movements.payments.length > 0 ? (
-                          <View style={styles.payments}>
-                            <ThemedText variant="caption" themeColor="textSecondary">
-                              {t('group.paymentsTitle')}
-                            </ThemedText>
-                            {movements.payments.map((transfer) => (
-                              <GroupPaymentRow
-                                key={transfer.operationId}
-                                payment={transfer}
-                                participants={participantNames}
-                                me={
-                                  movements.balances?.find((row) => row.isSelf)?.participantId ??
-                                  null
-                                }
-                                expanded={openRow === transfer.operationId}
-                                deleting={writer.pending === transfer.operationId}
-                                onToggle={() => {
-                                  LayoutAnimation.configureNext(
-                                    LayoutAnimation.Presets.easeInEaseOut,
-                                  );
-                                  setOpenRow((open) =>
-                                    open === transfer.operationId ? null : transfer.operationId,
-                                  );
-                                }}
-                                onDelete={() => {
-                                  askDeletePayment(transfer);
-                                }}
-                                currency={currencyDefinition({
-                                  id: group.currencyDefinitionId,
-                                  code: group.currencyCode,
-                                  scale: group.currencyScale,
-                                })}
-                              />
-                            ))}
-                          </View>
-                        ) : null}
-
                         {movements.operations === null ? (
                           movements.failed ? (
                             <ErrorState
@@ -993,7 +865,7 @@ export default function GroupScreen() {
                           ) : (
                             <LoadingState label={t('group.movementsLoading')} />
                           )
-                        ) : movements.operations.length === 0 ? (
+                        ) : timeline.length === 0 ? (
                           /*
                            * TRES ESTADOS Y NO DOS. «Este grupo no tiene
                            * movimientos» y «ninguno coincide con el filtro»
@@ -1017,52 +889,95 @@ export default function GroupScreen() {
                             />
                           )
                         ) : (
+                          /*
+                           * UNA SOLA CRONOLOGÍA (`mergeTimeline`): gastos y pagos
+                           * registrados («Saldado», F09/ADR-007) en el orden
+                           * elegido, por la fecha y la hora reales de cada
+                           * operación y con el desempate estable; nunca
+                           * agrupados por tipo. Los pagos siguen FUERA de los
+                           * filtros —categoría, pagador e importe hablan de un
+                           * gasto— y el anulado se lista con su marca.
+                           */
                           <View>
-                            {movements.operations.map((operation) => (
-                              <GroupMovementRow
-                                key={operation.operationId}
-                                operation={operation}
-                                categories={categoryIndex}
-                                participants={participantNames}
-                                expanded={openRow === operation.operationId}
-                                deleting={writer.pending === operation.operationId}
-                                onToggle={() => {
-                                  /* Suave y sin remontar la lista: lo único que
-                                   * cambia es el alto de una fila. */
-                                  LayoutAnimation.configureNext(
-                                    LayoutAnimation.Presets.easeInEaseOut,
-                                  );
-                                  setOpenRow((open) =>
-                                    open === operation.operationId ? null : operation.operationId,
-                                  );
-                                }}
-                                onEdit={() => {
-                                  /*
-                                   * LA MISMA VENTANA DEL ALTA, con la operación
-                                   * que corrige. No es otra pantalla ni otro
-                                   * formulario: lo que cambia es que llega
-                                   * precargada y que al guardar manda
-                                   * `expected_version_id`.
-                                   */
-                                  backdrop.show();
-                                  router.push({
-                                    pathname: '/group-expense',
-                                    params: {
-                                      groupId: group.scopeId,
-                                      operationId: operation.operationId,
-                                    },
-                                  });
-                                }}
-                                onDelete={() => {
-                                  askDelete(operation);
-                                }}
-                                currency={currencyDefinition({
-                                  id: group.currencyDefinitionId,
-                                  code: group.currencyCode,
-                                  scale: group.currencyScale,
-                                })}
-                              />
-                            ))}
+                            {timeline.map((entry) => {
+                              return entry.kind === 'payment' ? (
+                                <GroupPaymentRow
+                                  key={entry.payment.operationId}
+                                  payment={entry.payment}
+                                  participants={participantNames}
+                                  me={
+                                    movements.balances?.find((row) => row.isSelf)?.participantId ??
+                                    null
+                                  }
+                                  expanded={openRow === entry.payment.operationId}
+                                  deleting={writer.pending === entry.payment.operationId}
+                                  onToggle={() => {
+                                    LayoutAnimation.configureNext(
+                                      LayoutAnimation.Presets.easeInEaseOut,
+                                    );
+                                    setOpenRow((open) =>
+                                      open === entry.payment.operationId
+                                        ? null
+                                        : entry.payment.operationId,
+                                    );
+                                  }}
+                                  onDelete={() => {
+                                    askDeletePayment(entry.payment);
+                                  }}
+                                  currency={currencyDefinition({
+                                    id: group.currencyDefinitionId,
+                                    code: group.currencyCode,
+                                    scale: group.currencyScale,
+                                  })}
+                                />
+                              ) : (
+                                <GroupMovementRow
+                                  key={entry.operation.operationId}
+                                  operation={entry.operation}
+                                  categories={categoryIndex}
+                                  participants={participantNames}
+                                  expanded={openRow === entry.operation.operationId}
+                                  deleting={writer.pending === entry.operation.operationId}
+                                  onToggle={() => {
+                                    /* Suave y sin remontar la lista: lo único que
+                                     * cambia es el alto de una fila. */
+                                    LayoutAnimation.configureNext(
+                                      LayoutAnimation.Presets.easeInEaseOut,
+                                    );
+                                    setOpenRow((open) =>
+                                      open === entry.operation.operationId
+                                        ? null
+                                        : entry.operation.operationId,
+                                    );
+                                  }}
+                                  onEdit={() => {
+                                    /*
+                                     * LA MISMA VENTANA DEL ALTA, con la operación
+                                     * que corrige. No es otra pantalla ni otro
+                                     * formulario: lo que cambia es que llega
+                                     * precargada y que al guardar manda
+                                     * `expected_version_id`.
+                                     */
+                                    backdrop.show();
+                                    router.push({
+                                      pathname: '/group-expense',
+                                      params: {
+                                        groupId: group.scopeId,
+                                        operationId: entry.operation.operationId,
+                                      },
+                                    });
+                                  }}
+                                  onDelete={() => {
+                                    askDelete(entry.operation);
+                                  }}
+                                  currency={currencyDefinition({
+                                    id: group.currencyDefinitionId,
+                                    code: group.currencyCode,
+                                    scale: group.currencyScale,
+                                  })}
+                                />
+                              );
+                            })}
                           </View>
                         )}
                       </>
@@ -1143,18 +1058,11 @@ export default function GroupScreen() {
                                         destructive: true,
                                       },
                                     ]
-                                  : balance.isSelf &&
-                                      typeof claimOf.get(balance.participantId) === 'string' &&
-                                      !unclaiming.busy
-                                    ? [
-                                        {
-                                          id: 'unclaim',
-                                          title: t('group.unclaim'),
-                                          icon: Symbols.undo,
-                                          destructive: true,
-                                        },
-                                      ]
-                                    : undefined
+                                  : /*
+                                     * La fila PROPIA no tiene menu: la identidad en el grupo es
+                                     * permanente (F10/ADR-002) y salir es «Salir del grupo».
+                                     */
+                                    undefined
                               }
                               onMenuSelect={(action) => {
                                 if (action === 'associate') {
@@ -1166,12 +1074,6 @@ export default function GroupScreen() {
                                     balance.displayName,
                                     historyOf.get(balance.participantId) === true,
                                   );
-                                }
-                                if (action === 'unclaim') {
-                                  const claim = claimOf.get(balance.participantId);
-                                  if (typeof claim === 'string') {
-                                    askUnclaim(balance.participantId, balance.displayName, claim);
-                                  }
                                 }
                               }}
                             />
@@ -1269,11 +1171,6 @@ const styles = StyleSheet.create({
   body: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
-  },
-  /** Los pagos registrados, con su rótulo, delante de los gastos. */
-  payments: {
-    gap: Spacing.xs,
-    paddingBottom: Spacing.sm,
   },
   /** Los dos círculos, pegados a la izquierda. */
   controls: {

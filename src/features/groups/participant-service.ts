@@ -5,6 +5,7 @@ import type { ParticipantPresence } from './participant-presence';
 
 export {
   activeByDefault,
+  current,
   eligibleOn,
   listed,
   type ParticipantPresence,
@@ -77,14 +78,6 @@ export type GroupParticipant = {
    */
   readonly hasHistory: boolean | null;
   /**
-   * La reclamación que creó el vínculo PROPIO, o `null`: sólo sobre quien mira
-   * (`sec.my_claim_command_id`), nunca sobre los demás. Que exista dice que
-   * «procede de una reclamación rectificable» (F09/ADR-006 §1) y es lo que se cita
-   * al rectificar; NO dice que pueda rectificarse ahora, que lo decide el
-   * servidor bajo el cerrojo. `null` también en una creación local.
-   */
-  readonly claimCommandId: string | null;
-  /**
    * Si esta identidad se ASOCIÓ a otra del grupo (F09/ADR-009): el destino. No se
    * lista ni se elige; su nombre es el del destino en todas partes, y sus
    * hechos siguen nombrándola por su id. `null` si es una identidad vigente.
@@ -107,7 +100,7 @@ export async function fetchGroupParticipants(
   const { data, error } = await supabase
     .from('group_participant')
     .select(
-      'participant_id,display_name,created_at,is_self,is_active,eligible_until,is_retired,is_linked,has_history,claim_command_id,merged_into_participant_id',
+      'participant_id,display_name,created_at,is_self,is_active,eligible_until,is_retired,is_linked,has_history,merged_into_participant_id,is_departed',
     )
     .eq('scope_id', scopeId);
   if (error !== null) throw error;
@@ -124,11 +117,11 @@ export async function fetchGroupParticipants(
               isActive: row.is_active ?? false,
               eligibleUntil: (row.eligible_until as CalendarDate | null) ?? null,
               isRetired: row.is_retired ?? false,
+              isDeparted: row.is_departed ?? false,
             },
             isSelf: row.is_self ?? null,
             isLinked: row.is_linked ?? null,
             hasHistory: row.has_history ?? null,
-            claimCommandId: row.claim_command_id ?? null,
             mergedInto: row.merged_into_participant_id ?? null,
           },
         ],

@@ -47,19 +47,21 @@ export const esES = {
   'groups.whoClaim': 'Soy {name}',
   'groups.whoNew': 'Soy nuevo',
   'groups.claimAskTitle': '¿Eres {name}?',
-  'groups.claimAskBody': 'Sus gastos y deudas anteriores se vincularán a tu cuenta.',
+  'groups.claimAskBody':
+    'Sus gastos y deudas anteriores pasarán a tu cuenta. Mientras formes parte del grupo, este será tu participante: no podrás cambiarlo ni desvincularte.',
   'groups.claimBack': 'Volver',
   'groups.claimYes': 'Sí, soy {name}',
   'groups.whoNewHint': 'Entra en el grupo con tu nombre, sin gastos anteriores',
-  'groups.whoNone': 'No hay nadie sin cuenta que reclamar. Entra como nuevo.',
+  'groups.whoNone': 'No hay nadie sin cuenta que reclamar.',
   'groups.whoNewName': 'Tu nombre',
   'groups.whoNewConfirm': 'Entrar con este nombre',
   'groups.joinBack': 'Volver al enlace',
   'groups.joinOffline': 'No se ha podido entrar. Revisa la conexión e inténtalo de nuevo.',
   'groups.joinClaimed': 'Ese nombre acaba de ser reclamado por otra cuenta. Elige otra opción.',
-  'groups.joinRejoin': 'Ya estuviste en este grupo. Vuelve a entrar con tu identidad de entonces.',
+  'groups.joinRejoin':
+    'Ya estuviste en este grupo. Vuelve con tu identidad de entonces o elige a alguien sin cuenta.',
   'groups.whoRejoinHint':
-    'Ya estuviste en este grupo. Vuelves con tu identidad de entonces: tus gastos y pagos anteriores siguen siendo tuyos, y desde hoy vuelves a contar en los nuevos.',
+    'Ya estuviste en este grupo. Vuelve con tu identidad de entonces o elige a alguien sin cuenta; lo anterior sigue siendo tuyo.',
   'groups.whoRejoin': 'Volver a entrar como {name}',
   'groups.joinUnusable': 'La invitación ya no se puede usar.',
   'groups.joinRejected': 'No se ha podido entrar en el grupo.',
@@ -160,24 +162,6 @@ export const esES = {
     'Ese participante ya tiene cuenta, ya está asociado o está retirado. Vuelve a mirar la lista.',
   'group.associateFailedTitle': 'No se ha podido asociar',
   'group.associateFailed': 'No se ha asociado nada. Inténtalo de nuevo.',
-  'group.unclaim': 'Me equivoqué de participante',
-  'group.unclaimTitle': '¿No eres {name}?',
-  'group.unclaimBody':
-    'Se deshará tu reclamación: {name} volverá a estar sin cuenta y tú dejarás de ver este grupo. Nada de lo registrado cambia, y lo que ya viste no se puede des-ver.\n\nDespués podrás elegir quién eres con la invitación.',
-  'group.unclaimConfirm': 'Sí, me equivoqué',
-  'group.unclaimBlockedTitle': 'No se puede deshacer',
-  'group.unclaimBlockedBody': 'Hay dinero registrado en tu Personal como {name} en este grupo.',
-  'group.unclaimBlockedList': 'Lo impiden:',
-  'group.unclaimBlockedTransfer': 'Transferencia',
-  'group.unclaimSupersededTitle': 'La reclamación ya no es la actual',
-  'group.unclaimSuperseded':
-    'Tu vínculo con este participante cambió mientras tanto. Vuelve a abrir el grupo.',
-  'group.unclaimFailedTitle': 'No se ha podido deshacer',
-  'group.unclaimFailed': 'No se ha deshecho nada. Revisa la conexión e inténtalo de nuevo.',
-  'group.unclaimDoneTitle': 'Reclamación deshecha',
-  'group.unclaimDone': '{name} vuelve a estar sin cuenta. Elige quién eres con la invitación.',
-  'group.unclaimDoneNoInvitation':
-    '{name} vuelve a estar sin cuenta. Pide una invitación nueva al grupo para volver a entrar.',
   'group.splitInactiveHint': 'Salió del grupo antes de esta fecha',
   'group.settleAction': 'Saldado',
   'group.settleActionHint': 'Dar por resueltos los pendientes de {name} y retirarlo de las listas',
@@ -260,7 +244,6 @@ export const esES = {
     'Ese pago no se sostiene sobre lo que hay pendiente ahora mismo. Revisa la propuesta nueva.',
   'group.payOffline':
     'Sin respuesta del servidor. Vuelve a pulsar «Saldado»: se reintenta con la misma clave y no se registra dos veces.',
-  'group.paymentsTitle': 'Pagos registrados',
   'group.paymentKind': 'Pago',
   'group.paymentTitle': '{from} → {to}',
   'group.paymentDeclaredBy': 'Declarado por',
@@ -423,6 +406,7 @@ export const esES = {
   'auth.passwordPlaceholder': 'Tu contraseña',
   'auth.signInAction': 'Entrar',
   'auth.signUpAction': 'Crear cuenta',
+  'auth.passwordMinimum': 'Mínimo {count} caracteres',
   'auth.toSignUp': '¿No tienes cuenta? Créala',
   'auth.toSignIn': '¿Ya tienes cuenta? Entra',
   'auth.working': 'Un momento…',
@@ -432,8 +416,15 @@ export const esES = {
   'auth.checkEmailBody': 'Te hemos enviado un enlace de confirmación a {email}.',
   'auth.checkEmailStep': 'Confírmalo y vuelve aquí para entrar con tu contraseña.',
   'auth.checkEmailBack': 'Volver a entrar',
+  'auth.guestCheckEmailStep':
+    'Confírmalo y vuelve a Nomey: tu cuenta quedará lista con todo lo que has hecho como invitado.',
 
   'auth.forgotAction': '¿Has olvidado tu contraseña?',
+  'auth.guestAction': 'Entrar como invitado',
+  'auth.guestNameTitle': '¿Cómo te llamas?',
+  'auth.guestNameBack': 'Volver',
+  'auth.guestSignUpTitle': 'Crea tu cuenta',
+  'auth.guestSignUpSubtitle': 'para disfrutar del Modo Personal',
   'auth.recoverTitle': 'Recuperar acceso',
   'auth.recoverSubtitle': 'Te enviamos un enlace para elegir una contraseña nueva.',
   'auth.recoverSend': 'Enviar enlace',
@@ -479,6 +470,13 @@ export const esES = {
     'Por seguridad, solicita un nuevo enlace para cambiar tu contraseña.',
   'authError.network': 'Sin conexión. Inténtalo de nuevo.',
   'authError.generic': 'Algo ha ido mal. Inténtalo de nuevo.',
+  'authError.guestUnavailable': 'Entrar como invitado no está disponible ahora mismo.',
+  'authError.guestEmailTaken':
+    'Ese email ya tiene cuenta. Para entrar con ella, cierra esta sesión de invitado primero.',
+  'authError.guestAlreadyConverted':
+    'Esta sesión ya es una cuenta con ese email. Cierra y abre Nomey para verla.',
+  'authError.guestSignInBlocked':
+    'Estás usando Nomey como invitado. Crea una cuenta para conservar tus grupos; para entrar con otra cuenta, cierra antes esta sesión.',
 
   'session.unavailableTitle': 'No hemos podido comprobar tu sesión',
   'session.unavailableBody': 'Puede ser cosa de la conexión. Inténtalo de nuevo.',
@@ -557,6 +555,8 @@ export const esES = {
   'account.signOutHint': 'Se cerrará la sesión en este dispositivo.',
   'account.signOutConfirmTitle': '¿Cerrar sesión?',
   'account.signOutConfirmBody': 'Podrás volver a entrar con tu cuenta cuando quieras.',
+  'account.guestSignOutConfirmBody':
+    'Una sesión de invitado no se puede recuperar: lo que hayas hecho en ella quedará sin nadie que pueda abrirlo. Si quieres conservarlo, crea una cuenta antes.',
   'account.signOutBusy': 'Cerrando sesión…',
   'account.forgetLocal': 'Cerrar sesión solo en este dispositivo',
   'account.forgetLocalHint':

@@ -307,11 +307,17 @@ describe('la selección del algoritmo', () => {
 });
 
 describe('la propuesta para la pantalla', () => {
-  const active: ParticipantPresence = { isActive: true, eligibleUntil: null, isRetired: false };
+  const active: ParticipantPresence = {
+    isActive: true,
+    eligibleUntil: null,
+    isRetired: false,
+    isDeparted: false,
+  };
   const gone: ParticipantPresence = {
     isActive: false,
     eligibleUntil: '2026-09-10',
     isRetired: false,
+    isDeparted: false,
   };
   const row = (participantId: string, netMinor: string) => ({ participantId, netMinor });
 

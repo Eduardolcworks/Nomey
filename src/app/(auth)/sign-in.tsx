@@ -1,8 +1,16 @@
-import { Link } from 'expo-router';
-import { useRef, useState } from 'react';
-import { StyleSheet, type TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
-import { AuthField, AuthScreen, missingFields, signIn, useAuthSubmit } from '@/features/auth';
+import {
+  AuthField,
+  AuthScreen,
+  missingFields,
+  SignInForm,
+  signIn,
+  signInAnonymously,
+  useAuthSubmit,
+} from '@/features/auth';
 import { useSession } from '@/features/session';
 import { useTranslation } from '@/lib/i18n';
 import { ActionButton, ErrorState, ThemedText } from '@/ui/components';
@@ -23,13 +31,21 @@ import { Spacing } from '@/ui/theme';
  */
 export default function SignInScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const { state: session, retry } = useSession();
   const { state, submit, clearError, running } = useAuthSubmit();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [incomplete, setIncomplete] = useState(false);
-  const passwordField = useRef<TextInput>(null);
+  /*
+   * THE GUEST'S NAME, asked before the anonymous session exists. A guest with
+   * no name could not create a group (the creator needs one) and would show
+   * up nameless to whoever it invites; so the grey link opens this one
+   * question, and the name travels with the sign-up as `user_metadata`.
+   */
+  const [naming, setNaming] = useState(false);
+  const [guestName, setGuestName] = useState('');
 
   /*
    * The session could not be resolved at startup.
@@ -65,6 +81,19 @@ export default function SignInScreen() {
     // No navigation on success. See the note above.
   }
 
+  /*
+   * «ENTRAR COMO INVITADO»: a real anonymous session, through the same
+   * service and the same event path as a password sign-in. No navigation
+   * here either: the public branch goes away, the tabs mount, and the tabs
+   * layout starts a guest on Grupos (`initialRouteName`). Nothing to select,
+   * nothing to explain, no screen in between.
+   */
+  async function onGuest() {
+    setIncomplete(false);
+    clearError();
+    await submit(() => signInAnonymously(guestName));
+  }
+
   const error =
     state.status === 'failed'
       ? t(state.messageKey)
@@ -74,13 +103,6 @@ export default function SignInScreen() {
 
   return (
     <AuthScreen>
-      <View style={styles.heading}>
-        <ThemedText variant="display">{t('auth.signInTitle')}</ThemedText>
-        <ThemedText variant="body" themeColor="textSecondary">
-          {t('auth.signInSubtitle')}
-        </ThemedText>
-      </View>
-
       {sessionUnavailable ? (
         <ErrorState
           title={t('session.unavailableTitle')}
@@ -89,97 +111,80 @@ export default function SignInScreen() {
         />
       ) : null}
 
-      <View style={styles.form}>
-        <AuthField
-          label={t('auth.email')}
-          placeholder={t('auth.emailPlaceholder')}
-          value={email}
-          onChangeText={setEmail}
-          editable={!running}
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="email"
-          keyboardType="email-address"
-          textContentType="emailAddress"
-          returnKeyType="next"
-          // Makes "next" mean something. Moving focus from the keyboard
-          // instead of tapping is also one fewer chance for the layout to
-          // shift under the user's finger.
-          onSubmitEditing={() => passwordField.current?.focus()}
-          submitBehavior="submit"
-        />
-        <AuthField
-          ref={passwordField}
-          label={t('auth.password')}
-          placeholder={t('auth.passwordPlaceholder')}
-          value={password}
-          onChangeText={setPassword}
-          editable={!running}
-          revealable
-          autoCapitalize="none"
-          autoComplete="current-password"
-          textContentType="password"
-          returnKeyType="go"
-          onSubmitEditing={() => void onSubmit()}
-        />
-      </View>
-
       {/*
-       * The message is a live region so a screen reader announces a failed
-       * attempt, which otherwise happens silently. It is text, never a colour
-       * on its own.
+       * The form is presentation only (`SignInForm`): what "Entrar" means is
+       * decided here, against the real Auth. The grey guest link is the real
+       * door (F05: Anonymous Auth) and opens the name step below. Providers
+       * (Apple, Google) are F8.B: no button and no slot until then.
        */}
-      {error === undefined ? null : (
-        <ThemedText
-          variant="bodySmall"
-          themeColor="negative"
-          accessibilityLiveRegion="polite"
-          accessibilityRole="alert">
-          {error}
-        </ThemedText>
+      {naming ? (
+        <>
+          <View style={styles.heading}>
+            <ThemedText variant="display">{t('auth.guestNameTitle')}</ThemedText>
+          </View>
+          <AuthField
+            label={t('auth.name')}
+            placeholder={t('auth.namePlaceholder')}
+            value={guestName}
+            onChangeText={setGuestName}
+            editable={!running}
+            autoFocus
+            autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
+            returnKeyType="go"
+            onSubmitEditing={() => void onGuest()}
+          />
+          {state.status === 'failed' ? (
+            <ThemedText
+              variant="bodySmall"
+              themeColor="negative"
+              accessibilityLiveRegion="polite"
+              accessibilityRole="alert">
+              {t(state.messageKey)}
+            </ThemedText>
+          ) : null}
+          <ActionButton
+            label={running ? t('auth.working') : t('auth.guestAction')}
+            onPress={() => void onGuest()}
+            tone="primary"
+            disabled={running}
+            busy={running}
+          />
+          <ThemedText
+            variant="bodySmall"
+            themeColor="textTertiary"
+            accessibilityRole="link"
+            onPress={() => {
+              clearError();
+              setNaming(false);
+            }}
+            style={styles.back}>
+            {t('auth.guestNameBack')}
+          </ThemedText>
+        </>
+      ) : (
+        <SignInForm
+          email={email}
+          password={password}
+          onEmailChange={setEmail}
+          onPasswordChange={setPassword}
+          onSubmit={() => void onSubmit()}
+          busy={running}
+          error={error}
+          onCreateAccount={() => router.push('/(auth)/sign-up')}
+          onForgotPassword={() => router.push('/(auth)/forgot-password')}
+          onGuest={() => {
+            clearError();
+            setNaming(true);
+          }}
+        />
       )}
-
-      <ActionButton
-        label={running ? t('auth.working') : t('auth.signInAction')}
-        onPress={() => void onSubmit()}
-        tone="primary"
-        disabled={running}
-        busy={running}
-      />
-
-      <Link href="/(auth)/sign-up" asChild>
-        <ThemedText
-          variant="bodySmall"
-          themeColor="accent"
-          accessibilityRole="link"
-          style={styles.switch}>
-          {t('auth.toSignUp')}
-        </ThemedText>
-      </Link>
-
-      {/*
-       * Below "create an account", and quieter than both.
-       *
-       * Recovering access is the rarest of the three things this screen can
-       * lead to, and the only one that starts from a problem. It gets the
-       * tertiary colour rather than the accent so it reads as a way out
-       * rather than as a third thing to consider.
-       */}
-      <Link href="/(auth)/forgot-password" asChild>
-        <ThemedText
-          variant="bodySmall"
-          themeColor="textTertiary"
-          accessibilityRole="link"
-          style={styles.switch}>
-          {t('auth.forgotAction')}
-        </ThemedText>
-      </Link>
     </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
   heading: { gap: Spacing.xs },
-  form: { gap: Spacing.md },
-  switch: { textAlign: 'center', paddingVertical: Spacing.sm },
+  back: { textAlign: 'center', paddingVertical: Spacing.sm },
 });

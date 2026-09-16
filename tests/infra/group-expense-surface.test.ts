@@ -148,7 +148,7 @@ describe('el pagador no se adivina', () => {
     // sólo sobre el actor (`sec.is_my_participant`), y eso es lo que se lee.
     expect(code(PARTICIPANTS)).not.toContain('participant_user_link');
     expect(code(PARTICIPANTS)).toContain(
-      "'participant_id,display_name,created_at,is_self,is_active,eligible_until,is_retired,is_linked,has_history,claim_command_id,merged_into_participant_id'",
+      "'participant_id,display_name,created_at,is_self,is_active,eligible_until,is_retired,is_linked,has_history,merged_into_participant_id,is_departed'",
     );
     expect(code(PARTICIPANTS)).toContain('isSelf: row.is_self ?? null,');
     expect(code(FORM)).toContain('const payerId = draft.payerId ?? selfParticipantId;');

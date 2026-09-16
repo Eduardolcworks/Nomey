@@ -34,6 +34,18 @@ const authPort: AuthPort = {
     }),
   startAutoRefresh: () => supabase.auth.startAutoRefresh(),
   stopAutoRefresh: () => supabase.auth.stopAutoRefresh(),
+  // The server's user, not the stored copy: `GET /user`. Read-only.
+  fetchUser: async () => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error !== null) throw error;
+    return data.user;
+  },
+  // The refreshed session reaches the app through `onAuthStateChange`
+  // (`TOKEN_REFRESHED`), never through this return value.
+  refreshSession: async () => {
+    const { error } = await supabase.auth.refreshSession();
+    if (error !== null) throw error;
+  },
 };
 
 const appStatePort: AppStatePort = {

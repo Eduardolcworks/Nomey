@@ -4,7 +4,7 @@
 --
 -- Migraciones 20260912150000, 20260912170000 (pagos y anulacion tambien
 -- toman el rango 1) y 20260915120000 (asociar y crear grupo). No prueba carreras (eso lo hacen, con dos sesiones
--- reales, scripts/unclaim-race-evidence.sh, group-payment-race-evidence.sh y
+-- reales, scripts/identity-lock-race-evidence.sh, group-payment-race-evidence.sh y
 -- departed-obligation-race-evidence.sh): prueba que las funciones VIVAS
 -- siguen el orden del protocolo, leyendo sus cuerpos del catalogo, para que una
 -- recreacion posterior —F11 toca los dos writers— no lo pierda en silencio.
@@ -60,9 +60,6 @@ begin
     ('api.settle_participant'),
     ('api.leave_group'),
     ('api.redeem_invitation'),
-    -- F10/ADR-001 (20260916120000): la baja vive en sec.unlink_instance; el
-    -- wrapper api.unclaim_participant delega en el y no toma nada por si mismo.
-    ('sec.unlink_instance'),
     ('api.annul_operation'),
     ('api.record_debt_settlement'),
     ('api.record_group_payment'),
@@ -85,7 +82,7 @@ begin
     perform pg_temp.antes(r.name, 'sec.lock_participant_claims(', 'sec.lock_scopes(');
     perform pg_temp.antes(r.name, 'sec.lock_participant_claims(', 'sec.lock_and_cas(');
   end loop;
-  raise notice 'OK · B · doce funciones toman el cerrojo antes de leer o cambiar identidad, y antes de las filas';
+  raise notice 'OK · B · once funciones toman el cerrojo antes de leer o cambiar identidad, y antes de las filas';
 
   -- C · la clave de idempotencia va ANTES del cerrojo (0 < 1), donde la hay
   --     por insercion: los writers (begin_command) y el provisioner
@@ -98,7 +95,6 @@ begin
   perform pg_temp.antes('api.annul_operation',               'sec.begin_command(',     'sec.lock_participant_claims(');
   perform pg_temp.antes('api.leave_group',                   'core.provisioning_command', 'sec.lock_participant_claims(');
   perform pg_temp.antes('api.redeem_invitation',             'core.provisioning_command', 'sec.lock_participant_claims(');
-  perform pg_temp.antes('sec.unlink_instance',                'core.provisioning_command', 'sec.lock_participant_claims(');
   perform pg_temp.antes('api.associate_participant',          'core.provisioning_command', 'sec.lock_participant_claims(');
   perform pg_temp.antes('api.create_group',                   'core.provisioning_command', 'sec.lock_participant_claims(');
   raise notice 'OK · C · la clave se reclama antes del cerrojo';
@@ -124,18 +120,18 @@ begin
   raise notice 'OK · E · % funciones resuelven un Personal por vinculo, todas bajo el cerrojo', v_n;
 
   -- F · el aislamiento del provisioner se conserva: reclamar y salir toman
-  --     SOLO el cerrojo (rectificar tambien); ninguna fila de ambito (E6 de group-provisioning: el
+  --     SOLO el cerrojo; ninguna fila de ambito (E6 de group-provisioning: el
   --     provisioner no ve grupos de los que el actor no es miembro).
-  for r in select name, body from fn where name in ('api.redeem_invitation', 'api.leave_group', 'api.unclaim_participant', 'sec.unlink_instance', 'api.unlink_participant', 'api.associate_participant', 'api.create_group') loop
+  for r in select name, body from fn where name in ('api.redeem_invitation', 'api.leave_group', 'api.associate_participant', 'api.create_group') loop
     if r.body like '%sec.lock_scopes(%' then
       raise exception 'F: % toma filas de ambito como provisioner', r.name;
     end if;
   end loop;
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'api' and p.proname in ('redeem_invitation', 'leave_group', 'unclaim_participant')
+   where n.nspname = 'api' and p.proname in ('redeem_invitation', 'leave_group')
      and pg_get_userbyid(p.proowner) = 'nomey_provisioner';
-  if v_n <> 3 then raise exception 'F: reclamar, rectificar y salir ya no son del provisioner'; end if;
-  raise notice 'OK · F · reclamar, rectificar y salir: solo el cerrojo, y siguen siendo del provisioner';
+  if v_n <> 2 then raise exception 'F: reclamar y salir ya no son del provisioner'; end if;
+  raise notice 'OK · F · reclamar y salir: solo el cerrojo, y siguen siendo del provisioner';
 
   -- G · propietario y permisos conservados tras la recreacion.
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace

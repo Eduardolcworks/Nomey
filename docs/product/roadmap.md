@@ -688,9 +688,9 @@ perder nada, prueba obligatoria, test de reclamación no autorizada— estaban
 **cumplidos antes de abrirla**; la reconciliación punto por punto está en
 [`phase-10-opening.md`](../architecture/phase-10-opening.md).
 
-**Alcance.** Auto-desvinculación de cualquier instancia propia de vínculo ·
-identidad y procedencia de cada instancia de vínculo, con historial
-reconstruible · cesión consentida de identidad entre dos cuentas del mismo
+**Alcance.** Identidad permanente en el grupo (ningún vínculo se deshace; salir
+y volver son F9) · identidad y procedencia de cada instancia de vínculo, con
+historial reconstruible · cesión consentida de identidad entre dos cuentas del mismo
 grupo, atómica y con prueba específica, o su aplazamiento declarado · fusión
 de dos participantes sin cuenta, decidida sobre su matriz económica · las
 disputas de identidad sin consentimiento declaradas como no resolubles con el
@@ -704,52 +704,56 @@ residual general (F12).
 **Principio.** _Ninguna cuenta adjudica unilateralmente la identidad de otra
 cuenta._ La RLS vigente ya lo impone; F10 lo declara invariante y lo guarda.
 
-**Dependencias.** F9 · ~~`F10/ADR-001` aceptado antes de A2~~ **(cumplida el 2026-09-14)** · `F10/ADR-002`
-aceptado antes de B1.
+**Dependencias.** F9 · ~~`F10/ADR-001` aceptado antes de A2~~ **(cumplida el 2026-09-14)** · `F10/ADR-004`
+aceptado antes de B1 (el `F10/ADR-003` que se anticipaba para B0 lo tomó el
+ciclo de vida del vínculo, F10/ADR-003, en A3).
 
 #### Bloques
 
-| Sub-bloque | Qué es                                                                                  | Estado                                                                       |
-| ---------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| **F10.A0** | Apertura: reconciliación F9/F10, criterios nuevos, mediciones previas, deuda documental | **Cerrado**                                                                  |
-| **F10.A1** | `F10/ADR-001`: principio de no adjudicación y ciclo de vida del vínculo propio          | **Cerrado**                                                                  |
-| **F10.A2** | Backend de A1: instancia y procedencia del vínculo, desvinculación, guardas, carreras   | **Implementado**, pendiente de revisión y merge (se cierra al mergear la PR) |
-| **F10.A3** | Cliente de A1                                                                           | Pendiente                                                                    |
-| **F10.B0** | `F10/ADR-002`: cesión consentida (`identity_handover`) y fusión fantasma ↔ fantasma     | Pendiente                                                                    |
-| **F10.B1** | Backend de lo que B0 apruebe                                                            | Pendiente                                                                    |
-| **F10.B2** | Cliente de B0                                                                           | Pendiente                                                                    |
-| **F10.C0** | Cierre: regresión, criterios, documentación, `PROJECT_STATE` y handoff                  | Pendiente                                                                    |
+| Sub-bloque | Qué es                                                                                                                                                                                                                                                                                                                          | Estado                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **F10.A0** | Apertura: reconciliación F9/F10, criterios nuevos, mediciones previas, deuda documental                                                                                                                                                                                                                                         | **Cerrado**                                                                 |
+| **F10.A1** | `F10/ADR-001`: principio de no adjudicación y ciclo de vida del vínculo propio                                                                                                                                                                                                                                                  | **Cerrado**                                                                 |
+| **F10.A2** | Backend de A1: instancia y procedencia del vínculo, desvinculación, guardas, carreras                                                                                                                                                                                                                                           | **Cerrado**                                                                 |
+| **F10.A3** | `F10/ADR-002` (identidad permanente) y `F10/ADR-003` (vínculo activo/histórico: salir termina la identidad; volver como X o como un sin cuenta), retirada de toda baja, confirmación al reclamar, cronología única de Movimientos, **modo Invitado real** (`F05/ADR-003`: sesión anónima de Auth, conversión conservando el id) | **Cerrado** (2026-09-16, validación final y aprobación visual en el iPhone) |
+| **F10.B0** | `F10/ADR-004`: cesión consentida (`identity_handover`) y fusión fantasma ↔ fantasma                                                                                                                                                                                                                                             | **Siguiente**                                                               |
+| **F10.B1** | Backend de lo que B0 apruebe                                                                                                                                                                                                                                                                                                    | Pendiente                                                                   |
+| **F10.B2** | Cliente de B0                                                                                                                                                                                                                                                                                                                   | Pendiente                                                                   |
+| **F10.C0** | Cierre: regresión, criterios, documentación, `PROJECT_STATE` y handoff                                                                                                                                                                                                                                                          | Pendiente                                                                   |
 
 **Cierre.** Sustituye a los cuatro criterios originales, cumplidos por F9.
 
-1. Una cuenta puede dejar una instancia propia de vínculo cuando no existe
-   caja vigente ni ninguna atribución económica vigente generada durante esa
-   instancia cuya desaparición del vínculo permita a la cuenta desprenderse de
-   deuda o consumo propios. La historia económica anterior al inicio de la
-   instancia no bloquea. El comportamiento se mide para `create`, `new` y
-   `claim`, incluyendo correcciones y anulaciones; en particular, el escape
-   «genero obligación → desvinculo → vuelvo como nuevo» **falla**, y «reclamo
-   por error una identidad que ya tenía deuda» **sigue siendo rectificable** si
-   durante el vínculo no se generó atribución bloqueante.
+1. **La identidad en el grupo es permanente** (F10/ADR-002): una vez una
+   cuenta se vincula a un participante —creando el grupo, entrando como nuevo o
+   reclamando— no existe ninguna acción que deshaga el vínculo, ni para el
+   titular ni para nadie; ni `unclaim`, ni `unlink`, ni una vuelta a «sin
+   cuenta». Reclamar pide una confirmación que lo dice. Medido en catálogo
+   (ninguna función de baja), en la frontera HTTP (las antiguas responden
+   «no existe») y en el cliente (ninguna acción sobre la fila propia).
 2. Ninguna función de `api` ni ninguna política permite alterar el vínculo o
    la membresía de otra cuenta: una guarda de catálogo lo comprueba y un
    intento por HTTP con JWT real recibe rechazo.
-3. Ninguna desvinculación deja caja huérfana ni operaciones inanulables: con
-   caja vigente se rehúsa nombrando las operaciones; tras corregir o anular, se
-   permite.
-4. Dejar la identidad y salir del grupo son dos comandos con efectos distintos
-   y documentados —presencia, hecho, aviso, condición de deuda—, y ninguno toca
-   a otra cuenta.
-5. Cada instancia de vínculo tiene identidad propia (`link_id`) y procedencia
-   separada (`origin_command_id`, nula si no es demostrable); toda baja
-   referencia la instancia exacta, y la secuencia de identidades de una cuenta
-   en un grupo es reconstruible con actor, instante y procedencia.
+3. Dejar de participar es **salir del grupo**, con la economía exacta de F9
+   —neto cero, novación de pares vivos, presencia cerrada, membresía borrada—
+   y, desde F10/ADR-003, con el **vínculo conservado y terminado**: quien
+   salió es historia —fuera de Saldos, del recuento y de las listas; con su
+   nombre y su atribución intactos; ni reclamable ni retirable—, no un
+   participante sin cuenta. Al volver con invitación elige **volver como
+   entonces** (el mismo vínculo se reactiva) **o** un participante sin cuenta
+   disponible; nunca «nuevo». Medido en `link-lifecycle.sql`.
+4. Un participante vinculado no es reclamable ni retirable por nadie, dentro
+   o fuera del grupo; el participante reclamado por error sigue siendo de
+   quien lo reclamó.
+5. Cada instancia de vínculo tiene identidad propia (`link_id`, interna) y
+   procedencia separada (`origin_command_id`, nula si no es demostrable), y al
+   nacer deja bajo el cerrojo su línea base como auditoría insert-only; nada
+   de eso se publica al cliente ni se usa como autoridad de tiempo.
 6. La cesión A → B, si entra, es atómica, consentida por A, aceptada por B con
    prueba de un solo uso y caducidad, sin ventana en la que un tercero pueda
    reclamar la identidad (carrera medida con dos sesiones), sin correlación
    global de cuentas y sin reescritura; si no entra, el límite está declarado
-   en `F10/ADR-002` y aquí.
-7. La fusión fantasma ↔ fantasma está decidida en `F10/ADR-002` sobre su matriz
+   en `F10/ADR-004` y aquí.
+7. La fusión fantasma ↔ fantasma está decidida en `F10/ADR-004` sobre su matriz
    económica medida —obligaciones entre ambos extinguidas, obligaciones hacia
    terceros consolidadas, terceros con neto intacto, reversibilidad— y, si se
    implementa, la confirmación enseña qué se extingue y los casos son checks.
@@ -770,7 +774,7 @@ aceptado antes de B1.
 
 - ~~El ADR de invitación y reclamación debe estar aceptado antes de
   implementar.~~ **Cumplida por F09/ADR-004.**
-- ~~**`F10/ADR-001` aceptado antes de A2**~~ **Cumplida el 2026-09-14: [F10/ADR-001](../adr/F10/ADR-001-link-instance-lifecycle.md) Aceptado.** **`F10/ADR-002` aceptado antes de B1.**
+- ~~**`F10/ADR-001` aceptado antes de A2**~~ **Cumplida el 2026-09-14: [F10/ADR-001](../adr/F10/ADR-001-link-instance-lifecycle.md) Aceptado.** **`F10/ADR-004` aceptado antes de B1.**
 
 **Consecuencia registrada, sin tratamiento en esta fase.** Una invitación
 multiuso de hasta 30 días es, de facto, la única llave de recuperación de un
@@ -1170,7 +1174,7 @@ Ordenadas por riesgo.
 | 3.C  | Identidad de la definición monetaria · esquema expuesto · grants · membresía · idempotencia                                  |
 | 8    | ~~ADR de código nativo~~ · **cumplida: [F08/ADR-001](../adr/F08/ADR-001-native-code-model.md)**                              |
 | 9    | Qué significa «notificación»: en la app, o push                                                                              |
-| 10   | ~~ADR de invitación y reclamación~~ · **cumplida: F09/ADR-004**. Ahora: `F10/ADR-001` antes de A2, `F10/ADR-002` antes de B1 |
+| 10   | ~~ADR de invitación y reclamación~~ · **cumplida: F09/ADR-004**. Ahora: `F10/ADR-001` antes de A2, `F10/ADR-004` antes de B1 |
 | 11   | ~~Proveedor de tipos de cambio con histórico~~ · **cumplida: [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md)**       |
 | 15   | Presentación de agregaciones entre definiciones monetarias                                                                   |
 | 16   | ~~ADR de código nativo aceptado~~ · **cumplida: F08/ADR-001**                                                                |

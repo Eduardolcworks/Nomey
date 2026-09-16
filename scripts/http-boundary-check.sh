@@ -36,6 +36,13 @@ set -uo pipefail
 # la local; NOMEY_DB_CONTAINER / NOMEY_KONG_CONTAINER / NOMEY_API_URL para una
 # pila aislada. Las guardas reciben la misma pila que luego se usa.
 API="${NOMEY_API_URL:-http://127.0.0.1:54321}"
+# El buzon local (Mailpit, [local_smtp]): solo la seccion 14 lo lee, para
+# seguir el enlace de confirmacion que convierte a un invitado en cuenta.
+MAIL="${NOMEY_MAIL_URL:-http://127.0.0.1:54324}"
+# Los invitados de la seccion 14: sin correo hasta convertirse, asi que la
+# retirada los reconoce por id ademas de por correo.
+GUEST_UID=00000000-0000-4000-8000-000000000000
+GUEST2_UID=00000000-0000-4000-8000-000000000000
 DB_CONTAINER="${NOMEY_DB_CONTAINER:-supabase_db_Nomey}"
 KONG_CONTAINER="${NOMEY_KONG_CONTAINER:-supabase_kong_Nomey}"
 exigir_base_local "${DB_CONTAINER}" || exit 1
@@ -150,7 +157,7 @@ PASS='Nomey-http-check-2026!'
 
 borrar_usuarios() {
   "${DB[@]}" >/dev/null 2>&1 <<SQL
-delete from auth.users where email in ('${EMAIL_A}','${EMAIL_B}','${EMAIL_C}');
+delete from auth.users where email in ('${EMAIL_A}','${EMAIL_B}','${EMAIL_C}','nomey-http-guest@example.test') or id in ('${GUEST_UID}','${GUEST2_UID}');
 SQL
 }
 
@@ -212,17 +219,15 @@ retirar() {
   #
   # El orden importa: esto corre ANTES de `borrar_usuarios`, asi que las
   # subconsultas sobre `auth.users` todavia resuelven.
-  local ACTORES="select id from auth.users where email like 'nomey-http-%'"
-  local MIOS="select id from core.scope where id in ('${PA}','${PB}','${GX}','${GY}','${GZ}') or owner_user_id in (${ACTORES})"
+  local ACTORES="select id from auth.users where email like 'nomey-http-%' or id in ('${GUEST_UID}','${GUEST2_UID}')"
+  local MIOS="select id from core.scope where id in ('${PA}','${PB}','${GX}','${GY}','${GZ}','a0000000-0000-4000-8000-00000000ff04') or owner_user_id in (${ACTORES})"
 
   "${DB[@]}" -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 set constraints all deferred;
 delete from core.client_command where created_by in (${ACTORES});
--- F10/ADR-001 (20260916120000): el hecho de baja y sus avisos, antes que los
--- comandos y el ambito que referencian.
+-- Avisos del grupo, antes que el ambito que referencian.
 delete from core.group_notice where scope_id in (${MIOS});
-delete from core.participant_unlink where scope_id in (${MIOS});
 delete from core.split_participant where scope_id in (${MIOS});
 delete from core.split where scope_id in (${MIOS});
 delete from core.balance_observation where scope_id in (${MIOS});
@@ -241,9 +246,13 @@ delete from core.operation_version where created_by in (${ACTORES});
 delete from core.operation where created_by in (${ACTORES});
 delete from core.participant_period where participant_id in
   (select id from core.participant where scope_id in (${MIOS}));
+-- Invitaciones (seccion 14: un invitado invita), antes que su ambito.
+delete from core.group_invitation where scope_id in (${MIOS});
 delete from core.participant_user_link where scope_id in (${MIOS});
 delete from core.provisioning_command where created_by in (${ACTORES});
 delete from core.membership where scope_id in (${MIOS});
+-- El perfil del grupo que un invitado creo por HTTP (seccion 14).
+delete from core.group_profile where scope_id in (${MIOS});
 delete from core.participant where scope_id in (${MIOS});
 delete from core.scope where id in (${MIOS});
 -- SOLO las dos definiciones de este check. Desde la Fase 6.A el catalogo
@@ -284,9 +293,9 @@ insert into core.participant_user_link (participant_id, scope_id, user_id) value
 insert into core.participant_period (participant_id, valid_from, valid_until) values
   ('${XA}','2020-01-01',null), ('${XB}','2020-01-01',null),
   ('${YA}','2020-01-01',null), ('${YB}','2020-01-01',null);
--- GZ, para la seccion 13: dos instancias de vinculo bien formadas (F10/ADR-001
--- §1, §3) —S0 = el propio participante, linea base vacia, como las de un
--- create/new— sin origen: la siembra no pasa por ningun comando.
+-- GZ, para la seccion 13: dos vinculos bien formados (F10/ADR-001 §1, §3) —S0 =
+-- el propio participante, linea base vacia, como los de un create/new— sin
+-- origen: la siembra no pasa por ningun comando.
 insert into core.scope (id,kind,base_currency_definition_id) values ('${GZ}','group','${EUR}');
 insert into core.participant (id, scope_id, display_name) values ('${ZA}','${GZ}','A'), ('${ZB}','${GZ}','B');
 insert into core.membership (scope_id, user_id) values ('${GZ}','${ua}'), ('${GZ}','${ub}');
@@ -804,7 +813,7 @@ echo "== 9 · anatomia del movimiento, por HTTP =="
 # SIGUEN siendo legibles —el historico las necesita para mostrarse— pero no
 # usables, que es lo que comprueba 9.10.
 n=$(curl -s "${API}/rest/v1/category?select=id,message_key,icon,is_active,is_custom&order=ordinal" \
-      -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
+  -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
     | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);
 const act=a.filter(x=>x.is_active), ing=a.filter(x=>x.message_key.startsWith("category.income."));
 const iconos=a.every(x=>/^[a-z]+$/.test(x.icon));
@@ -928,7 +937,7 @@ e=$(estado_de "${r}"); CAT_MIA=$(printf '%s' "$(cuerpo_de "${r}")" | jget catego
   || fallo "create_custom_category devolvio ${e} $(cuerpo_de "${r}")"
 
 n=$(curl -s "${API}/rest/v1/category?select=id,label,icon,is_custom&id=eq.${CAT_MIA}" \
-      -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
+  -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
     | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);console.log(a.length===1&&a[0].is_custom===true&&a[0].label==="Gimnasio"&&a[0].icon==="leisure"?"ok":JSON.stringify(a))}catch{console.log("err")}})')
 [ "${n}" = "ok" ] && ok "A ve su categoria propia como is_custom" || fallo "la propia devolvio ${n}"
 
@@ -1005,7 +1014,7 @@ r=$(rpc record_personal_expense "${TOK_A}" \
   || fallo "el gasto con Otros devolvio $(estado_de "${r}") $(cuerpo_de "${r}")"
 
 e=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${API}/rest/v1/category" \
-      -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
+  -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
       -H 'Content-Type: application/json' \
       --data-binary '{"label":"Directa","icon":"tag"}')
 case "${e}" in
@@ -1353,129 +1362,188 @@ esac
 echo ""
 # ============================================================================
 echo ""
-echo "== 13 · dejar la instancia de vinculo, por HTTP y con JWT ajeno (F10/ADR-001) =="
-# Lo que solo la ruta real demuestra: que el link_id que el cliente cita es el
-# que leyo en SU fila de api.group_participant y ninguna otra, que citar la
-# instancia de otra cuenta con un JWT real responde LO MISMO que una
-# inexistente (§8), que el replay viaja como replay, que el rechazo por
-# atribucion entrega `details.operations` con el importe como TEXTO, y que
-# `identity_released` no llega al cliente vigente (§10).
-LINK_ZA=$("${DBQ[@]}" <<SQL 2>/dev/null
-select link_id from core.participant_user_link where participant_id = '${ZA}';
-SQL
-)
-LINK_ZA=$(tr -d '[:space:]' <<<"${LINK_ZA}")
-LINK_ZB=$("${DBQ[@]}" <<SQL 2>/dev/null
-select link_id from core.participant_user_link where participant_id = '${ZB}';
-SQL
-)
-LINK_ZB=$(tr -d '[:space:]' <<<"${LINK_ZB}")
-
-filas_gz() { # tok -> JSON de api.group_participant en GZ
-  curl -s "${API}/rest/v1/group_participant?scope_id=eq.${GZ}&select=participant_id,is_self,is_linked,link_id" \
-    -H "apikey: ${KEY}" -H "Authorization: Bearer $1"
-}
-# 13.1 · A ve su link_id en su fila y NUNCA el de B; B, lo simetrico.
-v=$(filas_gz "${TOK_A}" | node -e '
-let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
-  const a=JSON.parse(s), za=a.find(r=>r.participant_id===process.argv[1]), zb=a.find(r=>r.participant_id===process.argv[2]);
-  console.log(a.length===2 && za && za.is_self===true && za.link_id===process.argv[3] && zb && zb.is_self===false && zb.link_id===null ? "ok" : JSON.stringify(a));
-})' "${ZA}" "${ZB}" "${LINK_ZA}")
-[ "${v}" = "ok" ] && ok "A lee su propio link_id en api.group_participant y el de B no se publica" || fallo "group_participant para A: ${v}"
-
-# 13.2 · B, con JWT real, cita la instancia de A (con el participante de A, y con el
-#        suyo): en los dos casos la respuesta uniforme, y nada se escribe.
-comprobar_error "JWT ajeno, instancia y participante de A" unlink_participant "${TOK_B}" "{
+echo "== 13 · la identidad es permanente: la frontera no ofrece ninguna baja (F10/ADR-002) =="
+# Lo que solo la ruta real demuestra: que ni el contrato de F9 (`unclaim`) ni
+# el de F10.A2 (`unlink`) existen para PostgREST, y que la fila propia de
+# api.group_participant no publica la instancia (`link_id`) ni la procedencia
+# (`claim_command_id`): la identidad de un miembro no se cita para deshacerla.
+comprobar_error "unlink_participant no existe" unlink_participant "${TOK_B}" "{
   \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d1\",\"command_contract_version\":1,
-  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZA}\",\"link_id\":\"${LINK_ZA}\"}" \
-  LINK_SUPERSEDED 409
-comprobar_error "JWT ajeno, participante propio con la instancia de A" unlink_participant "${TOK_B}" "{
-  \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d2\",\"command_contract_version\":1,
-  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZB}\",\"link_id\":\"${LINK_ZA}\"}" \
-  LINK_SUPERSEDED 409
-n=$("${DBQ[@]}" <<SQL 2>/dev/null
-select (select count(*) from core.participant_user_link where scope_id = '${GZ}')
-     + (select count(*) from core.participant_unlink where scope_id = '${GZ}')
-     + (select count(*) from core.provisioning_command where command_type = 'participant.unlink' and created_by = '${UID_B}');
-SQL
-)
-[ "$(tr -d '[:space:]' <<<"${n}")" = "2" ] && ok "los dos rechazos no escribieron nada: ni hecho, ni clave, ni vinculo tocado" || fallo "tras los rechazos: $(tr -d '[:space:]' <<<"${n}")"
-
-# 13.3 · A deja su instancia con SU link_id; el replay devuelve lo mismo.
-r=$(rpc unlink_participant "${TOK_A}" "$(env_payload "{
+  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZB}\",\"link_id\":\"a2000000-0000-4000-8000-0000000000d2\"}" \
+  PGRST202 404
+comprobar_error "unclaim_participant no existe" unclaim_participant "${TOK_B}" "{
   \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d3\",\"command_contract_version\":1,
-  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZA}\",\"link_id\":\"${LINK_ZA}\"}")")
-e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
-UNLINK_ID=$(printf '%s' "${c}" | jget unlink_id)
-if [ "${e}" = "200" ] && [ "$(printf '%s' "${c}" | jget already_processed)" = "false" ] && [ -n "${UNLINK_ID}" ] \
-   && [ "$(printf '%s' "${c}" | jget link_id)" = "${LINK_ZA}" ]; then
-  ok "A dejo su instancia: 200, con el hecho y el link_id que cito"
-else
-  fallo "unlink_participant de A: ${e} ${c}"
-fi
-r=$(rpc unlink_participant "${TOK_A}" "$(env_payload "{
-  \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d3\",\"command_contract_version\":1,
-  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZA}\",\"link_id\":\"${LINK_ZA}\"}")")
-e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
-[ "${e}" = "200" ] && [ "$(printf '%s' "${c}" | jget already_processed)" = "true" ] && [ "$(printf '%s' "${c}" | jget unlink_id)" = "${UNLINK_ID}" ] \
-  && ok "el replay por HTTP devuelve el MISMO hecho, ya procesado" || fallo "replay: ${e} ${c}"
-# 13.4 · clave nueva contra la instancia terminada (§9): uniforme.
-comprobar_error "segunda baja con clave nueva" unlink_participant "${TOK_A}" "{
-  \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d4\",\"command_contract_version\":1,
-  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZA}\",\"link_id\":\"${LINK_ZA}\"}" \
-  LINK_SUPERSEDED 409
-
-# 13.5 · A ya no ve el grupo; B ve a ZA disponible y sin cuenta; el aviso existe en
-#        core y NO llega a la vista del cliente vigente.
-v=$(filas_gz "${TOK_A}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);console.log(Array.isArray(a)&&a.length===0?"ok":JSON.stringify(a))})')
-[ "${v}" = "ok" ] && ok "A ya no lee nada del grupo (sin membresia, la RLS no devuelve filas)" || fallo "group_participant para A tras la baja: ${v}"
-v=$(filas_gz "${TOK_B}" | node -e '
+  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZB}\",\"claim_command_id\":\"a2000000-0000-4000-8000-0000000000d4\"}" \
+  PGRST202 404
+v=$(curl -s "${API}/rest/v1/group_participant?scope_id=eq.${GZ}&select=*" -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_A}" \
+      | node -e '
 let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
-  const a=JSON.parse(s), za=a.find(r=>r.participant_id===process.argv[1]);
-  console.log(za && za.is_linked===false && za.link_id===null ? "ok" : JSON.stringify(a));
-})' "${ZA}")
-[ "${v}" = "ok" ] && ok "B ve al participante de A sin cuenta (disponible) y sin link_id" || fallo "group_participant para B: ${v}"
-n=$("${DBQ[@]}" <<SQL 2>/dev/null
-select count(*) from core.group_notice where scope_id = '${GZ}' and kind = 'identity_released' and recipient_user_id = '${UID_B}';
-SQL
-)
-[ "$(tr -d '[:space:]' <<<"${n}")" = "1" ] && ok "identity_released persistido en core para B" || fallo "avisos en core: $(tr -d '[:space:]' <<<"${n}")"
-v=$(curl -s "${API}/rest/v1/group_notice?scope_id=eq.${GZ}&select=kind" -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_B}" \
-  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);console.log(Array.isArray(a)&&a.length===0?"ok":JSON.stringify(a))})')
-[ "${v}" = "ok" ] && ok "y oculto a api.group_notice del cliente vigente (§10)" || fallo "group_notice para B: ${v}"
-
-# 13.6 · B registra un gasto que lo nombra y despues intenta dejar: el rechazo por
-#        atribucion viaja como 409 con details.operations, importe como TEXTO.
-r=$(rpc record_group_expense "${TOK_B}" "$(env_payload "{
-  \"client_operation_id\":\"a2000000-0000-4000-8000-0000000000d5\",\"command_contract_version\":1,
-  \"scope_id\":\"${GZ}\",\"currency_definition_id\":\"${EUR}\",\"total\":\"3000\",\"effective_date\":\"2026-02-10\",
-  \"concept\":\"Cena de GZ\",\"category_id\":\"${CAT_GASTO}\",\"payer_participant_id\":\"${ZB}\",
-  \"participants\":[\"${ZA}\",\"${ZB}\"],\"split_method\":{\"kind\":\"equal\"}}")")
-[ "$(estado_de "${r}")" = "200" ] && ok "B registro un gasto en GZ que nombra a ZA (fantasma) y a ZB" || fallo "gasto en GZ: ${r}"
-r=$(rpc unlink_participant "${TOK_B}" "$(env_payload "{
-  \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d6\",\"command_contract_version\":1,
-  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZB}\",\"link_id\":\"${LINK_ZB}\"}")")
-e=$(estado_de "${r}"); c=$(cuerpo_de "${r}")
-v=$(printf '%s' "${c}" | node -e '
-let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
-  try { const b=JSON.parse(s); const d=JSON.parse(b.details); const o=d.operations;
-    console.log(b.code==="UNLINK_BLOCKED_ATTRIBUTION" && Array.isArray(o) && o.length===1 && o[0].operation_class==="group_expense"
-      && o[0].amount==="3000" && typeof o[0].amount==="string" && o[0].concept==="Cena de GZ" && o[0].reason==="attribution" ? "ok" : s);
-  } catch (e) { console.log(s); }
+  const a=JSON.parse(s), mine=a.find(r=>r.is_self===true);
+  // F10/ADR-003: is_departed se publica (falso para dos identidades activas); ended_at y departure_id no salen.
+  console.log(a.length===2 && mine && a.every(r=>r.is_departed===false && !("link_id" in r) && !("claim_command_id" in r) && !("ended_at" in r) && !("departure_id" in r) && Object.keys(r).every(k=>!/user/.test(k))) ? "ok" : JSON.stringify(a));
 })')
-[ "${e}" = "409" ] && [ "${v}" = "ok" ] && ok "UNLINK_BLOCKED_ATTRIBUTION · 409 con details.operations: clase, concepto, importe como texto y motivo" || fallo "baja de B: ${e} ${c}"
+[ "${v}" = "ok" ] && ok "api.group_participant publica is_self e is_departed y nunca link_id, claim_command_id, ended_at, departure_id ni columna de usuario" || fallo "group_participant: ${v}"
 n=$("${DBQ[@]}" <<SQL 2>/dev/null
-select (select count(*) from core.participant_user_link where participant_id = '${ZB}')
-     + (select count(*) from core.participant_unlink where participant_id = '${ZB}');
+select count(*) from core.participant_user_link where scope_id = '${GZ}';
 SQL
 )
-[ "$(tr -d '[:space:]' <<<"${n}")" = "1" ] && ok "el rechazo no toco el vinculo de B ni dejo hecho" || fallo "tras el rechazo de B: $(tr -d '[:space:]' <<<"${n}")"
+[ "$(tr -d '[:space:]' <<<"${n}")" = "2" ] && ok "los dos vinculos de GZ siguen intactos" || fallo "vinculos en GZ: $(tr -d '[:space:]' <<<"${n}")"
 
-# 13.7 · el wrapper legado sigue vivo y rehusa lo que no es una reclamacion.
-comprobar_error "unclaim_participant sin reclamacion detras" unclaim_participant "${TOK_B}" "{
-  \"client_command_id\":\"a2000000-0000-4000-8000-0000000000d7\",\"command_contract_version\":1,
-  \"scope_id\":\"${GZ}\",\"participant_id\":\"${ZB}\",\"claim_command_id\":\"a2000000-0000-4000-8000-0000000000d8\"}" \
-  CLAIM_SUPERSEDED 409
+
+# ============================================================================
+echo ""
+echo "== 14 · el modo Invitado es una sesion anonima REAL (F05), y convertirla conserva el id =="
+# Lo que solo la ruta real demuestra: que GoTrue emite una sesion anonima con
+# `role: authenticated` e `is_anonymous: true`, que PostgREST, la RLS y el
+# writer la tratan como a cualquier actor (Personal interno, grupo,
+# invitacion, gasto), y que `PUT /user` convierte ESE usuario en cuenta —mismo
+# `auth.users.id` antes, durante y despues de confirmar el correo— sin mover
+# una sola fila. Y, como evidencia de por que la app FALLA CERRADO al entrar
+# en una cuenta existente desde un invitado: el password grant emite OTRO
+# `sub`, y lo del invitado se queda con el primero.
+EMAIL_G=nomey-http-guest@example.test
+GQ=a0000000-0000-4000-8000-00000000ff04
+GQ_YO=b0000000-0000-4000-8000-00000000aa04
+GQ_ANA=b0000000-0000-4000-8000-00000000bb04
+# La MXN del catalogo sembrado por migracion (la misma que la seccion 8): el
+# Personal del invitado y su grupo en la misma moneda, sin ambiguedad con la
+# EUR de este check.
+MXN=b500e177-a2ff-5a55-b0b6-868dc91a10f6
+
+RG=$(curl -s -X POST "${API}/auth/v1/signup" -H "apikey: ${KEY}" -H 'Content-Type: application/json' --data-binary '{}')
+GUEST_UID=$(printf '%s' "${RG}" | jget user.id)
+TOK_G=$(printf '%s' "${RG}" | jget access_token)
+RT_G=$(printf '%s' "${RG}" | jget refresh_token)
+if [ -z "${GUEST_UID}" ] || [ -z "${TOK_G}" ]; then
+  fallo "GoTrue no emitio sesion anonima (enable_anonymous_sign_ins): $(printf '%s' "${RG}" | head -c 200)"
+else
+  v=$(printf '%s' "${RG}" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+  const r=JSON.parse(s), p=JSON.parse(Buffer.from(r.access_token.split(".")[1],"base64").toString());
+  console.log(r.user.is_anonymous===true && p.is_anonymous===true && p.role==="authenticated" && p.sub===r.user.id && (r.user.email||"")==="" ? "ok" : JSON.stringify({u:r.user.is_anonymous,p:p.is_anonymous,role:p.role}));
+})')
+  [ "${v}" = "ok" ] && ok "sesion anonima real: is_anonymous en el usuario y en el JWT, role authenticated, sin email" || fallo "claims del invitado: ${v}"
+
+  # El Personal interno: el modelo economico lo necesita (caja de pagos) y el invitado no lo ve.
+  rr=$(rpc ensure_personal_scope "${TOK_G}" '{"payload":{"currency_code":"MXN"}}')
+  [ "$(estado_de "${rr}")" = "200" ] && ok "ensure_personal_scope como invitado: $(cuerpo_de "${rr}" | jget created)" || fallo "ensure_personal_scope como invitado: ${rr}"
+  # Un grupo REAL: crear, invitar, gastar, leer.
+  # La presencia del creador abre HOY (fecha del servidor, UTC): el gasto se fecha igual.
+  HOY_UTC=$(date -u +%F)
+  llamada "create_group como invitado" create_group "${TOK_G}" "{
+    \"client_command_id\":\"a1400000-0000-4000-8000-000000000001\",\"command_contract_version\":1,
+    \"client_group_id\":\"${GQ}\",\"display_name\":\"Invitados\",\"emoji\":\"GRP\",\"currency_definition_id\":\"${MXN}\",
+    \"creator_participant_id\":\"${GQ_YO}\",\"creator_display_name\":\"Yo\",
+    \"participants\":[{\"client_participant_id\":\"${GQ_ANA}\",\"display_name\":\"Ana\"}]}"
+  llamada "create_group_invitation como invitado" create_group_invitation "${TOK_G}" "{
+    \"client_command_id\":\"a1400000-0000-4000-8000-000000000002\",\"command_contract_version\":1,\"scope_id\":\"${GQ}\"}"
+  llamada "record_group_expense como invitado" record_group_expense "${TOK_G}" "{
+    \"client_operation_id\":\"a1400000-0000-4000-8000-000000000003\",\"command_contract_version\":1,
+    \"scope_id\":\"${GQ}\",\"currency_definition_id\":\"${MXN}\",\"total\":\"3000\",\"effective_date\":\"${HOY_UTC}\",
+    \"concept\":\"Cena\",\"category_id\":\"${CAT_GASTO}\",\"payer_participant_id\":\"${GQ_YO}\",
+    \"participants\":[\"${GQ_YO}\",\"${GQ_ANA}\"],\"split_method\":{\"kind\":\"equal\"}}"
+  v=$(curl -s "${API}/rest/v1/group_balance?scope_id=eq.${GQ}&select=display_name,net_position,is_self" -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_G}" \
+    | jarr 'a.length===2 && a.some(r=>r.is_self===true && r.net_position==="1500") ? "ok" : JSON.stringify(a)')
+  [ "${v}" = "ok" ] && ok "Saldos del grupo, leidos como invitado: dos filas, la propia a +1500" || fallo "group_balance como invitado: ${v}"
+
+  # La huella del actor ANTES de convertir: todo cuelga de GUEST_UID.
+  huella_guest() {
+    "${DBQ[@]}" <<SQL 2>/dev/null | tr -d '[:space:]'
+select 'memb='||(select count(*) from core.membership where user_id='${GUEST_UID}')
+    ||' links='||(select count(*) from core.participant_user_link where user_id='${GUEST_UID}')
+    ||' personal='||(select count(*) from core.scope where owner_user_id='${GUEST_UID}' and kind='personal')
+    ||' ops='||(select count(*) from core.operation where created_by='${GUEST_UID}')
+    ||' cmds='||(select count(*) from core.provisioning_command where created_by='${GUEST_UID}');
+SQL
+  }
+  antes=$(huella_guest)
+  [ "${antes}" = "memb=2links=1personal=1ops=1cmds=2" ] && ok "huella del invitado: ${antes}" || fallo "huella del invitado inesperada: ${antes}"
+
+  # CONVERTIR: PUT /user sobre la sesion anonima. Mismo id; el correo queda pendiente de confirmar.
+  RC=$(curl -s -X PUT "${API}/auth/v1/user" -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_G}" -H 'Content-Type: application/json' \
+    --data-binary "{\"email\":\"${EMAIL_G}\",\"password\":\"${PASS}\",\"data\":{\"display_name\":\"Invitado\"}}")
+  cid=$(printf '%s' "${RC}" | jget id)
+  [ "${cid}" = "${GUEST_UID}" ] && ok "PUT /user responde el MISMO id (${GUEST_UID})" || fallo "PUT /user cambio o no devolvio el id: $(printf '%s' "${RC}" | head -c 200)"
+  [ "$(printf '%s' "${RC}" | jget new_email)" = "${EMAIL_G}" ] && ok "el correo queda pendiente de confirmar (new_email), como exige enable_confirmations" || fallo "sin new_email pendiente: $(printf '%s' "${RC}" | head -c 200)"
+  # Mientras no se confirme, sigue siendo invitado: nada se ha perdido ni movido.
+  v=$("${DBQ[@]}" <<SQL 2>/dev/null | tr -d '[:space:]'
+select is_anonymous::text || '/' || (email_change = '${EMAIL_G}')::text || '/' || (encrypted_password <> '')::text from auth.users where id = '${GUEST_UID}';
+SQL
+)
+  [ "${v}" = "true/true/true" ] && ok "auth.users: sigue anonimo, con el cambio de correo pendiente y la contrasena ya puesta" || fallo "auth.users tras PUT /user: ${v}"
+
+  # CONFIRMAR: el enlace del correo, tal como lo manda GoTrue (Mailpit, [local_smtp]).
+  LINK=$(curl -s "${MAIL}/api/v1/messages?limit=5" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+  const m=JSON.parse(s).messages.find(x=>x.To.some(t=>t.Address===process.argv[1]));
+  console.log(m?m.ID:"");
+})' "${EMAIL_G}")
+  if [ -z "${LINK}" ]; then
+    fallo "no llego el correo de confirmacion a Mailpit (${MAIL})"
+  else
+    URL=$(curl -s "${MAIL}/api/v1/message/${LINK}" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+  const m=JSON.parse(s); const t=(m.Text||"")+" "+(m.HTML||""); const u=t.match(/https?:\/\/[^\s"<]+/g)||[];
+  console.log(u.find(x=>x.includes("/auth/v1/verify"))||"");
+})')
+    est=$(curl -s -o /dev/null -w '%{http_code}' "${URL}")
+    [ "${est}" = "303" ] && ok "el enlace de confirmacion del correo verifica (303)" || fallo "verify respondio ${est}"
+  fi
+  v=$("${DBQ[@]}" <<SQL 2>/dev/null | tr -d '[:space:]'
+select is_anonymous::text || '/' || email || '/' || (email_confirmed_at is not null)::text from auth.users where id = '${GUEST_UID}';
+SQL
+)
+  [ "${v}" = "false/${EMAIL_G}/true" ] && ok "auth.users: ya NO es anonimo, con el correo confirmado, y el id no ha cambiado" || fallo "auth.users tras confirmar: ${v}"
+
+  # LA COPIA DEL DISPOSITIVO SE QUEDA VIEJA, Y COMO SE DESCUBRE (F05/ADR-003 §3):
+  # el JWT anonimo guardado sigue diciendo anonimo; GET /user con ESE token ya
+  # dice cuenta (autoritativo, sin rotar nada); y reenviar la conversion con la
+  # copia vieja responde 422 same_password — el codigo que el cliente mapea.
+  v=$(printf '%s' "{\"access_token\":\"${TOK_G}\"}" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(Buffer.from(JSON.parse(s).access_token.split(".")[1],"base64").toString());console.log(p.is_anonymous===true?"ok":"anon="+p.is_anonymous)})')
+  [ "${v}" = "ok" ] && ok "el JWT que el dispositivo guardo sigue diciendo is_anonymous=true: una copia" || fallo "JWT guardado: ${v}"
+  v=$(curl -s "${API}/auth/v1/user" -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_G}" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const u=JSON.parse(s);console.log(u.id===process.argv[1]&&u.is_anonymous===false&&u.email===process.argv[2]?"ok":JSON.stringify({id:u.id,anon:u.is_anonymous,email:u.email}))})' "${GUEST_UID}" "${EMAIL_G}")
+  [ "${v}" = "ok" ] && ok "GET /user con el token anonimo guardado ya responde la cuenta (is_anonymous=false, mismo id)" || fallo "GET /user tras confirmar: ${v}"
+  v=$(curl -s -X PUT "${API}/auth/v1/user" -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_G}" -H 'Content-Type: application/json'     --data-binary "{\"email\":\"${EMAIL_G}\",\"password\":\"${PASS}\",\"data\":{\"display_name\":\"Invitado\"}}" | jget error_code)
+  [ "${v}" = "same_password" ] && ok "reenviar la conversion con la copia vieja: 422 same_password (medido; el cliente lo mapea y, antes, pregunta con GET /user)" || fallo "segundo PUT /user respondio: ${v}"
+
+  # La sesion que el telefono ya tenia sigue valiendo: el refresh trae la cuenta, mismo sub.
+  RR=$(curl -s -X POST "${API}/auth/v1/token?grant_type=refresh_token" -H "apikey: ${KEY}" -H 'Content-Type: application/json' --data-binary "{\"refresh_token\":\"${RT_G}\"}")
+  v=$(printf '%s' "${RR}" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+  const r=JSON.parse(s); if(!r.access_token){console.log(JSON.stringify(r));return}
+  const p=JSON.parse(Buffer.from(r.access_token.split(".")[1],"base64").toString());
+  console.log(p.sub===process.argv[1] && p.is_anonymous===false && r.user.is_anonymous===false && r.user.email===process.argv[2] ? "ok" : JSON.stringify({sub:p.sub,anon:p.is_anonymous}));
+})' "${GUEST_UID}" "${EMAIL_G}")
+  [ "${v}" = "ok" ] && ok "el refresh token del invitado devuelve la cuenta: mismo sub, is_anonymous false" || fallo "refresh tras convertir: ${v}"
+  TOK_G2=$(printf '%s' "${RR}" | jget access_token)
+  # Y entrar con la contrasena nueva es la MISMA cuenta.
+  v=$(sesion "${EMAIL_G}" | jget user.id)
+  [ "${v}" = "${GUEST_UID}" ] && ok "password grant con el correo nuevo: el mismo id" || fallo "password grant devolvio otro id: ${v}"
+  # La huella no se ha movido, y la cuenta lee lo que hizo como invitado.
+  despues=$(huella_guest)
+  [ "${despues}" = "${antes}" ] && ok "huella identica antes y despues de convertir: ${despues}" || fallo "la conversion movio filas: ${antes} → ${despues}"
+  v=$(curl -s "${API}/rest/v1/group_profile?scope_id=eq.${GQ}&select=display_name,participant_count" -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_G2}" \
+    | jarr 'a.length===1 && a[0].display_name==="Invitados" && a[0].participant_count===2 ? "ok" : JSON.stringify(a)')
+  [ "${v}" = "ok" ] && ok "la cuenta convertida sigue viendo su grupo con el token refrescado" || fallo "group_profile tras convertir: ${v}"
+
+  # POR QUE LA APP FALLA CERRADO al entrar en una cuenta existente desde un invitado:
+  # el password grant emite OTRO sub y lo del invitado se queda con el primero.
+  RG2=$(curl -s -X POST "${API}/auth/v1/signup" -H "apikey: ${KEY}" -H 'Content-Type: application/json' --data-binary '{}')
+  GUEST2=$(printf '%s' "${RG2}" | jget user.id)
+  TOK_G3=$(printf '%s' "${RG2}" | jget access_token)
+  rr=$(rpc ensure_personal_scope "${TOK_G3}" '{"payload":{"currency_code":"MXN"}}')
+  other=$(sesion "${EMAIL_A}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).user.id))')
+  n=$("${DBQ[@]}" <<SQL 2>/dev/null | tr -d '[:space:]'
+select count(*) from core.scope where owner_user_id = '${GUEST2}';
+SQL
+)
+  [ -n "${GUEST2}" ] && [ "${other}" = "${UID_A}" ] && [ "${other}" != "${GUEST2}" ] && [ "${n}" = "1" ] \
+    && ok "medido: entrar por contrasena desde un invitado seria OTRO sub (${other}); lo del invitado (${n} ambito) se queda con ${GUEST2} — por eso el cliente lo rehusa" \
+    || fallo "no se pudo medir el cambio de sub (guest2=${GUEST2}, other=${other}, uid_a=${UID_A}, n=${n})"
+  [ -n "${GUEST2}" ] && GUEST2_UID="${GUEST2}"
+fi
 
 echo "== retirada =="
 retirar

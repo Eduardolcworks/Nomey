@@ -6,8 +6,41 @@ import {
   normaliseDisplayName,
   normaliseEmail,
   normaliseRegistration,
+  PASSWORD_MIN_LENGTH,
+  passwordMeetsMinimum,
+  registrationReady,
 } from '../../src/features/auth/credentials';
 import { createExclusiveRunner, SKIPPED } from '../../src/features/auth/submit-guard';
+import CONFIG from '../../supabase/config.toml?raw';
+
+describe('el minimo de contraseña que se dice de antemano', () => {
+  it('es EL DEL SERVIDOR: [auth] minimum_password_length del toml, y no puede divergir', () => {
+    // La unica regla de contraseña que el cliente afirma. Si el toml cambia sin
+    // cambiar la constante (o al reves), este test lo dice antes que un usuario.
+    const auth = CONFIG.slice(CONFIG.indexOf('\n[auth]\n'), CONFIG.indexOf('\n[auth.rate_limit]'));
+    const match = /\nminimum_password_length = (\d+)\n/.exec(auth);
+    expect(match).not.toBeNull();
+    expect(Number(match?.[1])).toBe(PASSWORD_MIN_LENGTH);
+    // Y no se afirman clases de caracteres que el servidor no exige.
+    expect(auth).toContain('\npassword_requirements = ""\n');
+  });
+
+  it('cuenta caracteres sin recortar, como el servidor', () => {
+    expect(passwordMeetsMinimum('12345')).toBe(false);
+    expect(passwordMeetsMinimum('123456')).toBe(true);
+    expect(passwordMeetsMinimum('     6')).toBe(true);
+  });
+
+  it('un alta esta lista solo con nombre, email y contraseña al minimo; nada mas se juzga', () => {
+    const base = { displayName: 'Edu', email: 'edu@nomey.test', password: 'secreto' };
+    expect(registrationReady(base)).toBe(true);
+    expect(registrationReady({ ...base, password: 'corta' })).toBe(false);
+    expect(registrationReady({ ...base, displayName: '  ' })).toBe(false);
+    expect(registrationReady({ ...base, email: '' })).toBe(false);
+    // Lo que es un email lo decide el servidor: aqui basta con que haya algo.
+    expect(registrationReady({ ...base, email: 'sin-arroba' })).toBe(true);
+  });
+});
 
 /**
  * Normalización de lo que se teclea, y el guardia del doble envío.

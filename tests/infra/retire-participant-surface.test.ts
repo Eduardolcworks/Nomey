@@ -100,10 +100,9 @@ describe('el cliente', () => {
     expect(SCREEN).toContain("t('group.retirePairsBody')");
     expect(SCREEN).toContain("void retirement.settle({ scopeId: id ?? '', participantId, pairs })");
     expect(SCREEN).toContain("if (outcome === 'linked')");
-    // «Me equivoqué» (F09/ADR-006) vive en la fila PROPIA con procedencia: nunca en la de otro.
-    expect(SCREEN).toMatch(
-      /: balance\.isSelf &&\s*typeof claimOf\.get\(balance\.participantId\) === 'string'/,
-    );
+    // La fila PROPIA no tiene menu: la identidad es permanente (F10/ADR-002).
+    expect(SCREEN).toContain('La fila PROPIA no tiene menu');
+    expect(SCREEN).not.toMatch(/claimOf|linkOf|unclaim|unlink/);
   });
 
   it('el menú nativo se abre al TOCAR, con acciones y rol destructivo, en los dos sistemas', () => {
@@ -127,8 +126,9 @@ describe('el cliente', () => {
     // El compacto: 32 visibles, 44 tocables, mismos materiales.
     expect(BUTTON).toContain('const COMPACT_HIT_SLOP = { top: 6, bottom: 6, left: 4, right: 4 };');
     expect(BUTTON).toMatch(/compact: \{\s*minHeight: 32,/);
-    expect(BUTTON).toContain(
-      "themeColor={disabled ? 'textDisabled' : brand ? 'onAccent' : 'text'}",
+    // El color del texto sale de la misma decision que el fondo (action-button-style).
+    expect(BUTTON).toMatch(
+      /themeColor=\{\s*actionSurface\(\{ tone, disabled, pressed, neutral: neutro, theme \}\)\.textColor\s*\}/,
     );
   });
 

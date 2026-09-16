@@ -94,8 +94,9 @@ begin
   -- A6c · QUIEN puede escribirlas, y nada mas. Cuando esta relacion nacio
   -- nadie escribia (F5); desde F9 lo hacen los comandos autoritativos que los
   -- ADR aceptados fijan: el provisioner inserta el vinculo (crear grupo,
-  -- reclamar por invitacion: ADR-032/ADR-035), lo borra (rectificar la propia
-  -- reclamacion: ADR-037), inserta periodos (crear grupo, «Soy nuevo», anadir
+  -- reclamar por invitacion: ADR-032/ADR-035), lo TERMINA y lo REACTIVA
+  -- (salir y volver: F10/ADR-003, columnas ended_at y departure_id; el
+  -- borrado de ADR-037 se retiro con F10/ADR-002), inserta periodos (crear grupo, «Soy nuevo», anadir
   -- participantes, volver: ADR-032/ADR-035/ADR-041) y cierra el propio
   -- (salir: ADR-034, columna valid_until); el writer cierra el periodo de un
   -- retirado (ADR-036, columna valid_until). Se excluye al propietario, que
@@ -111,10 +112,11 @@ begin
     and c.relname in ('participant_user_link','participant_period')
     and a.grantee <> c.relowner
     and a.privilege_type in ('INSERT','UPDATE','DELETE','TRUNCATE');
-  if v_t <> 'participant_period:nomey_provisioner:INSERT participant_user_link:nomey_provisioner:DELETE participant_user_link:nomey_provisioner:INSERT' then
+  if v_t <> 'participant_period:nomey_provisioner:INSERT participant_user_link:nomey_provisioner:INSERT' then
     fallos := array_append(fallos, format('A6c: escrituras de tabla sobre las relaciones nuevas distintas de las de los ADR aceptados: [%s]', v_t));
   end if;
-  -- Las de columna: solo valid_until, y solo para cerrar (ADR-034, ADR-036).
+  -- Las de columna: valid_until, solo para cerrar (ADR-034, ADR-036), y el fin
+  -- del vinculo propio (F10/ADR-003).
   select coalesce(string_agg(c.relname || '.' || at.attname || ':' || g.rolname || ':' || a.privilege_type, ' ' order by c.relname, at.attname, g.rolname, a.privilege_type), '')
     into v_t
   from pg_attribute at
@@ -126,7 +128,7 @@ begin
     and c.relname in ('participant_user_link','participant_period')
     and at.attacl is not null
     and a.privilege_type in ('INSERT','UPDATE','DELETE');
-  if v_t <> 'participant_period.valid_until:nomey_provisioner:UPDATE participant_period.valid_until:nomey_writer:UPDATE' then
+  if v_t <> 'participant_period.valid_until:nomey_provisioner:UPDATE participant_period.valid_until:nomey_writer:UPDATE participant_user_link.departure_id:nomey_provisioner:UPDATE participant_user_link.ended_at:nomey_provisioner:UPDATE' then
     fallos := array_append(fallos, format('A6d: escrituras de columna distintas de cerrar valid_until: [%s]', v_t));
   end if;
 
@@ -141,12 +143,15 @@ begin
   ) then
     fallos := array_append(fallos, 'A7: la clave primaria del vinculo no es participant_id solo');
   end if;
+  -- Desde F10/ADR-003 la unicidad (scope_id, user_id) es PARCIAL: una sola
+  -- identidad ACTIVA por cuenta y grupo; las historicas (ended_at) no cuentan.
   if not exists (
-    select 1 from pg_constraint
-    where conrelid = 'core.participant_user_link'::regclass and contype = 'u'
-      and pg_get_constraintdef(oid) = 'UNIQUE (scope_id, user_id)'
+    select 1 from pg_indexes
+    where schemaname = 'core' and tablename = 'participant_user_link'
+      and indexname = 'participant_user_link_identidad_activa_unica'
+      and indexdef like '%UNIQUE INDEX%(scope_id, user_id) WHERE (ended_at IS NULL)'
   ) then
-    fallos := array_append(fallos, 'A7b: falta UNIQUE (scope_id, user_id) en el vinculo');
+    fallos := array_append(fallos, 'A7b: falta el UNIQUE parcial (scope_id, user_id) WHERE ended_at IS NULL en el vinculo');
   end if;
   if not exists (
     select 1 from pg_constraint
@@ -661,8 +666,7 @@ begin
   end;
 
   ------------------------------------- cardinalidad 2 del vinculo -----------
-  alter table core.participant_user_link
-    drop constraint participant_user_link_usuario_unico_por_ambito;
+  drop index core.participant_user_link_identidad_activa_unica;
   v_ok := false;
   begin
     -- El mismo caso que B3 rechaza: UB ya representa a P1B en S1.
@@ -673,12 +677,11 @@ begin
   end;
   if not v_ok then
     fallos := array_append(fallos,
-      'E2: sin UNIQUE (scope_id, user_id) un usuario SIGUE sin poder representar dos participantes del ambito, asi que B3 no estaba probando esa restriccion');
+      'E2: sin el UNIQUE parcial (scope_id, user_id) un usuario SIGUE sin poder representar dos participantes activos del ambito, asi que B3 no estaba probando esa restriccion');
   end if;
   delete from core.participant_user_link where participant_id = P1A;
-  alter table core.participant_user_link
-    add constraint participant_user_link_usuario_unico_por_ambito
-    unique (scope_id, user_id);
+  create unique index participant_user_link_identidad_activa_unica
+    on core.participant_user_link (scope_id, user_id) where ended_at is null;
 
   ------------------------------------- cardinalidad 3 del vinculo -----------
   alter table core.participant_user_link

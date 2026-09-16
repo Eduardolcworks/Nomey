@@ -314,3 +314,41 @@ export function recoverySaveFailure(failure: AuthFailure): RecoverySaveFailure {
 
   return { outcome: 'retryable', messageKey: 'authError.passwordChangeFailed' };
 }
+
+/**
+ * «Entrar como invitado» (`POST /signup` with no credentials).
+ *
+ * The one code of its own is the project-level switch: a hosted project that
+ * has not enabled anonymous sign-ins answers `anonymous_provider_disabled`,
+ * and the sentence says the guest door is closed rather than "something went
+ * wrong". Its rate limit (`over_request_rate_limit`, 30 an hour per IP by
+ * default) is shared.
+ */
+export function signInAnonymouslyErrorKey(failure: AuthFailure): AuthErrorKey {
+  if (isNetworkFailure(failure)) return NETWORK;
+  const code = failure.code ?? '';
+  if (code === 'anonymous_provider_disabled') return 'authError.guestUnavailable';
+  return SHARED[code] ?? GENERIC;
+}
+
+/**
+ * A guest becoming an account (`PUT /user` with email and password on an
+ * anonymous session).
+ *
+ * The sign-up map applies — weak password, invalid address, sign-up disabled —
+ * with ONE difference: `email_exists` is not turned into "check your email".
+ * `PUT /user` is not obfuscated by GoTrue the way `POST /signup` is (it
+ * answers 422 `email_exists` outright), so pretending a mail went out would
+ * be a lie of the client's own, and the guest needs to know that address is
+ * already someone's: the way in is that account, from a signed-out session.
+ */
+export function convertGuestErrorKey(failure: AuthFailure): AuthErrorKey {
+  if (isNetworkFailure(failure)) return NETWORK;
+  const code = failure.code ?? '';
+  if (code === 'email_exists' || code === 'user_already_exists') return 'authError.guestEmailTaken';
+  // Measured: re-submitting the conversion AFTER the server already confirmed
+  // it answers `same_password` — the account exists with that password. The
+  // service refreshes before getting here; this is the sentence if it still does.
+  if (code === 'same_password') return 'authError.guestAlreadyConverted';
+  return SIGN_UP[code] ?? SHARED[code] ?? GENERIC;
+}

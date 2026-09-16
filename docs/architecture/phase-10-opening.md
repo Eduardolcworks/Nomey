@@ -4,9 +4,22 @@
 > original ya cerró F9, qué queda de verdad, bajo qué principio se decide, qué
 > se midió antes de decidir nada, y qué insumos reciben los dos ADR de la fase.
 > **No decide nada por sí mismo**: las decisiones van en `F10/ADR-001` y
-> `F10/ADR-002`; los criterios de cierre mandan desde el
+> `F10/ADR-004` (cesión y fusiones; véase la nota); los criterios de cierre mandan desde el
 > [roadmap](../product/roadmap.md). Se sustituye por el handoff de la fase al
 > cerrarla.
+>
+> **Nota del 2026-09-15.** La regla de «dejar cualquier instancia propia de
+> vínculo» que este documento preparó y que F10/ADR-001 fijó se implementó en
+> F10.A2 y **se retiró en F10.A3 por decisión de producto**:
+> [F10/ADR-002](../adr/F10/ADR-002-permanent-identity.md) hace la identidad
+> permanente (vincularse no se deshace; salir y volver son F9) y supera de
+> ADR-001 las secciones de la baja. Las mediciones de §3 siguen siendo válidas
+> como historia; los criterios 1–5 del roadmap se reescribieron. En la misma
+> revisión, [F10/ADR-003](../adr/F10/ADR-003-active-and-historical-link.md)
+> —el número que este documento y ADR-002 anticipaban para la cesión— fijó el
+> **vínculo activo/histórico**: salir lo termina sin borrarlo, quien salió es
+> historia (no un participante sin cuenta) y vuelve como entonces o como un
+> sin cuenta. La cesión y las fusiones (§6) serán **F10/ADR-004**.
 >
 > Escrito el **2026-09-14**, sobre `main` en `e3af705` (F9 cerrada, 46
 > migraciones). Todo lo marcado **medido** se ejecutó contra las funciones
@@ -346,7 +359,7 @@ historias distintas con el mismo neto no son equivalentes.
 
 ---
 
-## 6 · Insumos para `F10/ADR-002` (cesión y fusiones)
+## 6 · Insumos para `F10/ADR-004` (cesión y fusiones; antes anunciado como ADR-003)
 
 ### 6.1 Cesión A → B: composición abierta no es un diseño final
 

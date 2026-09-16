@@ -397,17 +397,13 @@ begin
   -- G5 · no es is_self: Edu ve a Dani con cuenta sin que sea el
   select count(*) into v_n from api.group_participant where scope_id = r.g and display_name = 'Dani' and is_linked and not is_self;
   if v_n <> 1 then fallos := array_append(fallos, 'G5 is_linked se confunde con is_self'); end if;
-  -- G6 · la vista sigue sin publicar ninguna columna de usuario. El vinculo se publica
-  --      SOLO como link_id de la fila propia (F10/ADR-001 §1, 20260916120000): la de
-  --      Dani, con cuenta, llega a Edu sin link_id; la propia de Edu lo lleva.
+  -- G6 · la vista sigue sin publicar ninguna columna de usuario ni de vinculo: la identidad es
+  --      permanente (F10/ADR-002, 20260917120000) y el cliente no cita instancia ni procedencia;
+  --      solo is_linked e is_self.
   select count(*) into v_n from information_schema.columns
    where table_schema = 'api' and table_name = 'group_participant'
-     and (column_name like '%user%' or (column_name like '%link%' and column_name <> 'link_id' and column_name <> 'is_linked'));
-  if v_n <> 0 then fallos := array_append(fallos, 'G6 la vista publica una columna de usuario o del vinculo ajeno'); end if;
-  select count(*) into v_n from api.group_participant where scope_id = r.g and not is_self and link_id is not null;
-  if v_n <> 0 then fallos := array_append(fallos, 'G6 link_id de una fila ajena publicado'); end if;
-  select count(*) into v_n from api.group_participant where scope_id = r.g and is_self and link_id is not null;
-  if v_n <> 1 then fallos := array_append(fallos, 'G6 la fila propia no lleva su link_id'); end if;
+     and (column_name like '%user%' or column_name like '%link_id%' or column_name like '%command%');
+  if v_n <> 0 then fallos := array_append(fallos, 'G6 la vista publica una columna de usuario, de instancia o de procedencia'); end if;
   -- G7 · fuera del grupo no se responde: un ajeno no ve is_linked de nadie
   perform pg_temp.actor(r.bea);
   select count(*) into v_n from api.group_participant where scope_id = r.g;

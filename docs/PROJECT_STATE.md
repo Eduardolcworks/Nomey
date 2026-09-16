@@ -13,22 +13,24 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-09-15**, al entregar el backend de **F10.A2** (dejar una
-instancia propia de vínculo); la **Fase 9** cerró el 2026-09-14. Incluye el
-cierre de **F11.A** (decisiones de multimoneda, sin implementación).
+Actualizado el **2026-09-16**, al cerrar **F10.A3** (identidad permanente en
+el grupo, F10/ADR-002; vínculo activo/histórico al salir y volver, F10/ADR-003;
+modo Invitado real, F05/ADR-003); el siguiente bloque es **F10.B0**. La
+**Fase 9** cerró el 2026-09-14. Incluye el cierre de **F11.A** (decisiones de
+multimoneda, F11/ADR-001, sin implementación).
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                                                                                                                                                                                                                                              |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes) y **Fase 10** (ciclo de vida del vínculo: F10.A0 y F10.A1 cerrados, backend de F10.A2 implementado; F10.A3 … C0 pendientes). **Fase 11** abierta: **F11.A** cerrada (contrato, sin implementación) |
-| **Última fase cerrada** | **Fase 9 — Grupos, gastos compartidos y deudas**, el 2026-09-14. **Validada en iPhone (Expo Go) y en el emulador Android**                                                                                                                                                                   |
-| **ADR aceptados**       | 42 de 43 (F00–F11; F00/ADR-001 sigue Propuesto), organizados por fase en `docs/adr/FNN/`                                                                                                                                                                                                     |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **48 migraciones**: la última deja la baja de la instancia de vínculo, `api.unlink_participant` (F10.A2)                                                                                                                |
-| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver                                                                                                                                                         |
-| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                                                                                                                                                                                 |
+|                         |                                                                                                                                                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes) y **Fase 10** (ciclo de vida del vínculo: F10.A0 … F10.A3 cerrados; **F10.B0** es el siguiente, B1 … C0 pendientes). **Fase 11** abierta: **F11.A** cerrada (contrato, sin implementación) |
+| **Última fase cerrada** | **Fase 9 — Grupos, gastos compartidos y deudas**, el 2026-09-14. **Validada en iPhone (Expo Go) y en el emulador Android**                                                                                                                                                           |
+| **ADR aceptados**       | 45 de 46 (F00–F11; F00/ADR-001 sigue Propuesto), organizados por fase en docs/adr/FNN/                                                                                                                                                                                               |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **50 migraciones**: las dos últimas dejan la identidad permanente (F10/ADR-002, retirando toda baja de vínculo) y el vínculo activo/histórico (F10/ADR-003: salir lo termina sin borrarlo)                      |
+| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver                                                                                                                                                 |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**; **modo Invitado** real (sesión anónima, convertible en cuenta sin cambiar de id; F05/ADR-003). **Faltan Google y Apple** (F8.B)                                                                                                   |
 
 **La Fase 8 está ABIERTA.** F8.A0 aceptó
 [F08/ADR-001](adr/F08/ADR-001-native-code-model.md) y
@@ -65,10 +67,14 @@ garantías:
   sin dinero (novación, F09/ADR-007 C8); **volver a entrar** conserva la identidad
   (F09/ADR-010); **asociar un fantasma a la propia cuenta** es fusión de lectura
   con caja histórica incorporada una vez (F09/ADR-009); **retirar** a un fantasma
-  (F09/ADR-005) y **dejar la propia instancia de vínculo** (`unlink_participant`, F10/ADR-001, que generaliza y supera «deshacer la propia reclamación», F09/ADR-006; `api.group_participant` publica `link_id` sólo en la fila propia).
+  (F09/ADR-005). **La identidad en el grupo es permanente** (F10/ADR-002): no hay
+  forma de deshacer un vínculo; dejar de participar es salir del grupo, y al
+  salir el vínculo **termina** sin borrarse (F10/ADR-003): quien salió es
+  historia —fuera de Saldos, del recuento y de las listas; con su nombre y su
+  atribución— y vuelve como entonces o como un participante sin cuenta.
 - **Avisos internos en la campana** (`core.group_notice`, siete `kind` en
   `core`: `edit`, `profile`, `departure`, `settlement`, `payment`,
-  `payment_annulled` y, desde F10.A2, `identity_released`, que `api` oculta hasta A3; F09/ADR-003 §7). **Por decisión de producto (2026-09-14)
+  `payment_annulled`; F09/ADR-003 §7). **Por decisión de producto (2026-09-14)
   el alta de un gasto y la reincorporación NO avisan**; el invariante 15 de
   `data-model.md` quedó fijado así. No hay push.
 - **Verificado al cerrar:** 46 migraciones reconstruidas desde cero en una
@@ -91,53 +97,56 @@ como tareas explícitas, no como funcionalidad: la **retirada técnica de
 `api.settle_participant`** y la incidencia de **ParticipantField** (no
 reproducida).
 
-**La Fase 10 está ABIERTA (2026-09-14); F10.A0 y F10.A1 cerrados, el backend de
-F10.A2 implementado; F10.A3 (cliente) pendiente.** Su alcance original
-—invitación, prueba, reclamación retroactiva, fusión de duplicados— lo cerró
-F9, así que la fase se reescribió en el [roadmap](product/roadmap.md) (Fase 10) con un principio y doce criterios nuevos; la reconciliación, las mediciones
-previas y los insumos de sus dos ADR están en
-[`phase-10-opening.md`](architecture/phase-10-opening.md), y el contrato del
-vínculo lo fija
-[F10/ADR-001](adr/F10/ADR-001-link-instance-lifecycle.md) (**Aceptado**,
-2026-09-14). **A2 está implementado en el esquema** (`20260915120000` y
-`20260916120000`): `link_id`, origen, `S0`, línea base, `api.unlink_participant`
-y el hecho `core.participant_unlink` existen y tienen evidencia viva (checks,
-carreras con sesiones reales y frontera HTTP); **el cliente todavía consume la
-superficie de F9** por el wrapper de compatibilidad. Lo que hay que saber antes
-de tocar identidad:
+**La Fase 10 está ABIERTA (2026-09-14); F10.A0 … F10.A3 cerrados (A3 el
+2026-09-16); el siguiente bloque es F10.B0, y B1 … C0 siguen pendientes.** Su alcance
+original —invitación, prueba, reclamación retroactiva, fusión de duplicados— lo
+cerró F9, así que la fase se reescribió en el [roadmap](product/roadmap.md)
+(Fase 10); la reconciliación, las mediciones previas y los insumos de sus ADR
+están en [`phase-10-opening.md`](architecture/phase-10-opening.md). El
+contrato de la identidad lo fijan
+[F10/ADR-001](adr/F10/ADR-001-link-instance-lifecycle.md) (Aceptado, 2026-09-14:
+identidad y procedencia de cada instancia de vínculo, línea base bajo el
+cerrojo), **[F10/ADR-002](adr/F10/ADR-002-permanent-identity.md) (Aceptado,
+2026-09-15)**, que supera de ADR-001 todo lo relativo a **dejar** la
+instancia, y **[F10/ADR-003](adr/F10/ADR-003-active-and-historical-link.md)
+(Aceptado, 2026-09-15)**: el vínculo es **activo** o **histórico**. Lo que hay
+que saber antes de tocar identidad:
 
 - **Ninguna cuenta adjudica unilateralmente la identidad de otra.** No existe
   ni existirá en F10 revocación del vínculo ajeno, expulsión, roles ni soporte
   de disputas; la RLS vigente ya lo impone (políticas del provisioner sobre
   vínculo y membresía acotadas al propio actor) y F10 lo guarda en catálogo.
-- **Dejar una instancia propia de vínculo** se generaliza a cualquier origen
-  (`create`, `new`, `claim`) con una regla temporal: bloquea la caja vigente y
-  cualquier atribución económica vigente **generada durante esa instancia**; la
-  historia anterior a la instancia no bloquea. Supera F09/ADR-006 §2 en un
-  punto: `unclaim` dejaba desprenderse de deuda nacida después de reclamar
-  (medido en A0; cerrado en A2). **Decidido por F10/ADR-001 §2–§3:** «nació bajo la instancia» se
-  determina contra una **línea base por instancia** (`core.link_baseline`)
-  tomada bajo `sec.lock_participant_claims` al crear el vínculo, junto con el
-  **conjunto de sujetos crudos que resolvían a P al nacer** (`S0`,
-  `core.link_baseline_subject`); la evaluación usa ids crudos —nunca la
-  resolución canónica actual, que una fusión posterior cambia— y cantidades
-  **firmadas** por identidad semántica (`eco`, `owes`, `owed`): la capa
-  necesaria bloquea `cur > base` en `eco`/`owes` (obligación nueva, aumento,
-  settlement negativo que se reduce o desaparece); la política v1, relajable,
-  bloquea además cualquier identidad que empiece a atribuir durante la
-  instancia. Un `owed` preexistente que crece no bloquea: el crédito queda en
-  el fantasma. Ningún timestamp es autoridad.
-- **Cada instancia de vínculo tiene identidad (`link_id`) y procedencia
-  (`origin_command_id`, nula si no es demostrable) separadas** (F10/ADR-001
-  §1); el CAS y el replay se anclan a `link_id` con respuesta uniforme
-  `LINK_SUPERSEDED`; la baja borra vínculo y membresía propios, no toca
-  presencia ni hechos, deja el hecho `core.participant_unlink`
-  (`unlinked_by = user_id`) y avisa con `identity_released`. Todo ello existe
-  desde `20260916120000`; el aviso no cruza `api` hasta A3.
+- **La identidad en el grupo es permanente.** Vincularse —crear el grupo,
+  entrar como nuevo o reclamar— fija `participant ↔ user` para siempre en ese
+  grupo: no hay `unclaim`, ni `unlink`, ni «Me equivoqué», ni «Dejar mi
+  identidad», ni forma de devolver el participante a «sin cuenta». Reclamar
+  pide confirmación diciéndolo («mientras formes parte del grupo, este será tu
+  participante»). Dejar de participar es **Salir del grupo**, con la economía
+  exacta de F9 (neto cero, novación de pares vivos, presencia cerrada,
+  membresía borrada) y, desde F10/ADR-003, con el **vínculo conservado y
+  terminado** (`ended_at`, `departure_id`): quien salió es **historia**, no un
+  participante sin cuenta —no está en Saldos, en el recuento ni en las listas
+  del presente (`api.group_participant.is_departed`); su nombre y su
+  atribución siguen; nadie puede reclamarlo, retirarlo ni asociarlo—. Al
+  volver con invitación elige **volver como entonces** (el mismo vínculo se
+  reactiva; `link_id` y procedencia intactos) **o** un participante sin cuenta
+  disponible; nunca «nuevo» (`REJOIN_REQUIRED`). Una sola identidad activa
+  por cuenta y grupo (índice parcial). Un participante vinculado, activo o
+  histórico, no es reclamable ni retirable por nadie.
+- **Cada instancia de vínculo tiene identidad (`link_id`, interna: el cliente
+  no la lee) y procedencia (`origin_command_id`, nula si no es demostrable)
+  separadas** (F10/ADR-001 §1). Al nacer se escriben bajo el cerrojo su `S0` y
+  su línea base (`core.link_baseline_subject`, `core.link_baseline`, §3):
+  auditoría insert-only de lo que existía en ese momento, sin lector de
+  producto; ningún timestamp es autoridad. La migración `20260917120000` retiró
+  la superficie de la baja de F10.A2 (`api.unlink_participant`,
+  `sec.unlink_instance`, el evaluador, `core.participant_unlink`, el `kind`
+  `identity_released`) y el legado de F9 (`api.unclaim_participant`,
+  `claim_command_id`, `sec.my_claim_command_id`).
 - **La cesión A → B, si entra, es atómica con prueba de un solo uso**
   (`identity_handover`); componer «A deja la identidad → B la reclama» deja una
   ventana de apropiación y **no se acepta como producto**. Fantasma ↔ fantasma
-  se decide en `F10/ADR-002` sobre su matriz económica (extingue las
+  se decide en `F10/ADR-004` sobre su matriz económica (extingue las
   obligaciones entre ambos, consolida las de terceros, reversible por lectura).
 - **Un grupo puede quedar sin ninguna cuenta miembro** (hecho heredado de F9,
   medido): con invitación viva cualquiera recupera el acceso y nadie puede
@@ -562,6 +571,23 @@ sin sesión; y ninguna credencial privada de backend viaja en el bundle.
 | **F5.E**  | Recuperación de acceso    | **Cerrado**, validado en iPhone |
 | **F5.F**  | Cierre de fase            | **Cerrado**, validado en iPhone |
 
+**Modo Invitado (F10.A3, [F05/ADR-003](adr/F05/ADR-003-guest-session.md),
+Aceptado 2026-09-15).** «Entrar como invitado» en Entrar es una **sesión anónima
+real de Supabase Auth** (`signInAnonymously`; `is_anonymous` en el usuario y
+en el JWT, `role: authenticated`, el mismo `auth.users.id` que todo lo demás):
+ningún estado propio, ninguna identidad paralela. El invitado aterriza en
+Grupos y los usa como cualquier miembro —el servidor no lo distingue—; Inicio
+es «Crea tu cuenta» (la única vía de cuenta: sin login dentro de la sesión) y
+Perfil lleva el oblongo «CREAR CUENTA» → Inicio, los ajustes generales y un
+«Cerrar sesión» discreto; el Personal interno se provisiona igual. **Crear cuenta desde un invitado conserva el
+id** (`convertGuest` → `updateUser` con email, contraseña y nombre; el
+correo se confirma fuera y el siguiente refresco trae la cuenta). **Entrar en
+una cuenta existente desde un invitado falla cerrado** (`guestSignInBlocked`):
+fusionar un invitado con una cuenta que ya existe no está resuelto y se
+declara así. Local: `enable_anonymous_sign_ins = true`; **el proyecto alojado
+tiene que activarlo en el Dashboard**, este repositorio no lo hace. Evidencia:
+§14 de `scripts/http-boundary-check.sh`.
+
 **Entrar con Google y con Apple queda diferido, y no bloqueó el cierre.** No
 forma parte del alcance ni de los cuatro criterios de la Fase 5 en el roadmap:
 se añadió como requisito de producto a mitad de fase. Sigue siendo una capacidad
@@ -657,47 +683,14 @@ exigen desde entonces **ambos extremos activos**, sea cual sea la fecha
 **`api.retire_participant` es la misma retirada con otra guardia** —sin cuenta
 en vez de inactivo— sobre `sec.retire_participant_core` (F09/ADR-005).
 
-**`api.unlink_participant` deja una instancia propia de vínculo**
-([F10/ADR-001](adr/F10/ADR-001-link-instance-lifecycle.md), migración
-`20260916120000`): del provisioner, sólo el propio actor **miembro**, sea cual
-sea el origen del vínculo (`create`, `new`, `claim`), citando el `link_id` que
-leyó en su propia fila de `api.group_participant`. Una sola implementación,
-`sec.unlink_instance`: clave → cerrojo de rango 1 → membresía → vínculo propio
-con ese `link_id` exacto → regla económica de la instancia (§2: `S0` y línea
-base congelados al nacer contra `S_now` y las versiones vigentes, ids crudos,
-cantidades firmadas por `eco` / `owes` / `owed`, cierre transitivo sobre
-`participant_merge`) → caja → hecho → aviso → borrado del vínculo y de la
-membresía propios; sin rango 2. Rehúsa con `UNLINK_BLOCKED_ATTRIBUTION · 409`
-(`details.operations` con clase, concepto, importe como texto, fecha y motivo
-`attribution` | `policy`) o `UNLINK_BLOCKED_CASH · 409` (la guarda de caja de
-F09/ADR-006, sin cambios); `LINK_SUPERSEDED · 409` es **uniforme** para un
-`link_id` inexistente, ajeno, antiguo o de una instancia ya terminada (también
-la segunda baja con otra clave), y `NOT_AUTHORIZED · 403` para quien salió con
-vínculo. Un rechazo no escribe nada, tampoco la clave. La baja deja
-`core.participant_unlink` (`unlinked_by = user_id`, origen y comando de baja
-como dos comandos distintos) y el aviso `identity_released` a los que quedan;
-conserva presencia, hechos, fusiones y línea base, y el participante vuelve a
-estar **disponible** (reclamable, retirable). Después no hay `rejoin`
-(`REJOIN_NOT_AVAILABLE`): se vuelve con invitación, por `claim` o `new`, con
-una instancia nueva.
-
-**Lo que sigue sólo por compatibilidad con el cliente vigente, hasta F10.A3
-(F10/ADR-001 §12, con plazo en la PR de A2):** `api.unclaim_participant` como
-**wrapper** sobre `sec.unlink_instance` —misma firma `{client_command_id,
-scope_id, participant_id, claim_command_id}`; `claim_command_id` es la
-identidad del **origen** de la instancia y sólo resuelve el vínculo;
-`client_command_id` es la clave de **esta** baja, la misma que el cliente
-conserva entre reintentos, y es la que se reclama como `participant.unlink`:
-un retry es replay del mismo hecho sin comando adicional, y con otra intención
-`IDEMPOTENCY_KEY_REUSED`; la implementación única nombra `CLAIM_SUPERSEDED` y
-`UNCLAIM_BLOCKED_CASH` en el punto donde rehúsa, sin ningún manejador de
-excepciones, y deja pasar `UNLINK_BLOCKED_ATTRIBUTION` tal cual—; la columna
-`participant_user_link.claim_command_id` (derivada del origen por `CHECK`) y
-`sec.my_claim_command_id` en `api.group_participant`; y el `kind`
-`identity_released`, que **existe en `core` y no cruza `api`**: ni
-`api.group_notice` lo lista ni `mark_group_notices_seen` lo marca, porque el
-cliente vigente pintaría una línea vacía. `UNCLAIM_BLOCKED_MERGE` y
-`core.participant_unclaim` **ya no existen**.
+**No existe ninguna función que deshaga un vínculo** (F10/ADR-002): ni el
+`unclaim_participant` de F9 ni el `unlink_participant` de F10.A2, retirados por
+`20260917120000` junto con `sec.unlink_instance`, el evaluador económico por
+instancia, `core.participant_unlink`, el `kind` `identity_released`,
+`sec.my_claim_command_id`, `sec.my_link_id` y la columna
+`participant_user_link.claim_command_id`. Salir del grupo es `api.leave_group`
+tal como lo dejó F9. Se conservan `link_id` y `origin_command_id` en el vínculo
+y la línea base de cada instancia como auditoría.
 
 **Más `api.annul_operation`, que no es una clase.** Anular no deriva efectos, así
 que una sola función vale para las ocho y no contradice «una por clase» de
@@ -744,12 +737,12 @@ completada una sola vez por el writer (`sec.incorporate_participant_cash`)
 sólo en el Personal del actor.
 
 **Todo lo que lee o cambia identidad de grupo toma el cerrojo de rango 1**
-(`sec.lock_participant_claims`, migración `20260912150000`): doce funciones
-desde `20260916120000`, entre ellas `annul_operation`,
+(`sec.lock_participant_claims`, migración `20260912150000`): once funciones
+desde `20260917120000`, entre ellas `annul_operation`,
 `record_debt_settlement`, `record_group_payment`, `associate_participant`,
 `create_group` —toda alta de instancia de vínculo escribe su línea base y su
-`S0` bajo el cerrojo, F10/ADR-001 §3— y `sec.unlink_instance`, la única implementación de la baja (el wrapper `unclaim_participant` no toma nada por sí mismo); la guarda de catálogo
-`group-identity-lock.sql` vigila las doce. **Y la obligación de quien salió es intocable** (F09/ADR-008): un alta
+`S0` bajo el cerrojo, F10/ADR-001 §3—; la guarda de catálogo
+`group-identity-lock.sql` vigila las once. **Y la obligación de quien salió es intocable** (F09/ADR-008): un alta
 retro-fechada, una corrección o una anulación de gasto que cambie lo que se
 le atribuye —deuda por par, cuota o caja— se rehúsa entera con
 `DEPARTED_OBLIGATION_CHANGED · 422`; concepto, categoría y cambios sólo entre
@@ -1111,7 +1104,7 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 | ~~Unión por enlace o QR, y edición del perfil~~ | **HECHO** — `update_group_profile` (F09/ADR-001), `redeem_invitation` (F09/ADR-004); **Compartir grupo** con QR y hoja del sistema sobre la misma invitación                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **Modo Pareja** completo, con su `Cierre`       | Su fase                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ~~Mecanismo de claim~~                          | **Cerrado por F09/ADR-004**: la invitación autoriza; reclamar = vincular                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Ciclo de vida del vínculo y fusiones            | **Dejar cualquier instancia propia de vínculo: HECHO en el backend** — `api.unlink_participant` (F10/ADR-001, F10.A2); `api.unclaim_participant` (F09/ADR-006) sobrevive como wrapper hasta que el cliente cambie en F10.A3. **Asociar un fantasma a la propia cuenta: HECHO** — `api.associate_participant` (F09/ADR-009, Aceptado; validado en iPhone). **F10 (abierta)**: cliente de la baja (A3), cesión consentida atómica o su aplazamiento, fantasma ↔ fantasma por decidir; **revocar el vínculo de otro está prohibido** ([`phase-10-opening.md`](architecture/phase-10-opening.md))                                                                                                                                                                                                                              |
+| Ciclo de vida del vínculo y fusiones            | **La identidad en el grupo es permanente** (F10/ADR-002, F10.A3): ningún vínculo se deshace; salir del grupo es la economía de F9 y, desde F10/ADR-003, termina el vínculo sin borrarlo (quien salió es historia: vuelve como entonces o como un sin cuenta). El `unclaim` de F09/ADR-006 y el `unlink` de F10.A2 se retiraron. **Asociar un fantasma a la propia cuenta: HECHO** — `api.associate_participant` (F09/ADR-009, Aceptado; validado en iPhone). **F10 (abierta)**: cesión consentida atómica o su aplazamiento, fantasma ↔ fantasma por decidir; **revocar el vínculo de otro está prohibido** ([`phase-10-opening.md`](architecture/phase-10-opening.md))                                                                                                                                                    |
 | Notificación                                    | **Hecha en F9** — `core.group_notice`, una relación con siete `kind` (ediciones, perfil, salidas, liquidaciones, pagos, anulaciones y, desde F10.A2, identidad liberada, oculto a `api` hasta A3); campana del cliente (F09/ADR-003 §7). **Sin aviso por alta de gasto ni reincorporación** (decisión de producto, 2026-09-14); sin push                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ~~Acceso residual~~                             | **Cerrado por F09/ADR-003**: no existe. Quien sale conserva su Personal por vínculo y no ve nada más del grupo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Salir de un grupo y pagos registrados           | **HECHO** — `api.leave_group` a neto cero con novación de salida (F09/ADR-007 C8, `LEAVE_BLOCKED_DEBT`), `api.record_group_payment` (clase `group_payment`, sin edición, anulable por las partes), Pagos sugeridos «Los míos»/«Todos» con «Saldado» (F09/ADR-007, Aceptado); la obligación de quien salió es intocable (F09/ADR-008, Aceptado). `api.settle_participant` queda sin UI para el estado heredado. **Volver tras salir: HECHO** — `redeem_invitation` con `choice = 'rejoin'` recupera la identidad de entonces y abre un periodo desde hoy (F09/ADR-010, Aceptado; migración `20260914140000` aplicada a la base local y validada en el iPhone). La guarda de sobreliquidación sólo rehúsa lo que empeora el par (`20260914150000`, aplicada a la base local). **Pendiente:** validar en dispositivo lo demás |

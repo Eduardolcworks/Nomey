@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 
 import {
   GroupWindow,
-  listed,
+  current,
   publishGroupRecorded,
   useGroupParticipants,
   useGroups,
@@ -89,8 +89,9 @@ export default function EditGroupScreen() {
           scale: group.currencyScale,
         },
         // Los retirados conservan el nombre en los movimientos y nada más:
-        // no se listan (F09/ADR-003 §2). Quien salió se lista como «Inactivo».
-        existing: participants.participants.filter(listed).map((one) => ({
+        // no se listan (F09/ADR-003 §2). Quien salió con cuenta es historia
+        // (F10/ADR-003): tampoco.
+        existing: participants.participants.filter(current).map((one) => ({
           id: one.participantId,
           name: one.displayName,
           self: one.isSelf === true,

@@ -36,8 +36,10 @@ import type { JoinFailure, PreviewStatus } from './use-join-group';
  *   `WhoAreYou`   los participantes disponibles del grupo —sólo el nombre— en
  *                 una lista que se desplaza, y «Soy nuevo» FUERA de esa lista,
  *                 anclado debajo: siempre a la vista, haya cero o veinte
- *                 nombres. Sin deudas, importes ni historial: la única
- *                 información necesaria para elegir identidad.
+ *                 nombres. Quien YA ESTUVO ve además «Volver a entrar como X»
+ *                 arriba y no ve «Soy nuevo» (F10/ADR-003 §2). Sin deudas,
+ *                 importes ni historial: la única información necesaria para
+ *                 elegir identidad.
  *
  * Los estilos de tarjeta y emblema son los de la hoja: se reciben, no se
  * copian, para que las dos vistas sean la hoja y no otra cosa dentro de ella.
@@ -307,9 +309,10 @@ export function WhoAreYou({
       </View>
 
       {/*
-       * VOLVER (F09/ADR-010): quien salió conserva su identidad, y es la única
-       * opción: ni reclamar a otro ni entrar como nuevo. El nombre es el
-       * actual de esa identidad (el destino, si asoció a alguien).
+       * VOLVER (F09/ADR-010, F10/ADR-003 §2): quien ya estuvo puede volver con
+       * su identidad de entonces —el nombre es el actual de esa identidad (el
+       * destino, si asoció a alguien)— O elegir, abajo, a alguien sin cuenta.
+       * Lo que no hay es «Soy nuevo».
        */}
       {rejoin && preview.previousParticipant !== null ? (
         <Pressable
@@ -333,69 +336,71 @@ export function WhoAreYou({
           </ThemedText>
         </Pressable>
       ) : null}
-      {rejoin ? null : (
-        <ScrollView
-          style={styles.whoScroll}
-          contentContainerStyle={styles.whoList}
-          keyboardShouldPersistTaps="handled">
-          {preview.participants.length === 0 ? (
-            <ThemedText variant="bodySmall" themeColor="textTertiary" style={styles.whoEmpty}>
-              {t('groups.whoNone')}
-            </ThemedText>
-          ) : null}
-          {preview.participants.map((one) => (
-            <Pressable
-              key={one.participantId}
-              accessibilityRole="button"
-              accessibilityLabel={t('groups.whoClaim', { name: one.displayName })}
-              disabled={joining}
-              onPress={() => {
-                /*
-                 * «¿ERES [NOMBRE]?» antes de reclamar. Reclamar vincula a tu
-                 * cuenta los gastos y las deudas anteriores de esa identidad:
-                 * es lo que hay que leer antes de confirmar, y el paso atrás
-                 * es «Volver», no una reclamación que deshacer.
-                 */
-                Alert.alert(
-                  t('groups.claimAskTitle', { name: one.displayName }),
-                  t('groups.claimAskBody'),
-                  [
-                    { text: t('groups.claimBack'), style: 'cancel' },
-                    {
-                      text: t('groups.claimYes', { name: one.displayName }),
-                      onPress: () => {
-                        onClaim(one.participantId);
-                      },
+      {/* Los participantes sin cuenta disponibles, haya estado antes o no. */}
+      <ScrollView
+        style={styles.whoScroll}
+        contentContainerStyle={styles.whoList}
+        keyboardShouldPersistTaps="handled">
+        {preview.participants.length === 0 ? (
+          <ThemedText variant="bodySmall" themeColor="textTertiary" style={styles.whoEmpty}>
+            {t('groups.whoNone')}
+          </ThemedText>
+        ) : null}
+        {preview.participants.map((one) => (
+          <Pressable
+            key={one.participantId}
+            accessibilityRole="button"
+            accessibilityLabel={t('groups.whoClaim', { name: one.displayName })}
+            disabled={joining}
+            onPress={() => {
+              /*
+               * «¿ERES [NOMBRE]?» antes de reclamar. Reclamar vincula a tu
+               * cuenta los gastos y las deudas anteriores de esa identidad, y
+               * el vínculo es PERMANENTE en este grupo (F10/ADR-002): no hay
+               * ninguna acción para deshacerlo. Es lo que hay que leer antes
+               * de confirmar, y el paso atrás es «Volver».
+               */
+              Alert.alert(
+                t('groups.claimAskTitle', { name: one.displayName }),
+                t('groups.claimAskBody'),
+                [
+                  { text: t('groups.claimBack'), style: 'cancel' },
+                  {
+                    text: t('groups.claimYes', { name: one.displayName }),
+                    onPress: () => {
+                      onClaim(one.participantId);
                     },
-                  ],
-                );
-              }}
-              style={({ pressed }) => [
-                styles.option,
-                {
-                  backgroundColor: pressed ? theme.surfaceSunken : theme.surfaceRaised,
-                  borderColor: theme.border,
-                },
-              ]}>
-              <Icon name={Symbols.person} size={18} colour={theme.textSecondary} />
-              <ThemedText
-                variant="body"
-                themeColor="text"
-                numberOfLines={1}
-                style={styles.optionText}>
-                {one.displayName}
-              </ThemedText>
-            </Pressable>
-          ))}
-        </ScrollView>
-      )}
+                  },
+                ],
+              );
+            }}
+            style={({ pressed }) => [
+              styles.option,
+              {
+                backgroundColor: pressed ? theme.surfaceSunken : theme.surfaceRaised,
+                borderColor: theme.border,
+              },
+            ]}>
+            <Icon name={Symbols.person} size={18} colour={theme.textSecondary} />
+            <ThemedText
+              variant="body"
+              themeColor="text"
+              numberOfLines={1}
+              style={styles.optionText}>
+              {one.displayName}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </ScrollView>
 
       {/*
        * «SOY NUEVO», FUERA DE LA LISTA. Estaba dentro del ScrollView y con dos o
        * tres nombres quedaba por debajo del borde de la hoja: existía, pero no
        * se veía. Anclado aquí es la última fila del panel, siempre visible, y
        * se distingue de los nombres por el emblema lila y el borde. Con el
-       * nombre del perfil; sin uno válido, se pide sólo ese dato.
+       * nombre del perfil; sin uno válido, se pide sólo ese dato. Quien YA
+       * ESTUVO no lo ve (F10/ADR-003 §2): vuelve como entonces o elige a
+       * alguien sin cuenta, y el servidor rehúsa «nuevo» (REJOIN_REQUIRED).
        */}
       {rejoin ? null : naming && profileName === null ? (
         <View
