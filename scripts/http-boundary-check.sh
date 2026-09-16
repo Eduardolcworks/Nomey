@@ -249,6 +249,8 @@ delete from core.participant_period where participant_id in
 -- Invitaciones (seccion 14: un invitado invita), antes que su ambito.
 delete from core.group_invitation where scope_id in (${MIOS});
 delete from core.participant_user_link where scope_id in (${MIOS});
+-- F10/ADR-005: la decision de inicio del Personal referencia el ambito.
+delete from core.personal_start where scope_id in (${MIOS});
 delete from core.provisioning_command where created_by in (${ACTORES});
 delete from core.membership where scope_id in (${MIOS});
 -- El perfil del grupo que un invitado creo por HTTP (seccion 14).
@@ -1543,6 +1545,82 @@ SQL
     && ok "medido: entrar por contrasena desde un invitado seria OTRO sub (${other}); lo del invitado (${n} ambito) se queda con ${GUEST2} — por eso el cliente lo rehusa" \
     || fallo "no se pudo medir el cambio de sub (guest2=${GUEST2}, other=${other}, uid_a=${UID_A}, n=${n})"
   [ -n "${GUEST2}" ] && GUEST2_UID="${GUEST2}"
+fi
+
+# ============================================================================
+# 15 · el punto de inicio del Modo Personal tras el Invitado (F10/ADR-005)
+# ============================================================================
+# La cuenta convertida en §14 pago un gasto de grupo siendo invitada: tiene
+# historia. La marca de origen nacio con su Personal (ensure_personal_scope
+# bajo el JWT anonimo); tras convertir, el servidor pide la decision; `fresh`
+# deja esa historia fuera del Personal y no de Saldos; lo posterior entra; la
+# decision no se repite; un invitado sin historia se resuelve solo; una cuenta
+# normal no tiene esta decision.
+echo "== 15 · el punto de inicio del Modo Personal tras el Invitado (F10/ADR-005) =="
+if [ -z "${TOK_G2:-}" ]; then
+  fallo "sin la cuenta convertida de §14 no se puede medir §15"
+else
+  GG=(-H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_G2}")
+  rr=$(rpc ensure_personal_scope "${TOK_G2}" '{"payload":{}}')
+  v=$(cuerpo_de "${rr}" | jarr 'a.provisioned_as_guest===true && a.start_mode===null && a.needs_start_decision===true ? "ok" : JSON.stringify({g:a.provisioned_as_guest,m:a.start_mode,n:a.needs_start_decision})')
+  [ "$(estado_de "${rr}")" = "200" ] && [ "${v}" = "ok" ] && ok "ensure_personal_scope tras convertir: marca de invitado, sin decision, pide decidir (hay historia)" || fallo "ensure_personal_scope tras convertir: ${rr}"
+  v=$(curl -s "${API}/rest/v1/personal_scope?select=provisioned_as_guest,start_mode,needs_start_decision" "${GG[@]}" \
+    | jarr 'a.length===1 && a[0].provisioned_as_guest===true && a[0].start_mode===null && a[0].needs_start_decision===true ? "ok" : JSON.stringify(a)')
+  [ "${v}" = "ok" ] && ok "api.personal_scope publica lo mismo" || fallo "personal_scope: ${v}"
+  v=$(curl -s "${API}/rest/v1/personal_balance?select=balance_amount" "${GG[@]}" | jarr 'a.length===1 ? a[0].balance_amount : JSON.stringify(a)')
+  [ "${v}" = "-3000" ] && ok "antes de decidir, el Personal es el de siempre: Disponible ${v} (la cena que pago como invitado)" || fallo "personal_balance antes: ${v}"
+  # Un include AUTOMATICO (primer acceso sin historia) se rehusa: hay historia y decide la persona.
+  comprobar_error "include automatico con historia" start_personal_scope "${TOK_G2}" \
+    '{"client_command_id":"a1500000-0000-4000-8000-000000000001","command_contract_version":1,"mode":"include","automatic":true}' PERSONAL_START_DECISION_REQUIRED 409
+  # fresh: el punto de inicio.
+  llamada "empezar desde cero" start_personal_scope "${TOK_G2}" \
+    '{"client_command_id":"a1500000-0000-4000-8000-000000000002","command_contract_version":1,"mode":"fresh"}'
+  v=$(printf '%s' "${ULTIMO_CUERPO}" | jarr 'a.mode==="fresh" && a.already_processed===false && typeof a.started_at==="string" ? "ok" : JSON.stringify(a)')
+  [ "${v}" = "ok" ] && ok "la decision responde el modo y el instante" || fallo "start_personal_scope fresh: ${v}"
+  v=$(curl -s "${API}/rest/v1/personal_balance?select=balance_amount" "${GG[@]}" | jarr 'a.length===1 ? a[0].balance_amount : JSON.stringify(a)')
+  [ "${v}" = "0" ] && ok "Disponible 0: la caja anterior queda fuera" || fallo "personal_balance tras fresh: ${v}"
+  v=$(curl -s "${API}/rest/v1/personal_operation?select=operation_id" "${GG[@]}" | jarr 'a.length')
+  [ "${v}" = "0" ] && ok "historial vacio" || fallo "personal_operation tras fresh: ${v} filas"
+  rr=$(rpc personal_statistics "${TOK_G2}" '{}')
+  v=$(cuerpo_de "${rr}" | jarr 'a.expense_total==="0" && a.categories.length===0 ? "ok" : JSON.stringify(a)')
+  [ "${v}" = "ok" ] && ok "estadisticas a cero" || fallo "personal_statistics tras fresh: ${rr}"
+  v=$(curl -s "${API}/rest/v1/group_balance?scope_id=eq.${GQ}&select=net_position,is_self" "${GG[@]}" \
+    | jarr 'a.some(r=>r.is_self===true && r.net_position==="1500") ? "ok" : JSON.stringify(a)')
+  [ "${v}" = "ok" ] && ok "Saldos del grupo intactos: la deuda no se filtra (+1500 a favor)" || fallo "group_balance tras fresh: ${v}"
+  v=$(curl -s "${API}/rest/v1/personal_scope?select=start_mode,needs_start_decision" "${GG[@]}" \
+    | jarr 'a.length===1 && a[0].start_mode==="fresh" && a[0].needs_start_decision===false ? "ok" : JSON.stringify(a)')
+  [ "${v}" = "ok" ] && ok "decidido: no vuelve a preguntar" || fallo "personal_scope tras fresh: ${v}"
+  # Idempotente por clave; no se vuelve a decidir.
+  llamada "replay de la decision" start_personal_scope "${TOK_G2}" \
+    '{"client_command_id":"a1500000-0000-4000-8000-000000000002","command_contract_version":1,"mode":"fresh"}'
+  v=$(printf '%s' "${ULTIMO_CUERPO}" | jarr 'a.already_processed===true && a.mode==="fresh" ? "ok" : JSON.stringify(a)')
+  [ "${v}" = "ok" ] && ok "el replay devuelve la decision original" || fallo "replay: ${v}"
+  comprobar_error "otra decision" start_personal_scope "${TOK_G2}" \
+    '{"client_command_id":"a1500000-0000-4000-8000-000000000003","command_contract_version":1,"mode":"include"}' PERSONAL_START_DECIDED 409
+  # Lo posterior entra: un gasto de grupo nuevo, pagado por la cuenta.
+  llamada "gasto de grupo despues del corte" record_group_expense "${TOK_G2}" "{
+    \"client_operation_id\":\"a1500000-0000-4000-8000-000000000004\",\"command_contract_version\":1,
+    \"scope_id\":\"${GQ}\",\"currency_definition_id\":\"${MXN}\",\"total\":\"1000\",\"effective_date\":\"${HOY_UTC}\",
+    \"concept\":\"Desayuno\",\"category_id\":\"${CAT_GASTO}\",\"payer_participant_id\":\"${GQ_YO}\",
+    \"participants\":[\"${GQ_YO}\",\"${GQ_ANA}\"],\"split_method\":{\"kind\":\"equal\"}}"
+  v=$(curl -s "${API}/rest/v1/personal_balance?select=balance_amount" "${GG[@]}" | jarr 'a.length===1 ? a[0].balance_amount : JSON.stringify(a)')
+  [ "${v}" = "-1000" ] && ok "Disponible -1000: solo lo posterior" || fallo "personal_balance tras el gasto posterior: ${v}"
+  v=$(curl -s "${API}/rest/v1/personal_operation?select=operation_id,operation_class" "${GG[@]}" | jarr 'a.length===1 && a[0].operation_class==="group_expense" ? "ok" : JSON.stringify(a)')
+  [ "${v}" = "ok" ] && ok "historial: solo el gasto posterior" || fallo "personal_operation tras el gasto posterior: ${v}"
+  # Un invitado SIN historia (el segundo de §14): include automatico, persistido.
+  if [ -n "${TOK_G3:-}" ]; then
+    llamada "primer acceso sin historia: include automatico" start_personal_scope "${TOK_G3}" \
+      '{"client_command_id":"a1500000-0000-4000-8000-000000000005","command_contract_version":1,"mode":"include","automatic":true}'
+    v=$(curl -s "${API}/rest/v1/personal_scope?select=provisioned_as_guest,start_mode,needs_start_decision" -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_G3}" \
+      | jarr 'a.length===1 && a[0].provisioned_as_guest===true && a[0].start_mode==="include" && a[0].needs_start_decision===false ? "ok" : JSON.stringify(a)')
+    [ "${v}" = "ok" ] && ok "queda decidido como include: nunca preguntara" || fallo "personal_scope del segundo invitado: ${v}"
+  fi
+  # Una cuenta normal no tiene esta decision.
+  comprobar_error "una cuenta normal" start_personal_scope "${TOK_A}" \
+    '{"client_command_id":"a1500000-0000-4000-8000-000000000006","command_contract_version":1,"mode":"include"}' PERSONAL_START_NOT_APPLICABLE 409
+  v=$(curl -s "${API}/rest/v1/personal_scope?select=provisioned_as_guest,start_mode,needs_start_decision" "${GA[@]}" \
+    | jarr 'a.length===1 && a[0].provisioned_as_guest===false && a[0].start_mode===null && a[0].needs_start_decision===false ? "ok" : JSON.stringify(a)')
+  [ "${v}" = "ok" ] && ok "una cuenta normal: sin marca, sin decision, sin pregunta" || fallo "personal_scope de A: ${v}"
 fi
 
 echo "== retirada =="
