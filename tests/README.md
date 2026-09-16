@@ -52,14 +52,18 @@ Reglas del formato:
 - **Ninguna expectativa se escribe en el código de test.** Si hay que cambiar un
   resultado esperado, se cambia el vector.
 
-| Fichero           | Qué cubre                                                       |
-| ----------------- | --------------------------------------------------------------- |
-| `currencies.json` | Definiciones monetarias, incluidas dos que comparten código ISO |
-| `rounding.json`   | _half away from zero_, empates, negativos, más allá de 2^53     |
-| `conversion.json` | Conversión exacta, cambios de escala, importes enormes          |
-| `money.json`      | Aritmética, comparación y definiciones incompatibles            |
-| `split.json`      | `equal`, `shares`, `exact_amounts`, indivisibilidad y errores   |
-| `scenarios.json`  | Los escenarios de `data-model.md` §4                            |
+| Fichero                  | Qué cubre                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| `currencies.json`        | Definiciones monetarias, incluidas dos que comparten código ISO                      |
+| `rounding.json`          | _half away from zero_, empates, negativos, más allá de 2^53                          |
+| `conversion.json`        | Conversión exacta, cambios de escala, importes enormes                               |
+| `money.json`             | Aritmética, comparación y definiciones incompatibles                                 |
+| `split.json`             | `equal`, `shares`, `exact_amounts`, indivisibilidad y errores                        |
+| `scenarios.json`         | Los escenarios de `data-model.md` §4                                                 |
+| `fx-source-decimal.json` | Tipo publicado por la fuente: formatos válidos y rechazados (F11/ADR-002 §2)         |
+| `fx-derivation.json`     | Derivación a escala 12 y conversión con rango, con el catálogo real (F11/ADR-001 §7) |
+| `fx-day.json`            | Tipo del día por moneda: R, P, K = 1, festivos y cobertura (F11/ADR-002)             |
+| `fx-dates.json`          | Fecha efectiva en el camino con conversión (decisión F11.B)                          |
 
 Y dos suites que no consumen vectores porque comprueban otra cosa:
 `properties.test.ts` verifica invariantes que deben cumplirse **siempre** —la

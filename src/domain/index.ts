@@ -25,7 +25,23 @@ export { divideRoundHalfAwayFromZero } from './money/rounding';
 export { fromMinorUnits, toMinorUnits } from './money/parse';
 export type { ExchangeRate } from './money/exchange-rate';
 export { exchangeRate, exchangeRateFromStrings } from './money/exchange-rate';
-export { convert } from './money/convert';
+export { convert, convertWithinRange } from './money/convert';
+export { INT64_MAX, INT64_MIN, isInt64 } from './money/int64';
+
+export { MAX_RATE_SCALE, sourceDecimalToRate } from './fx/source-decimal';
+export { DERIVED_RATE_SCALE, PIVOT_QUOTE, deriveRate } from './fx/derive-rate';
+export type { FxEffectiveDateClass, IsoDate } from './fx/effective-date';
+export { assertIsoDate, classifyFxEffectiveDate, isIsoDate } from './fx/effective-date';
+export type {
+  CoverageInterval,
+  CurrencyCoverage,
+  DayRateInput,
+  DayRateSelection,
+  InsufficientReason,
+  NotCoveredReason,
+  ObservedPublication,
+} from './fx/day-rate';
+export { selectDayRate } from './fx/day-rate';
 
 export type { Share, SplitInput, SplitMethod } from './split/split';
 export { sharesTotal, splitExpense } from './split/split';

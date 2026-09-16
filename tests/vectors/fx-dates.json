@@ -1,0 +1,103 @@
+{
+  "source": "decision F11.B sobre fechas · F11/ADR-002 §6",
+  "note": "Clasificacion de la fecha efectiva en el camino con conversion. 'payload_invalid' -> PAYLOAD_INVALID 400 (solo en las rutas FX; las demas clases no cambian). 'no_reference_publication' -> FX_CURRENCY_NOT_COVERED 422. 'resolvable' -> lo decide la fijacion del dia (una fecha futura finita espera con 503, sin limite de dias). Los casos con scope 'domain' comprueban el contrato de entrada del dominio y no tienen equivalente en SQL, donde la fecha ya llega como date.",
+  "sourceFirstReferenceDate": "1999-01-04",
+  "cases": [
+    {
+      "id": "fecha-normal",
+      "source": "F11/ADR-002 §6",
+      "given": { "effectiveDate": "2026-09-15" },
+      "expect": { "classification": "resolvable" }
+    },
+    {
+      "id": "bisiesto",
+      "source": "F11/ADR-002 §6",
+      "given": { "effectiveDate": "2024-02-29" },
+      "expect": { "classification": "resolvable" }
+    },
+    {
+      "id": "futura-finita",
+      "source": "decision F11.B (sin limite de dias futuros)",
+      "given": { "effectiveDate": "2027-01-15" },
+      "expect": { "classification": "resolvable" }
+    },
+    {
+      "id": "futura-lejana",
+      "source": "decision F11.B (sin limite de dias futuros)",
+      "given": { "effectiveDate": "9999-12-31" },
+      "expect": { "classification": "resolvable" }
+    },
+    {
+      "id": "infinito",
+      "source": "decision F11.B (infinity)",
+      "given": { "effectiveDate": "infinity" },
+      "expect": { "classification": "payload_invalid" }
+    },
+    {
+      "id": "menos-infinito",
+      "source": "decision F11.B (infinity)",
+      "given": { "effectiveDate": "-infinity" },
+      "expect": { "classification": "payload_invalid" }
+    },
+    {
+      "id": "primera-publicacion",
+      "source": "decision F11.B (fechas anteriores al BCE)",
+      "given": { "effectiveDate": "1999-01-04" },
+      "expect": { "classification": "no_reference_publication" }
+    },
+    {
+      "id": "anterior-a-la-fuente",
+      "source": "decision F11.B (fechas anteriores al BCE)",
+      "given": { "effectiveDate": "1998-06-30" },
+      "expect": { "classification": "no_reference_publication" }
+    },
+    {
+      "id": "dia-siguiente-a-la-primera",
+      "source": "F11/ADR-002 §6",
+      "given": { "effectiveDate": "1999-01-05" },
+      "expect": { "classification": "resolvable" }
+    },
+    {
+      "id": "no-bisiesto",
+      "source": "contrato del dominio",
+      "scope": "domain",
+      "given": { "effectiveDate": "2026-02-29" },
+      "expectError": "EFFECTIVE_DATE_INVALID"
+    },
+    {
+      "id": "fin-de-siglo-no-bisiesto",
+      "source": "contrato del dominio",
+      "scope": "domain",
+      "given": { "effectiveDate": "2100-02-29" },
+      "expectError": "EFFECTIVE_DATE_INVALID"
+    },
+    {
+      "id": "mes-13",
+      "source": "contrato del dominio",
+      "scope": "domain",
+      "given": { "effectiveDate": "2026-13-01" },
+      "expectError": "EFFECTIVE_DATE_INVALID"
+    },
+    {
+      "id": "dia-cero",
+      "source": "contrato del dominio",
+      "scope": "domain",
+      "given": { "effectiveDate": "2026-09-00" },
+      "expectError": "EFFECTIVE_DATE_INVALID"
+    },
+    {
+      "id": "sin-ceros",
+      "source": "contrato del dominio",
+      "scope": "domain",
+      "given": { "effectiveDate": "2026-9-1" },
+      "expectError": "EFFECTIVE_DATE_INVALID"
+    },
+    {
+      "id": "texto",
+      "source": "contrato del dominio",
+      "scope": "domain",
+      "given": { "effectiveDate": "today" },
+      "expectError": "EFFECTIVE_DATE_INVALID"
+    }
+  ]
+}
