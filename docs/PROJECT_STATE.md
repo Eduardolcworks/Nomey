@@ -16,20 +16,21 @@
 Actualizado el **2026-09-16**, al cerrar **F10.A3** (identidad permanente en
 el grupo, F10/ADR-002; vínculo activo/histórico al salir y volver, F10/ADR-003;
 modo Invitado real, F05/ADR-003); el siguiente bloque es **F10.B0**. La
-**Fase 9** cerró el 2026-09-14.
+**Fase 9** cerró el 2026-09-14. Incluye el cierre de **F11.A** (decisiones de
+multimoneda, F11/ADR-001, sin implementación).
 
 ---
 
 ## Dónde estamos
 
-|                         |                                                                                                                                                                                                                                                                 |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes) y **Fase 10** (ciclo de vida del vínculo: F10.A0 … F10.A3 cerrados; **F10.B0** es el siguiente, B1 … C0 pendientes). F11 **no abierta**                               |
-| **Última fase cerrada** | **Fase 9 — Grupos, gastos compartidos y deudas**, el 2026-09-14. **Validada en iPhone (Expo Go) y en el emulador Android**                                                                                                                                      |
-| **ADR aceptados**       | 42 de 43 (F00–F10; F00/ADR-001 sigue Propuesto), organizados por fase en `docs/adr/FNN/`                                                                                                                                                                        |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **50 migraciones**: las dos últimas dejan la identidad permanente (F10/ADR-002, retirando toda baja de vínculo) y el vínculo activo/histórico (F10/ADR-003: salir lo termina sin borrarlo) |
-| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver                                                                                                                            |
-| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                                                                                                                                                    |
+|                         |                                                                                                                                                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes) y **Fase 10** (ciclo de vida del vínculo: F10.A0 … F10.A3 cerrados; **F10.B0** es el siguiente, B1 … C0 pendientes). **Fase 11** abierta: **F11.A** cerrada (contrato, sin implementación) |
+| **Última fase cerrada** | **Fase 9 — Grupos, gastos compartidos y deudas**, el 2026-09-14. **Validada en iPhone (Expo Go) y en el emulador Android**                                                                                                                                                           |
+| **ADR aceptados**       | 45 de 46 (F00–F11; F00/ADR-001 sigue Propuesto), organizados por fase en docs/adr/FNN/                                                                                                                                                                                               |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **50 migraciones**: las dos últimas dejan la identidad permanente (F10/ADR-002, retirando toda baja de vínculo) y el vínculo activo/histórico (F10/ADR-003: salir lo termina sin borrarlo)                      |
+| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver                                                                                                                                                 |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**; **modo Invitado** real (sesión anónima, convertible en cuenta sin cambiar de id; F05/ADR-003). **Faltan Google y Apple** (F8.B)                                                                                                   |
 
 **La Fase 8 está ABIERTA.** F8.A0 aceptó
 [F08/ADR-001](adr/F08/ADR-001-native-code-model.md) y
@@ -151,6 +152,48 @@ que saber antes de tocar identidad:
   medido): con invitación viva cualquiera recupera el acceso y nadie puede
   revocarla; sin ella el grupo es inaccesible. F10 no lo cambia; queda
   registrado como consecuencia que merece decisión futura.
+
+**F11.A está CERRADA, y es sólo contrato: la multimoneda todavía no existe en el
+código.** [F11/ADR-001](adr/F11/ADR-001-fx-rate-resolution.md) fija lo que F11.B y F11.C
+implementarán; hoy toda operación en una moneda distinta de la base sigue
+respondiendo `CURRENCY_CONVERSION_UNSUPPORTED · 422`. Lo que una fase futura no
+debe deducir por su cuenta:
+
+- **El tipo del día X es el último disponible al comenzar X en hora de
+  Fráncfort** —la publicación del BCE con la fecha de referencia más reciente
+  anterior a X— y **se fija una sola vez**. La conversión es inmediata, y ni la
+  hora de la operación ni el momento de sincronizar cambian el tipo.
+- **Moneda extranjera sólo en gasto e ingreso personales y en gasto de grupo**,
+  sobre el contrato de F9. Las demás clases conservan su negativa a convertir.
+  **Sin decidir, en F11.D:** si se convierte o se rechaza la caja que se
+  incorpora al asociar un fantasma que pagó un gasto de grupo, y cómo se reparte
+  un `exact_amounts` en moneda extranjera
+  ([decisiones abiertas](architecture/phase-11-progress.md#decisiones-abiertas)).
+  **Condición de seguridad, no decisión:** F11.B no habilita moneda extranjera
+  en `record_group_expense`; se habilita en F11.D, después de decidir los dos
+  casos. Habilitarla antes haría que `sec.incorporate_participant_cash`
+  escribiera la caja de un gasto en USD como si fuera la base del Personal.
+- **F11.B no se despliega sin F11.C** (dependencia de planificación, no una
+  decisión monetaria): antes de habilitar en producción operaciones personales
+  en moneda extranjera tienen que estar resueltas `api.personal_operation` y las
+  lecturas y estadísticas afectadas, que hoy publicarían el importe original con
+  la moneda del efecto
+  ([seguimiento de F11](architecture/phase-11-progress.md#dependencia-de-planificación-f11b-no-se-despliega-sin-f11c)).
+- **Liquidar entre bases distintas sigue sin poderse, y es conocido.** F9 ya lo
+  restringe: quien tiene un Personal en otra moneda que la del grupo no puede
+  declarar ni recibir un pago, y por eso tampoco salir con saldo. **No es un
+  fallo de la integración F9 + F11, queda fuera del alcance de F11 y F11.B no
+  lo implementa.** Detalle en el
+  [seguimiento de F11](architecture/phase-11-progress.md#limitaciones-conocidas).
+- **La cobertura es por moneda y par, nunca por país.** ARS, COP y CLP siguen en
+  el catálogo y no se convierten, porque el BCE no las cubre.
+- **No hay tipo manual**, y un tipo congelado no se toca.
+- **Tres resultados que no se confunden:** `FX_CURRENCY_NOT_COVERED · 422`,
+  `FX_RATE_NOT_YET_AVAILABLE · 503` y el conflicto de base, que conserva
+  `CURRENCY_CONVERSION_UNSUPPORTED`.
+- **El payload llevará la base asumida al capturar**
+  (`expected_base_currency_definition_id`); `record_group_expense` la
+  incorporará en una migración nueva sobre su cuerpo vigente de F9.
 
 **F8.A1 dejó el contrato de entornos funcionando, y no hay ninguna build.** Las
 tres variantes se resuelven, se comparan y se exportan. Lo que hay que saber
@@ -1003,6 +1046,10 @@ la misma: se trocea siempre, y la cifra la valida en vez de cambiarla.
     RLS. Un Modo Personal necesita **las dos** filas.
 12. **`core.membership` es presencia, no historial**, y `participant_period` es
     elegibilidad para figurar en una operación, **nunca** autorización.
+13. **El tipo de cambio de una operación es el tipo del día de su fecha
+    efectiva**: el último disponible al comenzar ese día en hora de Fráncfort,
+    fijado una sola vez. No depende de la hora, de la sincronización ni del país,
+    y nunca lo aporta el cliente (F11/ADR-001).
 
 ---
 
@@ -1015,6 +1062,20 @@ primero revienta; lo segundo se ignora en silencio, que es peor. `src/lib/format
 solo usa `format()` y deriva la forma del locale con sondas, en una única vía
 para todos los runtimes. **Nada que se ejecute en el dispositivo se da por
 verificado porque pase en Vitest**, que corre sobre V8.
+
+**Las estadísticas personales pueden sumar monedas distintas.** Es un defecto
+**preexistente**, introducido por
+`20260910120000_personal_statistics_shared_share.sql` (F9), y **no** por F11.
+Medido el 2026-09-14 sobre las 46 migraciones: con base personal EUR y una cuota
+de un grupo en JPY pagado por otra persona, `api.personal_statistics` devuelve
+`expense_total = 3500` como EUR (10,00 EUR propios + 2500 JPY de cuota). La cuota
+compartida se suma sin filtrar por moneda, y basta con **participar sin pagar**
+en un grupo cuya base difiere de la del Personal: no hace falta ninguna
+conversión. Contradice F02/ADR-001 §3. La deuda de Inicio **no** tiene este
+problema: se niega a sumar monedas distintas. **Se resuelve en F11.C**
+(estadísticas y lecturas): excluir, convertir o separar esas cuotas es una
+decisión pendiente de ese bloque. Detalle en el
+[seguimiento de F11](architecture/phase-11-progress.md#las-estadísticas-personales-suman-monedas-distintas).
 
 ---
 
@@ -1037,8 +1098,8 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 | **Subida real de la foto de perfil**            | Bloque posterior, con decisión propia                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Timeout de las operaciones de autenticación** | Deuda abierta, sin ADR                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Persistencia de la preferencia de idioma        | Con la UI de Ajustes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Resolución autoritativa del FX**              | Decisión de producto — **F11**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **Cambio de divisa base con historia**          | **F11**. Elegirla ya se puede (F6.A)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ~~Resolución autoritativa del FX~~              | **Decidida en F11.A** — F11/ADR-001; implementación en F11.B                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Cambio de divisa base con historia**          | **F11**, sin decidir: F11/ADR-001 no lo incluye y, con efectos, exigiría un sucesor de F01/ADR-001 §8 ([discrepancia anotada](architecture/phase-11-progress.md#discrepancias-documentales-anotadas)). Elegirla ya se puede (F6.A)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **Provisioning** de Grupos                      | **HECHO** — `api.create_group`, F9 (F09/ADR-001)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | ~~Unión por enlace o QR, y edición del perfil~~ | **HECHO** — `update_group_profile` (F09/ADR-001), `redeem_invitation` (F09/ADR-004); **Compartir grupo** con QR y hoja del sistema sobre la misma invitación                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **Modo Pareja** completo, con su `Cierre`       | Su fase                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -1185,6 +1246,8 @@ una feature escribible real.
 | Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                                                                                                                             |
 | **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · F08/ADR-001 · F08/ADR-002                                                                                                           |
 | **Continuar la Fase 10**                        | [`product/roadmap.md`](product/roadmap.md), Fase 10 · [`architecture/phase-10-opening.md`](architecture/phase-10-opening.md) · [F10/ADR-001](adr/F10/ADR-001-link-instance-lifecycle.md) |
+| **Multimoneda: el contrato de F11**             | [`adr/F11/ADR-001-fx-rate-resolution.md`](adr/F11/ADR-001-fx-rate-resolution.md) · roadmap, Fase 11                                                                                      |
+| **Continuar la Fase 11**                        | [`architecture/phase-11-progress.md`](architecture/phase-11-progress.md): estado, contraste con F9 y limitaciones                                                                        |
 | Cómo quedó la Fase 9, ya cerrada                | [`architecture/phase-9-progress.md`](architecture/phase-9-progress.md) · roadmap, Fase 9, «Estado de cierre»                                                                             |
 | Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)                                                                                                                     |
 | Cómo quedó la Fase 5, ya cerrada                | [`architecture/phase-5-handoff.md`](architecture/phase-5-handoff.md)                                                                                                                     |
