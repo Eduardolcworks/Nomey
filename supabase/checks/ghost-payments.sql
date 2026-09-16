@@ -82,7 +82,7 @@ begin
   if pg_temp.gp_pairs(r.g) <> 'Edu>Marta:1000' then raise exception 'A0: %', pg_temp.gp_pairs(r.g); end if;
   select count(*) into v_scopes from core.scope where kind = 'personal';
   select count(*) into v_notices from core.group_notice where scope_id = r.g;
-  v := pg_temp.gp_pay(r.edu, 'a4000000-0000-4000-8000-000000000051'::uuid, r.g, r.p_edu, r.p_marta, 1000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.edu, 'a4000000-0000-4000-8000-000000000051'::uuid, r.g, r.p_edu, r.p_marta, 1000, pg_temp.gp_expected(r.g, r.edu));
   if v not like 'OK %' then raise exception 'A1: pagar a quien no tiene cuenta: %', v; end if;
   update fx set pay_a = substr(v, 4)::uuid;
   if pg_temp.gp_pairs(r.g) <> '-' then raise exception 'A2: %', pg_temp.gp_pairs(r.g); end if;
@@ -114,7 +114,7 @@ begin
   select * into r from fx;
   perform pg_temp.gasto(r.edu, 'a4000000-0000-4000-8000-000000000042'::uuid, r.p_edu, array[r.p_edu, r.p_marta], 2000);
   if pg_temp.gp_pairs(r.g) <> 'Marta>Edu:1000' then raise exception 'B0: %', pg_temp.gp_pairs(r.g); end if;
-  v := pg_temp.gp_pay(r.edu, 'a4000000-0000-4000-8000-000000000052'::uuid, r.g, r.p_marta, r.p_edu, 1000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.edu, 'a4000000-0000-4000-8000-000000000052'::uuid, r.g, r.p_marta, r.p_edu, 1000, pg_temp.gp_expected(r.g, r.edu));
   if v not like 'OK %' then raise exception 'B1: cobrar de quien no tiene cuenta: %', v; end if;
   update fx set pay_b = substr(v, 4)::uuid;
   if pg_temp.gp_pairs(r.g) <> '-' then raise exception 'B2: %', pg_temp.gp_pairs(r.g); end if;
@@ -135,11 +135,11 @@ begin
   select count(*) into v_n from core.operation o where o.operation_class = 'group_payment' and exists (
     select 1 from core.payment_detail pd join core.operation_version ov on ov.id = pd.operation_version_id where ov.operation_id = o.id and pd.scope_id = r.g);
   -- C1 · Bea, con cuenta y miembro, no es parte: no registra el pago de Edu a Marta.
-  v := pg_temp.gp_pay(r.bea, 'a4000000-0000-4000-8000-000000000053'::uuid, r.g, r.p_edu, r.p_marta, 1000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.bea, 'a4000000-0000-4000-8000-000000000053'::uuid, r.g, r.p_edu, r.p_marta, 1000, pg_temp.gp_expected(r.g, r.bea));
   if v not like 'NOT_AUTHORIZED%' then raise exception 'C1: un tercero registro un pago ajeno: %', v; end if;
   -- C2 · entre dos sin cuenta no hay quien declare: ni Edu (no es parte) ni nadie.
   v_op := pg_temp.gasto(r.edu, 'a4000000-0000-4000-8000-000000000044'::uuid, r.p_dani, array[r.p_marta, r.p_dani], 2000);
-  v := pg_temp.gp_pay(r.edu, 'a4000000-0000-4000-8000-000000000054'::uuid, r.g, r.p_marta, r.p_dani, 1000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.edu, 'a4000000-0000-4000-8000-000000000054'::uuid, r.g, r.p_marta, r.p_dani, 1000, pg_temp.gp_expected(r.g, r.edu));
   if v not like 'NOT_AUTHORIZED%' then raise exception 'C2: un pago entre dos sin cuenta se registro: %', v; end if;
   -- Ese gasto se anula (Edu, miembro; sin caja de nadie) para no dejar a Marta con neto cero en D.
   v := pg_temp.gp_annul(r.edu, 'a4000000-0000-4000-8000-000000000074'::uuid, v_op);
@@ -177,7 +177,7 @@ begin
   select count(*) into v_n from core.operation_version where operation_id = (select pay_a from fx);
   if v_n <> 2 then raise exception 'D8: % versiones y son 2', v_n; end if;
   -- Y se vuelve a saldar (replay de la clave de A: ya no es la misma intencion → otra clave).
-  v := pg_temp.gp_pay(r.edu, 'a4000000-0000-4000-8000-000000000055'::uuid, r.g, r.p_edu, r.p_marta, 1000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.edu, 'a4000000-0000-4000-8000-000000000055'::uuid, r.g, r.p_edu, r.p_marta, 1000, pg_temp.gp_expected(r.g, r.edu));
   if v not like 'OK %' then raise exception 'D9: %', v; end if;
   raise notice 'D · anular revierte exactamente la caja y la deuda; un tercero no; replay sin segunda version: OK';
 end $d$;
@@ -216,7 +216,7 @@ begin
   update core.participant_user_link set participant_id = r.p_bea where user_id = r.bea;  -- deshacer E
   -- Bea paga 2000 entre Edu y Bea → Edu>Bea 1000; Edu paga (aviso a Bea); Bea sale a cero; Edu anula (aviso a Bea, fuera).
   perform pg_temp.gasto(r.bea, 'a4000000-0000-4000-8000-000000000045'::uuid, r.p_bea, array[r.p_edu, r.p_bea], 2000);
-  v := pg_temp.gp_pay(r.edu, 'a4000000-0000-4000-8000-000000000056'::uuid, r.g, r.p_edu, r.p_bea, 1000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.edu, 'a4000000-0000-4000-8000-000000000056'::uuid, r.g, r.p_edu, r.p_bea, 1000, pg_temp.gp_expected(r.g, r.edu));
   if v not like 'OK %' then raise exception 'F1: %', v; end if;
   update fx set pay_f = substr(v, 4)::uuid;
   v := pg_temp.gp_leave(r.bea, 'a4000000-0000-4000-8000-000000000061'::uuid, r.g);
@@ -234,7 +234,7 @@ begin
   perform pg_temp.super();
   -- Un aviso que llegue DESPUES sigue pendiente: Edu registra otro pago con Bea... no puede (Bea fuera, sin par reabierto
   -- salvo el que la anulacion reabrio): lo salda por la excepcion → aviso nuevo a Bea, sin leer.
-  v := pg_temp.gp_pay(r.edu, 'a4000000-0000-4000-8000-000000000057'::uuid, r.g, r.p_edu, r.p_bea, 1000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.edu, 'a4000000-0000-4000-8000-000000000057'::uuid, r.g, r.p_edu, r.p_bea, 1000, pg_temp.gp_expected(r.g, r.edu));
   if v not like 'OK %' then raise exception 'F7: %', v; end if;
   perform pg_temp.actor(r.bea);
   select count(*) into v_n from api.group_notice where read_at is null;

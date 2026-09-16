@@ -2,20 +2,20 @@
 -- INSTANCIA DE VINCULO: ESQUEMA, RELLENO Y ALTAS · F10/ADR-001 §1, §3, §7, §11
 -- ============================================================================
 --
--- Migraciones 20260915120000 (F10.A2.1) y 20260916120000 (F10.A2). Contra las
+-- Migraciones 20260915120000 (F10.A2.1), 20260916120000 (F10.A2) y 20260917120000 (F10.A3). Contra las
 -- funciones REALES, con identidad simulada, fixtures propias y ROLLBACK. Lo que
 -- se afirma es que toda instancia nace con identidad, procedencia, S0 y linea
 -- base correctos, que nada de eso puede escribirse fuera de su ambito ni por
 -- otra cuenta, que las relaciones son insert-only de verdad, que rejoin y
--- associate siguen como estaban y que la baja de una instancia nacida con una
--- fusion previa pasa (§4). La baja en si la mide unlink-evidence.sql.
+-- associate siguen como estaban y que reclamar un destino de
+-- fusion previa hereda S0 y base (auditoria). La baja no existe (F10/ADR-002).
 --
 --   A · catalogo y privilegios (intentando las escrituras prohibidas)
 --   B · relleno: invariantes sobre la base viva
 --   C · create_group: instancia del creador bajo el rango 1
 --   D · redeem new / claim con historia real (gasto + settlement) / rejoin
 --   E · claim de un destino de fusion: S0 con el origen y su linea base
---   F · integridad de ambito y de titular en las policies; associate y unclaim
+--   F · integridad de ambito y de titular en las policies; associate y la baja
 \pset pager off
 \set ON_ERROR_STOP on
 begin;
@@ -112,63 +112,49 @@ begin
                   and pg_get_constraintdef(oid) = 'FOREIGN KEY (user_id, origin_command_id) REFERENCES core.provisioning_command(created_by, client_command_id)') then
     fallos := array_append(fallos, 'A1 falta la FK compuesta de origin_command_id');
   end if;
-  if not exists (select 1 from pg_constraint where conrelid = 'core.participant_user_link'::regclass and contype = 'c'
-                  and pg_get_constraintdef(oid) like '%claim_command_id IS NULL%OR%claim_command_id = origin_command_id%') then
-    fallos := array_append(fallos, 'A1 falta el CHECK claim_command_id = origin_command_id');
+  -- La columna derivada claim_command_id, su CHECK y su FK se retiraron en A3 (20260917120000).
+  if exists (select 1 from information_schema.columns where table_schema = 'core' and table_name = 'participant_user_link' and column_name = 'claim_command_id') then
+    fallos := array_append(fallos, 'A1 claim_command_id sigue en el vinculo');
   end if;
 
   -- A2 · linea base: FK compuesta version-operacion; sujetos: FK al participante;
-  --      NINGUNA FK hacia participant_user_link (sobreviven a la baja).
+  --      NINGUNA FK hacia participant_user_link (son auditoria independiente del vinculo).
   if not exists (select 1 from pg_constraint where conrelid = 'core.link_baseline'::regclass and contype = 'f'
                   and pg_get_constraintdef(oid) = 'FOREIGN KEY (operation_id, baseline_version_id) REFERENCES core.operation_version(operation_id, id)') then
     fallos := array_append(fallos, 'A2 falta la FK (operation_id, baseline_version_id) -> operation_version');
   end if;
   if exists (select 1 from pg_constraint where contype = 'f' and confrelid = 'core.participant_user_link'::regclass
-              and conrelid in ('core.link_baseline'::regclass, 'core.link_baseline_subject'::regclass, 'core.participant_unlink'::regclass)) then
-    fallos := array_append(fallos, 'A2 alguna relacion de instancia lleva FK al vinculo vivo: no sobreviviria a la baja');
+              and conrelid in ('core.link_baseline'::regclass, 'core.link_baseline_subject'::regclass)) then
+    fallos := array_append(fallos, 'A2 alguna relacion de instancia lleva FK al vinculo vivo');
   end if;
 
-  -- A3 · participant_unlink: dos comandos distintos con dos FK independientes,
-  --      unicidad (user_id, client_command_id), actor = titular, reason = self.
-  select count(*) into v_n from pg_constraint where conrelid = 'core.participant_unlink'::regclass and contype = 'f'
-    and confrelid = 'core.provisioning_command'::regclass;
-  if v_n <> 2 then fallos := array_append(fallos, 'A3 participant_unlink no tiene dos FK a provisioning_command: ' || v_n); end if;
-  if not exists (select 1 from pg_constraint where conrelid = 'core.participant_unlink'::regclass and contype = 'f'
-                  and pg_get_constraintdef(oid) = 'FOREIGN KEY (user_id, client_command_id) REFERENCES core.provisioning_command(created_by, client_command_id)') then
-    fallos := array_append(fallos, 'A3 el comando de baja no sigue la identidad (actor, comando)');
+  -- A3 · la baja no existe (F10/ADR-002, 20260917120000): ni el hecho, ni las funciones,
+  --      ni la columna derivada, ni el kind del aviso.
+  if to_regclass('core.participant_unlink') is not null then fallos := array_append(fallos, 'A3 core.participant_unlink sigue existiendo'); end if;
+  if to_regclass('core.participant_unclaim') is not null then fallos := array_append(fallos, 'A3 core.participant_unclaim sigue existiendo'); end if;
+  for v in select unnest(array['api.unlink_participant(jsonb)', 'api.unclaim_participant(jsonb)', 'sec.unlink_instance(uuid, uuid, integer, uuid, uuid, uuid, boolean)',
+                               'sec.unlink_blocking_attribution(uuid)', 'sec.unclaim_blocking_operations(uuid)', 'sec.my_claim_command_id(uuid)', 'sec.my_link_id(uuid)']) loop
+    if to_regprocedure(v) is not null then fallos := array_append(fallos, 'A3 sigue en el catalogo: ' || v); end if;
+  end loop;
+  if exists (select 1 from information_schema.columns where table_schema = 'core' and table_name = 'participant_user_link' and column_name = 'claim_command_id')
+     or exists (select 1 from information_schema.columns where table_schema = 'api' and table_name = 'group_participant' and column_name in ('claim_command_id', 'link_id')) then
+    fallos := array_append(fallos, 'A3 claim_command_id o link_id siguen publicados o en el vinculo');
   end if;
-  if not exists (select 1 from pg_constraint where conrelid = 'core.participant_unlink'::regclass and contype = 'f'
-                  and pg_get_constraintdef(oid) = 'FOREIGN KEY (user_id, origin_command_id) REFERENCES core.provisioning_command(created_by, client_command_id)') then
-    fallos := array_append(fallos, 'A3 el origen de la instancia no sigue la identidad (actor, comando)');
-  end if;
-  if not exists (select 1 from pg_constraint where conrelid = 'core.participant_unlink'::regclass and contype = 'u'
-                  and pg_get_constraintdef(oid) = 'UNIQUE (user_id, client_command_id)') then
-    fallos := array_append(fallos, 'A3 falta UNIQUE (user_id, client_command_id)');
-  end if;
-  if exists (select 1 from pg_constraint where conrelid = 'core.participant_unlink'::regclass and contype = 'u'
-              and pg_get_constraintdef(oid) = 'UNIQUE (client_command_id)') then
-    fallos := array_append(fallos, 'A3 client_command_id tiene una unicidad global aislada');
-  end if;
-  if not exists (select 1 from pg_constraint where conrelid = 'core.participant_unlink'::regclass and contype = 'c'
-                  and pg_get_constraintdef(oid) = 'CHECK ((unlinked_by = user_id))') then
-    fallos := array_append(fallos, 'A3 falta CHECK unlinked_by = user_id');
-  end if;
-  if not exists (select 1 from pg_constraint where conrelid = 'core.participant_unlink'::regclass and contype = 'c'
-                  and pg_get_constraintdef(oid) like '%reason = ''self''%') then
-    fallos := array_append(fallos, 'A3 falta CHECK reason = self');
+  if (select pg_get_constraintdef(oid) from pg_constraint where conname = 'group_notice_kind_check') like '%identity_released%'
+     or pg_get_viewdef('api.group_notice'::regclass) like '%identity_released%' then
+    fallos := array_append(fallos, 'A3 identity_released sigue en el CHECK o en la vista');
   end if;
 
   -- A4 · RLS en las tres; grants exactos; nada para el writer ni PUBLIC; el cliente solo
-  --      las tres columnas del aviso en participant_unlink (20260916120000); nadie con
-  --      update/delete.
-  for v in select unnest(array['link_baseline', 'link_baseline_subject', 'participant_unlink']) loop
+  --      nadie con update/delete.
+  for v in select unnest(array['link_baseline', 'link_baseline_subject']) loop
     if not (select relrowsecurity from pg_class where oid = ('core.' || v)::regclass) then
       fallos := array_append(fallos, 'A4 ' || v || ' sin RLS');
     end if;
     if exists (select 1 from information_schema.role_table_grants where table_schema = 'core' and table_name = v
                 and grantee in ('nomey_writer', 'PUBLIC'))
        or exists (select 1 from information_schema.role_table_grants where table_schema = 'core' and table_name = v
-                   and grantee = 'authenticated' and v <> 'participant_unlink') then
+                   and grantee = 'authenticated') then
       fallos := array_append(fallos, 'A4 ' || v || ' tiene grants para authenticated, writer o PUBLIC');
     end if;
     if exists (select 1 from information_schema.role_table_grants where table_schema = 'core' and table_name = v
@@ -182,12 +168,6 @@ begin
       fallos := array_append(fallos, 'A4 el provisioner no tiene exactamente insert,select en ' || v);
     end if;
   end loop;
-  if (select string_agg(privilege_type, ',' order by privilege_type) from information_schema.role_table_grants
-       where table_schema = 'core' and table_name = 'participant_unlink' and grantee = 'nomey_provisioner') is distinct from 'INSERT,SELECT'
-     or (select string_agg(column_name, ',' order by column_name) from information_schema.column_privileges
-          where table_schema = 'core' and table_name = 'participant_unlink' and grantee = 'authenticated') is distinct from 'id,participant_id,scope_id' then
-    fallos := array_append(fallos, 'A4 participant_unlink: el provisioner escribe y lee lo suyo; el cliente solo id, participant_id, scope_id');
-  end if;
   if exists (select 1 from information_schema.role_table_grants where table_schema = 'core' and table_name = 'participant_user_link'
               and grantee <> 'postgres' and privilege_type = 'UPDATE') then
     fallos := array_append(fallos, 'A4 alguien tiene UPDATE sobre participant_user_link');
@@ -234,9 +214,6 @@ begin
    where pc.result_scope_id is distinct from l.scope_id
       or not (pc.command_type = 'group.create' or (pc.command_type = 'invitation.redeem' and pc.canonical_intent ->> 'choice' in ('new', 'claim')));
   if v_n <> 0 then fallos := array_append(fallos, 'B2 origenes que no son un comando de alta del titular en ese ambito: ' || v_n); end if;
-  -- B3 · claim_command_id nunca dice otra cosa que el origen.
-  select count(*) into v_n from core.participant_user_link where claim_command_id is not null and claim_command_id is distinct from origin_command_id;
-  if v_n <> 0 then fallos := array_append(fallos, 'B3 claim_command_id distinto del origen: ' || v_n); end if;
   -- B4 · create/new: cero filas de linea base.
   select count(*) into v_n from core.participant_user_link l join core.provisioning_command pc
       on pc.created_by = l.user_id and pc.client_command_id = l.origin_command_id
@@ -294,7 +271,6 @@ begin
   select * into l from core.participant_user_link where participant_id = r.p_edu;
   if l.link_id is null then fallos := array_append(fallos, 'C1 el creador no tiene link_id'); end if;
   if l.origin_command_id is distinct from r.cmd_create then fallos := array_append(fallos, 'C1 el origen del creador no es su comando group.create'); end if;
-  if l.claim_command_id is not null then fallos := array_append(fallos, 'C1 el creador lleva claim_command_id'); end if;
   select count(*) into v_n from core.link_baseline_subject where link_id = l.link_id;
   if v_n <> 1 or not exists (select 1 from core.link_baseline_subject where link_id = l.link_id and participant_id = r.p_edu) then
     fallos := array_append(fallos, 'C2 S0 del creador no es {P}: ' || v_n || ' filas');
@@ -327,8 +303,8 @@ begin
   select * into r from fx;
   perform pg_temp.super();
   select * into l from core.participant_user_link where participant_id = r.p_ana;
-  if l.origin_command_id is distinct from r.cmd_new or l.claim_command_id is not null then
-    fallos := array_append(fallos, 'D1 el origen de «Soy nuevo» no es su comando, o lleva claim_command_id');
+  if l.origin_command_id is distinct from r.cmd_new then
+    fallos := array_append(fallos, 'D1 el origen de «Soy nuevo» no es su comando');
   end if;
   if (select count(*) from core.link_baseline_subject where link_id = l.link_id) <> 1
      or exists (select 1 from core.link_baseline where link_id = l.link_id) then
@@ -361,15 +337,15 @@ begin
     'operation_id', r.op_e1, 'expected_version_id', (select current_version_id from core.operation where id = r.op_e1)), r.edu);
   if v like 'ERR%' then raise exception 'D2 correccion: %', v; end if;
 
-  -- D3 · Bea RECLAMA a Luis: origen = su comando = claim_command_id; S0 = {Luis};
+  -- D3 · Bea RECLAMA a Luis: origen = su comando; S0 = {Luis};
   --      linea base = {E1 (version vigente = la corregida), S1}, y NO «SinLuis».
   v := pg_temp.call('redeem_invitation', jsonb_build_object('client_command_id', r.cmd_claim, 'command_contract_version', 1,
          'token', r.token, 'choice', 'claim', 'participant_id', r.p_luis), r.bea);
   if v like 'ERR%' then raise exception 'D3 redeem claim: %', v; end if;
   perform pg_temp.super();
   select * into l from core.participant_user_link where participant_id = r.p_luis;
-  if l.origin_command_id is distinct from r.cmd_claim or l.claim_command_id is distinct from r.cmd_claim then
-    fallos := array_append(fallos, 'D3 la reclamacion no deja origen = claim_command_id = su comando');
+  if l.origin_command_id is distinct from r.cmd_claim then
+    fallos := array_append(fallos, 'D3 la reclamacion no deja origen = su comando');
   end if;
   select count(*) into v_subj from core.link_baseline_subject where link_id = l.link_id;
   if v_subj <> 1 then fallos := array_append(fallos, 'D3 S0 de la reclamacion no es {Luis}: ' || v_subj); end if;
@@ -487,9 +463,9 @@ begin
 end
 $e$;
 
--- ═══════════════ F · integridad de ambito y titular; insert-only; unclaim ═══
+-- ═══════════════ F · integridad de ambito y titular; insert-only; la baja ═══
 do $f2$
-declare r fx%rowtype; fallos text[] := '{}'; v text; v_zoe uuid; v_edu2 uuid; v_ver uuid; v_ver2 uuid; v_origin uuid;
+declare r fx%rowtype; fallos text[] := '{}'; v text; v_zoe uuid; v_edu2 uuid; v_ver uuid; v_ver2 uuid;
 begin
   select * into r from fx;
   perform pg_temp.super();
@@ -525,46 +501,17 @@ begin
   if v <> '42501' then fallos := array_append(fallos, 'F5 delete de base no rechazado: ' || v); end if;
   v := pg_temp.try(format('delete from core.link_baseline_subject where link_id = %L', v_zoe), 'authenticated', r.zoe);
   if v <> '42501' then fallos := array_append(fallos, 'F5 delete de sujetos por authenticated no rechazado: ' || v); end if;
-  -- F6 · participant_unlink: el provisioner solo escribe un hecho cuyo titular y actor son el
-  --      propio actor (policy); a nombre de otro, o con otro actor, 42501. La lectura del cliente
-  --      es por columnas y solo a traves de las vistas de api (unlink-evidence.sql H3).
-  v := pg_temp.try(format('insert into core.participant_unlink (link_id, participant_id, scope_id, user_id, unlinked_by, reason, client_command_id) values (%L, %L, %L, %L, %L, %L, %L)',
-                          gen_random_uuid(), r.p_luis, r.g, r.edu, r.edu, 'self', gen_random_uuid()), 'nomey_provisioner', r.zoe);
-  if v <> '42501' then fallos := array_append(fallos, 'F6 hecho a nombre de otro no rechazado: ' || v); end if;
-  v := pg_temp.try(format('insert into core.participant_unlink (link_id, participant_id, scope_id, user_id, unlinked_by, reason, client_command_id) values (%L, %L, %L, %L, %L, %L, %L)',
-                          gen_random_uuid(), r.p_luis, r.g, r.zoe, r.edu, 'self', gen_random_uuid()), 'nomey_provisioner', r.zoe);
-  if v not in ('42501', '23514') then fallos := array_append(fallos, 'F6 hecho con otro actor no rechazado: ' || v); end if;
-  -- F7 · como postgres, los CHECK y la FK de comando se cumplen: actor ≠ titular, motivo distinto, comando inexistente.
-  v := pg_temp.try(format('insert into core.participant_unlink (link_id, participant_id, scope_id, user_id, unlinked_by, reason, client_command_id) values (%L, %L, %L, %L, %L, %L, %L)',
-                          gen_random_uuid(), r.p_luis, r.g, r.zoe, r.edu, 'self', r.cmd_claim), 'postgres', r.zoe);
-  if v <> '23514' then fallos := array_append(fallos, 'F7 unlinked_by <> user_id no rechazado: ' || v); end if;
-  v := pg_temp.try(format('insert into core.participant_unlink (link_id, participant_id, scope_id, user_id, unlinked_by, reason, client_command_id) values (%L, %L, %L, %L, %L, %L, %L)',
-                          gen_random_uuid(), r.p_luis, r.g, r.zoe, r.zoe, 'other', r.cmd_claim), 'postgres', r.zoe);
-  if v <> '23514' then fallos := array_append(fallos, 'F7 reason distinto de self no rechazado: ' || v); end if;
-  v := pg_temp.try(format('insert into core.participant_unlink (link_id, participant_id, scope_id, user_id, unlinked_by, reason, client_command_id) values (%L, %L, %L, %L, %L, %L, %L)',
-                          gen_random_uuid(), r.p_luis, r.g, r.zoe, r.zoe, 'self', gen_random_uuid()), 'postgres', r.zoe);
-  if v <> '23503' then fallos := array_append(fallos, 'F7 comando de baja inexistente no rechazado por FK: ' || v); end if;
-  -- F8 · claim_command_id no puede divergir del origen ni siquiera como postgres.
-  v := pg_temp.try(format('update core.participant_user_link set claim_command_id = %L where link_id = %L', gen_random_uuid(), v_zoe), 'postgres', r.zoe);
-  if v <> '23514' then fallos := array_append(fallos, 'F8 claim_command_id divergente no rechazado: ' || v); end if;
-  -- F9 · unclaim (wrapper de F10/ADR-001 §11) sobre la reclamacion de Zoe: la fusion de Gus en Luis
-  --      es ANTERIOR a su instancia (esta en S0 y en la base), nada nacio durante y no hay caja:
-  --      pasa, y deja el hecho con el origen de esa instancia (§4, §7). UNCLAIM_BLOCKED_MERGE ya no existe.
-  select origin_command_id into v_origin from core.participant_user_link where link_id = v_zoe;
-  v := pg_temp.call('unclaim_participant', jsonb_build_object('client_command_id', gen_random_uuid(), 'command_contract_version', 1,
-         'scope_id', r.g, 'participant_id', r.p_luis, 'claim_command_id', v_origin), r.zoe);
-  if v like 'ERR%' then fallos := array_append(fallos, 'F9 unclaim de un destino de fusion previa a la instancia no paso: ' || v); end if;
-  if not exists (select 1 from core.participant_unlink u where u.link_id = v_zoe and u.user_id = r.zoe and u.unlinked_by = r.zoe
-                   and u.origin_command_id = v_origin and u.reason = 'self')
-     or exists (select 1 from core.participant_user_link where link_id = v_zoe) then
-    fallos := array_append(fallos, 'F9 la baja no dejo el hecho con el origen de la instancia, o el vinculo sigue');
+  -- F6 · la identidad es permanente (F10/ADR-002): con la instancia viva no hay ninguna funcion
+  --      de api que la borre; el vinculo solo cae con el ambito. Como postgres, un borrado directo
+  --      del vinculo es lo unico que lo retira, y las relaciones de instancia lo sobreviven.
+  perform pg_temp.super();
+  delete from core.participant_user_link where link_id = v_zoe;
+  if (select count(*) from core.link_baseline_subject where link_id = v_zoe) <> 2
+     or (select count(*) from core.link_baseline where link_id = v_zoe) = 0 then
+    fallos := array_append(fallos, 'F6 la linea base o los sujetos no sobrevivieron al vinculo');
   end if;
-  -- F10 · y sobre la reclamacion de Ana... Ana entro como nueva: UNCLAIM_NOT_AVAILABLE, como antes.
-  v := pg_temp.call('unclaim_participant', jsonb_build_object('client_command_id', gen_random_uuid(), 'command_contract_version', 1,
-         'scope_id', r.g, 'participant_id', r.p_ana, 'claim_command_id', r.cmd_new), r.ana);
-  if v <> 'ERR UNCLAIM_NOT_AVAILABLE' then fallos := array_append(fallos, 'F10 unclaim de «Soy nuevo» cambio de respuesta: ' || v); end if;
   if cardinality(fallos) > 0 then raise exception 'F · integridad: %', array_to_string(fallos, ' | '); end if;
-  raise notice 'F · ni otro ambito, ni instancia ajena, ni version de otra operacion; insert-only real; participant_unlink cerrado; CHECKs y FKs; la baja de una instancia con fusion previa pasa: OK';
+  raise notice 'F · ni otro ambito, ni instancia ajena, ni version de otra operacion; insert-only real; la auditoria de instancia sobrevive al vinculo: OK';
 end
 $f2$;
 

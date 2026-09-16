@@ -204,12 +204,12 @@ export type Database = {
       };
       group_participant: {
         Row: {
-          claim_command_id: string | null;
           created_at: string | null;
           display_name: string | null;
           eligible_until: string | null;
           has_history: boolean | null;
           is_active: boolean | null;
+          is_departed: boolean | null;
           is_linked: boolean | null;
           is_retired: boolean | null;
           is_self: boolean | null;
@@ -240,6 +240,7 @@ export type Database = {
           annulled: boolean | null;
           declared_by_receiver: boolean | null;
           effective_date: string | null;
+          effective_time: string | null;
           operation_created_at: string | null;
           operation_id: string | null;
           payer_participant_id: string | null;
@@ -745,7 +746,6 @@ export type Database = {
       set_custom_category_active: { Args: { payload: Json }; Returns: Json };
       set_personal_base_currency: { Args: { payload: Json }; Returns: Json };
       settle_participant: { Args: { payload: Json }; Returns: Json };
-      unclaim_participant: { Args: { payload: Json }; Returns: Json };
       update_group_profile: { Args: { payload: Json }; Returns: Json };
     };
     Enums: {

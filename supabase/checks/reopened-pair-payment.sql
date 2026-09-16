@@ -86,7 +86,7 @@ begin
   select * into r from fx;
   if pg_temp.gp_pairs(r.g) <> 'Carlos>Ana:1000' then raise exception 'A0: %', pg_temp.gp_pairs(r.g); end if;
   if pg_temp.reopened(r.ana, r.g) <> '-' then raise exception 'A0b: hay pares reabiertos antes de nada: %', pg_temp.reopened(r.ana, r.g); end if;
-  v := pg_temp.gp_pay(r.carlos, 'a3f00000-0000-4000-8000-000000000051'::uuid, r.g, r.p_carlos, r.p_ana, 1000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.carlos, 'a3f00000-0000-4000-8000-000000000051'::uuid, r.g, r.p_carlos, r.p_ana, 1000, pg_temp.gp_expected(r.g, r.carlos));
   if v not like 'OK %' then raise exception 'A1: %', v; end if;
   update fx set pay1 = substr(v, 4)::uuid;
   v := pg_temp.gp_leave(r.carlos, 'a3f00000-0000-4000-8000-000000000061'::uuid, r.g);
@@ -106,7 +106,7 @@ end $a$;
 do $c$
 declare r fx%rowtype; v text; v_pos jsonb; v_n int;
 begin
-  select * into r from fx; v_pos := pg_temp.gp_expected(r.g);
+  select * into r from fx; v_pos := pg_temp.gp_expected(r.g, r.ana);
   select count(*) into v_n from core.operation where operation_class = 'group_payment' and exists (
     select 1 from core.payment_detail pd join core.operation_version ov on ov.id = pd.operation_version_id where ov.operation_id = core.operation.id and pd.scope_id = r.g);
   -- C1 · Carlos, fuera, no registra (sin membresia).
@@ -136,7 +136,7 @@ do $b$
 declare r fx%rowtype; v text; v_n int;
 begin
   select * into r from fx;
-  v := pg_temp.gp_pay(r.ana, 'a3f00000-0000-4000-8000-000000000057'::uuid, r.g, r.p_carlos, r.p_ana, 1000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.ana, 'a3f00000-0000-4000-8000-000000000057'::uuid, r.g, r.p_carlos, r.p_ana, 1000, pg_temp.gp_expected(r.g, r.ana));
   if v not like 'OK %' then raise exception 'B1: %', v; end if;
   update fx set pay2 = substr(v, 4)::uuid;
   if pg_temp.gp_pairs(r.g) <> '-' then raise exception 'B2: %', pg_temp.gp_pairs(r.g); end if;
@@ -171,10 +171,10 @@ begin
   if v <> 'OK' then raise exception 'D1: %', v; end if;
   if pg_temp.gp_pairs(r.g) <> 'Carlos>Ana:1000' then raise exception 'D2: %', pg_temp.gp_pairs(r.g); end if;
   if pg_temp.reopened(r.ana, r.g) <> 'Carlos>Ana:1000' then raise exception 'D3: el tope se amplio: %', pg_temp.reopened(r.ana, r.g); end if;
-  v := pg_temp.gp_pay(r.ana, 'a3f00000-0000-4000-8000-000000000058'::uuid, r.g, r.p_carlos, r.p_ana, 1500, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.ana, 'a3f00000-0000-4000-8000-000000000058'::uuid, r.g, r.p_carlos, r.p_ana, 1500, pg_temp.gp_expected(r.g, r.ana));
   if v not like 'PAYMENT_NOT_APPLICABLE%' then raise exception 'D4: se sumo dos veces: %', v; end if;
   -- Y se vuelve a saldar.
-  v := pg_temp.gp_pay(r.ana, 'a3f00000-0000-4000-8000-000000000059'::uuid, r.g, r.p_carlos, r.p_ana, 1000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.ana, 'a3f00000-0000-4000-8000-000000000059'::uuid, r.g, r.p_carlos, r.p_ana, 1000, pg_temp.gp_expected(r.g, r.ana));
   if v not like 'OK %' then raise exception 'D5: %', v; end if;
   update fx set pay2 = substr(v, 4)::uuid;
   if pg_temp.gp_pairs(r.g) <> '-' then raise exception 'D6: %', pg_temp.gp_pairs(r.g); end if;
@@ -204,9 +204,9 @@ begin
   if v <> 'OK' then raise exception 'E2: %', v; end if;
   if pg_temp.gp_pairs(r.g) <> 'Carlos>Ana:1000' then raise exception 'E3: %', pg_temp.gp_pairs(r.g); end if;
   -- Nadie activo: Ana (fuera) NOT_AUTHORIZED por membresia; Bea (miembro) no es parte; y la lectura no lo propone.
-  v := pg_temp.gp_pay(r.ana, 'a3f00000-0000-4000-8000-00000000005a'::uuid, r.g, r.p_carlos, r.p_ana, 1000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.ana, 'a3f00000-0000-4000-8000-00000000005a'::uuid, r.g, r.p_carlos, r.p_ana, 1000, pg_temp.gp_expected(r.g, r.ana));
   if v not like 'NOT_AUTHORIZED%' then raise exception 'E4: %', v; end if;
-  v := pg_temp.gp_pay(r.bea, 'a3f00000-0000-4000-8000-00000000005b'::uuid, r.g, r.p_carlos, r.p_ana, 1000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.bea, 'a3f00000-0000-4000-8000-00000000005b'::uuid, r.g, r.p_carlos, r.p_ana, 1000, pg_temp.gp_expected(r.g, r.bea));
   if v not like 'NOT_AUTHORIZED%' and v not like 'PARTICIPANT_INACTIVE%' then raise exception 'E5: %', v; end if;
   if pg_temp.reopened(r.bea, r.g) <> '-' then raise exception 'E6: se propone un par con las dos fuera: %', pg_temp.reopened(r.bea, r.g); end if;
   -- Los dos lo ven en su Personal por la excepcion C6, cada uno con su signo.
