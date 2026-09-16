@@ -302,8 +302,14 @@ participant, never as new (`REJOIN_REQUIRED`). What survives
 of ADR-001: every link instance keeps a stable identity (`link_id`, internal)
 and a separate provenance (`origin_command_id`), and the baseline frozen when
 the instance was born stays as insert-only audit with no product reader.
-What F10 still decides: a consented **atomic** identity handover between two accounts
-or its explicit deferral, and whether two ghosts may be merged. Start at
+**Settled by [F10/ADR-004](docs/adr/F10/ADR-004-identity-scope-closure.md):
+nothing else enters.** No identity handover between accounts, no merge of two
+linked participants, no ghost ↔ ghost merge (the model would carry it —
+measured — but there is no product need; a duplicate ghost is retired).
+Ghost → account is claim (F09/ADR-004) or associate (F09/ADR-009). Merge
+chains are a prohibited invariant: a source is never a target, a target is
+never a source, resolution is one hop; `api.associate_participant` is the only
+writer of `core.participant_merge` and enforces it. Start at
 [`docs/architecture/phase-10-opening.md`](docs/architecture/phase-10-opening.md).
 
 ### 6. Internationalisation
@@ -536,7 +542,7 @@ comment; the permanent equivalence table is in `docs/adr/README.md`.
 closed on 2026-08-27, Phase 5 (identity and session) on 2026-08-28, Phase 6
 (Modo Personal) on 2026-09-03, Phase 7 (quick entry, offline and sync) on
 2026-09-04 and Phase 9 (groups, shared expenses and debts) on 2026-09-14 —
-validated on an iPhone (Expo Go) and the Android emulator. **46 of the 47 ADRs
+validated on an iPhone (Expo Go) and the Android emulator. **47 of the 48 ADRs
 of phases F00–F11 are accepted** (F00/ADR-001 is still Proposed; see
 `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a real local
 Supabase stack.
@@ -547,8 +553,9 @@ account's identity** (§5). F10.A0 reconciled its original scope, which F9 had
 already closed, and rewrote the closure criteria in the
 [roadmap](docs/product/roadmap.md); start at
 [`docs/architecture/phase-10-opening.md`](docs/architecture/phase-10-opening.md).
-F10.A0 … F10.A3 are closed (A3 on 2026-09-16); the next block is **F10.B0**
-(`F10/ADR-004`: consented handover, ghost ↔ ghost), still undrafted.
+F10.A0 … F10.B0 are closed (A3 and B0 on 2026-09-16); B0 closed the scope
+with `F10/ADR-004` — no handover, no new merges, so B1 and B2 do not exist —
+and the next block is **F10.C0** (closure). The phase stays open until C0.
 
 **Guest mode is real (F10.A3, [F05/ADR-003](docs/adr/F05/ADR-003-guest-session.md)).**
 «Entrar como invitado» is a Supabase **anonymous session** — `signInAnonymously`

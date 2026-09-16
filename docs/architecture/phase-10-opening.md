@@ -21,6 +21,17 @@
 > historia (no un participante sin cuenta) y vuelve como entonces o como un
 > sin cuenta. La cesión y las fusiones (§6) serán **F10/ADR-004**.
 >
+> **Nota del 2026-09-16 (F10.B0).** B0 midió §3.3 y §6 sobre el modelo que
+> dejó A3 y decidió **no implementar ninguna cesión ni fusión**:
+> [F10/ADR-004](../adr/F10/ADR-004-identity-scope-closure.md) declara fuera de
+> alcance la cesión cuenta → cuenta (`identity_handover`), la fusión de dos
+> participantes con cuenta y la fusión fantasma ↔ fantasma; fantasma → cuenta
+> ya lo resuelven reclamar y asociar; las cadenas de fusión son un invariante
+> prohibido. **B1 y B2 no existen; el siguiente bloque es C0.** Las mediciones
+> de §3.3 y los insumos de §6 se conservan aquí como historia de lo que se
+> consideró; los criterios 6 y 7 del roadmap se reescribieron en su forma
+> decidida.
+>
 > Escrito el **2026-09-14**, sobre `main` en `e3af705` (F9 cerrada, 46
 > migraciones). Todo lo marcado **medido** se ejecutó contra las funciones
 > reales de la base local con identidad simulada y `ROLLBACK`, con una sonda
@@ -70,10 +81,10 @@ sus cuatro criterios de cierre estaban **cumplidos por F9 antes de abrir F10**.
 | Rectificar la propia reclamación                     | [F09/ADR-006](../adr/F09/ADR-006-unclaim-participant.md)                       | cerrado; **se generaliza y precisa en F10.A1** |
 | Retirar a un participante sin cuenta                 | [F09/ADR-005](../adr/F09/ADR-005-retire-unlinked-participant.md)               | cerrado                                        |
 | Fusión de duplicados: fantasma → identidad propia    | [F09/ADR-009](../adr/F09/ADR-009-associate-ghost-to-own-account.md)            | cerrado                                        |
-| Fusión de duplicados: fantasma ↔ fantasma            | —                                                                              | **F10.B0** (estudio, no aprobado)              |
+| Fusión de duplicados: fantasma ↔ fantasma            | —                                                                              | **fuera** (F10/ADR-004 §4, 2026-09-16)         |
 | Reincorporación tras salir                           | [F09/ADR-010](../adr/F09/ADR-010-rejoin-after-departure.md)                    | cerrado                                        |
 | Revocación del vínculo por otro                      | —                                                                              | **prohibida** (§1)                             |
-| Fusión entre cuentas / reasignación                  | —                                                                              | **F10.B0** como cesión consentida atómica      |
+| Fusión entre cuentas / reasignación                  | —                                                                              | **fuera** (F10/ADR-004 §1–§2, 2026-09-16)      |
 | Historial del vínculo                                | `participant_unclaim` (bajas por reclamación) + `provisioning_command` (altas) | **parcial → F10.A1**                           |
 | Cambio o recuperación de cuenta (F03/ADR-009 §11)    | —                                                                              | fuera (ciclo de vida de cuenta)                |
 | Identidad anónima autenticada                        | `enable_anonymous_sign_ins = false`                                            | fuera                                          |
@@ -147,7 +158,8 @@ Los terceros nunca cambian de neto. Es el nivel de decisión de **retirar**
 (F09/ADR-005, que también extingue pares sin dinero y es terminal), con dos
 diferencias: aquí es reversible por lectura mientras no exista caja, y
 conserva la historia en vez de cerrarla. **No queda aprobado como feature**:
-B0 decide sobre esta matriz.
+B0 decidió sobre esta matriz el 2026-09-16: **no entra** (F10/ADR-004 §4); la
+medición se conserva como historia.
 
 ### 3.4 Procedencia de los vínculos existentes
 
@@ -183,8 +195,8 @@ demostrará cada criterio y qué bloque lo hace:
 | 3 · sin caja huérfana ni operaciones inanulables | Casos D/E/F de ADR-006 reproducidos contra la función nueva                                                                                             | A2     |
 | 4 · dejar la identidad ≠ salir del grupo         | Dos comandos, efectos medidos (presencia, hecho, aviso, condición de deuda)                                                                             | A2/A3  |
 | 5 · historial del vínculo                        | `link_id` y `origin_command_id` en el vínculo; toda baja referencia la instancia; reconstrucción medida                                                 | A2     |
-| 6 · cesión A → B atómica, o aplazada             | `identity_handover` con carrera medida (dos sesiones), o límite declarado                                                                               | B0/B1  |
-| 7 · fantasma ↔ fantasma decidido sobre la matriz | Matriz de §3.3 como check; confirmación con lo que se extingue; reversible o terminal                                                                   | B0/B1  |
+| 6 · cesión A → B atómica, o aplazada             | Rama «límite declarado»: F10/ADR-004 §1–§2; ningún mecanismo                                                                                            | B0     |
+| 7 · fantasma ↔ fantasma decidido sobre la matriz | Decidido «no entra» sobre la matriz de §3.3, remedida en B0; cadenas prohibidas como invariante (F10/ADR-004 §4–§5)                                     | B0     |
 | 8 · grupo sin miembros documentado y sin cambio  | Este documento y el roadmap; ningún cambio de semántica en F10                                                                                          | A0     |
 | 9 · disputas sin consentimiento documentadas     | `F10/ADR-001`                                                                                                                                           | A1     |
 | 10 · guarda completa y carreras en CI            | `group-identity-lock.sql` enumera todas las funciones con el cerrojo y falla al quitar una; las dos carreras huérfanas en el workflow                   | A2     |
@@ -361,6 +373,9 @@ historias distintas con el mismo neto no son equivalentes.
 
 ## 6 · Insumos para `F10/ADR-004` (cesión y fusiones; antes anunciado como ADR-003)
 
+> **Resuelto el 2026-09-16:** F10/ADR-004 rechazó las dos cosas que este
+> apartado preparaba. Se conserva como historia de lo considerado.
+
 ### 6.1 Cesión A → B: composición abierta no es un diseño final
 
 Componer «A deja la identidad → P_A libre → B reclama o asocia» reutiliza todo,
@@ -397,12 +412,12 @@ interacción con retirados · cadenas de fusión · nombres y presentación
 
 ## 7 · Deuda técnica descubierta en A0
 
-| Hallazgo                                                                                                                                                           | Dónde se salda                |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
-| `api.associate_participant` toma `sec.lock_participant_claims` y **no está** en la lista B de `supabase/checks/group-identity-lock.sql` (diez funciones; son once) | A2 — **saldado** (2026-09-15) |
-| `scripts/associate-race-evidence.sh` y `scripts/rejoin-race-evidence.sh` existen y **no corren en CI**                                                             | A2 — **saldado** (2026-09-15) |
-| `sec.payment_counterpart_name` publica el nombre crudo del origen fusionado (§3.5)                                                                                 | B0 decide                     |
-| F09/ADR-009 «Consecuencias» cita una guarda de catálogo «ninguna agregación sin canónico» que **no existe** (la resolución vive en `core.current_effect`)          | anotado en `F09/README.md`    |
+| Hallazgo                                                                                                                                                           | Dónde se salda                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `api.associate_participant` toma `sec.lock_participant_claims` y **no está** en la lista B de `supabase/checks/group-identity-lock.sql` (diez funciones; son once) | A2 — **saldado** (2026-09-15)                                                                      |
+| `scripts/associate-race-evidence.sh` y `scripts/rejoin-race-evidence.sh` existen y **no corren en CI**                                                             | A2 — **saldado** (2026-09-15)                                                                      |
+| `sec.payment_counterpart_name` publica el nombre crudo del origen fusionado (§3.5)                                                                                 | B0 — **anotado, no corregido** (F10/ADR-004: el cliente resuelve por `merged_into_participant_id`) |
+| F09/ADR-009 «Consecuencias» cita una guarda de catálogo «ninguna agregación sin canónico» que **no existe** (la resolución vive en `core.current_effect`)          | anotado en `F09/README.md`                                                                         |
 
 ---
 
