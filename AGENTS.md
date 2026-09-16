@@ -542,7 +542,7 @@ comment; the permanent equivalence table is in `docs/adr/README.md`.
 closed on 2026-08-27, Phase 5 (identity and session) on 2026-08-28, Phase 6
 (Modo Personal) on 2026-09-03, Phase 7 (quick entry, offline and sync) on
 2026-09-04 and Phase 9 (groups, shared expenses and debts) on 2026-09-14 —
-validated on an iPhone (Expo Go) and the Android emulator. **46 of the 47 ADRs
+validated on an iPhone (Expo Go) and the Android emulator. **47 of the 48 ADRs
 of phases F00–F11 are accepted** (F00/ADR-001 is still Proposed; see
 `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a real local
 Supabase stack.
@@ -572,7 +572,9 @@ Dashboard — this repository does not do that for it.
 
 **Phase 11 is OPEN**, and only **F11.A** is closed: the contract for resolving
 exchange rates, [F11/ADR-001](docs/adr/F11/ADR-001-fx-rate-resolution.md), with
-no implementation. Every operation in a currency other than the base of a
+no implementation. F11.B is being prepared; the per-currency daily rate, with a limit of one ECB
+publication of staleness, is fixed in
+[F11/ADR-002](docs/adr/F11/ADR-002-per-currency-daily-rate.md). Every operation in a currency other than the base of a
 reached scope is still refused with `CURRENCY_CONVERSION_UNSUPPORTED`; what is
 decided, and what stays out of F11, is in
 [`docs/architecture/phase-11-progress.md`](docs/architecture/phase-11-progress.md).
