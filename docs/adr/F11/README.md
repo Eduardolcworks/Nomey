@@ -1,6 +1,6 @@
 # F11 — Multimoneda operativa
 
-**Alcance:** Fuente de tipos de cambio con histórico por fecha efectiva, conversión, jerarquía visual del importe original, cambio de moneda base. **Estado de la fase:** Abierta: **F11.A cerrada** (contrato de fuente y resolución, sin implementación); F11.B, F11.C y F11.D pendientes. El detalle está en
+**Alcance:** Fuente de tipos de cambio con histórico por fecha efectiva, conversión, jerarquía visual del importe original, cambio de moneda base. **Estado de la fase:** Abierta: **F11.A cerrada** (contrato de fuente y resolución, sin implementación); **F11.B en preparación**, sobre F11/ADR-001 y F11/ADR-002; F11.C y F11.D pendientes. El detalle está en
 [el roadmap](../../product/roadmap.md).
 El estado, el contraste con F9 y las limitaciones conocidas están en
 [el seguimiento de F11](../../architecture/phase-11-progress.md), que no es normativo.
@@ -12,9 +12,10 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 
 ## ADR de esta fase
 
-| ADR                                          | Título                                     | Estado   | Fecha      | Antes                                           |
-| -------------------------------------------- | ------------------------------------------ | -------- | ---------- | ----------------------------------------------- |
-| [F11/ADR-001](ADR-001-fx-rate-resolution.md) | Resolución autoritativa del tipo de cambio | Aceptado | 2026-09-13 | — (borrador de rama `ADR-032`, nunca integrado) |
+| ADR                                               | Título                                                         | Estado   | Fecha      | Antes                                           |
+| ------------------------------------------------- | -------------------------------------------------------------- | -------- | ---------- | ----------------------------------------------- |
+| [F11/ADR-001](ADR-001-fx-rate-resolution.md)      | Resolución autoritativa del tipo de cambio                     | Aceptado | 2026-09-13 | — (borrador de rama `ADR-032`, nunca integrado) |
+| [F11/ADR-002](ADR-002-per-currency-daily-rate.md) | Tipo del día por moneda, fijación única y límite de antigüedad | Aceptado | 2026-09-16 | —                                               |
 
 ## Decisiones de otras fases que esta fase aplica
 

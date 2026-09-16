@@ -3,19 +3,38 @@
 > **Qué es esto.** El documento de trabajo de una fase **abierta**: estado,
 > evidencia medida y limitaciones conocidas. **No es normativo** y no decide
 > nada. La decisión de F11.A es
-> [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md), y cualquier regla
+> [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md), sustituido
+> parcialmente por [F11/ADR-002](../adr/F11/ADR-002-per-currency-daily-rate.md), y cualquier regla
 > nueva exigiría un ADR en `docs/adr/F11/`. Lo que aquí se dice sobre cómo
 > encajar el contrato con F9 es **lectura conjunta de ADR ya aceptados**, no una
 > regla adicional. Cuando F11 cierre, su handoff lo sustituirá.
 
 ## Estado
 
-| Bloque    | Estado                                                                                                                          |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **F11.A** | **Cerrado**: contrato de fuente y resolución en F11/ADR-001. Sin implementación                                                 |
-| **F11.B** | Pendiente: catálogo, fijación diaria, ingesta, resolver en SQL, conversión congelada. **No se despliega sin F11.C** (ver abajo) |
-| **F11.C** | Pendiente: lecturas, estadísticas, cola sin conexión y presentación                                                             |
-| **F11.D** | Pendiente: integración del gasto de grupo y cierre de los criterios de la fase                                                  |
+| Bloque    | Estado                                                                                                                                                            |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **F11.A** | **Cerrado**: contrato de fuente y resolución en F11/ADR-001. Sin implementación                                                                                   |
+| **F11.B** | En preparación sobre F11/ADR-002 (aceptado): catálogo, fijación diaria, ingesta, resolver en SQL, conversión congelada. **No se despliega sin F11.C** (ver abajo) |
+| **F11.C** | Pendiente: lecturas, estadísticas, cola sin conexión y presentación                                                                                               |
+| **F11.D** | Pendiente: integración del gasto de grupo y cierre de los criterios de la fase                                                                                    |
+
+### Decisiones de implementación de F11.B (2026-09-15)
+
+Tomadas al preparar F11.B. Las de producto que cambian el contrato están en
+[F11/ADR-002](../adr/F11/ADR-002-per-currency-daily-rate.md); estas son las demás:
+
+- **`record_group_expense` no se toca en F11.B.** Ni la moneda del grupo ni el
+  Personal del pagador se convierten hasta F11.D.
+- **Una conversión que redondea a cero** unidades mínimas, tras el único
+  redondeo, **se acepta**; no hay rechazo adicional.
+- **Fechas.** Una fecha anterior a la primera publicación del BCE da
+  `FX_CURRENCY_NOT_COVERED · 422`. Una fecha absurda o no operativa, como
+  `infinity`, da `PAYLOAD_INVALID`, igual en TypeScript y en SQL. Ninguna fecha
+  que nunca pueda llegar a estar disponible responde 503 indefinidamente.
+- **Ingesta sólo en local y CI.** La de producción espera al entorno verificado
+  de F8; no se contrata ni se introduce infraestructura de producción.
+- **Segunda barrera en base de datos.** El tipo congelado no puede diferir del
+  tipo fijado para ese día, compatible con correcciones y replays.
 
 **Hoy no existe ninguna conversión.** Toda operación en una moneda distinta de
 la base de un ámbito alcanzado responde `CURRENCY_CONVERSION_UNSUPPORTED · 422`.

@@ -25,7 +25,7 @@ cierre de **F11.A** (decisiones de multimoneda, sin implementación).
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes) y **Fase 10** (ciclo de vida del vínculo: F10.A0 y F10.A1 cerrados, backend de F10.A2 implementado; F10.A3 … C0 pendientes). **Fase 11** abierta: **F11.A** cerrada (contrato, sin implementación) |
 | **Última fase cerrada** | **Fase 9 — Grupos, gastos compartidos y deudas**, el 2026-09-14. **Validada en iPhone (Expo Go) y en el emulador Android**                                                                                                                                                                   |
-| **ADR aceptados**       | 42 de 43 (F00–F11; F00/ADR-001 sigue Propuesto), organizados por fase en `docs/adr/FNN/`                                                                                                                                                                                                     |
+| **ADR aceptados**       | 43 de 44 (F00–F11; F00/ADR-001 sigue Propuesto), organizados por fase en `docs/adr/FNN/`                                                                                                                                                                                                     |
 | **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **48 migraciones**: la última deja la baja de la instancia de vínculo, `api.unlink_participant` (F10.A2)                                                                                                                |
 | **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver                                                                                                                                                         |
 | **Sesión**              | Email y contraseña, entrar, salir **y recuperar**. **Faltan Google y Apple**                                                                                                                                                                                                                 |
@@ -150,10 +150,20 @@ implementarán; hoy toda operación en una moneda distinta de la base sigue
 respondiendo `CURRENCY_CONVERSION_UNSUPPORTED · 422`. Lo que una fase futura no
 debe deducir por su cuenta:
 
-- **El tipo del día X es el último disponible al comenzar X en hora de
-  Fráncfort** —la publicación del BCE con la fecha de referencia más reciente
-  anterior a X— y **se fija una sola vez**. La conversión es inmediata, y ni la
-  hora de la operación ni el momento de sincronizar cambian el tipo.
+- **El tipo del día X se resuelve por moneda y se fija una sola vez**, con la
+  primera observación completa de Nomey posterior a las 00:00 de X en hora de
+  Fráncfort ([F11/ADR-002](adr/F11/ADR-002-per-currency-daily-rate.md)). Cada
+  moneda usa su tipo en R(X), la publicación del BCE más reciente anterior a X,
+  o, si falta ahí, en la publicación anterior P(X), **nunca más atrás**: el
+  límite se cuenta en publicaciones, no en días. Si falta en las dos, esa
+  moneda da 422. Un dato que aparece después no recalcula ningún día fijado. La
+  conversión es inmediata, y ni la hora de la operación ni el momento de
+  sincronizar cambian el tipo.
+- **Una moneda ausente no invalida la observación; un valor corrupto sí.** Un
+  valor presente pero inválido deja el día sin fijar, y **503 queda sólo para un
+  día sin fijar**, nunca para una moneda retrasada. Una retirada registrada en
+  la cobertura curada prevalece sobre el límite y da 422, sin quitar la moneda
+  del catálogo.
 - **Moneda extranjera sólo en gasto e ingreso personales y en gasto de grupo**,
   sobre el contrato de F9. Las demás clases conservan su negativa a convertir.
   **Sin decidir, en F11.D:** si se convierte o se rechaza la caja que se
@@ -1054,9 +1064,11 @@ la misma: se trocea siempre, y la cifra la valida en vez de cambiarla.
 12. **`core.membership` es presencia, no historial**, y `participant_period` es
     elegibilidad para figurar en una operación, **nunca** autorización.
 13. **El tipo de cambio de una operación es el tipo del día de su fecha
-    efectiva**: el último disponible al comenzar ese día en hora de Fráncfort,
-    fijado una sola vez. No depende de la hora, de la sincronización ni del país,
-    y nunca lo aporta el cliente (F11/ADR-001).
+    efectiva**, resuelto por moneda con un límite de una publicación de
+    antigüedad y fijado una sola vez al comenzar ese día en hora de Fráncfort.
+    No depende de la hora, de la sincronización ni del país, y nunca lo aporta
+    el cliente (F11/ADR-001,
+    [F11/ADR-002](adr/F11/ADR-002-per-currency-daily-rate.md)).
 
 ---
 
@@ -1253,7 +1265,7 @@ una feature escribible real.
 | Estética, antes de cualquier UI                 | [`product/design-direction.md`](product/design-direction.md)                                                                                                                             |
 | **Continuar la Fase 8**                         | [`product/roadmap.md`](product/roadmap.md), Fase 8 · F08/ADR-001 · F08/ADR-002                                                                                                           |
 | **Continuar la Fase 10**                        | [`product/roadmap.md`](product/roadmap.md), Fase 10 · [`architecture/phase-10-opening.md`](architecture/phase-10-opening.md) · [F10/ADR-001](adr/F10/ADR-001-link-instance-lifecycle.md) |
-| **Multimoneda: el contrato de F11**             | [`adr/F11/ADR-001-fx-rate-resolution.md`](adr/F11/ADR-001-fx-rate-resolution.md) · roadmap, Fase 11                                                                                      |
+| **Multimoneda: el contrato de F11**             | [`adr/F11/ADR-001-fx-rate-resolution.md`](adr/F11/ADR-001-fx-rate-resolution.md) · [`ADR-002`](adr/F11/ADR-002-per-currency-daily-rate.md) · roadmap, Fase 11                            |
 | **Continuar la Fase 11**                        | [`architecture/phase-11-progress.md`](architecture/phase-11-progress.md): estado, contraste con F9 y limitaciones                                                                        |
 | Cómo quedó la Fase 9, ya cerrada                | [`architecture/phase-9-progress.md`](architecture/phase-9-progress.md) · roadmap, Fase 9, «Estado de cierre»                                                                             |
 | Cómo quedó la Fase 7, ya cerrada                | [`architecture/phase-7-handoff.md`](architecture/phase-7-handoff.md)                                                                                                                     |
