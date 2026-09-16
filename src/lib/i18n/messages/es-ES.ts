@@ -612,6 +612,18 @@ export const esES = {
   'home.preparing': 'Preparando tu Modo Personal…',
   'home.scopeErrorTitle': 'No hemos podido preparar tu Modo Personal',
   'home.scopeErrorBody': 'Puede ser algo momentáneo. Inténtalo otra vez.',
+  // El punto de inicio del Modo Personal tras el Invitado (F10/ADR-005 §6). Una sola vez.
+  'personalStart.title': '¿Cómo quieres empezar tu Modo Personal?',
+  'personalStart.body':
+    'Ya tienes movimientos de tus grupos. Puedes incluirlos en tu Modo Personal o empezar desde cero. Tus deudas pendientes seguirán disponibles en ambos casos.',
+  'personalStart.includeTitle': 'Incluir mis movimientos de grupos',
+  'personalStart.includeBody':
+    'Tu saldo, historial y estadísticas tendrán en cuenta también los movimientos que ya hiciste en tus grupos.',
+  'personalStart.freshTitle': 'Empezar desde cero',
+  'personalStart.freshBody':
+    'Tus movimientos anteriores de grupos no contarán en tu saldo, historial ni estadísticas del Modo Personal. Solo conservarás las deudas que sigan pendientes.',
+  'personalStart.continue': 'Continuar',
+  'personalStart.failed': 'No hemos podido guardar tu elección. Inténtalo otra vez.',
   'home.loading': 'Cargando…',
   'home.amountPending': '—',
   'home.adjustBalance': 'Editar disponible',

@@ -593,6 +593,18 @@ export const en: Record<MessageKey, string> = {
   'home.preparing': 'Setting up your Personal mode…',
   'home.scopeErrorTitle': 'We could not set up your Personal mode',
   'home.scopeErrorBody': 'This may be temporary. Try again.',
+  // The Personal start after the guest (F10/ADR-005 §6). Once.
+  'personalStart.title': 'How do you want to start your Personal Mode?',
+  'personalStart.body':
+    'You already have movements from your groups. You can include them in your Personal Mode or start from scratch. Your pending debts will stay available either way.',
+  'personalStart.includeTitle': 'Include my group movements',
+  'personalStart.includeBody':
+    'Your balance, history and statistics will also take into account the movements you already made in your groups.',
+  'personalStart.freshTitle': 'Start from scratch',
+  'personalStart.freshBody':
+    'Your earlier group movements will not count in your Personal Mode balance, history or statistics. You will only keep the debts that are still pending.',
+  'personalStart.continue': 'Continue',
+  'personalStart.failed': 'We could not save your choice. Try again.',
   'home.loading': 'Loading…',
   'home.amountPending': '—',
   'home.balanceTitle': 'Edit available',

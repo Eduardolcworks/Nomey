@@ -287,7 +287,8 @@ describe('provisioning', () => {
   it('el provisioning no se reintenta solo', () => {
     // El contador de reintentos y el actor —cuyo respaldo sin red se lee por
     // cuenta (F7.D)—: nada que cambie por render.
-    expect(SCOPE).toContain('[attempt, actorId]');
+    // Y la identidad de sesion (F10/ADR-005): convertirse relee. Nada mas.
+    expect(SCOPE).toContain('[attempt, actorId, readAsGuest]');
     /*
      * **El vuelo compartido, no un booleano.** Aquí había un `inFlight` que
      * impedía a la segunda invocación del efecto suscribirse: con el doble
@@ -479,7 +480,11 @@ describe('el selector de ámbito', () => {
   it('con Pareja no se lanzan consultas personales', () => {
     // `actorId` se añadió en F7.B para la copia local del catálogo, y no toca
     // esta guarda: la que apaga las consultas sigue siendo la misma condición.
-    expect(HOME).toContain('usePersonalHome(ready !== null && personal, range, actorId)');
+    // F10/ADR-005 añadió una tercera condición —nada que decidir sobre el
+    // punto de inicio— y no toca las dos anteriores.
+    expect(HOME).toContain(
+      'usePersonalHome(ready !== null && personal && !startPending, range, actorId)',
+    );
   });
 
   /**
@@ -489,7 +494,8 @@ describe('el selector de ámbito', () => {
   it('el provisioning no depende del selector', () => {
     // Recibe el ACTOR —para el respaldo del ámbito sin red (F7.D)— y nunca el
     // selector Personal/Pareja: provisionar no depende de qué pestaña se mira.
-    expect(HOME).toMatch(/const scope = usePersonalScope\(actorId\);/);
+    // Y la identidad de sesion (F10/ADR-005): convertirse relee el ambito.
+    expect(HOME).toMatch(/const scope = usePersonalScope\(actorId, guest\);/);
     expect(HOME).not.toMatch(/usePersonalScope\([^)]*(activeScope|personal)[^)]*\)/);
   });
 
@@ -1048,10 +1054,12 @@ describe('la barra superior se queda, el saludo sube', () => {
    * parte. Con Pareja activo el selector es además lo ÚNICO que permite volver
    * a Personal.
    */
-  it('las cuatro ramas conservan el saludo, con una sola descripción', () => {
+  it('las ramas con contenido conservan el saludo, con una sola descripción', () => {
     const home = code('app/(tabs)/index.tsx');
     expect(home.match(/<HomeGreeting/g) ?? []).toHaveLength(1);
-    expect(home.match(/\{greeting\}/g) ?? []).toHaveLength(4);
+    // Cuatro de siempre más la espera del punto de inicio (F10/ADR-005); las
+    // dos puertas —«Crea tu cuenta» y «¿Cómo quieres empezar?»— van sin él.
+    expect(home.match(/\{greeting\}/g) ?? []).toHaveLength(5);
   });
 
   /**

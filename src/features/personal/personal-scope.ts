@@ -37,12 +37,64 @@ export type PersonalScopeState =
       readonly currencyScale: number;
       /** `true` sólo si esta llamada lo creó. Informativo, nunca una condición. */
       readonly created: boolean;
+      /**
+       * Cómo empieza este Personal (F10/ADR-005), tal como lo dice el servidor
+       * en ESTA respuesta; `null` si el ámbito salió del respaldo local, que
+       * no guarda esta parte porque no es suya: quien decide si hay que
+       * preguntar es el servidor, cada vez.
+       */
+      readonly start: PersonalStart | null;
+      /**
+       * Se leyó siendo INVITADO. Al convertirse, ese ámbito es viejo para el
+       * punto de inicio: `usePersonalScope` lo relee por identidad de sesión y
+       * `usePersonalStart` no evalúa nada hasta que llega la lectura de la
+       * cuenta (F10/ADR-005 §2).
+       */
+      readonly readAsGuest: boolean;
     }
   /**
    * Error recuperable, con salida. **No es un callejón**: la forma la fijó
    * `unavailable` de F5.B y se reutiliza tal cual en vez de inventar otra.
    */
   | { readonly status: 'unavailable' };
+
+/**
+ * EL PUNTO DE INICIO DEL MODO PERSONAL (F10/ADR-005), leído del servidor.
+ *
+ * Tres hechos, y ninguno lo inventa el cliente: si el ámbito nació bajo una
+ * sesión Invitado (`core.scope.provisioned_as_guest`), qué se decidió
+ * (`core.personal_start.mode`, `null` mientras nada) y si HAY que preguntar
+ * ahora (`needs_start_decision`: marca ∧ sin decisión ∧ historia de grupos).
+ */
+export type PersonalStartMode = 'include' | 'fresh';
+
+export type PersonalStart = {
+  readonly provisionedAsGuest: boolean;
+  readonly mode: PersonalStartMode | null;
+  readonly needsDecision: boolean;
+};
+
+/**
+ * Qué hace Inicio con el punto de inicio, decidido en un sitio puro.
+ *
+ *   ask          la pantalla «¿Cómo quieres empezar tu Modo Personal?»
+ *   autoInclude  primer acceso sin historia: se persiste `include` sin
+ *                preguntar, para que la pregunta no aparezca días después
+ *   none         nada que decidir: cuenta normal, ya decidido, o ámbito del
+ *                respaldo local (sin red no se decide nada)
+ *
+ * La autoridad sigue siendo el servidor: un `autoInclude` que llegue cuando
+ * ya hay historia responde `PERSONAL_START_DECISION_REQUIRED`, y quien lo
+ * envía vuelve a leer y pregunta.
+ */
+export type PersonalStartAction = 'ask' | 'autoInclude' | 'none';
+
+export function personalStartAction(state: PersonalScopeState): PersonalStartAction {
+  if (state.status !== 'ready' || state.start === null) return 'none';
+  const { provisionedAsGuest, mode, needsDecision } = state.start;
+  if (!provisionedAsGuest || mode !== null) return 'none';
+  return needsDecision ? 'ask' : 'autoInclude';
+}
 
 export const IDLE: PersonalScopeState = { status: 'idle' };
 
@@ -70,9 +122,26 @@ export type EnsureScopeResult = {
   readonly currency_code: string;
   readonly currency_scale: number;
   readonly created: boolean;
+  /** Los tres de F10/ADR-005. Opcionales por si respondiera un servidor anterior: sin ellos, nada que decidir. */
+  readonly provisioned_as_guest?: boolean | null;
+  readonly start_mode?: string | null;
+  readonly needs_start_decision?: boolean | null;
 };
 
-export function scopeFromResult(result: EnsureScopeResult): PersonalScopeState {
+function startFromResult(result: EnsureScopeResult): PersonalStart | null {
+  if (typeof result.provisioned_as_guest !== 'boolean') return null;
+  const mode = result.start_mode;
+  return {
+    provisionedAsGuest: result.provisioned_as_guest,
+    mode: mode === 'include' || mode === 'fresh' ? mode : null,
+    needsDecision: result.needs_start_decision === true,
+  };
+}
+
+export function scopeFromResult(
+  result: EnsureScopeResult,
+  readAsGuest = false,
+): PersonalScopeState {
   return {
     status: 'ready',
     scopeId: result.scope_id,
@@ -80,6 +149,8 @@ export function scopeFromResult(result: EnsureScopeResult): PersonalScopeState {
     currencyCode: result.currency_code,
     currencyScale: result.currency_scale,
     created: result.created,
+    start: startFromResult(result),
+    readAsGuest,
   };
 }
 
@@ -189,6 +260,10 @@ export function parseScope(document: string): ReadyScope | null {
     currencyCode: shape.currencyCode,
     currencyScale: shape.currencyScale,
     created: false,
+    // El respaldo no dice cómo empieza el Personal: eso lo decide el servidor
+    // cada vez, y sin red no se decide nada (F10/ADR-005 §2).
+    start: null,
+    readAsGuest: false,
   };
 }
 

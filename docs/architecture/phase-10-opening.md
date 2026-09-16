@@ -21,6 +21,14 @@
 > historia (no un participante sin cuenta) y vuelve como entonces o como un
 > sin cuenta. La cesión y las fusiones (§6) serán **F10/ADR-004**.
 >
+> **Cierre (2026-09-16).** La Fase 10 está **CERRADA**. El punto de entrada
+> es ahora [`phase-10-handoff.md`](phase-10-handoff.md), con los trece
+> criterios demostrados uno por uno; este documento se conserva como historia
+> de lo que se midió antes de decidir. C0 añadió
+> [F10/ADR-005](../adr/F10/ADR-005-personal-start.md) (el punto de inicio del
+> Modo Personal tras el Invitado) y cerró las dos obligaciones de ADR-004
+> (migración `20260920120000`).
+>
 > **Nota del 2026-09-16 (F10.B0).** B0 midió §3.3 y §6 sobre el modelo que
 > dejó A3 y decidió **no implementar ninguna cesión ni fusión**:
 > [F10/ADR-004](../adr/F10/ADR-004-identity-scope-closure.md) declara fuera de

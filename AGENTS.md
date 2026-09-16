@@ -280,10 +280,10 @@ its own claim; a member may fold an account-less ghost into its own identity
 (`core.participant_merge`, resolved in `core.current_effect`); an account that
 left may rejoin with its identity.
 
-**Open in F10 (ADR), under one product principle: no account unilaterally
-adjudicates another account's identity.** There is no revocation of someone
-else's link, no expulsion and no moderator role — the provisioner's policies
-on the link and the membership are already self-only, and F10 guards that in
+**Settled by F10 (closed 2026-09-16), under one product principle: no account
+unilaterally adjudicates another account's identity.** There is no revocation
+of someone else's link, no expulsion and no moderator role — the provisioner's
+policies on the link and the membership are self-only, and F10 guards that in
 the catalogue. **Settled by
 [F10/ADR-002](docs/adr/F10/ADR-002-permanent-identity.md) (which supersedes
 the leaving rules of [F10/ADR-001](docs/adr/F10/ADR-001-link-instance-lifecycle.md)):
@@ -308,9 +308,12 @@ linked participants, no ghost ↔ ghost merge (the model would carry it —
 measured — but there is no product need; a duplicate ghost is retired).
 Ghost → account is claim (F09/ADR-004) or associate (F09/ADR-009). Merge
 chains are a prohibited invariant: a source is never a target, a target is
-never a source, resolution is one hop; `api.associate_participant` is the only
-writer of `core.participant_merge` and enforces it. Start at
-[`docs/architecture/phase-10-opening.md`](docs/architecture/phase-10-opening.md).
+never a source, resolution is one hop — guarded **in the catalogue** by a
+definer row trigger on `core.participant_merge` (insert and update, whoever
+writes), with `api.associate_participant` as the only `api` writer; and
+retiring or settling a merge source is refused with `PARTICIPANT_MERGED`
+(both closures in `20260920120000`, measured by `merge-invariants.sql`). Start
+at [`docs/architecture/phase-10-handoff.md`](docs/architecture/phase-10-handoff.md).
 
 ### 6. Internationalisation
 
@@ -538,24 +541,23 @@ comment; the permanent equivalence table is in `docs/adr/README.md`.
 > surface, the invariants a future phase must not break, and what is deferred.
 > This section keeps the detail that only matters while touching the data layer.
 
-**Phases 0 through 7 and 9 are CLOSED.** Phase 3 (persistence and data boundary)
-closed on 2026-08-27, Phase 5 (identity and session) on 2026-08-28, Phase 6
-(Modo Personal) on 2026-09-03, Phase 7 (quick entry, offline and sync) on
-2026-09-04 and Phase 9 (groups, shared expenses and debts) on 2026-09-14 —
-validated on an iPhone (Expo Go) and the Android emulator. **47 of the 48 ADRs
-of phases F00–F11 are accepted** (F00/ADR-001 is still Proposed; see
+**Phases 0 through 7, 9 and 10 are CLOSED.** Phase 3 (persistence and data
+boundary) closed on 2026-08-27, Phase 5 (identity and session) on 2026-08-28,
+Phase 6 (Modo Personal) on 2026-09-03, Phase 7 (quick entry, offline and sync)
+on 2026-09-04, Phase 9 (groups, shared expenses and debts) on 2026-09-14 —
+validated on an iPhone (Expo Go) and the Android emulator — and Phase 10
+(identity lifecycle) on 2026-09-16, validated on an iPhone. **48 of the 49
+ADRs of phases F00–F11 are accepted** (F00/ADR-001 is still Proposed; see
 `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a real local
 Supabase stack.
 
-**Phase 10 is OPEN** (2026-09-14) — the lifecycle of the account ↔ participant
-link, under the principle that **no account unilaterally adjudicates another
-account's identity** (§5). F10.A0 reconciled its original scope, which F9 had
-already closed, and rewrote the closure criteria in the
-[roadmap](docs/product/roadmap.md); start at
-[`docs/architecture/phase-10-opening.md`](docs/architecture/phase-10-opening.md).
-F10.A0 … F10.B0 are closed (A3 and B0 on 2026-09-16); B0 closed the scope
-with `F10/ADR-004` — no handover, no new merges, so B1 and B2 do not exist —
-and the next block is **F10.C0** (closure). The phase stays open until C0.
+**Phase 10 is CLOSED** (opened 2026-09-14, closed 2026-09-16) — the lifecycle
+of the account ↔ participant link, under the principle that **no account
+unilaterally adjudicates another account's identity** (§5). Its handoff is
+[`docs/architecture/phase-10-handoff.md`](docs/architecture/phase-10-handoff.md),
+with the thirteen closure criteria demonstrated one by one; B1 and B2 never
+existed (`F10/ADR-004` closed the scope), C0 added the Personal start after
+the guest (`F10/ADR-005`) and the two catalogue closures of ADR-004.
 
 **Guest mode is real (F10.A3, [F05/ADR-003](docs/adr/F05/ADR-003-guest-session.md)).**
 «Entrar como invitado» is a Supabase **anonymous session** — `signInAnonymously`
@@ -569,6 +571,31 @@ Personal scope provisioned as always. Creating an account from a guest is `updat
 guest **fails closed** (no measured merge exists). `enable_anonymous_sign_ins`
 is on in `supabase/config.toml`; a hosted project must enable it in its
 Dashboard — this repository does not do that for it.
+
+**The Personal start after the guest is the user's, once
+([F10/ADR-005](docs/adr/F10/ADR-005-personal-start.md), F10.C0).** A Personal
+scope created under an anonymous JWT carries `core.scope.provisioned_as_guest`
+(written by `ensure_personal_scope` from the `is_anonymous` claim, never set
+back). The first time such an account opens Personal **with group history**
+Inicio asks «¿Cómo quieres empezar tu Modo Personal?» — `include` (everything
+as before) or `fresh`; **without** history the client persists `include`
+automatically so the question can never appear later. One insert-only fact per
+scope, `core.personal_start`, written only by `api.start_personal_scope`
+(provisioning key, idempotent by key and by state, `PERSONAL_START_DECIDED`
+on a second, different decision; `automatic` refused with
+`PERSONAL_START_DECISION_REQUIRED` when history exists). `fresh` is a **cutoff
+by `core.operation.created_at`** against `started_at` (server time, never
+`effective_date`), applied by ONE predicate, `sec.counts_in_personal`, in
+`sec.derive_balance` and in every Personal read (`personal_balance`,
+`personal_effect`, `personal_operation`, `my_shared_expense_shares`): prior
+group-origin operations leave the balance, the history, the statistics and
+the shares — never Deudas (`group_summary`), never `claimed_dimension`. A
+later correction or annulment of a prior operation stays out; cash
+incorporated by a later `associate_participant` hangs from the original
+operation and stays out too; anything created after counts. Nothing is
+deleted and no compensating adjustment exists. Measured in
+`supabase/checks/personal-start.sql`, HTTP boundary §15 and
+`scripts/personal-start-race-evidence.sh`.
 
 **Phase 11 is OPEN**, and only **F11.A** is closed: the contract for resolving
 exchange rates, [F11/ADR-001](docs/adr/F11/ADR-001-fx-rate-resolution.md), with
@@ -595,6 +622,7 @@ Use `npm start` and the `config:*` scripts, or
 command, and never `APP_VARIANT=` in `.env`.
 
 What each closed phase left behind, block by block, is in its handoff:
+[phase 10](docs/architecture/phase-10-handoff.md) ·
 [phase 7](docs/architecture/phase-7-handoff.md) ·
 [phase 6](docs/architecture/phase-6-handoff.md) ·
 [phase 5](docs/architecture/phase-5-handoff.md).
@@ -613,8 +641,8 @@ Two artefacts closed Phase 5 and are worth knowing about:
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
 and twelve reproducible probes that measured the decisions behind the schema
-(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **50
-migrations** rebuilt from zero in CI with 31 SQL checks and ten real-session
+(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **52
+migrations** rebuilt from zero in CI with 33 SQL checks and eleven real-session
 race scripts. A pure reference implementation of the financial domain in
 `src/domain/`, with shared test vectors in `tests/vectors/` that the server
 boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 135 files.
@@ -726,7 +754,7 @@ writer of one class can no longer correct an operation of another**, guarded in
 [F06/ADR-002](docs/adr/F06/ADR-002-version-content-and-time.md) and
 [F06/ADR-003](docs/adr/F06/ADR-003-category-catalogue.md).
 
-**Migrations have started.** `supabase/migrations/` holds 50. The first is the
+**Migrations have started.** `supabase/migrations/` holds 52. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is F03/ADR-011: `api` is served and `public`, `core` and `sec`

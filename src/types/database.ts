@@ -630,6 +630,9 @@ export type Database = {
           currency_code: string | null;
           currency_scale: number | null;
           id: string | null;
+          needs_start_decision: boolean | null;
+          provisioned_as_guest: boolean | null;
+          start_mode: string | null;
         };
         Relationships: [
           {
@@ -746,6 +749,7 @@ export type Database = {
       set_custom_category_active: { Args: { payload: Json }; Returns: Json };
       set_personal_base_currency: { Args: { payload: Json }; Returns: Json };
       settle_participant: { Args: { payload: Json }; Returns: Json };
+      start_personal_scope: { Args: { payload: Json }; Returns: Json };
       update_group_profile: { Args: { payload: Json }; Returns: Json };
     };
     Enums: {
