@@ -20,19 +20,24 @@ export type InvitationPreview =
       readonly displayName: string;
       readonly emoji: string;
       /**
-       * Ya miembro (`member`), salió con vínculo y puede volver con su identidad
-       * (`rejoin`, F09/ADR-010; el servidor anterior decía `rejoin_pending` y se
-       * lee igual), o puede entrar (`join`).
+       * Ya miembro (`member`), ya estuvo y puede volver con su identidad de
+       * entonces O elegir un participante sin cuenta (`rejoin`, F09/ADR-010 y
+       * F10/ADR-003; el servidor anterior decía `rejoin_pending` y se lee
+       * igual), o nunca estuvo y puede entrar (`join`).
        */
       readonly membership: 'member' | 'rejoin' | 'join';
       /** Sólo si ya se es miembro: para abrir el grupo. */
       readonly scopeId: string | null;
-      /** Sólo al volver: la identidad de entonces, con su nombre actual. */
+      /** Sólo si ya estuvo: su identidad más reciente, con su nombre actual. */
       readonly previousParticipant: {
         readonly participantId: string;
         readonly displayName: string;
       } | null;
-      /** Sin cuenta vinculada, no retirados, presentes. Sólo el nombre. */
+      /**
+       * Sin cuenta vinculada, no retirados, presentes. Sólo el nombre. Tanto
+       * para quien nunca estuvo como para quien ya estuvo (F10/ADR-003 §2);
+       * nunca una identidad histórica.
+       */
       readonly participants: readonly {
         readonly participantId: string;
         readonly displayName: string;

@@ -19,6 +19,13 @@ export type ParticipantPresence = {
   readonly eligibleUntil: CalendarDate | null;
   /** Dado por saldado: fuera de las listas, y sin deuda nueva jamás (F09/ADR-003 §6). */
   readonly isRetired: boolean;
+  /**
+   * Su cuenta salió del grupo y el vínculo terminó (F10/ADR-003): identidad
+   * HISTÓRICA. No es una fila del presente —ni en Saldos, ni en el recuento,
+   * ni en la lista de participantes— pero conserva el nombre en todo lo
+   * anterior, y sigue elegible para un gasto fechado cuando estaba.
+   */
+  readonly isDeparted: boolean;
 };
 
 /**
@@ -40,6 +47,15 @@ export function eligibleOn(one: WithPresence, date: CalendarDate): boolean {
 export function listed(one: WithPresence): boolean {
   if (typeof one.mergedInto === 'string') return false;
   return one.presence === null || !one.presence.isRetired;
+}
+
+/**
+ * Los del PRESENTE: los que se cuentan y se listan como participantes de hoy.
+ * Quien salió con cuenta es historia (F10/ADR-003): sigue en `listed` —sus
+ * nombres y sus gastos de entonces— pero no aquí.
+ */
+export function current(one: WithPresence): boolean {
+  return listed(one) && (one.presence === null || !one.presence.isDeparted);
 }
 
 /** Los que se proponen por defecto en un gasto nuevo: sólo los activos. */

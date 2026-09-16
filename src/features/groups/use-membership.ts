@@ -18,8 +18,6 @@ import {
   subscribeNoticesSeen,
 } from './group-events';
 import {
-  type BlockingOperation,
-  blockingOperations,
   fetchGroupNotices,
   fetchMyNetPosition,
   type GroupNotice,
@@ -31,7 +29,6 @@ import {
   sendRetireParticipant,
   sendSettleParticipant,
   sendAssociateParticipant,
-  sendUnclaimParticipant,
 } from './membership-service';
 
 export type MembershipFailure =
@@ -275,75 +272,6 @@ export function useAssociateParticipant(): {
   );
 
   return { associate, busy };
-}
-
-export type UnclaimOutcome =
-  | { readonly kind: 'done' }
-  /** El servidor lo rehusó por caja vigente: las operaciones que lo impiden. */
-  | { readonly kind: 'blocked'; readonly operations: readonly BlockingOperation[] }
-  /** El vínculo actual no lo creó esa reclamación, o no procede de una. */
-  | { readonly kind: 'superseded' }
-  | { readonly kind: 'failed'; readonly failure: MembershipFailure };
-
-/**
- * RECTIFICAR UNA RECLAMACIÓN (F09/ADR-006). Una clave por intención —ámbito,
- * participante y reclamación—, conservada mientras no cambie: reintentar es
- * el mismo comando y responde el resultado original. Al confirmarse, el grupo
- * deja de llegar por RLS y quien mire la lista, Deudas o los avisos vuelve a
- * preguntar; la pantalla decide adónde ir.
- */
-export function useUnclaimParticipant(): {
-  readonly unclaim: (args: {
-    readonly scopeId: string;
-    readonly participantId: string;
-    readonly claimCommandId: string;
-  }) => Promise<UnclaimOutcome>;
-  readonly busy: boolean;
-} {
-  const [busy, setBusy] = useState(false);
-  const key = useRef<{ fingerprint: string; id: string } | null>(null);
-
-  const unclaim = useCallback(
-    async (args: {
-      readonly scopeId: string;
-      readonly participantId: string;
-      readonly claimCommandId: string;
-    }): Promise<UnclaimOutcome> => {
-      const fingerprint = JSON.stringify([args.scopeId, args.participantId, args.claimCommandId]);
-      if (key.current === null || key.current.fingerprint !== fingerprint) {
-        key.current = { fingerprint, id: newClientOperationId() };
-      }
-      setBusy(true);
-      try {
-        const response = await sendUnclaimParticipant({
-          client_command_id: key.current.id,
-          command_contract_version: 1,
-          scope_id: args.scopeId,
-          participant_id: args.participantId,
-          claim_command_id: args.claimCommandId,
-        });
-        if (response.ok) {
-          key.current = null;
-          publishGroupRecorded(args.scopeId);
-          return { kind: 'done' };
-        }
-        if (response.code === 'UNCLAIM_BLOCKED_CASH') {
-          return { kind: 'blocked', operations: blockingOperations(response.details) };
-        }
-        if (response.code === 'CLAIM_SUPERSEDED' || response.code === 'UNCLAIM_NOT_AVAILABLE') {
-          return { kind: 'superseded' };
-        }
-        return { kind: 'failed', failure: interpret(response.status, response.code) };
-      } catch {
-        return { kind: 'failed', failure: 'offline' };
-      } finally {
-        setBusy(false);
-      }
-    },
-    [],
-  );
-
-  return { unclaim, busy };
 }
 
 /**

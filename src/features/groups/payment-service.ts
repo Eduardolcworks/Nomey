@@ -22,6 +22,8 @@ export type GroupPayment = {
   /** Unidades menores de la divisa base del grupo, sin signo. */
   readonly amountMinor: string;
   readonly effectiveDate: string;
+  /** `HH:MM:SS` de la version de alta, o `null`. Ordena junto a la fecha (F06/ADR-002 §3). */
+  readonly effectiveTime: string | null;
   readonly recordedByMe: boolean;
   readonly declaredByReceiver: boolean;
   /**
@@ -43,7 +45,7 @@ export async function fetchGroupPayments(scopeId: string): Promise<readonly Grou
   const { data, error } = await supabase
     .from('group_payment')
     .select(
-      'operation_id,version_id,scope_id,payer_participant_id,receiver_participant_id,amount,effective_date,recorded_by_me,declared_by_receiver,annulled,operation_created_at',
+      'operation_id,version_id,scope_id,payer_participant_id,receiver_participant_id,amount,effective_date,effective_time,recorded_by_me,declared_by_receiver,annulled,operation_created_at',
     )
     .eq('scope_id', scopeId)
     .order('effective_date', { ascending: false })
@@ -69,6 +71,7 @@ export async function fetchGroupPayments(scopeId: string): Promise<readonly Grou
             receiverParticipantId: row.receiver_participant_id,
             amountMinor: row.amount,
             effectiveDate: row.effective_date,
+            effectiveTime: row.effective_time ?? null,
             recordedByMe: row.recorded_by_me ?? false,
             declaredByReceiver: row.declared_by_receiver ?? false,
             annulled: row.annulled ?? false,

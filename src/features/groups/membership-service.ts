@@ -24,8 +24,8 @@ export type CommandResult = {
   readonly code: string | null;
   /**
    * Los detalles del error de frontera, tal cual llegan (`error.details`): un
-   * JSON serializado cuando el servidor los manda (`UNCLAIM_BLOCKED_CASH`
-   * trae `operations`), `null` si no. Quien conoce el código lo interpreta.
+   * JSON serializado cuando el servidor los manda (`LEAVE_BLOCKED_DEBT` trae
+   * `net` y `pairs`), `null` si no. Quien conoce el código lo interpreta.
    */
   readonly details: string | null;
   readonly ok: boolean;
@@ -146,28 +146,6 @@ export async function sendRetireParticipant(payload: RetirementPayload): Promise
 }
 
 /**
- * RECTIFICAR UNA RECLAMACIÓN (F09/ADR-006): «Me equivoqué de participante». Sólo
- * la propia cuenta, contra la reclamación que creó su vínculo actual
- * (`claim_command_id`, la que publica `api.group_participant` sobre la fila
- * propia). El servidor decide bajo el cerrojo: `UNCLAIM_BLOCKED_CASH` con las
- * operaciones que lo impiden, `CLAIM_SUPERSEDED` si el vínculo actual no lo
- * creó esa reclamación, `UNCLAIM_NOT_AVAILABLE` sin procedencia. Idempotente
- * por `core.provisioning_command`: un reintento responde el resultado original.
- */
-export async function sendUnclaimParticipant(payload: {
-  readonly client_command_id: string;
-  readonly command_contract_version: 1;
-  readonly scope_id: string;
-  readonly participant_id: string;
-  readonly claim_command_id: string;
-}): Promise<CommandResult> {
-  const response = (await supabase.rpc('unclaim_participant', {
-    payload: payload as never,
-  })) as unknown as RawResponse;
-  return resultOf(response);
-}
-
-/**
  * ASOCIAR UN PARTICIPANTE SIN CUENTA A LA PROPIA (F09/ADR-009): mi identidad del
  * grupo asume la suya. Fusión de lectura —los hechos siguen nombrando a quien
  * figuraba— y caja histórica incorporada una sola vez, en el mismo comando.
@@ -185,51 +163,6 @@ export async function sendAssociateParticipant(payload: {
     payload: payload as never,
   })) as unknown as RawResponse;
   return resultOf(response);
-}
-
-/**
- * UNA OPERACIÓN QUE BLOQUEA la rectificación: dinero vigente en el Personal
- * del actor por una operación de ese grupo. Un gasto pagado como el
- * participante (con concepto) o una transferencia (sin él). Lo describe el
- * servidor con lo que el actor ya ve como miembro; el importe llega como texto
- * (F02/ADR-001) y en la moneda del grupo.
- */
-export type BlockingOperation = {
-  readonly operationId: string;
-  readonly operationClass: 'group_expense' | 'settlement_by_transfer' | string;
-  readonly concept: string | null;
-  readonly amountMinor: string;
-  readonly effectiveDate: string;
-};
-
-/** Las operaciones que bloquean, leídas de los detalles del error (`UNCLAIM_BLOCKED_CASH`). */
-export function blockingOperations(details: string | null): readonly BlockingOperation[] {
-  if (details === null) return [];
-  try {
-    const parsed = JSON.parse(details) as { operations?: unknown };
-    const rows = parsed.operations;
-    if (!Array.isArray(rows)) return [];
-    return rows.flatMap((row: unknown) => {
-      if (typeof row !== 'object' || row === null) return [];
-      const one = row as Record<string, unknown>;
-      return typeof one.operation_id === 'string' &&
-        typeof one.operation_class === 'string' &&
-        typeof one.amount === 'string' &&
-        typeof one.effective_date === 'string'
-        ? [
-            {
-              operationId: one.operation_id,
-              operationClass: one.operation_class,
-              concept: typeof one.concept === 'string' ? one.concept : null,
-              amountMinor: one.amount,
-              effectiveDate: one.effective_date,
-            },
-          ]
-        : [];
-    });
-  } catch {
-    return [];
-  }
 }
 
 /** Lo que publica `api.group_notice`: sin `user_id` de nadie, con `byMe`. */

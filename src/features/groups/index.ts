@@ -154,14 +154,10 @@ export {
 export { type CurrenciesState, useCurrencies } from './use-currencies';
 export { useEmojiRecents } from './use-emoji-recents';
 export { type GroupsState, useGroups } from './use-groups';
-export {
-  type BlockingOperation,
-  fetchPendingPairs,
-  type GroupNotice,
-  type PendingPair,
-} from './membership-service';
+export { fetchPendingPairs, type GroupNotice, type PendingPair } from './membership-service';
 export {
   activeByDefault,
+  current,
   eligibleOn,
   listed,
   type ParticipantPresence,
@@ -187,9 +183,7 @@ export {
   useLeaveGroup,
   useRetireParticipant,
   useSettleParticipant,
-  type UnclaimOutcome,
   useAssociateParticipant,
-  useUnclaimParticipant,
 } from './use-membership';
 export {
   DESCRIPTION_LINES,
@@ -209,6 +203,7 @@ export {
   type ReopenedDebt,
   sendGroupPayment,
 } from './payment-service';
+export { mergeTimeline, type TimelineEntry } from './group-timeline';
 export {
   type PaymentFailure,
   type PaymentOutcome,

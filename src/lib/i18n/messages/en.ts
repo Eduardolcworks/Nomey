@@ -43,20 +43,22 @@ export const en: Record<MessageKey, string> = {
   'groups.whoClaim': 'I am {name}',
   'groups.whoNew': 'I am new',
   'groups.claimAskTitle': 'Are you {name}?',
-  'groups.claimAskBody': 'Their earlier expenses and debts will be linked to your account.',
+  'groups.claimAskBody':
+    "Their earlier expenses and debts will move to your account. While you are in the group, this will be your participant: it can't be changed or given up.",
   'groups.claimBack': 'Back',
   'groups.claimYes': "Yes, I'm {name}",
   'groups.whoNewHint': 'Join the group with your name, without earlier expenses',
-  'groups.whoNone': 'Nobody without an account left to claim. Join as new.',
+  'groups.whoNone': 'Nobody without an account left to claim.',
   'groups.whoNewName': 'Your name',
   'groups.whoNewConfirm': 'Join with this name',
   'groups.joinBack': 'Back to the link',
   'groups.joinOffline': 'Could not join. Check your connection and try again.',
   'groups.joinClaimed': 'That name was just claimed by another account. Pick another option.',
   'groups.whoRejoinHint':
-    'You were in this group before. You come back with your identity from then: your earlier expenses and payments stay yours, and from today you count in new ones again.',
+    'You were in this group before. Rejoin with your identity from then or pick someone without an account; what came before stays yours.',
   'groups.whoRejoin': 'Rejoin as {name}',
-  'groups.joinRejoin': 'You were in this group before. Rejoin with your identity from then.',
+  'groups.joinRejoin':
+    'You were in this group before. Rejoin with your identity from then or pick someone without an account.',
   'groups.joinUnusable': 'The invitation can no longer be used.',
   'groups.joinRejected': 'Could not join the group.',
 
@@ -153,24 +155,6 @@ export const en: Record<MessageKey, string> = {
     'That participant already has an account, is already linked or is retired. Check the list again.',
   'group.associateFailedTitle': 'Could not link',
   'group.associateFailed': 'Nothing was linked. Try again.',
-  'group.unclaim': 'I picked the wrong participant',
-  'group.unclaimTitle': 'Not {name}?',
-  'group.unclaimBody':
-    'Your claim will be undone: {name} goes back to having no account and you will no longer see this group. Nothing recorded changes, and what you already saw cannot be unseen.\n\nAfterwards you can choose who you are with the invitation.',
-  'group.unclaimConfirm': 'Yes, wrong participant',
-  'group.unclaimBlockedTitle': 'Cannot be undone',
-  'group.unclaimBlockedBody': 'There is money recorded in your Personal as {name} in this group.',
-  'group.unclaimBlockedList': 'Blocked by:',
-  'group.unclaimBlockedTransfer': 'Transfer',
-  'group.unclaimSupersededTitle': 'That claim is no longer the current one',
-  'group.unclaimSuperseded':
-    'Your link to this participant changed in the meantime. Open the group again.',
-  'group.unclaimFailedTitle': 'Could not undo',
-  'group.unclaimFailed': 'Nothing was undone. Check your connection and try again.',
-  'group.unclaimDoneTitle': 'Claim undone',
-  'group.unclaimDone': '{name} has no account again. Choose who you are with the invitation.',
-  'group.unclaimDoneNoInvitation':
-    '{name} has no account again. Ask the group for a new invitation to come back in.',
   'group.splitInactiveHint': 'Left the group before this date',
   'group.settleAction': 'Settled',
   'group.settleActionHint':
@@ -252,7 +236,6 @@ export const en: Record<MessageKey, string> = {
     'That payment does not match what is pending right now. Review the new proposal.',
   'group.payOffline':
     'No answer from the server. Tap “Settled” again: it retries with the same key and is never recorded twice.',
-  'group.paymentsTitle': 'Recorded payments',
   'group.paymentKind': 'Payment',
   'group.paymentTitle': '{from} → {to}',
   'group.paymentDeclaredBy': 'Declared by',
@@ -415,6 +398,7 @@ export const en: Record<MessageKey, string> = {
   'auth.passwordPlaceholder': 'Your password',
   'auth.signInAction': 'Sign in',
   'auth.signUpAction': 'Create account',
+  'auth.passwordMinimum': 'At least {count} characters',
   'auth.toSignUp': 'No account yet? Create one',
   'auth.toSignIn': 'Already have an account? Sign in',
   'auth.working': 'One moment…',
@@ -424,8 +408,15 @@ export const en: Record<MessageKey, string> = {
   'auth.checkEmailBody': 'We have sent a confirmation link to {email}.',
   'auth.checkEmailStep': 'Confirm it and come back here to sign in with your password.',
   'auth.checkEmailBack': 'Back to sign in',
+  'auth.guestCheckEmailStep':
+    'Confirm it and come back to Nomey: your account will be ready with everything you did as a guest.',
 
   'auth.forgotAction': 'Forgotten your password?',
+  'auth.guestAction': 'Continue as guest',
+  'auth.guestNameTitle': 'What is your name?',
+  'auth.guestNameBack': 'Back',
+  'auth.guestSignUpTitle': 'Create your account',
+  'auth.guestSignUpSubtitle': 'to enjoy Personal mode',
   'auth.recoverTitle': 'Recover access',
   'auth.recoverSubtitle': 'We will send you a link to choose a new password.',
   'auth.recoverSend': 'Send link',
@@ -469,6 +460,13 @@ export const en: Record<MessageKey, string> = {
   'authError.recoverySessionLost': 'For your security, ask for a new link to change your password.',
   'authError.network': 'No connection. Try again.',
   'authError.generic': 'Something went wrong. Try again.',
+  'authError.guestUnavailable': 'Continuing as a guest is not available right now.',
+  'authError.guestEmailTaken':
+    'That email already has an account. To sign in with it, sign out of this guest session first.',
+  'authError.guestAlreadyConverted':
+    'This session is already an account with that email. Close and reopen Nomey to see it.',
+  'authError.guestSignInBlocked':
+    'You are using Nomey as a guest. Create an account to keep your groups; to sign in with another account, sign out first.',
 
   'session.unavailableTitle': 'We could not check your session',
   'session.unavailableBody': 'It may be the connection. Try again.',
@@ -538,6 +536,8 @@ export const en: Record<MessageKey, string> = {
   'account.signOutHint': 'You will be signed out on this device.',
   'account.signOutConfirmTitle': 'Sign out?',
   'account.signOutConfirmBody': 'You can sign back in with your account whenever you like.',
+  'account.guestSignOutConfirmBody':
+    "A guest session can't be recovered: whatever you did in it will have nobody able to open it. Create an account first if you want to keep it.",
   'account.signOutBusy': 'Signing out…',
   'account.forgetLocal': 'Sign out on this device only',
   'account.forgetLocalHint':
