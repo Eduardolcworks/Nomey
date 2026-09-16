@@ -10,11 +10,11 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 
 ## ADR de esta fase
 
-| ADR                                                  | Título                                                                                                                                             | Estado   | Fecha      | Antes   |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- | ------- |
-| [F05/ADR-001](ADR-001-secure-session-storage.md)     | Persistencia segura de la sesión en el dispositivo                                                                                                 | Aceptado | 2026-08-27 | ADR-017 |
-| [F05/ADR-002](ADR-002-ephemeral-recovery-session.md) | La sesión de recuperación es efímera y no se promociona                                                                                            | Aceptado | 2026-08-28 | ADR-018 |
-| [F05/ADR-003](ADR-003-guest-session.md)              | La sesión de invitado es una sesión anónima real de Auth, y se convierte en cuenta sin cambiar de identidad (añadido tras el cierre, desde F10.A3) | Aceptado | 2026-09-15 | —       |
+| ADR                                                  | Título                                                                                                                                                                                                                                                             | Estado   | Fecha      | Antes   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ---------- | ------- |
+| [F05/ADR-001](ADR-001-secure-session-storage.md)     | Persistencia segura de la sesión en el dispositivo                                                                                                                                                                                                                 | Aceptado | 2026-08-27 | ADR-017 |
+| [F05/ADR-002](ADR-002-ephemeral-recovery-session.md) | La sesión de recuperación es efímera y no se promociona                                                                                                                                                                                                            | Aceptado | 2026-08-28 | ADR-018 |
+| [F05/ADR-003](ADR-003-guest-session.md)              | La sesión de invitado es una sesión anónima real de Auth, y se convierte en cuenta sin cambiar de identidad — el punto de inicio del Modo Personal tras convertirse lo fija [F10/ADR-005](../F10/ADR-005-personal-start.md) (añadido tras el cierre, desde F10.A3) | Aceptado | 2026-09-15 | —       |
 
 ## Decisiones de otras fases que esta fase aplica
 
