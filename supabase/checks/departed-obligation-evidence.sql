@@ -118,7 +118,7 @@ begin
   -- Antes de pagar, Carlos no puede salir (debe 3000 a Ana).
   v := pg_temp.gp_leave(r.carlos, 'a3d00000-0000-4000-8000-000000000060'::uuid, r.g);
   if v not like 'LEAVE_BLOCKED_DEBT %' then raise exception 'A0: %', v; end if;
-  v := pg_temp.gp_pay(r.carlos, 'a3d00000-0000-4000-8000-000000000051'::uuid, r.g, r.p_carlos, r.p_ana, 3000, pg_temp.gp_expected(r.g));
+  v := pg_temp.gp_pay(r.carlos, 'a3d00000-0000-4000-8000-000000000051'::uuid, r.g, r.p_carlos, r.p_ana, 3000, pg_temp.gp_expected(r.g, r.carlos));
   if v not like 'OK %' then raise exception 'A1: %', v; end if;
   update fx set pay = substr(v, 4)::uuid;
   v := pg_temp.gp_leave(r.carlos, 'a3d00000-0000-4000-8000-000000000061'::uuid, r.g);
@@ -246,7 +246,7 @@ begin
     'scope_id', z.g2, 'currency_definition_id', r.eur, 'total', '2000', 'effective_date', (current_date - 1)::text, 'concept', 'R2', 'category_id', r.cat,
     'payer_participant_id', z.z_marta, 'participants', jsonb_build_array(z.z_marta, z.z_dani), 'split_method', jsonb_build_object('kind', 'equal')));
   perform pg_temp.super();
-  v := pg_temp.gp_pay(r.dani, 'a3d00000-0000-4000-8000-000000000052'::uuid, z.g2, z.z_dani, z.z_ana, 1000, pg_temp.gp_expected(z.g2));
+  v := pg_temp.gp_pay(r.dani, 'a3d00000-0000-4000-8000-000000000052'::uuid, z.g2, z.z_dani, z.z_ana, 1000, pg_temp.gp_expected(z.g2, r.dani));
   if v not like 'OK %' then raise exception 'H1: %', v; end if;
   update fz set p2 = substr(v, 4)::uuid; select * into z from fz;
   perform pg_temp.actor(r.ana);
@@ -373,7 +373,7 @@ begin
   v_op := (v_out ->> 'operation_id')::uuid;
   -- Dani paga sus 1000 y sale HOY: periodo [hoy, hoy), vacio.
   perform pg_temp.super();
-  v := pg_temp.gp_pay(r.dani, 'a3d00000-0000-4000-8000-0000000000e2'::uuid, v_g, v_pt, v_pe, 1000, pg_temp.gp_expected(v_g));
+  v := pg_temp.gp_pay(r.dani, 'a3d00000-0000-4000-8000-0000000000e2'::uuid, v_g, v_pt, v_pe, 1000, pg_temp.gp_expected(v_g, r.dani));
   if v not like 'OK %' then raise exception 'K0: %', v; end if;
   v_pay := substr(v, 4)::uuid;
   v := pg_temp.gp_leave(r.dani, 'a3d00000-0000-4000-8000-0000000000e3'::uuid, v_g);

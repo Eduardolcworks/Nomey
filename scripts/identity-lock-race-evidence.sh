@@ -7,36 +7,23 @@
 # identidad del grupo (sec.lock_participant_claims) → filas de ambito
 # (sec.lock_scopes) → fila de la operacion. Lo toman reclamar, retirar,
 # «Saldado», salir y los dos writers que resuelven un Personal por vinculo.
-# Rectificar es api.unclaim_participant, llamada como la cuenta que reclamo y
-# con la clave de su reclamacion: desde F10/ADR-001 (migracion 20260916120000)
-# es un wrapper sobre sec.unlink_instance — la clave del cliente → cerrojo →
-# membresia vigente → vinculo de esa procedencia → regla economica por
-# instancia (§2) → caja del grupo en el Personal → borrar vinculo y membresia,
-# con el hecho en core.participant_unlink.
+# Desde F10/ADR-002 la identidad es permanente: vincularse no tiene vuelta
+# atras, asi que la unica carrera de vinculo que existe es la de RECLAMAR
+# contra el writer que resuelve a la pagadora por su vinculo.
 #
-# Ocho carreras, dos por pareja y en las dos direcciones; la primera sesion
-# entra y RETIENE sus bloqueos 3 s antes de confirmar; la segunda arranca 1 s
-# despues. De cada una se comprueban tres cosas: que la segunda ESPERO (medido:
+# Dos carreras, una pareja en las dos direcciones; la primera sesion entra y
+# RETIENE sus bloqueos 3 s antes de confirmar; la segunda arranca 1 s despues.
+# De cada una se comprueban tres cosas: que la segunda ESPERO (medido:
 # clock_timestamp() − now() dentro de su transaccion ≥ 1,5 s: arranca 1 s despues y la primera retiene 3), que el resultado
 # es el de un orden serial (primera, segunda) y que ninguna caja queda perdida
-# ni atribuida a una cuenta desvinculada.
+# ni atribuida a una cuenta que no la tenia al escribirse.
 #
 #   1a reclamar → gasto con Ana pagadora     1b gasto con Ana pagadora → reclamar
-#   2a rectificar → gasto con Ana pagadora   2b gasto con Ana pagadora → rectificar
-#   3a rectificar → transferencia de Ana     3b transferencia de Ana → rectificar
-#   4a rectificar → salir Ana                4b salir Ana → rectificar
 #
-# 1b y 2a son ademas «el vinculo cambia entre la resolucion y la escritura»:
-# el writer resuelve a la pagadora bajo el cerrojo y el cambio de vinculo no
-# puede entrar hasta su commit, y se mide que no entro.
-#
-# Bajo la regla de F10/ADR-001 §2 lo nacido durante la instancia bloquea la
-# baja antes de que se mire la caja: un gasto que nombra a Ana por 2.2 (2b) y
-# un settlement nuevo sobre deuda previa por 2.3 (3b). Para que 3 mida la
-# transferencia y no el gasto, la deuda de Ana nace ANTES de la reclamacion
-# (historia previa, en la linea base: no bloquea, 3a) y la transferencia es lo
-# unico nacido bajo la instancia. La guarda de caja del wrapper
-# (UNCLAIM_BLOCKED_CASH) la mide supabase/checks/unlink-evidence.sql (I6).
+# 1b es ademas «el vinculo cambia entre la resolucion y la escritura»: el
+# writer resuelve a la pagadora bajo el cerrojo y el cambio de vinculo no puede
+# entrar hasta su commit, y se mide que no entro. Las carreras de asociar y
+# volver viven en associate-race-evidence.sh y rejoin-race-evidence.sh.
 #
 # Escribe filas confirmadas y las retira despues, acotadas. Solo base local.
 set -uo pipefail
@@ -66,8 +53,6 @@ limpiar_actividad() {
 begin;
 set constraints all deferred;
 delete from core.group_notice where scope_id = '${G}';
-delete from core.group_departure where scope_id = '${G}';
-delete from core.participant_unlink where scope_id = '${G}';
 delete from core.balance_observation where scope_id in ('${G}','${PSA}','${PSB}');
 delete from core.expense_category x using core.operation_version ov where ov.id = x.operation_version_id and ov.created_by in ('${UA}','${UB}');
 delete from core.movement_detail d using core.operation_version ov where ov.id = d.operation_version_id and ov.created_by in ('${UA}','${UB}');
@@ -102,6 +87,8 @@ delete from core.client_command where created_by in ('${UA}','${UB}');
 delete from core.participant_retirement where scope_id = '${G}';
 delete from core.link_baseline_subject s using core.participant p where p.id = s.participant_id and p.scope_id = '${G}';
 delete from core.participant_user_link where scope_id = '${G}';
+-- F10/ADR-003 (20260918120000): el vinculo historico referencia su salida (departure_id); la salida se borra DESPUES del vinculo.
+delete from core.group_departure where scope_id = '${G}';
 delete from core.membership where scope_id in ('${G}','${PSA}','${PSB}');
 delete from core.participant_period where participant_id in (select id from core.participant where scope_id = '${G}');
 delete from core.participant where scope_id = '${G}';
@@ -176,50 +163,6 @@ commit;
 SQL
 }
 
-transferencia() { # salida clave hold  (Ana paga 500 a Edu por transferencia)
-  "${DB[@]}" >"$1" 2>&1 <<SQL &
-\set ON_ERROR_ROLLBACK on
-begin;
-set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"${UB}"}', true);
-select api.record_settlement_by_transfer('{"client_operation_id":"$2","command_contract_version":1,"debt_scope_id":"${G}","currency_definition_id":"${EUR}","amount":"500","effective_date":"${HOY}","debtor_participant_id":"${PB}","creditor_participant_id":"${PA}"}'::jsonb);
-${ESPERA_SQL}
-select pg_sleep($3);
-reset role;
-commit;
-SQL
-}
-
-salir() { # salida clave hold  (Ana sale del grupo)
-  "${DB[@]}" >"$1" 2>&1 <<SQL &
-\set ON_ERROR_ROLLBACK on
-begin;
-set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"${UB}"}', true);
-select api.leave_group('{"client_command_id":"$2","command_contract_version":1,"scope_id":"${G}"}'::jsonb);
-${ESPERA_SQL}
-select pg_sleep($3);
-reset role;
-commit;
-SQL
-}
-
-# LA RECTIFICACION REAL, como la cuenta que reclamo (UB), contra la
-# reclamacion que creo su vinculo (CLAIM: la clave del `reclamar` de partida).
-rectificar() { # salida clave hold
-  "${DB[@]}" >"$1" 2>&1 <<SQL &
-\set ON_ERROR_ROLLBACK on
-begin;
-set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"${UB}"}', true);
-select api.unclaim_participant('{"client_command_id":"$2","command_contract_version":1,"scope_id":"${G}","participant_id":"${PB}","claim_command_id":"${CLAIM}"}'::jsonb);
-${ESPERA_SQL}
-select pg_sleep($3);
-reset role;
-commit;
-SQL
-}
-
 # ─── medidas ────────────────────────────────────────────────────────────────
 q() { "${DBQ[@]}" <<SQL | tr -d '[:space:]'
 $1
@@ -240,25 +183,9 @@ afirmar() { [ "$1" = "$2" ] && ok "$3 = $2" || fallo "$3: esperado $2, medido $1
 
 n_clave=80
 CLAVE=""
-CLAIM=""
 clave() { n_clave=$((n_clave + 1)); CLAVE=$(printf 'a3a00000-0000-4000-8000-0000000000%02x' "${n_clave}"); }
 
-reclamacion_de_partida() {
-  local t; t=$(mktemp); clave; CLAIM="${CLAVE}"; reclamar "${t}" "${CLAVE}" 0; wait $!
-  grep -q '"participant_id"' "${t}" || fallo "la reclamacion de partida fallo: $(grep -i 'error\|detail' "${t}" | tr -d '\n' | head -c 600)"
-  rm -f "${t}"
-}
-deuda_de_partida() { # Edu paga 2000 a medias: Ana debe 1000
-  local t; t=$(mktemp); clave; gasto "${t}" "${CLAVE}" "${PA}" 0; wait $!
-  grep -q 'operation_id' "${t}" || fallo "el gasto de partida fallo: $(tr -d '\n' <"${t}" | head -c 160)"
-  rm -f "${t}"
-}
-preparar() { # con_reclamacion con_deuda [previa: la deuda nace ANTES de reclamar]
-  limpiar_actividad
-  if [ "$2" = 1 ] && [ "${3:-}" = previa ]; then deuda_de_partida; fi
-  if [ "$1" = 1 ]; then reclamacion_de_partida; fi
-  if [ "$2" = 1 ] && [ "${3:-}" != previa ]; then deuda_de_partida; fi
-}
+preparar() { limpiar_actividad; }
 
 t1=""; t2=""
 carrera() { echo "== $1 =="; t1=$(mktemp); t2=$(mktemp); }
@@ -266,7 +193,7 @@ fin() { rm -f "${t1}" "${t2}"; }
 
 # ─── 1 · reclamar ↔ gasto con Ana pagadora ─────────────────────────────────
 carrera "1a · reclamar (retiene 3 s) → gasto con Ana pagadora"
-preparar 0 0
+preparar
 clave; reclamar "${t1}" "${CLAVE}" 3; p1=$!
 sleep 1
 clave; gasto "${t2}" "${CLAVE}" "${PB}" 0; p2=$!
@@ -279,7 +206,7 @@ afirmar "$(vinculo_ana)" 1 "vinculo"
 fin
 
 carrera "1b · gasto con Ana pagadora (retiene 3 s; Ana sin cuenta al resolver) → reclamar"
-preparar 0 0
+preparar
 clave; gasto "${t1}" "${CLAVE}" "${PB}" 3; p1=$!
 sleep 1
 clave; reclamar "${t2}" "${CLAVE}" 0; p2=$!
@@ -293,92 +220,7 @@ afirmar "$(caja_ana)" "0" "caja de Ana (la reclamacion no entro entre la resoluc
 afirmar "$(vinculo_ana)" 1 "vinculo"
 fin
 
-# ─── 2 · rectificar ↔ gasto con Ana pagadora ───────────────────────────────
-carrera "2a · rectificar (retiene 3 s) → gasto con Ana pagadora"
-preparar 1 0
-clave; rectificar "${t1}" "${CLAVE}" 3; p1=$!
-sleep 1
-clave; gasto "${t2}" "${CLAVE}" "${PB}" 0; p2=$!
-esperar "${p1}" "${p2}"
-grep -q "already_processed" "${t1}" && ! grep -q ERROR "${t1}" && ok "rectificar sin caja previa borro vinculo y membresia" || fallo "rectificar: $(tr -d '\n' <"${t1}" | head -c 160)"
-espero "${t2}" "el gasto"
-grep -q 'operation_id' "${t2}" && ok "el gasto entro despues, con Ana ya sin cuenta" || fallo "gasto: $(tr -d '\n' <"${t2}" | head -c 160)"
-afirmar "$(caja_ana)" "0" "caja de Ana (ninguna caja a una cuenta desvinculada)"
-afirmar "$(vinculo_ana)" 0 "vinculo"
-afirmar "$(gastos)" 1 "gastos del grupo (el gasto existe, con Ana pagadora sin cuenta)"
-fin
-
-carrera "2b · gasto con Ana pagadora (retiene 3 s) → rectificar"
-preparar 1 0
-clave; gasto "${t1}" "${CLAVE}" "${PB}" 3; p1=$!
-sleep 1
-clave; rectificar "${t2}" "${CLAVE}" 0; p2=$!
-esperar "${p1}" "${p2}"
-grep -q 'operation_id' "${t1}" && ok "el gasto entro" || fallo "gasto: $(tr -d '\n' <"${t1}" | head -c 160)"
-espero "${t2}" "rectificar"
-grep -q 'UNLINK_BLOCKED_ATTRIBUTION' "${t2}" && grep -q 'attribution' "${t2}" && ok "rectificar vio el gasto nacido bajo la instancia y se rehuso por atribucion (F10/ADR-001 §2.2, antes que la caja)" || fallo "rectificar: $(tr -d '\n' <"${t2}" | head -c 160)"
-afirmar "$(caja_ana)" "-2000" "caja de Ana (sigue vinculada)"
-afirmar "$(vinculo_ana)" 1 "vinculo"
-afirmar "$(miembro_ana)" 1 "membresia"
-fin
-
-# ─── 3 · rectificar ↔ transferencia de Ana ─────────────────────────────────
-carrera "3a · rectificar (retiene 3 s) → transferencia de Ana a Edu"
-preparar 1 1 previa
-clave; rectificar "${t1}" "${CLAVE}" 3; p1=$!
-sleep 1
-clave; transferencia "${t2}" "${CLAVE}" 0; p2=$!
-esperar "${p1}" "${p2}"
-grep -q "already_processed" "${t1}" && ! grep -q ERROR "${t1}" && ok "rectificar borro vinculo y membresia (la deuda previa a la reclamacion esta en la linea base y no es caja)" || fallo "rectificar: $(tr -d '\n' <"${t1}" | head -c 160)"
-espero "${t2}" "la transferencia"
-grep -q 'NOT_AUTHORIZED' "${t2}" && ok "la transferencia se rehuso: Ana ya no es la deudora vinculada" || fallo "transferencia: $(tr -d '\n' <"${t2}" | head -c 160)"
-afirmar "$(caja_ana)" "0" "caja de Ana"
-afirmar "$(vinculo_ana)" 0 "vinculo"
-fin
-
-carrera "3b · transferencia de Ana (retiene 3 s) → rectificar"
-preparar 1 1 previa
-clave; transferencia "${t1}" "${CLAVE}" 3; p1=$!
-sleep 1
-clave; rectificar "${t2}" "${CLAVE}" 0; p2=$!
-esperar "${p1}" "${p2}"
-grep -q 'operation_id' "${t1}" && ok "la transferencia entro" || fallo "transferencia: $(tr -d '\n' <"${t1}" | head -c 160)"
-espero "${t2}" "rectificar"
-grep -q 'UNLINK_BLOCKED_ATTRIBUTION' "${t2}" && grep -q 'policy' "${t2}" && ok "rectificar vio la transferencia nacida bajo la instancia y se rehuso (F10/ADR-001 §2.3: settlement nuevo sobre deuda previa; su caja bloquearia igual, 2.4)" || fallo "rectificar: $(tr -d '\n' <"${t2}" | head -c 160)"
-afirmar "$(caja_ana)" "-500" "caja de Ana (la transferencia, atribuida a quien sigue vinculada)"
-afirmar "$(vinculo_ana)" 1 "vinculo"
-fin
-
-# ─── 4 · rectificar ↔ salir ────────────────────────────────────────────────
-carrera "4a · rectificar (retiene 3 s) → salir Ana"
-preparar 1 0
-clave; rectificar "${t1}" "${CLAVE}" 3; p1=$!
-sleep 1
-clave; salir "${t2}" "${CLAVE}" 0; p2=$!
-esperar "${p1}" "${p2}"
-grep -q "already_processed" "${t1}" && ! grep -q ERROR "${t1}" && ok "rectificar borro vinculo y membresia" || fallo "rectificar: $(tr -d '\n' <"${t1}" | head -c 160)"
-espero "${t2}" "salir"
-grep -q 'NOT_AUTHORIZED' "${t2}" && ok "salir se rehuso: ya no era miembro" || fallo "salir: $(tr -d '\n' <"${t2}" | head -c 160)"
-afirmar "$(salidas)" 0 "salidas registradas"
-afirmar "$(vinculo_ana)" 0 "vinculo"
-afirmar "$(miembro_ana)" 0 "membresia"
-fin
-
-carrera "4b · salir Ana (retiene 3 s) → rectificar"
-preparar 1 0
-clave; salir "${t1}" "${CLAVE}" 3; p1=$!
-sleep 1
-clave; rectificar "${t2}" "${CLAVE}" 0; p2=$!
-esperar "${p1}" "${p2}"
-grep -q "already_processed" "${t1}" && ! grep -q ERROR "${t1}" && ok "salir entro" || fallo "salir: $(tr -d '\n' <"${t1}" | head -c 160)"
-espero "${t2}" "rectificar"
-grep -q 'NOT_AUTHORIZED' "${t2}" && ok "rectificar leyo la membresia BAJO el cerrojo: ya no era miembro, se rehuso" || fallo "rectificar: $(tr -d '\n' <"${t2}" | head -c 160)"
-afirmar "$(salidas)" 1 "salidas registradas"
-afirmar "$(vinculo_ana)" 1 "vinculo (quien salio conserva el suyo, F09/ADR-003)"
-afirmar "$(miembro_ana)" 0 "membresia"
-fin
-
 if [ "${fallos}" -eq 0 ]; then
-  echo "OK · ocho carreras: cada resultado es un orden serial, ninguna caja perdida ni atribuida a una cuenta desvinculada"; exit 0
+  echo "OK · dos carreras: cada resultado es un orden serial y ninguna caja queda perdida ni atribuida a una cuenta que no la tenia"; exit 0
 fi
 echo "FALLOS: ${fallos}"; exit 1

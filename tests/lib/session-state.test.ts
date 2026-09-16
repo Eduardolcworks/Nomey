@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  identityKey,
+  isGuest,
   isPublic,
   isResolved,
   isSignedIn,
@@ -42,14 +44,49 @@ describe('estado de sesión', () => {
 
       expect(state).toEqual({
         status: 'signed-in',
-        identity: { userId: 'abc-123', email: 'alguien@example.com', displayName: 'Eduardo' },
+        identity: {
+          userId: 'abc-123',
+          email: 'alguien@example.com',
+          displayName: 'Eduardo',
+          isAnonymous: false,
+          pendingEmail: null,
+        },
       });
     });
 
     it('un usuario sin email sigue siendo una sesión válida', () => {
       expect(stateFromUser({ id: 'abc-123' })).toEqual({
         status: 'signed-in',
-        identity: { userId: 'abc-123', email: null, displayName: null },
+        identity: {
+          userId: 'abc-123',
+          email: null,
+          displayName: null,
+          isAnonymous: false,
+          pendingEmail: null,
+        },
+      });
+    });
+
+    it('un usuario anonimo de GoTrue es `signed-in` Y invitado, con el mismo id que el servidor lee', () => {
+      const state = stateFromUser({ id: 'anon-1', email: '', is_anonymous: true });
+      expect(state.status).toBe('signed-in');
+      expect(isGuest(state)).toBe(true);
+      expect(isSignedIn(state)).toBe(true);
+      expect(identityKey(state)).toBe('anon-1');
+      // Sin `is_anonymous` (o falso) no es invitado: nunca se infiere de nada mas.
+      expect(isGuest(stateFromUser({ id: 'u', email: null }))).toBe(false);
+      expect(isGuest(stateFromUser({ id: 'u', is_anonymous: false }))).toBe(false);
+      expect(isGuest(SIGNED_OUT)).toBe(false);
+    });
+
+    it('el email pendiente de confirmar viaja como presentacion y no cambia el estado', () => {
+      const state = stateFromUser({ id: 'anon-1', is_anonymous: true, new_email: 'yo@nomey.test' });
+      expect(isGuest(state)).toBe(true);
+      expect(state.status === 'signed-in' ? state.identity.pendingEmail : null).toBe(
+        'yo@nomey.test',
+      );
+      expect(stateFromUser({ id: 'u', new_email: '' })).toMatchObject({
+        identity: { pendingEmail: null },
       });
     });
 
@@ -112,8 +149,14 @@ describe('estado de sesión', () => {
       });
       const identity = state.status === 'signed-in' ? state.identity : null;
 
-      it('son exactamente tres campos de presentación', () => {
-        expect(Object.keys(identity ?? {}).sort()).toEqual(['displayName', 'email', 'userId']);
+      it('son exactamente cinco campos de presentación', () => {
+        expect(Object.keys(identity ?? {}).sort()).toEqual([
+          'displayName',
+          'email',
+          'isAnonymous',
+          'pendingEmail',
+          'userId',
+        ]);
       });
 
       it('ninguno se parece a un token', () => {
@@ -136,7 +179,16 @@ describe('estado de sesión', () => {
       RESTORING,
       SIGNED_OUT,
       UNAVAILABLE,
-      { status: 'signed-in', identity: { userId: 'u', email: null, displayName: null } },
+      {
+        status: 'signed-in',
+        identity: {
+          userId: 'u',
+          email: null,
+          displayName: null,
+          isAnonymous: false,
+          pendingEmail: null,
+        },
+      },
     ];
 
     it('mientras restaura no hay nada resuelto', () => {

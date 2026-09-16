@@ -171,18 +171,21 @@ begin
   -- Las relaciones de IDENTIDAD si las escribe, y exactamente asi, por los
   -- comandos que los ADR aceptados fijan: participantes y periodos al crear un
   -- grupo, anadir participantes o entrar (ADR-032, ADR-035, ADR-041); el
-  -- vinculo al crear, reclamar y volver, y su borrado al rectificar la propia
-  -- reclamacion (ADR-035, ADR-037). Nada de UPDATE de tabla, nada de DELETE de
-  -- participantes ni de periodos.
+  -- vinculo al crear y reclamar (ADR-035); terminarlo al salir y reactivarlo
+  -- al volver son UPDATE de dos columnas (F10/ADR-003), nunca de tabla; el
+  -- borrado de ADR-037 se retiro (F10/ADR-002). Nada de DELETE de nada.
   if not has_table_privilege('nomey_provisioner', 'core.participant', 'INSERT')
      or has_table_privilege('nomey_provisioner', 'core.participant', 'UPDATE')
      or has_table_privilege('nomey_provisioner', 'core.participant', 'DELETE') then
     fallos := array_append(fallos, 'B2c: nomey_provisioner sobre core.participant: se espera solo INSERT (ADR-032/ADR-035)');
   end if;
   if not has_table_privilege('nomey_provisioner', 'core.participant_user_link', 'INSERT')
-     or not has_table_privilege('nomey_provisioner', 'core.participant_user_link', 'DELETE')
-     or has_table_privilege('nomey_provisioner', 'core.participant_user_link', 'UPDATE') then
-    fallos := array_append(fallos, 'B2d: nomey_provisioner sobre core.participant_user_link: se espera INSERT y DELETE (ADR-035, ADR-037)');
+     or has_table_privilege('nomey_provisioner', 'core.participant_user_link', 'DELETE')
+     or has_table_privilege('nomey_provisioner', 'core.participant_user_link', 'UPDATE')
+     or not has_column_privilege('nomey_provisioner', 'core.participant_user_link', 'ended_at', 'UPDATE')
+     or not has_column_privilege('nomey_provisioner', 'core.participant_user_link', 'departure_id', 'UPDATE')
+     or has_column_privilege('nomey_provisioner', 'core.participant_user_link', 'user_id', 'UPDATE') then
+    fallos := array_append(fallos, 'B2d: nomey_provisioner sobre core.participant_user_link: se espera INSERT y UPDATE solo de ended_at y departure_id (ADR-035, F10/ADR-003)');
   end if;
   if not has_table_privilege('nomey_provisioner', 'core.participant_period', 'INSERT')
      or has_table_privilege('nomey_provisioner', 'core.participant_period', 'DELETE')

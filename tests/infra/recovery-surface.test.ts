@@ -6,6 +6,7 @@ import CONTROLLER_RAW from '../../src/features/auth/recovery-controller.tsx?raw'
 import LIFECYCLE_RAW from '../../src/features/session/session-lifecycle.ts?raw';
 import SESSION_STATE_RAW from '../../src/features/session/session-state.ts?raw';
 import SIGN_IN from '../../src/app/(auth)/sign-in.tsx?raw';
+import SIGN_IN_FORM from '../../src/features/auth/sign-in-form.tsx?raw';
 import FORGOT_RAW from '../../src/app/(auth)/forgot-password.tsx?raw';
 import NEW_PASSWORD_RAW from '../../src/app/(recovery)/new-password.tsx?raw';
 import HOOK_RAW from '../../src/features/auth/use-recovery-link.ts?raw';
@@ -45,14 +46,16 @@ const SET_PASSWORD = CONTROLLER.slice(
 
 describe('la puerta de entrada', () => {
   it('Entrar ofrece recuperar la contraseña', () => {
-    expect(SIGN_IN).toContain("t('auth.forgotAction')");
+    // La presentacion vive en SignInForm; la pantalla conecta el enlace a la ruta real.
+    expect(SIGN_IN_FORM).toContain("t('auth.forgotAction')");
     expect(SIGN_IN).toContain('/(auth)/forgot-password');
   });
 
   it('y es secundario respecto a entrar y crear cuenta', () => {
     // No usa el acento: es una salida, no una tercera opción a considerar.
-    const forgotBlock = SIGN_IN.slice(SIGN_IN.indexOf('forgot-password'));
+    const forgotBlock = SIGN_IN_FORM.slice(SIGN_IN_FORM.indexOf("t('auth.forgotAction')") - 400);
     expect(forgotBlock).toContain('themeColor="textTertiary"');
+    expect(forgotBlock).not.toContain('themeColor="accent"');
   });
 });
 

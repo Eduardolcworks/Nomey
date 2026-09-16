@@ -41,13 +41,22 @@ create function pg_temp.gp_positions(p_scope uuid) returns text language sql sta
    where p.scope_id = p_scope;
 $$;
 -- Lo que el cliente manda: las FILAS de api.group_balance como lista, leidas
--- como postgres. Tiene que ser la vista y no una copia del texto del servidor:
--- una copia probaba el CAS contra si mismo y escondio que la vista excluye a
--- retirados y origenes fusionados y el texto no (20260914160000).
-create function pg_temp.gp_expected(p_scope uuid) returns jsonb language sql stable as $$
+-- COMO EL ACTOR (un miembro) cuando se da, y como postgres si no. Tiene que
+-- ser la vista y no una copia del texto del servidor: una copia probaba el CAS
+-- contra si mismo y escondio que la vista excluye a retirados y origenes
+-- fusionados y el texto no (20260914160000). Desde F10/ADR-003 la vista
+-- excluye tambien a las identidades historicas por una ayuda acotada a
+-- MIEMBROS (sec.participant_link_ended), asi que la foto real es la de un
+-- miembro: leida como postgres incluiria a quien salio y caducaria siempre.
+create function pg_temp.gp_expected(p_scope uuid, p_as uuid default null) returns jsonb language plpgsql as $$
+declare v jsonb;
+begin
+  if p_as is not null then perform pg_temp.gp_actor(p_as); end if;
   select coalesce(jsonb_agg(jsonb_build_object('participant_id', participant_id, 'net', net_position)), '[]'::jsonb)
-    from api.group_balance where scope_id = p_scope;
-$$;
+    into v from api.group_balance where scope_id = p_scope;
+  if p_as is not null then perform pg_temp.gp_super(); end if;
+  return v;
+end $$;
 create function pg_temp.gp_decompose_text(p_scope uuid, p_payer uuid, p_receiver uuid, p_amount bigint) returns text language plpgsql as $$
 declare v text;
 begin
@@ -85,7 +94,7 @@ begin
     'scope_id', p_scope, 'currency_definition_id', '830e6f7e-2e33-564e-9ea3-f6c2023af1fe'::uuid,
     'amount', p_amount::text, 'effective_date', current_date::text,
     'payer_participant_id', p_payer, 'receiver_participant_id', p_receiver,
-    'expected_positions', coalesce(p_positions, pg_temp.gp_expected(p_scope)));
+    'expected_positions', coalesce(p_positions, pg_temp.gp_expected(p_scope, p_actor)));
   if p_operation is not null then v_payload := v_payload || jsonb_build_object('operation_id', p_operation, 'expected_version_id', p_expected); end if;
   perform pg_temp.gp_actor(p_actor);
   v := api.record_group_payment(v_payload);
@@ -148,7 +157,7 @@ begin
   perform pg_temp.gp_super();
   return v || ' deuda_reabierta=' || pg_temp.gp_reopened_debt(p_user);
 end $$;
-grant execute on function pg_temp.gp_name(uuid), pg_temp.gp_pairs(uuid), pg_temp.gp_positions(uuid), pg_temp.gp_expected(uuid),
+grant execute on function pg_temp.gp_name(uuid), pg_temp.gp_pairs(uuid), pg_temp.gp_positions(uuid), pg_temp.gp_expected(uuid, uuid),
   pg_temp.gp_decompose_text(uuid, uuid, uuid, bigint), pg_temp.gp_pay(uuid, uuid, uuid, uuid, uuid, bigint, jsonb, uuid, uuid),
   pg_temp.gp_annul(uuid, uuid, uuid, uuid), pg_temp.gp_leave(uuid, uuid, uuid), pg_temp.gp_reopened_debt(uuid), pg_temp.gp_personal(uuid),
   pg_temp.gp_allocation(uuid, uuid)

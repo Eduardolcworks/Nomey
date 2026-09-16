@@ -73,17 +73,22 @@ begin
     fallos := array_append(fallos, 'A1c anon puede ejecutar salir o saldar');
   end if;
 
-  -- A2 · el provisioner no ACTUALIZA el vinculo; lo BORRA solo el propio
-  -- (ADR-037, rectificar: 20260912160000, policy self_delete); nadie actualiza
-  -- ni borra una retirada; el writer no borra membresias.
+  -- A2 · el provisioner NO BORRA el vinculo (la identidad es permanente,
+  -- F10/ADR-002; el borrado de ADR-037 se retiro) y solo lo TERMINA o REACTIVA
+  -- el propio (F10/ADR-003, 20260918120000: columnas ended_at y departure_id,
+  -- policy self_end); nadie actualiza ni borra una retirada; el writer no borra
+  -- membresias.
   select count(*) into v_n from information_schema.role_table_grants
    where table_schema = 'core' and table_name = 'participant_user_link'
-     and grantee = 'nomey_provisioner' and privilege_type = 'UPDATE';
-  if v_n <> 0 then fallos := array_append(fallos, 'A2 el provisioner puede actualizar el vinculo'); end if;
+     and grantee = 'nomey_provisioner' and privilege_type in ('UPDATE', 'DELETE');
+  if v_n <> 0 then fallos := array_append(fallos, 'A2 el provisioner puede actualizar o borrar el vinculo entero'); end if;
+  if exists (select 1 from pg_policies where schemaname = 'core' and tablename = 'participant_user_link' and cmd = 'DELETE') then
+    fallos := array_append(fallos, 'A2c queda una policy de borrado del vinculo');
+  end if;
   if not exists (select 1 from pg_policies where schemaname = 'core' and tablename = 'participant_user_link'
-                  and policyname = 'participant_user_link_provisioner_self_delete' and cmd = 'DELETE'
-                  and qual = '(user_id = sec.request_actor_id())') then
-    fallos := array_append(fallos, 'A2d el borrado del vinculo por el provisioner no esta acotado al propio');
+                  and policyname = 'participant_user_link_provisioner_self_end' and cmd = 'UPDATE'
+                  and qual = '(user_id = sec.request_actor_id())' and with_check = '(user_id = sec.request_actor_id())') then
+    fallos := array_append(fallos, 'A2d terminar o reactivar el vinculo por el provisioner no esta acotado al propio');
   end if;
   select count(*) into v_n from information_schema.role_table_grants
    where table_schema = 'core' and table_name = 'participant_retirement'

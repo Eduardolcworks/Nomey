@@ -232,6 +232,13 @@ detectar los contenedores **ya existentes** sin recrearlos.
 > ./scripts/supabase-cli.sh stop --no-backup
 > ./scripts/supabase-cli.sh start
 > ```
+>
+> (`stop` a secas conserva los datos en el volumen; `--no-backup` los borra.
+> Para aplicar `config.toml` sin perder la base local basta `stop` + `start`:
+> medido al activar `enable_anonymous_sign_ins` para el modo Invitado,
+> F05/ADR-003. **El proyecto alojado no lee este fichero**: allí «Allow
+> anonymous sign-ins» se activa en el Dashboard, Authentication → Sign In /
+> Providers, o con `supabase config push`.)
 
 ### El orden de arranque, ya medido
 

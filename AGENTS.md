@@ -285,15 +285,24 @@ adjudicates another account's identity.** There is no revocation of someone
 else's link, no expulsion and no moderator role — the provisioner's policies
 on the link and the membership are already self-only, and F10 guards that in
 the catalogue. **Settled by
-[F10/ADR-001](docs/adr/F10/ADR-001-link-instance-lifecycle.md) and migrated
-(F10.A2):** every link instance has a stable identity (`link_id`) and a
-separate provenance (`origin_command_id`); an account may leave **any** own
-link instance (`api.unlink_participant`) under a temporal rule — current cash
-and any economic attribution born during that instance block, compared
-against a baseline frozen when the instance was born, with raw participant ids
-and signed quantities; earlier history does not block — and the client still
-consumes the F9 surface through a compatibility wrapper until F10.A3. What F10
-still decides: a consented **atomic** identity handover between two accounts
+[F10/ADR-002](docs/adr/F10/ADR-002-permanent-identity.md) (which supersedes
+the leaving rules of [F10/ADR-001](docs/adr/F10/ADR-001-link-instance-lifecycle.md)):
+once an account is linked to a participant — creating the group, joining as
+new or claiming — that participant is its permanent identity in that group.
+There is no unclaim, no unlink and no way back to «no account», and claiming
+asks for a confirmation that says so. **Leaving keeps the economics of F9 and,
+by [F10/ADR-003](docs/adr/F10/ADR-003-active-and-historical-link.md), ends the
+link without deleting it** (`ended_at`, `departure_id`): the link is **active**
+or **historical**, one active identity per account and group (partial unique
+index). Whoever left is history, not an account-less participant — out of
+Saldos, the count and the present lists (`is_departed`), name and attribution
+intact, claimable and retirable by nobody — and, invited again, rejoins **as
+before** (the same link reactivated) **or** as an available account-less
+participant, never as new (`REJOIN_REQUIRED`). What survives
+of ADR-001: every link instance keeps a stable identity (`link_id`, internal)
+and a separate provenance (`origin_command_id`), and the baseline frozen when
+the instance was born stays as insert-only audit with no product reader.
+What F10 still decides: a consented **atomic** identity handover between two accounts
 or its explicit deferral, and whether two ghosts may be merged. Start at
 [`docs/architecture/phase-10-opening.md`](docs/architecture/phase-10-opening.md).
 
@@ -527,7 +536,7 @@ comment; the permanent equivalence table is in `docs/adr/README.md`.
 closed on 2026-08-27, Phase 5 (identity and session) on 2026-08-28, Phase 6
 (Modo Personal) on 2026-09-03, Phase 7 (quick entry, offline and sync) on
 2026-09-04 and Phase 9 (groups, shared expenses and debts) on 2026-09-14 —
-validated on an iPhone (Expo Go) and the Android emulator. **43 of the 44 ADRs
+validated on an iPhone (Expo Go) and the Android emulator. **46 of the 47 ADRs
 of phases F00–F11 are accepted** (F00/ADR-001 is still Proposed; see
 `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a real local
 Supabase stack.
@@ -538,6 +547,21 @@ account's identity** (§5). F10.A0 reconciled its original scope, which F9 had
 already closed, and rewrote the closure criteria in the
 [roadmap](docs/product/roadmap.md); start at
 [`docs/architecture/phase-10-opening.md`](docs/architecture/phase-10-opening.md).
+F10.A0 … F10.A3 are closed (A3 on 2026-09-16); the next block is **F10.B0**
+(`F10/ADR-004`: consented handover, ghost ↔ ghost), still undrafted.
+
+**Guest mode is real (F10.A3, [F05/ADR-003](docs/adr/F05/ADR-003-guest-session.md)).**
+«Entrar como invitado» is a Supabase **anonymous session** — `signInAnonymously`
+through `features/auth`, `is_anonymous` on the user and in the JWT, the same
+`auth.users.id` every table keys on — never a client-side flag. The server
+does not distinguish a guest; the app does (`isGuest`): Grupos as usual, Inicio
+is «Crea tu cuenta» (the only account action — no sign-in inside a guest
+session), Perfil carries «CREAR CUENTA» → Inicio plus sign-out, the internal
+Personal scope provisioned as always. Creating an account from a guest is `updateUser` on that session
+(`convertGuest`) and **keeps the id**; signing into an existing account from a
+guest **fails closed** (no measured merge exists). `enable_anonymous_sign_ins`
+is on in `supabase/config.toml`; a hosted project must enable it in its
+Dashboard — this repository does not do that for it.
 
 **Phase 11 is OPEN**, and only **F11.A** is closed: the contract for resolving
 exchange rates, [F11/ADR-001](docs/adr/F11/ADR-001-fx-rate-resolution.md), with
@@ -582,11 +606,11 @@ Two artefacts closed Phase 5 and are worth knowing about:
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
 and twelve reproducible probes that measured the decisions behind the schema
-(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **48
+(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **50
 migrations** rebuilt from zero in CI with 31 SQL checks and ten real-session
 race scripts. A pure reference implementation of the financial domain in
 `src/domain/`, with shared test vectors in `tests/vectors/` that the server
-boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 132 files.
+boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 135 files.
 Screens with economic function exist for the Modo Personal (F6, F7) and for
 Groups (F9): creating, inviting, shared expenses, balances, declared payments,
 leaving and rejoining.
@@ -695,7 +719,7 @@ writer of one class can no longer correct an operation of another**, guarded in
 [F06/ADR-002](docs/adr/F06/ADR-002-version-content-and-time.md) and
 [F06/ADR-003](docs/adr/F06/ADR-003-category-catalogue.md).
 
-**Migrations have started.** `supabase/migrations/` holds 48. The first is the
+**Migrations have started.** `supabase/migrations/` holds 50. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is F03/ADR-011: `api` is served and `public`, `core` and `sec`
@@ -750,14 +774,20 @@ any two of them is the mistake F03/ADR-009 exists to prevent:
   provisioner, and only for the actor itself.** The link is created by
   `create_group`, `redeem_invitation` (claim or new) and never for a third
   party — every provisioner policy on it and on `core.membership` is
-  `user_id = sec.request_actor_id()` — and deleted only by its own holder,
-  leaving that link instance (`unlink_participant`, F10/ADR-001; `unclaim_participant` of F09/ADR-006 survives as a wrapper over it until the client moves). Periods are opened by `create_group` and
+  `user_id = sec.request_actor_id()` — and never deleted by any command: the
+  identity is permanent (F10/ADR-002; the
+  F09/ADR-006 `unclaim` and the F10.A2 `unlink` were retired by
+  `20260917120000`). `leave_group` **ends** the actor's active link and
+  `redeem_invitation` with `rejoin` reactivates it; the provisioner may update
+  only `ended_at`/`departure_id`, only on its own row (F10/ADR-003,
+  `20260918120000`). Periods are opened by `create_group` and
   `redeem_invitation` and closed by `leave_group` and the retirement core; the
   writer may close them under a membership policy (F09/ADR-005). **Nothing
   lets one account alter another account's link or membership**, and F10 keeps
   it that way (§5).
-- **The client never reads either relation.** It sees `is_linked`, `is_self`
-  and, only on its own row, `link_id` (and `claim_command_id`, kept for the current client) through `api.group_participant`;
+- **The client never reads either relation.** It sees `is_linked`,
+  `is_self` and `is_departed` through `api.group_participant`, and neither
+  `link_id` nor any provenance;
   which global account is behind a contextual identity is never published
   (F03/ADR-009 §1). "Which effects are mine" is answered by
   `api.claimed_dimension()` and the reduced definers of F9.

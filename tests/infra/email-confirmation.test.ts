@@ -49,8 +49,12 @@ describe('confirmación de correo obligatoria', () => {
     expect(tomlValue('auth.sms', 'enable_signup')).toBe('false');
   });
 
-  it('sigue sin haber acceso anónimo', () => {
-    expect(tomlValue('auth', 'enable_anonymous_sign_ins')).toBe('false');
+  it('el acceso anónimo está ABIERTO: es el modo Invitado real (F05), y lo dice', () => {
+    // Una sesión anónima de GoTrue, no un estado simulado. El proyecto
+    // alojado tiene que activarlo aparte (Dashboard / config push): el toml
+    // lo documenta en vez de fingir que llega solo.
+    expect(tomlValue('auth', 'enable_anonymous_sign_ins')).toBe('true');
+    expect(CONFIG).toContain('A hosted project must switch the');
   });
 
   it('hay captura de correo local, que es como se prueba el flujo sin SMTP', () => {

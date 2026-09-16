@@ -17,10 +17,12 @@ export {
 } from './auth-errors';
 export {
   completeRecovery,
+  convertGuest,
   forgetLocalSession,
   redeemRecovery,
   requestPasswordReset,
   signIn,
+  signInAnonymously,
   signOut,
   signUp,
   updateDisplayName,
@@ -60,3 +62,5 @@ export {
 export { createRecoveryArrivalHandler, type RecoveryArrivalPorts } from './recovery-arrival';
 export { readRecoveryLink, type RecoveryProof } from './recovery-link';
 export { useRecoveryLink } from './use-recovery-link';
+export { SignInForm, type SignInFormProps } from './sign-in-form';
+export { GuestSignUp } from './guest-sign-up';

@@ -163,11 +163,18 @@ describe('Pagos sugeridos: «Los míos», «Todos» y «Saldado»', () => {
 });
 
 describe('el pago en el grupo y en Personal', () => {
-  it('los pagos vigentes se leen con la misma lectura, fuera de los filtros, y llevan su versión', () => {
+  it('los pagos vigentes se leen con la misma lectura, fuera de los filtros, llevan su versión y van en la cronología única', () => {
     expect(MOVEMENTS).toContain('fetchGroupPayments(scopeId),');
     expect(SERVICE).toContain('version_id');
+    expect(SERVICE).toContain('effective_time');
     expect(TYPES).toMatch(/group_payment: \{[\s\S]*version_id: string \| null;/);
-    expect(SCREEN).toContain("t('group.paymentsTitle')");
+    // Sin bloque aparte ni rótulo: «Saldado» se ordena entre los gastos por
+    // fecha y hora reales (mergeTimeline), y sigue fuera de los filtros.
+    expect(SCREEN).not.toContain("t('group.paymentsTitle')");
+    expect(SCREEN).toContain(
+      'mergeTimeline(movements.operations, movements.payments ?? [], order)',
+    );
+    expect(SCREEN).toContain("entry.kind === 'payment' ? (");
   });
 
   it('lo que el pago cerró sigue persistido y medido, pero el desplegable no lo pinta (decisión 2026-09-13)', () => {
@@ -208,7 +215,7 @@ describe('el pago en el grupo y en Personal', () => {
       'const party = me === payment.payerParticipantId || me === payment.receiverParticipantId;',
     );
     expect(PAY_ROW).toContain("label={t('group.deletePayment')}");
-    expect(SCREEN).toContain('askDeletePayment(transfer);');
+    expect(SCREEN).toContain('askDeletePayment(entry.payment);');
     expect(SCREEN).toContain("writer.code === 'NOT_AUTHORIZED'");
     expect(ANNUL).toContain(
       "export type Annullable = Pick<GroupOperation, 'operationId' | 'versionId'>;",
@@ -279,7 +286,6 @@ describe('salir a neto cero (F09/ADR-007 C8)', () => {
       'group.payBody',
       'group.payStale',
       'group.payNotApplicable',
-      'group.paymentsTitle',
       'group.deletePayment',
       'group.deletePaymentNotParty',
       'groups.leaveBlocked',

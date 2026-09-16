@@ -51,6 +51,38 @@ export function normaliseRegistration(raw: Registration): Registration {
   return { ...normaliseCredentials(raw), displayName: normaliseDisplayName(raw.displayName) };
 }
 
+/**
+ * THE ONE password rule Nomey states up front, and where it comes from.
+ *
+ * GoTrue owns the password policy; this is not a second policy but the
+ * server's OWN minimum, said before the round trip so a form can grey its
+ * button and a field can say «Mínimo 6 caracteres» instead of failing with
+ * `weak_password` afterwards. The value is `[auth] minimum_password_length`
+ * in `supabase/config.toml` (6, which is also GoTrue's default), and a test
+ * reads the toml and fails if the two ever drift. A hosted project keeps the
+ * same minimum in its Dashboard (Authentication → Passwords); `weak_password`
+ * from the server is still mapped, so a stricter server never gets past this
+ * silently — it just answers.
+ *
+ * `password_requirements = ""`: no character classes are required, so none
+ * are claimed here.
+ */
+export const PASSWORD_MIN_LENGTH = 6;
+
+/** Whether a password satisfies the server's minimum length. Not trimmed, like the server. */
+export function passwordMeetsMinimum(password: string): boolean {
+  return password.length >= PASSWORD_MIN_LENGTH;
+}
+
+/**
+ * Whether a registration can be SENT: every field present and the password at
+ * the server's minimum. What an email is, and whether it is taken, stays the
+ * server's call (`missingFields` and this both refuse to guess at more).
+ */
+export function registrationReady(raw: Registration): boolean {
+  return missingFields(raw).length === 0 && passwordMeetsMinimum(raw.password);
+}
+
 /** Which fields are empty once normalised. Nothing else is judged here. */
 export function missingFields(raw: Partial<Registration>): (keyof Registration)[] {
   const missing: (keyof Registration)[] = [];

@@ -26,7 +26,13 @@ describe('la clave de identidad', () => {
     expect(
       identityKey({
         status: 'signed-in',
-        identity: { userId: 'abc-123', email: 'a@example.com', displayName: 'Eduardo' },
+        identity: {
+          userId: 'abc-123',
+          email: 'a@example.com',
+          displayName: 'Eduardo',
+          isAnonymous: false,
+          pendingEmail: null,
+        },
       }),
     ).toBe('abc-123');
   });
@@ -48,11 +54,23 @@ describe('la clave de identidad', () => {
   it('dos cuentas distintas dan claves distintas', () => {
     const uno = identityKey({
       status: 'signed-in',
-      identity: { userId: 'uno', email: null, displayName: null },
+      identity: {
+        userId: 'uno',
+        email: null,
+        displayName: null,
+        isAnonymous: false,
+        pendingEmail: null,
+      },
     });
     const dos = identityKey({
       status: 'signed-in',
-      identity: { userId: 'dos', email: null, displayName: null },
+      identity: {
+        userId: 'dos',
+        email: null,
+        displayName: null,
+        isAnonymous: false,
+        pendingEmail: null,
+      },
     });
     expect(uno).not.toBe(dos);
   });

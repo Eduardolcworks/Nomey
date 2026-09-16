@@ -77,7 +77,8 @@ describe('inactivo y retirado en el cliente', () => {
     expect(FORM).toContain('shown.filter((one) => eligibleOn(one, current.date))');
     expect(CARD).toContain('eligible={eligibleOn(one, draft.date)}');
     expect(CARD).toContain("t('group.participantInactive')");
-    expect(EDIT).toContain('participants.participants.filter(listed)');
+    // Quien salió con cuenta es historia (F10/ADR-003): fuera de la lista de edición.
+    expect(EDIT).toContain('participants.participants.filter(current)');
   });
 
   it('en Saldos, «Inactivo» es texto; «Saldado» sobre quien salió ya no se ofrece (F09/ADR-007)', () => {
@@ -87,9 +88,9 @@ describe('inactivo y retirado en el cliente', () => {
     expect(ROW).toContain('onSettle === undefined ? null');
     expect(SCREEN).not.toMatch(/onSettle=\{\s*inactive/);
     expect(SCREEN).not.toContain('useSettleParticipant');
-    // El contador y la lista no cuentan a los retirados; sus nombres siguen.
+    // El contador y la lista no cuentan a los retirados ni a quien salió con cuenta; sus nombres siguen.
     expect(SCREEN).toContain(
-      'const listedCount = participants.participants.filter(listed).length;',
+      'const listedCount = participants.participants.filter(current).length;',
     );
     expect(MIGRATION).toContain(
       'and not exists (select 1 from core.participant_retirement r where r.participant_id = p.id))::integer as participant_count',

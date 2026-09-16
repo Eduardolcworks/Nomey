@@ -173,7 +173,6 @@ function localParticipants(
         // Y su cuenta es la del vínculo que el servidor abre al crear (F09/ADR-002).
         isLinked: true,
         hasHistory: false,
-        claimCommandId: null,
         mergedInto: null,
       },
       ...payload.participants.map((one) => ({
@@ -186,7 +185,6 @@ function localParticipants(
         isSelf: false,
         isLinked: false,
         hasHistory: false,
-        claimCommandId: null,
         mergedInto: null,
       })),
     ];

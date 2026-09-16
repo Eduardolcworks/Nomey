@@ -106,10 +106,14 @@ describe('la pantalla de entrar en `unavailable`', () => {
    * pase lo que pase con la restauración.
    */
   it('el formulario y su botón siguen renderizándose', () => {
-    expect(SIGN_IN).toContain("t('auth.email')");
-    expect(SIGN_IN).toContain("t('auth.password')");
-    expect(SIGN_IN).toContain("t('auth.signInAction')");
-    expect(SIGN_IN).toContain('href="/(auth)/sign-up"');
+    // El formulario es presentación aparte (`SignInForm`); la pantalla lo monta
+    // y conecta «Crear cuenta» a la ruta de siempre.
+    const FORM = file('features/auth/sign-in-form.tsx');
+    expect(SIGN_IN).toContain('<SignInForm');
+    expect(FORM).toContain("t('auth.email')");
+    expect(FORM).toContain("t('auth.password')");
+    expect(FORM).toContain("t('auth.signInAction')");
+    expect(SIGN_IN).toContain("onCreateAccount={() => router.push('/(auth)/sign-up')}");
   });
 
   /**

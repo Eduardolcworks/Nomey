@@ -57,10 +57,13 @@ import { SPRING, usePressScale } from './shell-motion';
 export function NomeyDock({
   activeRoute,
   onSelect,
+  canAdd = true,
 }: {
   /** El nombre de la ruta activa, tal cual lo da el router. */
   activeRoute: string;
   onSelect: (route: Destination['route']) => void;
+  /** Sin `+` cuando el destino activo no tiene nada que añadir (un invitado en Inicio). */
+  canAdd?: boolean;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -68,7 +71,7 @@ export function NomeyDock({
     <View
       style={[styles.dock, { paddingBottom: insets.bottom + DOCK.edge }]}
       pointerEvents="box-none">
-      <AddButton activeRoute={activeRoute} />
+      {canAdd ? <AddButton activeRoute={activeRoute} /> : null}
 
       <View style={styles.destinations} pointerEvents="box-none">
         {DESTINATIONS.map((destination) => (

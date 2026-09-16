@@ -49,7 +49,6 @@ function persona(id: string, name: string): GroupParticipant {
     isSelf: null,
     isLinked: null,
     hasHistory: null,
-    claimCommandId: null,
     mergedInto: null,
   };
 }
@@ -308,13 +307,17 @@ describe('elegibilidad por fecha', () => {
   it('con presencia conocida, quien no estaba sale del reparto', () => {
     const conPresencia: readonly GroupParticipant[] = [
       ANA,
-      { ...LUIS, presence: { isActive: true, eligibleUntil: null, isRetired: false } },
+      {
+        ...LUIS,
+        presence: { isActive: true, eligibleUntil: null, isRetired: false, isDeparted: false },
+      },
       {
         ...SOL,
         presence: {
           isActive: false,
           eligibleUntil: '2026-06-01' as CalendarDate,
           isRetired: false,
+          isDeparted: false,
         },
       },
     ];
@@ -328,7 +331,10 @@ describe('elegibilidad por fecha', () => {
 
   it('el día de salida queda EXCLUIDO, y el anterior dentro', () => {
     const salida = '2026-09-10' as CalendarDate;
-    const sol = { ...SOL, presence: { isActive: false, eligibleUntil: salida, isRetired: false } };
+    const sol = {
+      ...SOL,
+      presence: { isActive: false, eligibleUntil: salida, isRetired: false, isDeparted: false },
+    };
     expect(eligibleOn(sol, '2026-09-09' as CalendarDate)).toBe(true);
     expect(eligibleOn(sol, salida)).toBe(false);
     expect(eligibleOn(sol, '2026-09-11' as CalendarDate)).toBe(false);
@@ -345,7 +351,12 @@ describe('elegibilidad por fecha', () => {
   it('un gasto nuevo propone sólo a los activos', () => {
     const sol = {
       ...SOL,
-      presence: { isActive: false, eligibleUntil: '2026-12-31' as CalendarDate, isRetired: false },
+      presence: {
+        isActive: false,
+        eligibleUntil: '2026-12-31' as CalendarDate,
+        isRetired: false,
+        isDeparted: false,
+      },
     };
     const borrador = initialDraft([ANA, LUIS, sol], HOY, '21:00');
     expect(borrador.selected).toEqual([ANA.participantId, LUIS.participantId]);
@@ -359,6 +370,7 @@ describe('elegibilidad por fecha', () => {
           isActive: false,
           eligibleUntil: '2026-02-01' as CalendarDate,
           isRetired: false,
+          isDeparted: false,
         },
       },
       LUIS,

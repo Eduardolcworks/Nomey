@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import CI from '../../.github/workflows/ci.yml?raw';
-import RACE from '../../scripts/unclaim-race-evidence.sh?raw';
+import RACE from '../../scripts/identity-lock-race-evidence.sh?raw';
 import GUARD from '../../supabase/checks/group-identity-lock.sql?raw';
 import MIGRATION from '../../supabase/migrations/20260912150000_group_identity_lock.sql?raw';
 
 /**
  * EL CERROJO DE IDENTIDAD DEL GRUPO. Lo estructural del repositorio; el orden
  * de las funciones VIVAS lo mide `group-identity-lock.sql` contra el catalogo y
- * las carreras, con dos sesiones reales, `scripts/unclaim-race-evidence.sh`.
+ * las carreras, con dos sesiones reales, `scripts/identity-lock-race-evidence.sh`.
  */
 
 const sql = (text: string) => text.replace(/--.*$/gm, '');
@@ -77,25 +77,19 @@ describe('la evidencia', () => {
     expect(CI).toContain('supabase/checks/group-identity-lock.sql');
   });
 
-  it('las ocho carreras, en las dos direcciones, con la espera medida, y CI las ejecuta', () => {
+  it('las dos carreras de reclamar contra el writer, con la espera medida, y CI las ejecuta', () => {
     for (const marker of [
       '1a · reclamar (retiene 3 s) → gasto con Ana pagadora',
       '1b · gasto con Ana pagadora (retiene 3 s; Ana sin cuenta al resolver) → reclamar',
-      '2a · rectificar (retiene 3 s) → gasto con Ana pagadora',
-      '2b · gasto con Ana pagadora (retiene 3 s) → rectificar',
-      '3a · rectificar (retiene 3 s) → transferencia de Ana a Edu',
-      '3b · transferencia de Ana (retiene 3 s) → rectificar',
-      '4a · rectificar (retiene 3 s) → salir Ana',
-      '4b · salir Ana (retiene 3 s) → rectificar',
-      'select api.unclaim_participant(',
-      "grep -q 'UNLINK_BLOCKED_ATTRIBUTION'",
+      'select api.redeem_invitation(',
       'ESPERA=',
       'exigir_base_local',
     ]) {
       expect(RACE).toContain(marker);
     }
-    // La rectificacion es la funcion REAL (wrapper de F10/ADR-001 §11 desde 20260916120000), como la cuenta que reclamo.
+    // La identidad es permanente (F10/ADR-002): ninguna carrera cita una baja que no existe.
     expect(RACE).not.toContain('raise notice');
-    expect(CI).toContain('bash scripts/unclaim-race-evidence.sh');
+    expect(RACE).not.toMatch(/unclaim|unlink|rectificar/);
+    expect(CI).toContain('bash scripts/identity-lock-race-evidence.sh');
   });
 });

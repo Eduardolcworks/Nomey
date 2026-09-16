@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { signInErrorKey, signUpErrorKey } from '../../src/features/auth/auth-errors';
+import {
+  convertGuestErrorKey,
+  signInAnonymouslyErrorKey,
+  signInErrorKey,
+  signUpErrorKey,
+} from '../../src/features/auth/auth-errors';
 import { esES } from '../../src/lib/i18n/messages/es-ES';
 
 /**
@@ -66,6 +71,32 @@ describe('errores de registro', () => {
   });
 });
 
+describe('invitado: entrar como invitado y convertirse en cuenta (F05/ADR-003)', () => {
+  it('un proyecto sin anonymous sign-ins responde su propia frase, no la generica', () => {
+    expect(signInAnonymouslyErrorKey(codes('anonymous_provider_disabled'))).toBe(
+      'authError.guestUnavailable',
+    );
+    expect(signInAnonymouslyErrorKey(codes('over_request_rate_limit'))).toBe(
+      'authError.rateLimited',
+    );
+  });
+
+  it('la conversion dice tal cual que el email ya tiene cuenta: PUT /user no lo ofusca', () => {
+    expect(convertGuestErrorKey(codes('email_exists'))).toBe('authError.guestEmailTaken');
+    expect(convertGuestErrorKey(codes('user_already_exists'))).toBe('authError.guestEmailTaken');
+    expect(convertGuestErrorKey(codes('weak_password'))).toBe('authError.weakPassword');
+  });
+
+  it('F · el segundo intento tras una conversion ya confirmada (same_password, medido) tiene su frase', () => {
+    // MEDIDO contra GoTrue: el servidor ya convirtio al usuario; el cliente,
+    // con la copia anonima, reenvia el mismo email y la misma contraseña, y
+    // GoTrue responde 422 same_password. El servicio pregunta antes y
+    // refresca; si aun asi llega, no es «Algo ha ido mal».
+    expect(convertGuestErrorKey(codes('same_password'))).toBe('authError.guestAlreadyConverted');
+    expect(esES['authError.guestAlreadyConverted']).toContain('ya es una cuenta');
+  });
+});
+
 describe('fallos sin respuesta del servidor', () => {
   it('un fallo de red se reconoce por el nombre del error', () => {
     expect(signInErrorKey({ name: 'AuthRetryableFetchError' })).toBe('authError.network');
@@ -95,6 +126,8 @@ describe('todo lo que se mapea existe en el catálogo', () => {
     'email_provider_disabled',
     'user_already_exists',
     'email_exists',
+    'anonymous_provider_disabled',
+    'same_password',
     'over_request_rate_limit',
     'over_email_send_rate_limit',
     'validation_failed',
@@ -103,7 +136,12 @@ describe('todo lo que se mapea existe en el catálogo', () => {
   ];
 
   it.each(CODES)('«%s» resuelve a una clave traducida', (code) => {
-    for (const key of [signInErrorKey(codes(code)), signUpErrorKey(codes(code))]) {
+    for (const key of [
+      signInErrorKey(codes(code)),
+      signUpErrorKey(codes(code)),
+      signInAnonymouslyErrorKey(codes(code)),
+      convertGuestErrorKey(codes(code)),
+    ]) {
       expect(Object.keys(esES)).toContain(key);
     }
   });

@@ -17,7 +17,7 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 | [F09/ADR-003](ADR-003-leaving-a-group.md)                      | Salir de un Grupo, y dar por saldado a quien salió                                         | Aceptado | 2026-09-10 | ADR-034 |
 | [F09/ADR-004](ADR-004-group-invitations.md)                    | Invitaciones a un Grupo y unión directa                                                    | Aceptado | 2026-09-10 | ADR-035 |
 | [F09/ADR-005](ADR-005-retire-unlinked-participant.md)          | Retirar a un participante sin cuenta                                                       | Aceptado | 2026-09-11 | ADR-036 |
-| [F09/ADR-006](ADR-006-unclaim-participant.md)                  | Rectificar una reclamación («Me equivoqué de participante»)                                | Aceptado | 2026-09-11 | ADR-037 |
+| [F09/ADR-006](ADR-006-unclaim-participant.md)                  | Rectificar una reclamación («Me equivoqué de participante») — **retirada por F10/ADR-002** | Aceptado | 2026-09-11 | ADR-037 |
 | [F09/ADR-007](ADR-007-group-payments-and-exit-without-debt.md) | Pagos registrados en el grupo, su anulación, y salir sin pendientes                        | Aceptado | 2026-09-12 | ADR-038 |
 | [F09/ADR-008](ADR-008-departed-obligation-immutable.md)        | La obligación de quien salió del grupo es intocable                                        | Aceptado | 2026-09-12 | ADR-039 |
 | [F09/ADR-009](ADR-009-associate-ghost-to-own-account.md)       | Asociar un participante sin cuenta a la propia cuenta (fusión de identidades contextuales) | Aceptado | 2026-09-14 | ADR-040 |
@@ -71,10 +71,14 @@ sustituye se cita.
   bloquea exactamente eso y conserva el caso B (historia anterior a la
   reclamación). El resto de ADR-006 —regla de caja, protocolo de identidad,
   carreras, hecho de baja como patrón— sigue en pie y F10/ADR-001 lo cita.
-  **Implementado en F10.A2 (2026-09-15, migración `20260916120000`):**
-  `api.unclaim_participant` es desde entonces un wrapper de compatibilidad
-  sobre `sec.unlink_instance` —misma firma, semántica de F10/ADR-001—;
-  `UNCLAIM_BLOCKED_MERGE` y `core.participant_unclaim` ya no existen.
+  **Retirada entera por [F10/ADR-002](../F10/ADR-002-permanent-identity.md)
+  (Aceptado, 2026-09-15; migración `20260917120000`):** la identidad en el
+  grupo es permanente y no existe ninguna acción de deshacer un vínculo.
+  `api.unclaim_participant` —wrapper de compatibilidad durante F10.A2— ya no
+  existe, como `claim_command_id`, `sec.my_claim_command_id`,
+  `UNCLAIM_BLOCKED_MERGE` y `core.participant_unclaim`; «Me equivoqué» se
+  sustituye por la confirmación al reclamar. Lo que sigue en pie de ADR-006 es
+  la guarda de caja como conocimiento medido y el protocolo de identidad.
 - **F09/ADR-009 — estado:** validado en el iPhone por el propietario el
   2026-09-14 (`PROJECT_STATE.md`), aunque su cabecera diga «sin validar en
   dispositivo». **Guarda de catálogo:** «Consecuencias» cita una guarda
@@ -92,3 +96,13 @@ sustituye se cita.
 - **F09/ADR-006 y F09/ADR-005 — «pendiente de validación visual en el
   iPhone»:** F9 cerró validada en iPhone y emulador Android (roadmap, Fase 9,
   «Estado de cierre»).
+- **F09/ADR-010 — la única opción al volver: superada por
+  [F10/ADR-003](../F10/ADR-003-active-and-historical-link.md) (Aceptado,
+  2026-09-15).** Salir **termina** el vínculo sin borrarlo (activo → histórico):
+  quien salió deja el presente del grupo (Saldos, recuento, lista) y no es ni
+  reclamable ni retirable; al volver con invitación ve «Volver a entrar como X»
+  **y** los participantes sin cuenta disponibles, y puede elegir cualquiera de
+  los dos; `claim` ya no responde `REJOIN_REQUIRED` —sólo `new`, que sigue
+  rehusado—. Todo lo demás de F09/ADR-010 (mismo participante al volver, periodo
+  desde hoy, C6 una sola vez, serialización) sigue vigente. F09/ADR-003 §8
+  («salir conserva el vínculo») sigue cierto: se conserva, y además termina.

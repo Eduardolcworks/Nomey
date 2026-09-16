@@ -199,7 +199,7 @@ describe('la lista', () => {
    * cabecera no los envuelve.
    */
   it('se despliega en el sitio, y sus acciones no lo cierran', () => {
-    expect(code(SCREEN)).toContain('expanded={openRow === operation.operationId}');
+    expect(code(SCREEN)).toContain('expanded={openRow === entry.operation.operationId}');
     expect(code(SCREEN)).toContain('LayoutAnimation.configureNext');
     const detalle = code(ROW).slice(code(ROW).indexOf('{expanded ?'));
     expect(detalle).toContain('<IconButton');
@@ -219,7 +219,7 @@ describe('la lista', () => {
     );
     // La misma puerta que la papelera de la fila desplegada: askDelete, con su Alert.
     expect(ROW.match(/onPress=\{onDelete\}/g) ?? []).toHaveLength(1);
-    expect(SCREEN).toMatch(/onDelete=\{\(\) => \{\s*askDelete\(operation\);/);
+    expect(SCREEN).toMatch(/onDelete=\{\(\) => \{\s*askDelete\(entry\.operation\);/);
     expect(SCREEN).toContain(
       "Alert.alert(t('group.deleteExpense'), t('group.deleteExpenseBody'), [",
     );
