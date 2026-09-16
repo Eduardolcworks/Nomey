@@ -947,9 +947,10 @@ en [F03/ADR-010](../adr/F03/ADR-010-persisted-vs-derived.md).
 (F09/ADR-009) y la **anulación** como concepto distinto de la corrección
 (F06/ADR-006).
 
-**Pendiente en otros ADR:** el **ciclo de vida del vínculo propio**, la **cesión
-consentida** y la **fusión fantasma ↔ fantasma** (F10; la revocación del
-vínculo de otro queda **prohibida** por principio) · el **acceso residual** de
+**Resuelto en F10:** el **ciclo de vida del vínculo propio** (F10/ADR-001,
+F10/ADR-002, F10/ADR-003); la **cesión consentida** y la **fusión fantasma ↔
+fantasma** quedaron **fuera** por F10/ADR-004, y la revocación del vínculo de
+otro **prohibida** por principio. **Pendiente en otros ADR:** el **acceso residual** de
 quien sale de un ámbito con saldo pendiente, acotado por F09/ADR-007 C6 a los
 pagos propios y general en F12 · idempotencia de **recurrencias, importaciones
 bancarias y backend** · **origen, frecuencia y regla de selección de los tipos

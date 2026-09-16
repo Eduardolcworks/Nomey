@@ -86,8 +86,10 @@ sustituye se cita.
   existe**, y el propio cuerpo explica por qué no hace falta (la resolución vive
   en `core.current_effect`). **Hallazgo (F10.A0):** `sec.payment_counterpart_name`
   publica el nombre crudo del origen fusionado como contraparte de un pago,
-  mientras el ADR afirma que se publica por canónico; registrado como
-  discrepancia, a resolver en F10.B0 (corrección o anotación). **Superado por
+  mientras el ADR afirma que se publica por canónico; **anotado, no
+  corregido, por [F10/ADR-004](../F10/ADR-004-identity-scope-closure.md)
+  (F10.B0)**: el cliente resuelve el nombre por `merged_into_participant_id`
+  y la única fusión posible es hacia la identidad del actor. **Superado por
   [F10/ADR-001](../F10/ADR-001-link-instance-lifecycle.md) §4 (Aceptado,
   2026-09-14):** el bloqueo **absoluto** `UNCLAIM_BLOCKED_MERGE` —rehusar
   dejar la identidad por la mera existencia de una fusión— deja de aplicar; una
