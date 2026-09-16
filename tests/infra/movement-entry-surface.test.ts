@@ -1553,8 +1553,9 @@ describe('el CTA en cada uno de sus estados', () => {
   it('apagado conserva exactamente lo que ya estaba bien', () => {
     expect(HOJA).toContain("backgroundColor: disabled ? 'transparent' : theme.accent");
     expect(HOJA).toContain('color: disabled ? theme.textDisabled : theme.onAccent');
-    // Su atenuación sigue viniendo del primitive, no del CTA.
-    expect(PULSABLE).toContain('disabled ? { opacity: 0.45 } : undefined');
+    // Su atenuación sigue viniendo del primitive, no del CTA (desde F10.C0 el
+    // primitive compone además el borde `edge`, que el CTA no pide).
+    expect(PULSABLE).toContain('disabled ? { opacity: 0.45 } : null');
   });
 
   /** HABILITADO: el relleno amarillo lleva el MISMO radio que la superficie. */

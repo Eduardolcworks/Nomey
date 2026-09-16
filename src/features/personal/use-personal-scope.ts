@@ -53,8 +53,15 @@ import { offlineCatalogueCache } from '@/lib/offline';
  *
  * @param actorId el `sub` de la sesión, o cadena vacía si no hay. El respaldo
  * está aislado por cuenta (F07/ADR-001 §13): sin actor no se lee ni se escribe.
+ * @param readAsGuest la sesión es un invitado (F05/ADR-003). **La lectura va por
+ * identidad de sesión**: convertirse conserva el `sub` pero cambia lo que el
+ * servidor responde sobre el punto de inicio (F10/ADR-005), así que el efecto se
+ * vuelve a ejecutar y el estado listo dice con qué identidad se leyó.
  */
-export function usePersonalScope(actorId: string): {
+export function usePersonalScope(
+  actorId: string,
+  readAsGuest = false,
+): {
   state: PersonalScopeState;
   retry: () => void;
 } {
@@ -67,6 +74,13 @@ export function usePersonalScope(actorId: string): {
    * viva, se suscriba al mismo vuelo y lo aplique.
    */
   const flight = useRef(createScopeFlight<EnsureScopeResult>());
+  /*
+   * EL SERVIDOR YA CONTESTO para este actor. El respaldo es para el arranque
+   * en frio sin red: cuando la lectura se repite —convertirse, o releer tras
+   * decidir— pintar antes lo guardado seria pisar una respuesta real con una
+   * copia que no lleva el punto de inicio (F10/ADR-005).
+   */
+  const answeredFor = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -82,7 +96,8 @@ export function usePersonalScope(actorId: string): {
      */
     void (async () => {
       const cached = await recall(actorId);
-      if (alive && !answered && cached !== null) setState(cached);
+      if (alive && !answered && answeredFor.current !== actorId && cached !== null)
+        setState(cached);
     })();
 
     const subscription = flight.current.join(
@@ -96,7 +111,8 @@ export function usePersonalScope(actorId: string): {
       {
         value: (result) => {
           answered = true;
-          const ready = scopeFromResult(result);
+          answeredFor.current = actorId;
+          const ready = scopeFromResult(result, readAsGuest);
           setState(ready);
           // El respaldo se escribe DESPUÉS de pintar, no se espera y no lanza.
           if (ready.status === 'ready') void remember(actorId, ready);
@@ -122,7 +138,7 @@ export function usePersonalScope(actorId: string): {
       alive = false;
       subscription.cancel();
     };
-  }, [attempt, actorId]);
+  }, [attempt, actorId, readAsGuest]);
 
   const retry = useCallback(() => {
     // En un manejador, no en un efecto: aquí sí corresponde anunciar el vuelo,
