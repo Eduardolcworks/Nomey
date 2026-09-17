@@ -79,7 +79,9 @@ resultado debe ser «falta un dato», nunca «el dato miente».
 
 - **Interna:** exactamente una salida en el ámbito origen y una entrada en el
   destino, ambos dentro de Nomey. Entre Modos Personales de usuarios distintos,
-  **solo la origina el propietario del extremo de salida** (§8).
+  **solo la origina el propietario del extremo de salida** (§8) y, desde F12,
+  **solo existe con las dos voluntades**: quien envía la autoriza, quien recibe
+  la acepta o la solicitó (§4.8, F12/ADR-002).
 - **Externa:** un único extremo dentro de Nomey, cuando la contraparte no tiene
   ámbito representable en la operación —pagar a un participante sin usuario, o
   reflejar en tu propio Modo Personal un dinero recibido de quien no ha creado
@@ -114,6 +116,20 @@ deuda pendiente**, y liquidar **en la dirección contraria** a la deuda existent
 >
 > Consecuencia para la frontera de escritura: validar exige **derivar la deuda
 > pendiente antes de aceptar la operación**, dentro de la misma transacción.
+
+> **Supersesión acotada (F12, 2026-09-17,
+> [F12/ADR-003](../adr/F12/ADR-003-group-transfers.md)).** Esta regla protege
+> frente a que **una sola persona** cree una obligación inversa inexistente.
+> Se **conserva** para toda liquidación unilateral: el pago declarado
+> (`group_payment`), la liquidación sólo deuda (`record_debt_settlement`),
+> `participant_settlement`, y las correcciones y anulaciones de gastos. Y
+> **deja de aplicar en un único caso**: la **transferencia de grupo** aceptada
+> por las dos partes (clase `settlement_by_transfer` nacida de una propuesta,
+> §4.6). Ahí el importe completo modifica algebraicamente la deuda del par,
+> puede cruzar cero y puede dejar al antiguo acreedor como deudor: la
+> obligación inversa no aparece de la nada, la crean dos voluntades
+> explícitas sobre importe, dirección, participantes y grupo. No es una regla
+> general de sobrepago.
 
 #### La corrección de un gasto tampoco puede sobrepasarlo
 
@@ -266,33 +282,49 @@ transferencia; nunca ingreso). La vía «sólo deuda» de este escenario sigue
 siendo una capacidad del writer (`record_debt_settlement`), sin superficie en
 la app.
 
-### 4.6 · Escenario F — pagar una deuda mediante transferencia
+### 4.6 · Escenario F — transferencia dentro de un Grupo
 
-A debe 30 € a B y registra «pagar deuda».
+A debe 30 € a B en el grupo. Desde el grupo, A **propone** transferir 30 € a
+B; B **acepta**.
 
 ```
 Modo Personal A → saldo −30 · transferencia
 Modo Personal B → saldo +30 · transferencia
-Grupo           → deuda −30 · liquidación
+Grupo           → deuda −30 · liquidación, sobre el par A → B
 ```
 
-Los tres efectos se aplican **de inmediato y atómicamente**. B recibe
-notificación.
+Los tres efectos nacen **al aceptar**, de inmediato y atómicamente, en una
+sola operación de clase `settlement_by_transfer`. Antes de aceptar sólo existe
+una **propuesta**, que no es un hecho contable: ningún saldo ni deuda cambia.
+B recibe la propuesta; A recibe el resultado.
 
 Estadísticas: 0 — el gasto económico ya se contó al registrar la cena.
 
-**Solo puede iniciarlo A**, que es el origen del saldo. B no puede registrar «A
-me ha pagado 30 €» y provocar con ello una salida en el Modo Personal de A; B
-conserva la vía de 4.5, que modifica la deuda sin mover saldo.
+**Dos voluntades** ([F12/ADR-003](../adr/F12/ADR-003-group-transfers.md)): A
+autoriza la salida de su Personal al proponer (importe, moneda, grupo y
+destinatario fijos); B autoriza la entrada en el suyo y la modificación de la
+deuda al aceptar. Ninguna de las dos escribe en el libro de la otra sin su
+consentimiento. Sólo pueden proponer y aceptar participantes **activos y con
+cuenta** del mismo grupo, en el momento de proponer y en el de aceptar; si uno
+de los dos sale del grupo mientras la propuesta está pendiente, la propuesta
+se invalida y no revive al volver.
 
-Contraste con 4.5: aquí se mueve saldo **y** se modifica la deuda; allí solo la
-deuda. Siguen siendo hechos distintos.
+**El importe se aplica completo a la deuda del par, y puede cruzar cero.** Es
+la excepción acotada de §3: Aitor debe 78 € a Eduardo; Aitor propone 80 €;
+Eduardo acepta. Personal de Aitor −80, Personal de Eduardo +80, liquidación
+−80 sobre Aitor → Eduardo: el neto del par pasa de 78 a −2, y **Eduardo debe
+2 € a Aitor** en ese grupo. Sin deuda previa, una transferencia de N dentro
+del grupo deja a B debiendo N a A. Todo ello lo consintieron los dos.
 
-**Este escenario es la transferencia _ordenada desde la app_ (F12, invariante
-14): sólo A la origina.** Distinto del _pago declarado_ de F9 (F09/ADR-007 §2),
-donde cualquiera de los dos declara un pago que ya ocurrió fuera y Nomey
-registra la declaración —con caja en ambos Personales— sin verificar el envío;
-el otro recibe aviso y puede anularlo.
+**Una vez aceptada es irreversible**: exactamente una versión, ni corrección
+ni anulación; compensar es otra operación (§7).
+
+Contraste con 4.5: aquí se mueve saldo **y** se modifica la deuda; allí sólo
+la deuda. Y contraste con el _pago declarado_ de F9 («Saldado»,
+[F09/ADR-007](../adr/F09/ADR-007-group-payments-and-exit-without-debt.md)
+§2): aquél es una declaración de **una** parte, acotada a lo que la deuda
+sostiene, descompuesta por caminos y anulable por la otra; ésta es un acuerdo
+de las dos, sobre el par directo, sin tope. Las dos capacidades conviven.
 
 ### 4.7 Liquidar con un participante sin usuario
 
@@ -307,26 +339,44 @@ No hay segundo Modo Personal: Marta no tiene usuario. Un único extremo interno.
 
 ### 4.8 · Escenario D — transferencia entre usuarios
 
-A registra una transferencia de 100 € a B.
+A busca a B por su `@username` y le **propone** una transferencia de 100 €;
+B **acepta**.
 
 ```
 Modo Personal A → saldo −100 · transferencia
 Modo Personal B → saldo +100 · transferencia
 ```
 
-Efectos inmediatos en ambos Modos Personales. B recibe notificación. Sin deuda y
-sin estadísticas.
+Los dos efectos nacen **al aceptar**, de inmediato, en una sola operación de
+clase `internal_transfer`. Sin deuda y sin estadísticas. Antes de aceptar sólo
+existe una **propuesta**, dirigida a B, que no es un hecho contable.
 
-**Solo A puede crear esta operación**, porque su Modo Personal es el extremo de
-salida. B **no** puede registrar «A me transfirió 100 €» para provocar una salida
-en el ámbito de A: sería una primitiva directa de apropiación.
+**Dos voluntades** ([F12/ADR-002](../adr/F12/ADR-002-two-will-user-transfers.md)):
+A autoriza la salida de su Personal al proponer (importe, moneda y
+destinatario fijos); B autoriza la entrada en el suyo al aceptar. **Nadie
+puede provocar una salida en el Personal de otro**, y —como Nomey no mueve
+dinero real y una transferencia es una declaración— **nadie puede provocar
+una entrada en el Personal de otro sin su consentimiento**: una entrada
+positiva no es inocua (altera su Disponible, su historial y su siguiente
+reconciliación). B puede rechazar; A puede cancelar; una propuesta caduca a
+los 7 días; nada de eso escribe efectos.
 
-Si B cree haber recibido dinero que A no ha registrado, puede reflejarlo en su
-propio ámbito como **transferencia externa** (§3) — afecta solo a B y no finge
-una transferencia interna que A no ha creado.
+La misma clase nace también de una **solicitud de pago**
+([F12/ADR-004](../adr/F12/ADR-004-payment-request-links.md)): B pide 100 €
+con un enlace al portador y A la paga desde su Personal. En los dos casos
+quien pone el dinero lo autoriza desde su propio ámbito; en los dos, la
+segunda voluntad materializa.
 
-La operación conserva autor, origen, destino, importe, moneda, fecha e
-historial.
+La operación conserva origen, destino, importe, moneda, fecha (la de la
+aceptación) e historial. **Quién materializó** la operación (`created_by`) es
+quien expresó la segunda voluntad; **quién envió y quién recibió** viven en
+las partes de la operación, nunca se derivan de `created_by`, y se enseñan
+siempre con la identidad pública **actual** de cada cuenta (§6, identidad
+pública).
+
+**Una vez aceptada es irreversible**: exactamente una versión, ni corrección
+ni anulación. «Quería 30 y envié 25» es otra transferencia de 5; «envié 30 y
+quería 25» es una devolución de 5, que es otra transferencia (o una solicitud).
 
 > Nomey registra un movimiento financiero **dentro de su propio modelo**. No es
 > ejecución bancaria.
@@ -503,17 +553,65 @@ primero y convertir cada parte no garantiza que la suma cuadre con el total.
 
 Cinco conceptos que **no deben colapsarse**:
 
-| Concepto                   | Qué es                                               |
-| -------------------------- | ---------------------------------------------------- |
-| **Participante del grupo** | Puede figurar en repartos. Existe con o sin usuario  |
-| **Usuario vinculado**      | La cuenta que reclamó ese participante, si la hay    |
-| **Membresía activa**       | Relación vigente: ver y crear actividad              |
-| **Participante histórico** | Figura en operaciones pasadas. Permanece siempre     |
-| **Acceso residual**        | Salió con saldo ≠ 0: lectura acotada y liquidaciones |
+| Concepto                   | Qué es                                                                                                                                                                                                                                 |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Participante del grupo** | Puede figurar en repartos. Existe con o sin usuario                                                                                                                                                                                    |
+| **Usuario vinculado**      | La cuenta que reclamó ese participante, si la hay                                                                                                                                                                                      |
+| **Membresía activa**       | Relación vigente: ver y crear actividad                                                                                                                                                                                                |
+| **Participante histórico** | Figura en operaciones pasadas. Permanece siempre                                                                                                                                                                                       |
+| **Acceso residual**        | **No existe como concepto general** (cerrado por F09/ADR-003 y F09/ADR-007 C5/C8: nadie sale con neto ≠ 0). Quien salió conserva sólo el acceso acotado de F09/ADR-007 C6: sus pagos, la deuda que sus anulaciones reabren, sus avisos |
 
 **Reclamación retroactiva:** al vincular un participante con un usuario, todo su
 historial se incorpora a sus finanzas personales **en las fechas originales**.
 No hay migración de datos: los efectos ya apuntaban al participante.
+
+### Identidad pública de la cuenta
+
+Fuera del ámbito y aparte de la identidad contextual del participante, una
+cuenta tiene una **identidad pública** ([F12/ADR-001](../adr/F12/ADR-001-username-public-account-identity.md)):
+
+| Concepto           | Qué es                                                                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Username**       | Atributo público, único y resoluble de la cuenta (`@eduardo`). Sirve para encontrarla. **No es** la identidad interna, ni credencial |
+| **Nombre público** | El nombre con el que la persona acepta que los demás la vean junto al username. No es único ni identidad                             |
+| **`uid`**          | Sigue siendo la **única** identidad autoritativa                                                                                     |
+
+Reglas que no se rompen:
+
+- `username → uid` **sólo** cuando una acción busca a alguien (elegir el
+  destinatario de una propuesta); el resultado se persiste como `uid`.
+- **Ninguna operación, versión, efecto ni intención persiste usernames ni
+  nombres**: sólo ids internos.
+- Al leer un histórico, la identidad mostrada es siempre **la actual del
+  `uid`**: si `@ana` pasa a ser `@anagarcia`, todas sus filas dicen
+  `@anagarcia`; si otra persona obtiene `@ana` después, ninguna fila antigua la
+  nombra. **Nunca** se resuelve un username histórico hacia un `uid`.
+- La identidad pública **no** se correlaciona con la identidad contextual de
+  un participante ni la sustituye: [F03/ADR-009](../adr/F03/ADR-009-participant-identity.md)
+  §1 sigue intacto.
+
+### Intenciones no contables
+
+Tres entidades expresan una **voluntad** sin ser un hecho contable: no crean
+operación, versión ni efecto, no cambian ningún saldo ni deuda, no cuentan en
+estadísticas, y viven fuera del ledger hasta que una segunda voluntad las
+materializa. Comparten forma (importe y moneda fijos e inmutables, concepto
+opcional que vive en la intención, caducidad de 7 días, una sola
+materialización, cancelación por quien la creó) y difieren en contrato:
+
+| Intención                                 | Quién la crea                    | Quién la materializa                                         | Operación resultante           | Estados                                                                                                         |
+| ----------------------------------------- | -------------------------------- | ------------------------------------------------------------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| **Propuesta de transferencia** (Personal) | quien quiere **enviar**          | el destinatario concreto (`target`), al **aceptar**          | `internal_transfer` (4.8)      | pending → accepted · declined · cancelled · expired                                                             |
+| **Propuesta de transferencia de grupo**   | quien quiere enviar, en un grupo | el participante destinatario, al **aceptar**                 | `settlement_by_transfer` (4.6) | los mismos; la salida del grupo de una de las partes la invalida mientras está pendiente, y no revive al volver |
+| **Solicitud de pago**                     | quien quiere **recibir**         | **cualquiera** que posea el enlace al portador, al **pagar** | `internal_transfer` (4.8)      | pending → paid · cancelled · expired (sin `declined`)                                                           |
+
+Ninguna intención admite edición: otro importe o concepto es otra intención.
+Ningún estado terminal se reemplaza por otro. Ninguna intención vive dentro
+de un grupo salvo la propuesta de grupo; las solicitudes de pago **no** existen
+en un grupo ni tocan deuda. Los contratos completos están en
+[F12/ADR-002](../adr/F12/ADR-002-two-will-user-transfers.md),
+[F12/ADR-003](../adr/F12/ADR-003-group-transfers.md) y
+[F12/ADR-004](../adr/F12/ADR-004-payment-request-links.md).
 
 ---
 
@@ -553,6 +651,12 @@ anterior y aplica los de la nueva, sin operaciones de reversión separadas.
 > siempre y cada versión queda atribuida a quien la crea—, de modo que una
 > corrección indebida es visible, imputable y a su vez corregible.
 
+- Una **transferencia entre usuarios materializada** (`internal_transfer`) y
+  una **transferencia de grupo materializada** (`settlement_by_transfer`) son
+  inmutables: **exactamente una versión**, sin corrección ni anulación por
+  ninguna de las dos partes. Nacieron del consentimiento de ambas; compensar
+  es otra transferencia (F12/ADR-002 §16, F12/ADR-003 §25). La «corrección»
+  de la quinta capa de §8 se satisface aquí como compensación (invariante 11).
 - Un **reparto final ejecutado** es inmutable: se compensa, no se edita, y la
   compensación conserva la bilateralidad.
 - Toda corrección queda atribuida y notificada a los afectados. **La atribución
@@ -602,17 +706,17 @@ usuarios.
 registrado por B y «B pagó 120 €» registrado por A producen los mismos efectos.
 Solo cambian la autoría y a quién se notifica.
 
-| Acción                              | Efectos                                 | Autorización                              |
-| ----------------------------------- | --------------------------------------- | ----------------------------------------- |
-| Gasto de grupo                      | económicos + deudas + saldo del pagador | inmediata                                 |
-| Marcar deuda saldada                | solo deuda                              | inmediata                                 |
-| Transferencia entre usuarios        | saldo en ambos Modos Personales         | inmediata · **solo la origina el emisor** |
-| Pagar deuda mediante transferencia  | saldo en ambos + deuda                  | inmediata · **solo la origina el deudor** |
-| Gasto de pareja financiado por otro | económico del ámbito + saldo personal   | inmediata                                 |
-| Retirada del saldo común (activo)   | saldo común → Modo Personal             | inmediata                                 |
-| Retirada del saldo común (`Cierre`) | —                                       | **bloqueada**                             |
-| **Reparto final del Modo Pareja**   | saldo común → Modos Personales          | **bilateral**                             |
-| **Corrección de un reparto final**  | saldo entre Modos Personales            | **bilateral**                             |
+| Acción                                                      | Efectos                                          | Autorización                                                                                                    |
+| ----------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Gasto de grupo                                              | económicos + deudas + saldo del pagador          | inmediata                                                                                                       |
+| Marcar deuda saldada                                        | solo deuda                                       | inmediata                                                                                                       |
+| Transferencia entre usuarios (`internal_transfer`)          | saldo en ambos Modos Personales                  | **dos voluntades**: el emisor propone (o el receptor solicita) y el otro materializa; inmediata al materializar |
+| Transferencia dentro de un grupo (`settlement_by_transfer`) | saldo en ambos + deuda del par, importe completo | **dos voluntades**: el emisor propone, el receptor acepta; inmediata al aceptar                                 |
+| Gasto de pareja financiado por otro                         | económico del ámbito + saldo personal            | inmediata                                                                                                       |
+| Retirada del saldo común (activo)                           | saldo común → Modo Personal                      | inmediata                                                                                                       |
+| Retirada del saldo común (`Cierre`)                         | —                                                | **bloqueada**                                                                                                   |
+| **Reparto final del Modo Pareja**                           | saldo común → Modos Personales                   | **bilateral**                                                                                                   |
+| **Corrección de un reparto final**                          | saldo entre Modos Personales                     | **bilateral**                                                                                                   |
 
 ### Dónde está la protección
 
@@ -639,9 +743,24 @@ Quien envía declara que ha enviado **valor propio**. Quien recibe no puede
 declarar que otro le envió valor y generar así una salida en el ámbito de ese
 tercero — sería una primitiva directa de apropiación.
 
+> **Precisión de F12 (2026-09-17, [F12/ADR-002](../adr/F12/ADR-002-two-will-user-transfers.md)
+> §13).** Con el descubrimiento global por username desaparece el supuesto de
+> relación previa entre las dos cuentas, y Nomey no mueve dinero: una entrada
+> en el Personal de otro es también una escritura en un libro ajeno. Por eso
+> una transferencia entre usuarios exige **dos voluntades**, y «originar» se
+> precisa así: **originar la salida es autorizarla** —quien propone fija su
+> Personal como extremo de salida, el importe, la moneda y el destinatario—, y
+> **quien acepta materializa** exactamente esa propuesta. Sin una propuesta
+> válida nadie puede provocar una salida ajena; con ella, no hay parámetro
+> libre que cambiar. El mismo actor no tiene por qué autorizar y materializar.
+> En la solicitud de pago el pagador es a la vez quien autoriza y quien
+> materializa, así que la regla original se cumple tal cual.
+
 **No se generaliza.** En un ámbito compartido el efecto sobre otro nace de una
-operación válida del grupo o del Modo Pareja y sigue siendo inmediato. La
-diferencia es que la transferencia directa carece de ese contexto.
+operación válida del grupo o del Modo Pareja y sigue siendo inmediato: un
+gasto de grupo y un pago declarado no piden segunda voluntad. La transferencia
+de grupo (4.6) sí la pide, porque escribe en los **Personales** de las dos
+partes, no sólo en el grupo.
 
 ### El saldo común y el estado del ámbito
 
@@ -703,9 +822,10 @@ participantes** · **participaciones declaradas positivas**, es decir `shares` c
 enteros > 0 y `exact_amounts` sin importes en cero —la participación _calculada_
 sí puede ser 0, ver §5— · participantes válidos en la fecha efectiva ·
 `exact_amounts` de suma exacta · idempotencia según origen · derecho de
-corrección · límites del acceso residual · **que quien registra tenga derecho a
-producir los efectos que la operación alcanza** · bilateralidad del reparto
-final y de su corrección.
+corrección · **que quien registra tenga derecho a producir los efectos que la
+operación alcanza** · que una transferencia entre usuarios sólo se materialice
+sobre una intención válida de la otra parte (F12/ADR-002 §11, F12/ADR-003 §14,
+F12/ADR-004 §12) · bilateralidad del reparto final y de su corrección.
 
 `domain/` conserva el mismo cálculo para la previsualización sin conexión, con
 **vectores de prueba compartidos** que detecten cualquier deriva entre ambas
@@ -852,6 +972,12 @@ convertirse en operación financiera válida del ámbito.
 14. **Una transferencia interna directa entre usuarios solo puede originarla el
     propietario del Modo Personal que constituye el extremo de salida.** El
     destinatario no puede originar una salida en el Modo Personal del remitente.
+    _Precisión (F12/ADR-002 §13, 2026-09-17):_ **originar** la salida es
+    **autorizarla** mediante una propuesta con importe, moneda y destinatario
+    fijos; quien acepta **materializa** exactamente esa propuesta y no puede
+    fabricar una salida ajena. Y ninguna transferencia entre usuarios existe
+    sin las **dos** voluntades: tampoco se provoca una entrada en el Personal
+    de otro sin su consentimiento.
 15. **Toda operación con efectos financieros relevantes sobre otro usuario queda
     atribuida; y genera notificación toda corrección, anulación, liquidación,
     pago declarado y salida que afecte a otro, y —en las fases que las
@@ -950,9 +1076,18 @@ en [F03/ADR-010](../adr/F03/ADR-010-persisted-vs-derived.md).
 **Resuelto en F10:** el **ciclo de vida del vínculo propio** (F10/ADR-001,
 F10/ADR-002, F10/ADR-003); la **cesión consentida** y la **fusión fantasma ↔
 fantasma** quedaron **fuera** por F10/ADR-004, y la revocación del vínculo de
-otro **prohibida** por principio. **Pendiente en otros ADR:** el **acceso residual** de
-quien sale de un ámbito con saldo pendiente, acotado por F09/ADR-007 C6 a los
-pagos propios y general en F12 · idempotencia de **recurrencias, importaciones
+otro **prohibida** por principio.
+
+**Resuelto en F12.A0 (2026-09-17):** la **identidad pública** de la cuenta
+(username, nombre público, resolución exacta, identidad histórica por `uid`)
+en [F12/ADR-001](../adr/F12/ADR-001-username-public-account-identity.md) · las
+**transferencias entre usuarios con dos voluntades** y la precisión del
+invariante 14 en [F12/ADR-002](../adr/F12/ADR-002-two-will-user-transfers.md)
+· la **transferencia dentro de un grupo** y la supersesión acotada del
+sobrepago de §3 en [F12/ADR-003](../adr/F12/ADR-003-group-transfers.md) · la
+**solicitud de pago** por enlace en [F12/ADR-004](../adr/F12/ADR-004-payment-request-links.md).
+El **acceso residual general no existe**: lo cerraron F09/ADR-003 y F09/ADR-007
+C5/C6/C8, y F10/ADR-003. **Pendiente en otros ADR:** idempotencia de **recurrencias, importaciones
 bancarias y backend** · **origen, frecuencia y regla de selección de los tipos
 de cambio**, que F02/ADR-001 dejó fuera de alcance y F03/ADR-006 §8 subraya que
 **no está decidida** · conciliación entre un movimiento importado y la pata

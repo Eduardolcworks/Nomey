@@ -32,3 +32,35 @@ Se citan, no se copian ni se redefinen:
 
 - [F01/ADR-001](../F01/ADR-001-accounting-model.md) — Modelo contable de Nomey
 - [F02/ADR-001](../F02/ADR-001-money-representation.md) — Representación exacta del dinero
+
+## Notas posteriores al cierre de la fase
+
+Los ADR aceptados no se editan; lo que un ADR posterior precisó o superó se
+anota aquí, con fecha, citando el ADR que lo hace.
+
+- **F03/ADR-003 — precisado por
+  [F12/ADR-001](../F12/ADR-001-username-public-account-identity.md) (Aceptado,
+  2026-09-17) en una excepción mínima y controlada.** El rol de Auth
+  `supabase_auth_admin`, con el que GoTrue ejecuta el hook
+  `before_user_created`, recibe `USAGE` sobre `sec` y `EXECUTE` sobre
+  **exactamente una** función `SECURITY DEFINER` de `sec` (owner
+  `nomey_provisioner`, `search_path` pinado), la que reserva el username en
+  la misma transacción del alta. No es una apertura general de `sec`: el rol
+  no ve tablas, no ejecuta nada más y no toca `api` ni `core`; `anon` sigue
+  sin `USAGE` sobre `api`; `core` y `sec` siguen fuera de toda superficie
+  cliente. Una **guarda de catálogo** exigida por el ADR afirma que
+  `supabase_auth_admin` ejecuta una y sólo una función de `sec` y ninguna de
+  `api`. Los grants concretos llegan con la migración que implemente el
+  hook.
+- **F03/ADR-006 y los writers de F3 de `api.record_internal_transfer` y
+  `api.record_settlement_by_transfer` — su contrato de F3 queda superado por
+  [F12/ADR-002](../F12/ADR-002-two-will-user-transfers.md) y
+  [F12/ADR-003](../F12/ADR-003-group-transfers.md) (Aceptados, 2026-09-17).**
+  Ambas clases dejan de admitir el alta unilateral e inmediata, la
+  corrección por versión (`operation_id` + `expected_version_id`) y —en
+  `settlement_by_transfer`— el tope de sobrepago y la restricción «sólo el
+  deudor»: nacen de una propuesta aceptada por las dos partes, tienen
+  exactamente una versión `record` y no se anulan. El principio de
+  F03/ADR-006 —una función pública por clase, payload `jsonb`, writer bajo
+  RLS— no cambia; lo que cambia es el contrato de esas dos funciones, que se
+  recrean partiendo de su cuerpo vigente cuando se implementen.
