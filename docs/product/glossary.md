@@ -77,17 +77,31 @@ tiene deudas entre participantes.
 
 ## Personas
 
-| Término                    | Qué es                                                                       |
-| -------------------------- | ---------------------------------------------------------------------------- |
-| **Usuario**                | Alguien con cuenta en Nomey                                                  |
-| **Participante**           | Quien puede figurar en un reparto. **Puede no tener cuenta**                 |
-| **Usuario vinculado**      | La cuenta que reclamó un participante                                        |
-| **Membresía activa**       | Relación vigente con un grupo: ver y crear actividad                         |
-| **Participante histórico** | Figura en operaciones pasadas. Permanece siempre                             |
-| **Acceso residual**        | Quien salió de un grupo con saldo pendiente: lectura acotada y liquidaciones |
+| Término                    | Qué es                                                                                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Usuario**                | Alguien con cuenta en Nomey                                                                                                                                              |
+| **Participante**           | Quien puede figurar en un reparto. **Puede no tener cuenta**                                                                                                             |
+| **Usuario vinculado**      | La cuenta que reclamó un participante                                                                                                                                    |
+| **Membresía activa**       | Relación vigente con un grupo: ver y crear actividad                                                                                                                     |
+| **Participante histórico** | Figura en operaciones pasadas. Permanece siempre                                                                                                                         |
+| **Acceso residual**        | **No existe como concepto general**: nadie sale de un grupo con neto ≠ 0 (F09/ADR-007). Quien salió conserva sólo el acceso acotado a sus propios pagos (F09/ADR-007 C6) |
 
 **Reclamación:** vincular un participante con un usuario. Su historial se
 incorpora a las finanzas personales **en las fechas originales**.
+
+### Identidad pública de la cuenta
+
+| Término            | Qué es                                                                                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Username**       | Atributo público, único y resoluble de una cuenta (`@eduardo`), para que otra persona la encuentre. **No** es la identidad interna, ni credencial, ni sustituye al correo |
+| **Nombre público** | El nombre con el que la persona acepta que los demás la vean junto a su username. No es único ni identidad                                                                |
+
+El `uid` sigue siendo la única identidad autoritativa. `username → uid` sólo
+al buscar a alguien; al leer un histórico, siempre `uid → identidad pública
+actual`; nunca un username histórico hacia un `uid`. Ninguna operación
+persiste usernames ni nombres. **Nunca** se confunde con el nombre contextual
+de un participante en un grupo, que es otra cosa
+([F12/ADR-001](../adr/F12/ADR-001-username-public-account-identity.md)).
 
 ---
 
@@ -116,9 +130,11 @@ Movimiento de saldo que **no es ingreso ni gasto** y no genera deuda por sí
 mismo.
 
 - **Interna:** dos extremos dentro de Nomey — una salida en el ámbito origen y
-  una entrada en el destino. Entre Modos Personales de dos usuarios, **solo la
-  origina quien envía**: puedes declarar que has enviado valor propio, no que
-  otro te lo ha enviado.
+  una entrada en el destino. Entre Modos Personales de dos usuarios exige **dos
+  voluntades**: quien envía autoriza la salida de su Personal, quien recibe
+  autoriza la entrada en el suyo, y la operación sólo existe con las dos. Nadie
+  declara que otro le ha enviado valor ni escribe en el Personal de otro sin su
+  consentimiento.
 - **Externa:** un único extremo interno. La contraparte queda fuera de los
   ámbitos de Nomey en esa operación —un participante sin usuario, o alguien que
   no ha creado la transferencia interna correspondiente—. **Afecta solo al
@@ -127,6 +143,29 @@ mismo.
 > Si crees haber recibido dinero que la otra persona no ha registrado, lo
 > reflejas en tu propio ámbito como transferencia **externa**. No se finge una
 > transferencia interna que el otro no ha creado.
+
+**Transferencia entre usuarios** (`internal_transfer`, F12): la interna entre
+dos Modos Personales, nacida de una **propuesta de transferencia** aceptada o
+de una **solicitud de pago** pagada. Sin deuda, sin estadísticas.
+**Irreversible** una vez materializada: una sola versión, ni corrección ni
+anulación; devolver es otra transferencia.
+
+**Transferencia de grupo** (`settlement_by_transfer`, F12): la propuesta
+dentro de un grupo, aceptada por el destinatario: mueve los dos Modos
+Personales **y** ajusta la deuda entre esos dos participantes en ese grupo por
+el importe completo, pudiendo cruzar cero. Distinta del pago declarado
+(«Saldado»). Irreversible igual.
+
+**Propuesta de transferencia:** intención **no contable** de enviar N a un
+destinatario concreto (por `@username` desde el Personal, o un participante
+del grupo). Importe, moneda y destinatario fijos; concepto opcional; 7 días;
+sin efectos hasta que el destinatario acepta; puede rechazarse, cancelarse por
+quien la creó o caducar.
+
+**Solicitud de pago:** intención **no contable** de recibir N, compartida como
+**enlace al portador**: la paga quien lo posea, una sola vez, dentro de 7 días;
+importe y moneda fijos; concepto opcional; sin destinatario previo; sin
+`declined`; nunca dentro de un grupo ni sobre una deuda.
 
 ### Ajuste
 
@@ -139,10 +178,12 @@ haberlos ganado: fuera de estadísticas.
 Extingue total o parcialmente una deuda. **No mueve saldo por definición.**
 Admite pagos parciales: pagar 30 de 100 deja 70.
 
-**Nunca supera el importe pendiente.** Sobre una deuda de 30, pagar 31 es
-inválido: el exceso no es una liquidación sino una **transferencia entre
-usuarios**. Tampoco se liquida una deuda que no existe ni en la dirección
-contraria a la existente.
+**Una liquidación unilateral nunca supera el importe pendiente.** Sobre una
+deuda de 30, pagar 31 con un pago declarado es inválido. Tampoco se liquida
+así una deuda que no existe ni en la dirección contraria a la existente.
+**Única excepción:** la **transferencia de grupo** aceptada por las dos partes
+aplica el importe completo y puede dejar la deuda invertida
+([F12/ADR-003](../adr/F12/ADR-003-group-transfers.md)).
 
 > **Transferencia ≠ liquidación.** Una mueve saldo, la otra modifica una deuda.
 > Una misma operación puede contener ambas —«pagar deuda mediante
@@ -285,13 +326,14 @@ conversión explícita, y sin ella **no hay cifra que mostrar**.
 
 ## Permisos y efectos sobre otros
 
-| Término          | Qué significa                                                         |
-| ---------------- | --------------------------------------------------------------------- |
-| **Inmediato**    | El efecto se aplica al registrarse. Es la regla general               |
-| **Atribución**   | Quién registró la operación, siempre conservado                       |
-| **Notificación** | Aviso al usuario afectado por una operación que otro registró         |
-| **Bilateral**    | Requiere acuerdo de ambas partes. **Solo el reparto final de pareja** |
-| **Emisor**       | Único que puede originar una transferencia directa entre usuarios     |
+| Término            | Qué significa                                                                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Inmediato**      | El efecto se aplica al registrarse. Es la regla general                                                                                     |
+| **Atribución**     | Quién registró la operación, siempre conservado                                                                                             |
+| **Notificación**   | Aviso al usuario afectado por una operación que otro registró                                                                               |
+| **Bilateral**      | Requiere acuerdo de ambas partes. **Solo el reparto final de pareja**                                                                       |
+| **Emisor**         | Quien autoriza la salida de su Personal en una transferencia; sin su propuesta (o su pago de una solicitud) nadie puede provocar esa salida |
+| **Dos voluntades** | Una transferencia entre usuarios existe sólo cuando una parte la autoriza desde su Personal y la otra la acepta o la paga (F12)             |
 
 **Regla general:**
 
@@ -311,10 +353,13 @@ operación y de la relación entre los usuarios.
 autoría y a quién se notifica.
 
 **Excepción, por ser un primitivo sin contexto compartido:** una transferencia
-directa entre usuarios **solo la origina el emisor**. Quien recibe no puede
-declarar unilateralmente que otro le ha enviado valor y generar una salida en el
-ámbito de ese tercero. Igual al pagar una deuda: la inicia el deudor; el
-acreedor conserva «marcar deuda como saldada», que no mueve saldo.
+entre usuarios exige **dos voluntades**. Quien envía autoriza la salida de su
+Personal al proponer (o al pagar una solicitud); quien recibe autoriza la
+entrada al aceptar (o al haber solicitado). Nadie declara unilateralmente que
+otro le ha enviado valor, y nadie escribe en el Personal de otro sin su
+consentimiento. La transferencia dentro de un grupo sigue la misma regla
+porque escribe en los dos Personales; el pago declarado («Saldado») y el gasto
+de grupo siguen siendo inmediatos.
 
 La protección está en cinco capas: **permisos del ámbito · atribución ·
 historial · notificación · corrección**.

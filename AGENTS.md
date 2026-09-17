@@ -546,10 +546,72 @@ boundary) closed on 2026-08-27, Phase 5 (identity and session) on 2026-08-28,
 Phase 6 (Modo Personal) on 2026-09-03, Phase 7 (quick entry, offline and sync)
 on 2026-09-04, Phase 9 (groups, shared expenses and debts) on 2026-09-14 —
 validated on an iPhone (Expo Go) and the Android emulator — and Phase 10
-(identity lifecycle) on 2026-09-16, validated on an iPhone. **48 of the 49
-ADRs of phases F00–F11 are accepted** (F00/ADR-001 is still Proposed; see
+(identity lifecycle) on 2026-09-16, validated on an iPhone. **52 of the 53
+ADRs of phases F00–F12 are accepted** (F00/ADR-001 is still Proposed; see
 `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a real local
 Supabase stack.
+
+**Phase 12 is OPEN (2026-09-17) and only F12.A0 is closed: four accepted ADRs
+and no implementation at all.** The original scope was reconciled against the
+repository — `shares`/`exact_amounts`, eligibility on correction, departed
+participants and residual access were already done or closed by F9/F10 — and
+what remains is one product idea with four contracts, none of which exists in
+the code yet ([`docs/adr/F12/`](docs/adr/F12/README.md); roadmap, Fase 12):
+
+- **Username** ([F12/ADR-001](docs/adr/F12/ADR-001-username-public-account-identity.md)):
+  a public, unique, resolvable account attribute in its own `core` relation
+  (never Auth metadata); `^[a-z](_?[a-z0-9])*$`, 3–20, ASCII; 25 exact
+  reserved names and 4 prefixes; **reserved in the same GoTrue transaction as
+  the sign-up** by the `before_user_created` hook (one `SECURITY DEFINER`
+  function in `sec`, the only privilege `supabase_auth_admin` gets — a
+  measured, guarded precision of F03/ADR-003; no RPC for `anon`, no Edge
+  Function, no trigger on `auth.users`); 7-day provisional reservation that
+  expires when `claimed_at` is null **without reading Auth**; claim on the
+  first authenticated cycle; change with a 30-day cooldown and 90-day hold;
+  `public_name` in `core`; exact resolution throttled at 20 lookups / 10 min;
+  and every history row resolves **`uid → current public identity`** — no
+  username is ever persisted in an operation or resolved backwards.
+- **Transfers between users need two wills** ([F12/ADR-002](docs/adr/F12/ADR-002-two-will-user-transfers.md)):
+  Nomey moves no real money, and the username makes reach global, so nobody
+  may write into another Personal without its owner. `Personal → + →
+Transferencia → @username` creates a **directed proposal** (non-accounting
+  intent: fixed amount, currency and target; no effects; 7 days;
+  `pending → accepted | declined | cancelled | expired`); only acceptance
+  creates the `internal_transfer` (−N / +N), which is **irreversible**: exactly
+  one `record` version, no correction, no annulment; refunds are new
+  transfers. `operation.created_by` is **whoever materialises** (the
+  receiver); sender and receiver live in **per-version parts**, never derived
+  from `created_by`; the `created_by = actor` policies are not relaxed.
+  Invariant 14 is precised: "originate" = authorise one's own outflow by
+  proposal. 3 pending per pair, 10 proposals/hour per sender. This supersedes
+  the F3 contract of `record_internal_transfer` (measured: it still allows a
+  unilateral correction and nobody can annul it).
+- **Transfer inside a group** ([F12/ADR-003](docs/adr/F12/ADR-003-group-transfers.md)):
+  `Grupo → + → Transferencia → participante` (active, linked, same group)
+  proposes; acceptance creates a `settlement_by_transfer`: `transfer ∓N` in
+  both Personals plus `settlement −N` on the pair **for the full amount,
+  crossing zero** (78 owed + 80 sent → the creditor now owes 2). This
+  supersedes `data-model.md` §3's overpayment rule **only** for this
+  two-will class; `group_payment` («Saldado») and `record_debt_settlement`
+  keep their cap. Leaving the group invalidates a **pending** proposal
+  (derived from `core.group_departure` inside the window, `leave_group`
+  untouched, never a terminal one, never revived by rejoining). Offered only
+  from `+`, never from Pagos sugeridos.
+- **Payment requests by link** ([F12/ADR-004](docs/adr/F12/ADR-004-payment-request-links.md)):
+  a **bearer capability** (opaque token, hash only, invitation pattern) with
+  fixed amount and currency, concept on the request, **single use**, 7 days,
+  no `declined`, cancellable by the creator, throttled preview, at most 20
+  own pending requests; paying it creates an `internal_transfer` from the
+  payer to the requester, and `paid` is forever. No group, no debt.
+- **Out of F12:** device contacts, phone, SMS/OTP, e-mail search, real bank
+  transfers, Open Banking, cards, shared pots, loans, advances, scheduled
+  payments, multi-transfers, requests inside a group, transfers to
+  non-existent accounts, new FX, Unicode usernames, Modo Pareja (F13,
+  foreseeably deferred until after launch, still in the model and roadmap).
+- **Alongside F11:** F12 recreates none of the functions F11 recreates
+  (`record_personal_*`, `record_group_expense`, `api.personal_operation`,
+  statistics) and publishes its rows through its own surfaces until F11.C
+  closes; transfers do not convert (F11/ADR-001 §4).
 
 **Phase 10 is CLOSED** (opened 2026-09-14, closed 2026-09-16) — the lifecycle
 of the account ↔ participant link, under the principle that **no account
@@ -909,6 +971,13 @@ a write boundary must stay under it (E16). Do not unify them.
   conflated them were corrected.
 - **Create and correct share a function**, distinguished by `operation_id` +
   `expected_version_id` in the payload and by `command_type` for idempotency.
+  **Two classes are the exception by decision, not yet by code:** from F12
+  (F12/ADR-002, F12/ADR-003) an `internal_transfer` and a
+  `settlement_by_transfer` have exactly one `record` version, born from an
+  accepted proposal or a paid request, and admit neither correction nor
+  annulment. Until F12.B lands, `record_internal_transfer` and
+  `record_settlement_by_transfer` still carry their F3 contract in the
+  catalogue; do not build on it.
 - **Claim the idempotency key before the CAS** (F03/ADR-008 §13), and authorize
   after the claim (F03/ADR-007 §5). A replay never re-derives, re-authorizes or
   creates a version.
