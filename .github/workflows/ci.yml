@@ -384,6 +384,17 @@ jobs:
       - name: FX catalogue and curated coverage
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/fx-catalog.sql
 
+      # FX ingest and daily fixation (F11/ADR-002; migration 20260920120000),
+      # on fixture sources only: every completeness condition recorded with its
+      # reason, one fixation per day from 00:00 Europe/Berlin, versions and
+      # amendments, and the 36 cases of tests/vectors/fx-day.json reproduced by
+      # the fixation. Through the vector prelude, hence `shell: bash`.
+      - name: FX ingest and daily fixation
+        shell: bash
+        run: |
+          { ./scripts/vectors-prelude.sh ; cat supabase/checks/fx-ingest.sql ; } \
+            | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
       # Real concurrency. A single psql session has none, so the debt
       # serialization protocol of F03/ADR-010 §11 cannot be proven by a check: this
       # opens simultaneous sessions, the way E15-C did. It runs LAST because it
@@ -437,6 +448,13 @@ jobs:
       # no partial write, not even its idempotency key.
       - name: Departed obligation races (real sessions)
         run: bash scripts/departed-obligation-race-evidence.sh
+
+      # Two ingests of the same source at once (F11/ADR-002 §4): the second
+      # waits on the per-source advisory lock and fixes nothing already fixed,
+      # whether it brings the same document or a different one. Fixture source
+      # only; its rows are removed afterwards.
+      - name: FX fixation races (real sessions)
+        run: bash scripts/fx-fixation-race.sh
 
       # Balance serialization. Reproduces, corrected, the two races measured in
       # supabase/e22: two concurrent target adjustments land on the target, and

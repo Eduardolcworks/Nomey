@@ -2,8 +2,9 @@
 -- CATALOGO FX Y COBERTURA CURADA · F11/ADR-001 §5 · F11/ADR-002 §5
 -- ============================================================================
 --
--- Migracion 20260919120000 (F11.B, M1). Contra el catalogo REAL, con fixtures
--- propias y ROLLBACK. Lo que se afirma:
+-- Migracion 20260919120000 (F11.B, M1); lo que 20260920120000 (M2) anade al
+-- rol de ingesta se comprueba aqui tambien. Contra el catalogo REAL, con
+-- fixtures propias y ROLLBACK. Lo que se afirma:
 --
 --   A · catalogo y privilegios: RLS, rol de ingesta, ninguna escritura de
 --       aplicacion, ninguna superficie nueva, y las guardas de conversion y de
@@ -78,7 +79,8 @@ begin
   end if;
 
   -- A2 · el rol de ingesta: NOLOGIN, NOBYPASSRLS, sin poderes, sin heredar
-  --      ningun otro rol y sin poseer nada.
+  --      ningun otro rol, sin poseer tablas, y como unicas funciones propias
+  --      las dos de la ingesta (20260920120000).
   if not exists (select 1 from pg_roles
                   where rolname = 'nomey_fx_ingest'
                     and not rolcanlogin and not rolbypassrls and not rolsuper
@@ -90,9 +92,13 @@ begin
     fallos := array_append(fallos, 'A2b nomey_fx_ingest es miembro de otro rol');
   end if;
   select count(*) into v_n from pg_class where relowner = 'nomey_fx_ingest'::regrole;
-  v_n := v_n + (select count(*) from pg_proc where proowner = 'nomey_fx_ingest'::regrole);
   if v_n <> 0 then
-    fallos := array_append(fallos, format('A2c nomey_fx_ingest posee %s objetos', v_n));
+    fallos := array_append(fallos, format('A2c nomey_fx_ingest posee %s relaciones', v_n));
+  end if;
+  select string_agg(p.oid::regprocedure::text, ',' order by p.oid::regprocedure::text collate "C") into v_t
+    from pg_proc p where p.proowner = 'nomey_fx_ingest'::regrole;
+  if v_t is distinct from 'sec.fx_ingest(text,jsonb),sec.fx_ingest_at(text,text,jsonb,timestamp with time zone)' then
+    fallos := array_append(fallos, 'A2d funciones de nomey_fx_ingest: ' || coalesce(v_t, 'ninguna'));
   end if;
 
   -- A3 · privilegios de tabla EXACTOS sobre las dos tablas, para todo rol que
@@ -152,15 +158,16 @@ begin
   end if;
 
   -- A5 · el rol de ingesta: de los schemas de Nomey y de Supabase, USAGE solo
-  --      sobre core (public y extensions son de PUBLIC por defecto y no
-  --      contienen nada de Nomey); SELECT solo sobre las dos tablas; ninguna
-  --      funcion de Nomey ejecutable.
+  --      sobre core y sec (public y extensions son de PUBLIC por defecto y no
+  --      contienen nada de Nomey); del catalogo, solo SELECT, y del resto solo
+  --      SELECT e INSERT sobre las tablas de la ingesta; y ninguna funcion de
+  --      Nomey ejecutable salvo las suyas.
   select string_agg(s, ',' order by s) into v_t
     from unnest(array['core','sec','api','auth','storage','graphql_public']) s
    where exists (select 1 from pg_namespace where nspname = s)
      and (has_schema_privilege('nomey_fx_ingest', s, 'USAGE')
           or has_schema_privilege('nomey_fx_ingest', s, 'CREATE'));
-  if v_t is distinct from 'core' then
+  if v_t is distinct from 'core,sec' then
     fallos := array_append(fallos, 'A5 schemas de la ingesta: ' || coalesce(v_t, 'ninguno'));
   end if;
   select string_agg(n.nspname || '.' || c.relname || '=' || a.privilege_type, ','
@@ -169,19 +176,28 @@ begin
     from pg_class c join pg_namespace n on n.oid = c.relnamespace
     cross join lateral aclexplode(c.relacl) a
    where a.grantee = 'nomey_fx_ingest'::regrole;
-  if v_t is distinct from 'core.fx_coverage=SELECT,core.fx_source=SELECT' then
+  if v_t is distinct from
+     'core.fx_coverage=SELECT,core.fx_day=INSERT,core.fx_day=SELECT,'
+     'core.fx_day_rate=INSERT,core.fx_day_rate=SELECT,'
+     'core.fx_observation=INSERT,core.fx_observation=SELECT,'
+     'core.fx_observation_publication=INSERT,core.fx_observation_publication=SELECT,'
+     'core.fx_publication=INSERT,core.fx_publication=SELECT,'
+     'core.fx_publication_rate=INSERT,core.fx_publication_rate=SELECT,'
+     'core.fx_source=SELECT' then
     fallos := array_append(fallos, 'A5b privilegios de la ingesta: ' || coalesce(v_t, 'ninguno'));
   end if;
   select count(*) into v_n
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname in ('core', 'sec', 'api')
+     and p.proowner <> 'nomey_fx_ingest'::regrole
      and has_function_privilege('nomey_fx_ingest', p.oid, 'EXECUTE');
   if v_n <> 0 then
-    fallos := array_append(fallos, format('A5c la ingesta puede ejecutar %s funciones de Nomey', v_n));
+    fallos := array_append(fallos, format('A5c la ingesta puede ejecutar %s funciones ajenas de Nomey', v_n));
   end if;
 
   -- A6 · ninguna superficie nueva: la escritura sigue siendo las 9 funciones
-  --      record_*, nada de api nombra FX, y nada lee todavia el catalogo FX.
+  --      record_*, nada de api nombra FX, y el catalogo FX solo lo lee la
+  --      ingesta.
   select count(*) into v_n
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.proname like 'record\_%';
@@ -198,15 +214,19 @@ begin
   if v_n <> 0 then
     fallos := array_append(fallos, format('A6b hay %s objetos de api que nombran FX', v_n));
   end if;
-  select count(*) into v_n
+  select string_agg(p.oid::regprocedure::text, ',' order by p.oid::regprocedure::text collate "C") into v_t
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname in ('api', 'sec', 'core')
      and (p.prosrc like '%fx\_source%' or p.prosrc like '%fx\_coverage%');
-  v_n := v_n + (select count(*) from pg_depend d
-                 where d.refobjid in ('core.fx_source'::regclass, 'core.fx_coverage'::regclass)
-                   and d.classid = 'pg_rewrite'::regclass);
+  if v_t is distinct from 'sec.fx_coverage_keeps_fixations(),'
+                          'sec.fx_ingest_at(text,text,jsonb,timestamp with time zone)' then
+    fallos := array_append(fallos, 'A6c funciones que leen el catalogo FX: ' || coalesce(v_t, 'ninguna'));
+  end if;
+  select count(*) into v_n from pg_depend d
+   where d.refobjid in ('core.fx_source'::regclass, 'core.fx_coverage'::regclass)
+     and d.classid = 'pg_rewrite'::regclass;
   if v_n <> 0 then
-    fallos := array_append(fallos, format('A6c %s funciones o vistas leen ya el catalogo FX', v_n));
+    fallos := array_append(fallos, format('A6d %s vistas leen el catalogo FX', v_n));
   end if;
 
   -- A7 · la conversion congelada sigue sin ruta: el writer no recupero INSERT,
@@ -223,11 +243,14 @@ begin
     fallos := array_append(fallos, format('A7c frozen_conversion tiene %s policies de INSERT y deberia tener 1', v_n));
   end if;
 
-  -- A8 · la integridad la dan constraints, no triggers.
-  select count(*) into v_n from pg_trigger
-   where tgrelid in ('core.fx_source'::regclass, 'core.fx_coverage'::regclass) and not tgisinternal;
-  if v_n <> 0 then
-    fallos := array_append(fallos, format('A8 hay %s triggers en el catalogo FX', v_n));
+  -- A8 · la integridad la dan constraints, con UNA excepcion razonada: la
+  --      guarda de F11/ADR-002 §5 (20260920120000 §3) cruza la cobertura y las
+  --      fijaciones, y ninguna constraint puede expresar eso.
+  select string_agg(c.relname || ':' || t.tgname, ',' order by c.relname) into v_t
+    from pg_trigger t join pg_class c on c.oid = t.tgrelid
+   where t.tgrelid in ('core.fx_source'::regclass, 'core.fx_coverage'::regclass) and not t.tgisinternal;
+  if v_t is distinct from 'fx_coverage:fx_coverage_respeta_fijaciones' then
+    fallos := array_append(fallos, 'A8 triggers del catalogo FX: ' || coalesce(v_t, 'ninguno'));
   end if;
   select string_agg(conname || ':' || contype::text, ',' order by conname) into v_t
     from pg_constraint
