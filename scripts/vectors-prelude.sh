@@ -24,7 +24,7 @@ cd "$(dirname "$0")/.."
 
 echo 'create temporary table vector_doc (name text primary key, doc jsonb);'
 
-for name in scenarios split conversion rounding display-names; do
+for name in scenarios split conversion rounding display-names username; do
   printf "insert into vector_doc values ('%s', \$VEC\$" "$name"
   cat "tests/vectors/${name}.json"
   printf '$VEC$::jsonb);\n'

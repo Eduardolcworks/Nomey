@@ -372,6 +372,21 @@ jobs:
       - name: Merge invariant checks
         run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/merge-invariants.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
 
+      # Username (F12/ADR-001, F12.A1): the shared syntax vectors reproduced by
+      # sec.normalize_handle / sec.assert_handle_valid and the seeded reserved
+      # names; reserve/claim/change/set_public_name/resolve against the real
+      # functions as each account (normal and anonymous claim); 7-day reservation
+      # expiry without reading Auth, lazy eviction, 30-day cooldown, 90-day hold,
+      # recovery by the old owner, resolver states and its 20/10 min throttle;
+      # owners (all nomey_provisioner, none postgres), grants, own-row RLS,
+      # insert-only journal, supabase_auth_admin still without anything in sec.
+      # Piped through the vector prelude, like the writer checks.
+      - name: Username checks
+        shell: bash
+        run: |
+          { ./scripts/vectors-prelude.sh ; cat supabase/checks/username.sql ; } \
+            | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
       # Oversettlement guards refuse only what a correction or annulment
       # worsens (pair oriented by its settlements); the canonical
       # 5000/4000 → 3000 example still refuses.
@@ -452,6 +467,15 @@ jobs:
       # scope lock, and the instants reflect the serial order.
       - name: Personal start races (real sessions)
         run: bash scripts/personal-start-race-evidence.sh
+
+      # The username lifecycle as two real sessions (F12/ADR-001, F12.A1): two
+      # changes of the same account (the second waits and sees the cooldown),
+      # a guest reservation vs a normal account asking for the same handle, a
+      # claim racing the eviction of its expired reservation, and two accounts
+      # asking for one handle. The unique index and the identity lock decide;
+      # nobody ends up with two live handles.
+      - name: Username races (real sessions)
+        run: bash scripts/username-race-evidence.sh
 
       # Balance serialization. Reproduces, corrected, the two races measured in
       # supabase/e22: two concurrent target adjustments land on the target, and
