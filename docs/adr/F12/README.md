@@ -77,6 +77,49 @@ Los cuatro son los previstos por la apertura de la fase; ninguno más está
 previsto ni reservado. Un ADR nuevo toma el siguiente número libre al
 redactarse.
 
+## Notas posteriores
+
+Los ADR aceptados no se editan; lo que la implementación precisa se anota
+aquí, con fecha, y el bloque que lo fija se cita. Ninguna nota cambia el
+contrato de producto: acotan cómo se materializa.
+
+- **F12/ADR-001 §2 y §10 — dónde vive `public_name` (F12.A1, 2026-09-17).**
+  El nombre público no va «en la misma fila» del handle: vive en una relación
+  1:1 con la cuenta, `core.account_identity` (`user_id`, `public_name`,
+  `handle_changed_at`), y `core.account_handle` lleva sólo el handle y sus
+  marcas. Un handle no guarda instantáneas del nombre, y el cooldown de §9 se
+  mide sobre la identidad, no sobre una fila de handle. El historial de
+  handles que §2 y §9 exigen conservar vive en un diario insert-only,
+  `core.account_handle_event`; la fila viva de una reserva caducada o de una
+  retención vencida se desaloja perezosamente (§6, §9) y el diario la
+  recuerda. Migración `20260921120000`; `supabase/checks/username.sql` A, D4, E.
+- **F12/ADR-001 §7 y §8 — sesión anónima y códigos (F12.A1, 2026-09-17).**
+  `api.reserve_username` admite una sesión anónima **sólo para reservar**
+  (reserva provisional de 7 días), que es lo que necesita Invitado → cuenta en
+  el cliente (F12.A3) sin abrir nada más al invitado; reclamar, cambiar,
+  poner nombre y resolver con sesión anónima se rehúsan con
+  `NOT_AUTHORIZED · 403`. Una cuenta normal que reserva reclama en el acto.
+  Los códigos se acotan: **no existen** `USERNAME_RESERVATION_EXPIRED`,
+  `USERNAME_GUEST_NOT_ALLOWED` ni `USERNAME_ALREADY_SET`. Reclamar con la
+  reserva caducada o sin reserva responde `USERNAME_REQUIRED · 409` (la app
+  enseña el gate en los dos casos); reclamar lo ya definitivo devuelve el
+  estado sin error (idempotente por estado); una reserva propia viva se
+  sustituye por la nueva. Los códigos de F12.A1 son exactamente
+  `USERNAME_INVALID · 400`, `USERNAME_RESERVED · 422`, `USERNAME_TAKEN · 409`,
+  `USERNAME_REQUIRED · 409`, `USERNAME_CHANGE_COOLDOWN · 409`
+  (`details.available_at`), más `NOT_AUTHORIZED` y `PAYLOAD_INVALID`.
+  `username.sql` C, D; `http-boundary-check.sh` §16.
+- **F12/ADR-001 §11 y §14 — el resolver exige username propio, y es del
+  provisioner (F12.A1, 2026-09-17).** `api.resolve_username` sólo responde a
+  una cuenta normal **con handle definitivo** (`USERNAME_REQUIRED · 409` si
+  no): quien no puede recibir no pregunta, y el oráculo de existencia queda
+  detrás de una cuenta confirmada con identidad pública. Es `SECURITY
+DEFINER` de `nomey_provisioner` —no de `postgres` como decía §11— bajo una
+  política de `SELECT` con `USING (true)` del provisioner sobre identidades
+  y handles, medida: ninguna función nueva de F12 es de `postgres` ni cruza
+  RLS por propiedad. `sec.public_identity(uid)` (§13) sigue la misma regla y
+  sólo la ejecutan el writer y el provisioner. `username.sql` A2, F, G3.
+
 ## Decisiones de otras fases que esta fase aplica
 
 Las transferencias de F12 son distintas del pago declarado de F09/ADR-007 §2:

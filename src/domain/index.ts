@@ -46,3 +46,13 @@ export type { DebtSettlementInput, GroupExpenseInput, PayerCashMovement } from '
 export { deriveBalance, deriveEconomicTotal, deriveParticipantExpense } from './effects/balance';
 export type { Debt } from './effects/debt';
 export { deriveDebts, netDebtPosition } from './effects/debt';
+
+export type { HandleValidation, UsernameProblem } from './username/handle';
+export {
+  HANDLE_MAX_LENGTH,
+  HANDLE_MIN_LENGTH,
+  HANDLE_SHAPE,
+  normalizeHandle,
+  validateHandle,
+} from './username/handle';
+export { RESERVED_HANDLE_PREFIXES, RESERVED_HANDLES, isReservedHandle } from './username/reserved';

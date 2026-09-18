@@ -225,6 +225,12 @@ retirar() {
   "${DB[@]}" -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 set constraints all deferred;
+-- F12/ADR-001 (20260921120000): la identidad publica de estos actores y el
+-- diario de sus handles (seccion 16).
+delete from core.account_handle_event where user_id in (${ACTORES}) or actor_user_id in (${ACTORES});
+delete from core.username_lookup_attempt where user_id in (${ACTORES});
+delete from core.account_handle where user_id in (${ACTORES});
+delete from core.account_identity where user_id in (${ACTORES});
 delete from core.client_command where created_by in (${ACTORES});
 -- Avisos del grupo, antes que el ambito que referencian.
 delete from core.group_notice where scope_id in (${MIOS});
@@ -1623,6 +1629,120 @@ else
   [ "${v}" = "ok" ] && ok "una cuenta normal: sin marca, sin decision, sin pregunta" || fallo "personal_scope de A: ${v}"
 fi
 
+# ============================================================================
+echo ""
+echo "== 16 · el username por HTTP con JWT real (F12/ADR-001, F12.A1) =="
+# Lo que solo la ruta real demuestra: que las cinco funciones del provisioner
+# responden por PostgREST con el JWT real, que los codigos viajan con su
+# estado, que un JWT ANONIMO real (is_anonymous en el token) reserva y no
+# reclama, que la vista propia es solo la fila propia, y que el resolver
+# devuelve estados, nunca un identificador interno. Sin hook de alta: eso es
+# F12.A2, y aqui nadie se registra con username.
+r16() { # $1 nombre, $2 fn, $3 tok, $4 body (ya con el parametro), $5 estado esperado
+  local rr ee cc
+  rr=$(rpc "$2" "$3" "$4"); ee=$(estado_de "${rr}"); cc=$(cuerpo_de "${rr}")
+  ULTIMO_CUERPO="${cc}"
+  [ "${ee}" = "$5" ] && ok "$1: ${ee}" || fallo "$1 devolvio ${ee} y se esperaba $5: ${cc}"
+}
+estado16() { printf '%s' "${ULTIMO_CUERPO}" | jarr 'a.length===1 ? (a[0].handle||"-")+"|"+(a[0].state||"-")+"|"+(a[0].reserved_until?"until":"-")+"|"+(a[0].can_change_at?"can":"-") : JSON.stringify(a)'; }
+codigo16() { printf '%s' "${ULTIMO_CUERPO}" | jget code; }
+
+# A reserva: cuenta normal → reclamado en el acto; repetir devuelve el estado.
+r16 "reserve_username como A" reserve_username "${TOK_A}" '{"payload":{"handle":" @Http_Ana ","public_name":"Ana"}}' 200
+[ "$(estado16)" = "http_ana|claimed|-|can" ] && ok "A: http_ana definitivo, sin reserva provisional" || fallo "estado de A: $(estado16)"
+r16 "reserve_username otra vez (idempotente)" reserve_username "${TOK_A}" '{"payload":{"handle":"http_ana"}}' 200
+[ "$(estado16)" = "http_ana|claimed|-|can" ] && ok "A: el mismo estado" || fallo "estado de A tras repetir: $(estado16)"
+v=$("${DBQ[@]}" -c "select count(*) from core.account_handle_event e join auth.users u on u.id = e.user_id where u.email = '${EMAIL_A}';" | tr -d '[:space:]')
+[ "${v}" = "2" ] && ok "A: dos eventos (reserved, claimed) y ninguno por repetir" || fallo "eventos de A tras repetir: ${v}"
+r16 "A pide OTRO handle desde reserve" reserve_username "${TOK_A}" '{"payload":{"handle":"http_ana_otra"}}' 400
+[ "$(codigo16)" = "PAYLOAD_INVALID" ] && ok "con definitivo, otro handle no es reservar: PAYLOAD_INVALID · 400 (change_username es el comando)" || fallo "codigo: $(codigo16)"
+v=$(curl -s "${API}/rest/v1/my_account_handle?select=handle" "${GA[@]}" | jarr 'a.length===1 && a[0].handle==="http_ana" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "A sigue con http_ana" || fallo "vista de A tras el rechazo: ${v}"
+# Los codigos, con su estado HTTP.
+r16 "B pide el de A" reserve_username "${TOK_B}" '{"payload":{"handle":"HTTP_ANA","public_name":"Bea"}}' 409
+[ "$(codigo16)" = "USERNAME_TAKEN" ] && ok "USERNAME_TAKEN · 409" || fallo "codigo: $(codigo16)"
+r16 "B pide uno reservado" reserve_username "${TOK_B}" '{"payload":{"handle":"admin_b","public_name":"Bea"}}' 422
+[ "$(codigo16)" = "USERNAME_RESERVED" ] && ok "USERNAME_RESERVED · 422" || fallo "codigo: $(codigo16)"
+r16 "B pide uno invalido" reserve_username "${TOK_B}" '{"payload":{"handle":"b","public_name":"Bea"}}' 400
+[ "$(codigo16)" = "USERNAME_INVALID" ] && ok "USERNAME_INVALID · 400" || fallo "codigo: $(codigo16)"
+r16 "B sin public_name la primera vez" reserve_username "${TOK_B}" '{"payload":{"handle":"http_bea"}}' 400
+[ "$(codigo16)" = "PAYLOAD_INVALID" ] && ok "PAYLOAD_INVALID · 400" || fallo "codigo: $(codigo16)"
+r16 "B resuelve sin tener username" resolve_username "${TOK_B}" '{"p_handle":"http_ana"}' 409
+[ "$(codigo16)" = "USERNAME_REQUIRED" ] && ok "USERNAME_REQUIRED · 409" || fallo "codigo: $(codigo16)"
+r16 "B reclama sin nada" claim_username "${TOK_B}" '{}' 409
+[ "$(codigo16)" = "USERNAME_REQUIRED" ] && ok "claim sin reserva: USERNAME_REQUIRED · 409" || fallo "codigo: $(codigo16)"
+r16 "B reserva el suyo" reserve_username "${TOK_B}" '{"payload":{"handle":"http_bea","public_name":"Bea"}}' 200
+[ "$(estado16)" = "http_bea|claimed|-|can" ] && ok "B: http_bea definitivo" || fallo "estado de B: $(estado16)"
+# Cambio y cooldown.
+r16 "A cambia" change_username "${TOK_A}" '{"payload":{"handle":"http_ana2"}}' 200
+[ "$(estado16)" = "http_ana2|claimed|-|can" ] && ok "A: http_ana2; http_ana queda retenido" || fallo "estado de A tras cambiar: $(estado16)"
+r16 "A cambia otra vez" change_username "${TOK_A}" '{"payload":{"handle":"http_ana3"}}' 409
+v=$(printf '%s' "${ULTIMO_CUERPO}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const e=JSON.parse(s);let d={};try{d=JSON.parse(e.details)}catch{};console.log(e.code==="USERNAME_CHANGE_COOLDOWN"&&typeof d.available_at==="string"?"ok":JSON.stringify(e))})')
+[ "${v}" = "ok" ] && ok "USERNAME_CHANGE_COOLDOWN · 409 con details.available_at" || fallo "cooldown: ${v}"
+r16 "B pide el retenido de A" change_username "${TOK_B}" '{"payload":{"handle":"http_ana"}}' 409
+[ "$(codigo16)" = "USERNAME_TAKEN" ] && ok "el retenido no se toma: USERNAME_TAKEN" || fallo "codigo: $(codigo16)"
+# Nombre publico.
+r16 "A pone nombre publico" set_public_name "${TOK_A}" '{"payload":{"public_name":"  Ana   HTTP "}}' 200
+v=$(printf '%s' "${ULTIMO_CUERPO}" | jarr 'a.length===1 && a[0].public_name==="Ana HTTP" && a[0].handle==="http_ana2" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "public_name canonico junto al handle" || fallo "set_public_name: ${v}"
+# El resolver: estados, y ni un identificador interno.
+r16 "B resuelve a A" resolve_username "${TOK_B}" '{"p_handle":"@Http_Ana2"}' 200
+v=$(printf '%s' "${ULTIMO_CUERPO}" | jarr 'a.length===1 && a[0].state==="found" && a[0].handle==="http_ana2" && a[0].public_name==="Ana HTTP" && Object.keys(a[0]).sort().join(",")==="handle,public_name,state" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "found · http_ana2 · Ana HTTP; solo state, handle y public_name" || fallo "resolve found: ${v}"
+r16 "B resuelve el retenido" resolve_username "${TOK_B}" '{"p_handle":"http_ana"}' 200
+v=$(printf '%s' "${ULTIMO_CUERPO}" | jarr 'a.length===1 && a[0].state==="not_found" && a[0].handle===null ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "retenido: not_found" || fallo "resolve retenido: ${v}"
+r16 "B se resuelve" resolve_username "${TOK_B}" '{"p_handle":"http_bea"}' 200
+v=$(printf '%s' "${ULTIMO_CUERPO}" | jarr 'a.length===1 && a[0].state==="self" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "self" || fallo "resolve self: ${v}"
+# El freno: 20 consultas que cuentan en 10 minutos; la siguiente es throttled, con 200.
+n=0; est=""
+while [ "${n}" -lt 30 ]; do
+  n=$((n + 1))
+  rr=$(rpc resolve_username "${TOK_B}" "{\"p_handle\":\"nadie_${n}\"}")
+  est=$(cuerpo_de "${rr}" | jarr 'a.length===1 ? a[0].state : "err"')
+  [ "${est}" = "throttled" ] && break
+done
+# B ya habia consumido 2 (found + not_found): la 19.a de este bucle es la 21.a y frena.
+[ "${est}" = "throttled" ] && [ "${n}" -eq 19 ] && ok "throttled tras 20 consultas que cuentan (la ${n}.a del bucle), con 200" || fallo "freno: estado ${est} en la consulta ${n}"
+v=$("${DBQ[@]}" -c "select count(*) from core.username_lookup_attempt a join auth.users u on u.id = a.user_id where u.email = '${EMAIL_B}';" | tr -d '[:space:]')
+[ "${v}" = "20" ] && ok "20 apuntes de B, y ninguno mas al frenar" || fallo "apuntes de B: ${v}"
+v=$("${DBQ[@]}" -c "select string_agg(column_name, ',' order by column_name) from information_schema.columns where table_schema='core' and table_name='username_lookup_attempt';" | tr -d '[:space:]')
+[ "${v}" = "attempted_at,user_id" ] && ok "el apunte guarda quien y cuando, nunca lo consultado" || fallo "columnas del apunte: ${v}"
+# La vista propia.
+v=$(curl -s "${API}/rest/v1/my_account_handle?select=handle,public_name,state,reserved_until,can_change_at" "${GA[@]}" | jarr 'a.length===1 && a[0].handle==="http_ana2" && a[0].state==="claimed" && a[0].public_name==="Ana HTTP" && a[0].reserved_until===null && a[0].can_change_at!==null ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "my_account_handle de A: su fila y solo la suya" || fallo "vista de A: ${v}"
+v=$(curl -s "${API}/rest/v1/my_account_handle?select=handle" "${GB[@]}" | jarr 'a.length===1 && a[0].handle==="http_bea" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "my_account_handle de B: la suya" || fallo "vista de B: ${v}"
+v=$(curl -s -o /dev/null -w '%{http_code}' "${API}/rest/v1/my_account_handle" -H "apikey: ${KEY}")
+[ "${v}" != "200" ] && ok "sin JWT la vista no responde 200 (${v})" || fallo "la vista respondio 200 sin JWT"
+# El invitado REAL (JWT anonimo del segundo invitado de §14): reserva, y nada mas.
+if [ -n "${TOK_G3:-}" ]; then
+  r16 "invitado reserva" reserve_username "${TOK_G3}" '{"payload":{"handle":"http_guest","public_name":"Invitado"}}' 200
+  [ "$(estado16)" = "http_guest|reserved|until|-" ] && ok "invitado: reserva provisional con reserved_until, sin reclamar" || fallo "estado del invitado: $(estado16)"
+  r16 "invitado reclama" claim_username "${TOK_G3}" '{}' 403
+  [ "$(codigo16)" = "NOT_AUTHORIZED" ] && ok "claim anonimo: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo16)"
+  r16 "invitado cambia" change_username "${TOK_G3}" '{"payload":{"handle":"http_guest2"}}' 403
+  [ "$(codigo16)" = "NOT_AUTHORIZED" ] && ok "change anonimo: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo16)"
+  r16 "invitado resuelve" resolve_username "${TOK_G3}" '{"p_handle":"http_ana2"}' 403
+  [ "$(codigo16)" = "NOT_AUTHORIZED" ] && ok "resolve anonimo: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo16)"
+  r16 "invitado pone nombre" set_public_name "${TOK_G3}" '{"payload":{"public_name":"X"}}' 403
+  [ "$(codigo16)" = "NOT_AUTHORIZED" ] && ok "set_public_name anonimo: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo16)"
+  r16 "A resuelve la reserva del invitado" resolve_username "${TOK_A}" '{"p_handle":"http_guest"}' 200
+  v=$(printf '%s' "${ULTIMO_CUERPO}" | jarr 'a.length===1 && a[0].state==="not_found" ? "ok" : JSON.stringify(a)')
+  [ "${v}" = "ok" ] && ok "una reserva sin reclamar no resuelve: not_found" || fallo "resolve reserva: ${v}"
+  r16 "B pide la reserva del invitado" change_username "${TOK_B}" '{"payload":{"handle":"http_guest"}}' 409
+  [ "$(codigo16)" = "USERNAME_TAKEN" ] && ok "la reserva viva protege el handle: USERNAME_TAKEN" || fallo "codigo: $(codigo16)"
+else
+  fallo "sin JWT anonimo de la seccion 14: no se midio el invitado en §16"
+fi
+# Sin JWT, ninguna de las cinco.
+for fn in reserve_username claim_username change_username set_public_name resolve_username; do
+  rr=$(rpc "${fn}" "" '{}')
+  ee=$(estado_de "${rr}")
+  case "${ee}" in 200|201) fallo "${fn} se acepto SIN JWT (${ee})" ;; *) ok "${fn} sin JWT: ${ee}" ;; esac
+done
+
 echo "== retirada =="
 retirar
 borrar_usuarios
@@ -1651,7 +1771,9 @@ select (select count(*) from core.operation o
      + (select count(*) from core.participant where scope_id in (select id from mios))
      + (select count(*) from core.client_command
          where created_by in (select id from auth.users where email like 'nomey-http-%'))
-     + (select count(*) from auth.users where email like 'nomey-http-%');
+     + (select count(*) from auth.users where email like 'nomey-http-%')
+     + (select count(*) from core.account_handle where handle like 'http\_%')
+     + (select count(*) from core.account_handle_event where handle like 'http\_%');
 SQL
 )
 resto=$(tr -d '[:space:]' <<<"${resto}")

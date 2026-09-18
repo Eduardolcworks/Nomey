@@ -473,6 +473,16 @@ export type Database = {
           },
         ];
       };
+      my_account_handle: {
+        Row: {
+          can_change_at: string | null;
+          handle: string | null;
+          public_name: string | null;
+          reserved_until: string | null;
+          state: string | null;
+        };
+        Relationships: [];
+      };
       personal_balance: {
         Row: {
           balance_amount: string | null;
@@ -648,6 +658,26 @@ export type Database = {
     Functions: {
       annul_operation: { Args: { payload: Json }; Returns: Json };
       associate_participant: { Args: { payload: Json }; Returns: Json };
+      change_username: {
+        Args: { payload: Json };
+        Returns: {
+          can_change_at: string;
+          handle: string;
+          public_name: string;
+          reserved_until: string;
+          state: string;
+        }[];
+      };
+      claim_username: {
+        Args: never;
+        Returns: {
+          can_change_at: string;
+          handle: string;
+          public_name: string;
+          reserved_until: string;
+          state: string;
+        }[];
+      };
       claimed_dimension: {
         Args: never;
         Returns: {
@@ -744,10 +774,38 @@ export type Database = {
       record_settlement_by_transfer: { Args: { payload: Json }; Returns: Json };
       redeem_invitation: { Args: { payload: Json }; Returns: Json };
       rename_custom_category: { Args: { payload: Json }; Returns: Json };
+      reserve_username: {
+        Args: { payload: Json };
+        Returns: {
+          can_change_at: string;
+          handle: string;
+          public_name: string;
+          reserved_until: string;
+          state: string;
+        }[];
+      };
+      resolve_username: {
+        Args: { p_handle: string };
+        Returns: {
+          handle: string;
+          public_name: string;
+          state: string;
+        }[];
+      };
       retire_participant: { Args: { payload: Json }; Returns: Json };
       revoke_group_invitation: { Args: { payload: Json }; Returns: Json };
       set_custom_category_active: { Args: { payload: Json }; Returns: Json };
       set_personal_base_currency: { Args: { payload: Json }; Returns: Json };
+      set_public_name: {
+        Args: { payload: Json };
+        Returns: {
+          can_change_at: string;
+          handle: string;
+          public_name: string;
+          reserved_until: string;
+          state: string;
+        }[];
+      };
       settle_participant: { Args: { payload: Json }; Returns: Json };
       start_personal_scope: { Args: { payload: Json }; Returns: Json };
       update_group_profile: { Args: { payload: Json }; Returns: Json };
