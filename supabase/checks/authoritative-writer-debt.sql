@@ -1647,6 +1647,16 @@ declare
     'personal-M','a0000000-0000-4000-8000-0000000000d1');
   v_user_map constant jsonb := jsonb_build_object(
     'A', U1::text, 'B', U2::text, 'C', U3::text, 'D', U4::text, 'M', U4::text);
+  -- F12.B1 (20260926120000): una transferencia entre usuarios se PROPONE a un
+  -- @handle y la acepta el receptor; el handle de cada dueno de Personal.
+  v_handle_map constant jsonb := jsonb_build_object(
+    'personal-A', 'deb_a', 'personal-B', 'deb_b', 'personal-M', 'deb_m');
+  v_owner_map constant jsonb := jsonb_build_object(
+    'personal-A', U1::text, 'personal-B', U2::text, 'personal-M', U4::text);
+  -- Sus operaciones llevan la fecha del servidor al aceptar (F12/ADR-002
+  -- §21), no la del vector: se identifican por operation_id, no por fecha.
+  v_transfers uuid[];
+  v_env jsonb;
 
   v_case jsonb; v_op jsonb; v_exp jsonb;
   v_seen int := 0; v_key int := 0;
@@ -1658,6 +1668,15 @@ begin
   if to_regclass('pg_temp.vector_doc') is null then
     raise exception 'FALTA EL PROLOGO DE VECTORES: ejecuta ./scripts/vectors-prelude.sh antes de este check';
   end if;
+
+  -- Identidad publica de los duenos de los tres Personales (F12/ADR-001), por
+  -- las funciones reales: una cuenta normal reserva y reclama en el acto.
+  for v_letter in select key from jsonb_each_text(v_handle_map) loop
+    set local role authenticated;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_owner_map ->> v_letter)::text, true);
+    perform * from api.reserve_username(jsonb_build_object('handle', v_handle_map ->> v_letter, 'public_name', v_letter));
+    reset role;
+  end loop;
 
   for v_case in
     select c from jsonb_array_elements((select doc -> 'cases' from vector_doc where name = 'scenarios')) as c
@@ -1676,6 +1695,7 @@ begin
     v_group := ('a0000000-0000-4000-8000-' || lpad((900000 + v_seen)::text, 12, '0'))::uuid;
     v_expect_error := v_case ->> 'expectError';
     v_err := null;
+    v_transfers := '{}'::uuid[];
 
     -- Letras que el escenario nombra, en cualquier papel.
     select array_agg(distinct l) into v_letters from (
@@ -1776,12 +1796,18 @@ begin
             fallos := array_append(fallos, format(
               'J/%s: los dos extremos llevan importes distintos y 3.C no soporta conversion', v_case ->> 'id'));
           end if;
-          perform api.record_internal_transfer(jsonb_build_object(
-            'client_operation_id', ('70000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
-            'command_contract_version', 1, 'effective_date', v_fecha::text,
-            'from_scope_id', v_scope_map ->> (v_op ->> 'fromScope'),
-            'to_scope_id',   v_scope_map ->> (v_op ->> 'toScope'),
+          -- Dos voluntades (F12/ADR-002): el dueno del ambito de salida propone
+          -- al handle del dueno del de entrada, y este acepta.
+          v_env := api.create_transfer_proposal(jsonb_build_object(
+            'client_command_id', ('70000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
+            'command_contract_version', 1,
+            'handle', v_handle_map ->> (v_op ->> 'toScope'),
             'amount', v_op ->> 'fromAmount', 'currency_definition_id', EUR::text));
+          perform set_config('request.jwt.claims', json_build_object('sub', v_owner_map ->> (v_op ->> 'toScope'))::text, true);
+          v_env := api.record_internal_transfer(jsonb_build_object(
+            'client_operation_id', ('70000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
+            'command_contract_version', 1, 'proposal_id', v_env ->> 'proposal_id'));
+          v_transfers := v_transfers || (v_env ->> 'operation_id')::uuid;
 
         elsif v_kind = 'groupExpense' then
           perform api.record_group_expense(jsonb_build_object(
@@ -1868,8 +1894,10 @@ begin
       select coalesce(sum(e.balance_amount), 0) into v_got
         from core.current_effect e
         join core.operation_version ov on ov.id = e.operation_version_id
+        join core.operation o on o.id = ov.operation_id
        where e.scope_id = coalesce((v_scope_map ->> (v_exp ->> 'scope'))::uuid, v_group)
-         and ov.effective_date = v_fecha;
+         and ((ov.effective_date = v_fecha and o.operation_class <> 'internal_transfer')
+              or ov.operation_id = any(v_transfers));
       if v_got <> v_want then
         fallos := array_append(fallos, format('J/%s: saldo de %s = %s y el vector espera %s',
           v_case ->> 'id', v_exp ->> 'scope', v_got, v_want));
@@ -1881,9 +1909,11 @@ begin
       select coalesce(sum(e.economic_amount), 0) into v_got
         from core.current_effect e
         join core.operation_version ov on ov.id = e.operation_version_id
+        join core.operation o on o.id = ov.operation_id
        where e.scope_id = coalesce((v_scope_map ->> (v_exp ->> 'scope'))::uuid, v_group)
          and e.accounting_class = 'expense' and e.economic_amount is not null
-         and ov.effective_date = v_fecha;
+         and ((ov.effective_date = v_fecha and o.operation_class <> 'internal_transfer')
+              or ov.operation_id = any(v_transfers));
       if v_got <> v_want then
         fallos := array_append(fallos, format('J/%s: economica de %s = %s y el vector espera %s',
           v_case ->> 'id', v_exp ->> 'scope', v_got, v_want));
@@ -1974,10 +2004,15 @@ begin
     -- grupo y los tres personales del mapa—, que es lo unico sobre lo que puede
     -- afirmar algo. En CI, desde cero, no cambia nada.
     if v_case -> 'expect' ? 'balanceEffectScopes' then
+      -- Las transferencias entre usuarios llevan la fecha del servidor (F12.B1):
+      -- por fecha solo cuentan las demas clases; ellas, por su operation_id.
       select count(distinct e.scope_id) into v_n
         from core.current_effect e
         join core.operation_version ov on ov.id = e.operation_version_id
-       where e.balance_amount is not null and ov.effective_date = v_fecha
+        join core.operation o on o.id = ov.operation_id
+       where e.balance_amount is not null
+         and ((ov.effective_date = v_fecha and o.operation_class <> 'internal_transfer')
+              or ov.operation_id = any(v_transfers))
          and (e.scope_id = v_group or e.scope_id in (
                select (value)::uuid from jsonb_each_text(v_scope_map)));
       if v_n <> jsonb_array_length(v_case -> 'expect' -> 'balanceEffectScopes') then
@@ -1988,7 +2023,10 @@ begin
         if not exists (
           select 1 from core.current_effect e2
           join core.operation_version ov on ov.id = e2.operation_version_id
-          where e2.balance_amount is not null and ov.effective_date = v_fecha
+          join core.operation o on o.id = ov.operation_id
+          where e2.balance_amount is not null
+            and ((ov.effective_date = v_fecha and o.operation_class <> 'internal_transfer')
+                 or ov.operation_id = any(v_transfers))
             and e2.scope_id = coalesce((v_scope_map ->> v_letter)::uuid, v_group)) then
           fallos := array_append(fallos, format('J/%s: no hubo movimiento de caja en %s',
             v_case ->> 'id', v_letter));

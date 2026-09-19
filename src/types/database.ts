@@ -483,6 +483,119 @@ export type Database = {
         };
         Relationships: [];
       };
+      my_transfer_proposals: {
+        Row: {
+          accepted_operation_id: string | null;
+          amount: string | null;
+          concept: string | null;
+          counterpart_handle: string | null;
+          counterpart_public_name: string | null;
+          created_at: string | null;
+          currency_definition_id: string | null;
+          direction: string | null;
+          expires_at: string | null;
+          proposal_id: string | null;
+          state: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_operation';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_payment';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_payment_allocation';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'my_transfers';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_operation';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_operation_version';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'transfer_proposal_currency_definition_id_fkey';
+            columns: ['currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'currency_definition';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      my_transfers: {
+        Row: {
+          amount: string | null;
+          balance_amount: string | null;
+          concept: string | null;
+          counterpart_handle: string | null;
+          counterpart_public_name: string | null;
+          currency_definition_id: string | null;
+          direction: string | null;
+          effective_date: string | null;
+          effective_time: string | null;
+          operation_created_at: string | null;
+          operation_id: string | null;
+          proposal_id: string | null;
+          scope_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'effect_moneda_del_ambito';
+            columns: ['scope_id', 'currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_balance';
+            referencedColumns: ['scope_id', 'currency_definition_id'];
+          },
+          {
+            foreignKeyName: 'effect_moneda_del_ambito';
+            columns: ['scope_id', 'currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_scope';
+            referencedColumns: ['id', 'base_currency_definition_id'];
+          },
+          {
+            foreignKeyName: 'effect_scope_id_fkey';
+            columns: ['scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_balance';
+            referencedColumns: ['scope_id'];
+          },
+          {
+            foreignKeyName: 'effect_scope_id_fkey';
+            columns: ['scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_scope';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       personal_balance: {
         Row: {
           balance_amount: string | null;
@@ -658,6 +771,7 @@ export type Database = {
     Functions: {
       annul_operation: { Args: { payload: Json }; Returns: Json };
       associate_participant: { Args: { payload: Json }; Returns: Json };
+      cancel_transfer_proposal: { Args: { payload: Json }; Returns: Json };
       change_username: {
         Args: { payload: Json };
         Returns: {
@@ -691,6 +805,8 @@ export type Database = {
       create_custom_category: { Args: { payload: Json }; Returns: Json };
       create_group: { Args: { payload: Json }; Returns: Json };
       create_group_invitation: { Args: { payload: Json }; Returns: Json };
+      create_transfer_proposal: { Args: { payload: Json }; Returns: Json };
+      decline_transfer_proposal: { Args: { payload: Json }; Returns: Json };
       ensure_personal_scope: { Args: { payload: Json }; Returns: Json };
       group_reopened_pair: {
         Args: { p_scope: string };

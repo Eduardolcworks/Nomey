@@ -606,8 +606,27 @@ Transferencia → @username` creates a **directed proposal** (non-accounting
   from `created_by`; the `created_by = actor` policies are not relaxed.
   Invariant 14 is precised: "originate" = authorise one's own outflow by
   proposal. 3 pending per pair, 10 proposals/hour per sender. This supersedes
-  the F3 contract of `record_internal_transfer` (measured: it still allows a
-  unilateral correction and nobody can annul it).
+  the F3 contract of `record_internal_transfer`. **Implemented in F12.B1
+  (`20260926120000`, 2026-09-19):** `core.transfer_proposal` +
+  `core.transfer_part`; `api.create_transfer_proposal` takes a `handle` and
+  resolves it ONCE on the server (`sec.handle_owner`, provisioner only; the
+  client never sends or receives a uid), shares the resolver's 20 / 10 min
+  throttle (`RECIPIENT_LOOKUP_THROTTLED · 429`), and answers "nobody has that
+  username" as the STATE `not_found` (200), not as an error — measured: an
+  exception rolls back the throttle attempt, and probing would be free (same
+  reason `sec.resolve_invitation` returns `invalid`); `cancel_` /
+  `decline_transfer_proposal` are idempotent by state; the per-sender budget
+  is counted on persisted proposals under a per-sender advisory xact lock
+  (`sec.lock_proposal_budget`) and is exact (11 simultaneous → 10);
+  `api.record_internal_transfer` was recreated with payload
+  `{client_operation_id, command_contract_version, proposal_id}` — F3 fields
+  are `PAYLOAD_INVALID`, `operation_id`/`expected_version_id` are
+  `TRANSFER_NOT_EDITABLE` before the key —, only the target accepts, effective
+  date/time are the server's, and `sec.persist_version` + `api.annul_operation`
+  refuse any second version of the class. Read through
+  `api.my_transfer_proposals` and `api.my_transfers` (identity via
+  `sec.my_transfer_counterparts()`; `personal_operation` does not list the
+  class yet). Precisions in `docs/adr/F12/README.md`.
 - **Transfer inside a group** ([F12/ADR-003](docs/adr/F12/ADR-003-group-transfers.md)):
   `Grupo → + → Transferencia → participante` (active, linked, same group)
   proposes; acceptance creates a `settlement_by_transfer`: `transfer ∓N` in
@@ -727,8 +746,8 @@ Two artefacts closed Phase 5 and are worth knowing about:
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
 and twelve reproducible probes that measured the decisions behind the schema
-(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **57
-migrations** rebuilt from zero in CI with 37 SQL checks and thirteen real-session
+(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **58
+migrations** rebuilt from zero in CI with 38 SQL checks and fourteen real-session
 race scripts. A pure reference implementation of the financial domain in
 `src/domain/`, with shared test vectors in `tests/vectors/` that the server
 boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 148 files.
@@ -995,12 +1014,14 @@ a write boundary must stay under it (E16). Do not unify them.
   conflated them were corrected.
 - **Create and correct share a function**, distinguished by `operation_id` +
   `expected_version_id` in the payload and by `command_type` for idempotency.
-  **Two classes are the exception by decision, not yet by code:** from F12
-  (F12/ADR-002, F12/ADR-003) an `internal_transfer` and a
-  `settlement_by_transfer` have exactly one `record` version, born from an
-  accepted proposal or a paid request, and admit neither correction nor
-  annulment. Until F12.B lands, `record_internal_transfer` and
-  `record_settlement_by_transfer` still carry their F3 contract in the
+  **Two classes are the exception:** from F12 (F12/ADR-002, F12/ADR-003) an
+  `internal_transfer` and a `settlement_by_transfer` have exactly one
+  `record` version, born from an accepted proposal or a paid request, and
+  admit neither correction nor annulment. **`internal_transfer` is so by code
+  since F12.B1** (`20260926120000`: `record_internal_transfer` takes a
+  `proposal_id`, and `sec.persist_version` refuses a second version of the
+  class). **`settlement_by_transfer` is not yet:** until F12.B3 lands,
+  `record_settlement_by_transfer` still carries its F3 contract in the
   catalogue; do not build on it.
 - **Claim the idempotency key before the CAS** (F03/ADR-008 §13), and authorize
   after the claim (F03/ADR-007 §5). A replay never re-derives, re-authorizes or
