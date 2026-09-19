@@ -10,14 +10,25 @@
  *
  * So this refuses exactly one thing: an empty field. Everything else is a
  * round trip, and the answer comes back mapped through `auth-errors`.
+ *
+ * The username is the one exception, and a bounded one (F12/ADR-001 §3): its
+ * SYNTAX is a shared contract, mirrored in `src/domain/username` over the same
+ * vectors the server reproduces, so a form can say «no vale» before the round
+ * trip. Whether it is taken stays the server's alone.
  */
+
+import { normalizeHandle, validateHandle, type UsernameProblem } from '@/domain';
 
 export type Credentials = {
   readonly email: string;
   readonly password: string;
 };
 
-export type Registration = Credentials & { readonly displayName: string };
+export type Registration = Credentials & {
+  readonly displayName: string;
+  /** What was typed, `@` and case included; the server stores the normalized form. */
+  readonly username: string;
+};
 
 /**
  * Addresses are trimmed and lowercased.
@@ -47,8 +58,32 @@ export function normaliseCredentials(raw: Credentials): Credentials {
   return { email: normaliseEmail(raw.email), password: raw.password };
 }
 
+/**
+ * The stored form of the username when it has one (`@Eduardo` → `eduardo`),
+ * or the trimmed input when it does not: the server refuses that one with its
+ * own code, and sending the original keeps that refusal honest.
+ */
+export function normaliseUsername(raw: string): string {
+  return normalizeHandle(raw) ?? raw.trim();
+}
+
 export function normaliseRegistration(raw: Registration): Registration {
-  return { ...normaliseCredentials(raw), displayName: normaliseDisplayName(raw.displayName) };
+  return {
+    ...normaliseCredentials(raw),
+    displayName: normaliseDisplayName(raw.displayName),
+    username: normaliseUsername(raw.username),
+  };
+}
+
+/**
+ * What is wrong with a username as typed, or nothing. `empty` is the form's
+ * own «rellena el campo»; `invalid` and `reserved` are the shared syntax of
+ * F12/ADR-001 §3–§4, said before the round trip. «Taken» is never known here.
+ */
+export function usernameProblem(raw: string): UsernameProblem | 'empty' | null {
+  if (raw.trim() === '') return 'empty';
+  const v = validateHandle(raw);
+  return v.ok ? null : v.problem;
 }
 
 /**
@@ -80,7 +115,11 @@ export function passwordMeetsMinimum(password: string): boolean {
  * server's call (`missingFields` and this both refuse to guess at more).
  */
 export function registrationReady(raw: Registration): boolean {
-  return missingFields(raw).length === 0 && passwordMeetsMinimum(raw.password);
+  return (
+    missingFields(raw).length === 0 &&
+    passwordMeetsMinimum(raw.password) &&
+    usernameProblem(raw.username) === null
+  );
 }
 
 /** Which fields are empty once normalised. Nothing else is judged here. */
@@ -89,6 +128,7 @@ export function missingFields(raw: Partial<Registration>): (keyof Registration)[
   if (raw.displayName !== undefined && normaliseDisplayName(raw.displayName) === '') {
     missing.push('displayName');
   }
+  if (raw.username !== undefined && raw.username.trim() === '') missing.push('username');
   if (normaliseEmail(raw.email ?? '') === '') missing.push('email');
   if ((raw.password ?? '') === '') missing.push('password');
   return missing;

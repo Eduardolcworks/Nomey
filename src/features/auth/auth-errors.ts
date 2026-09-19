@@ -24,6 +24,11 @@ export type AuthFailure = {
   readonly code?: string;
   readonly status?: number;
   readonly name?: string;
+  /**
+   * Read for ONE purpose only: the username hook's refusal (below). Every
+   * other path ignores it, for the three reasons above.
+   */
+  readonly message?: string;
 };
 
 export type AuthErrorKey = Extract<MessageKey, `authError.${string}`>;
@@ -77,6 +82,45 @@ const SIGN_UP: Readonly<Record<string, AuthErrorKey>> = {
   email_exists: 'authError.checkYourEmail',
 };
 
+/**
+ * What the sign-up hook says, and the only place `message` is read.
+ *
+ * F12/ADR-001 §5: the username is reserved by `sec.before_user_created` inside
+ * GoTrue's own sign-up transaction, and the hook refuses by returning
+ * `{"error": {"http_code": N, "message": "CODE"}}`. MEASURED against gotrue
+ * v2.195.0, over HTTP and through `@supabase/auth-js`: the response is
+ * `{"code": N, "error_code": "unknown", "msg": "CODE"}`, so the SDK's
+ * `AuthApiError` arrives with `status = N`, `code = "unknown"` and the
+ * contract code as the WHOLE `message`. There is no structured field: GoTrue
+ * keeps nothing of a hook error but its text. So this is not parsing — it is
+ * an exact match of a closed set, gated on `code === "unknown"` so a real
+ * GoTrue message can never be mistaken for one of ours.
+ */
+const USERNAME_HOOK: Readonly<Record<string, AuthErrorKey>> = {
+  USERNAME_REQUIRED: 'authError.usernameRequired',
+  USERNAME_INVALID: 'authError.usernameInvalid',
+  USERNAME_RESERVED: 'authError.usernameReserved',
+  USERNAME_TAKEN: 'authError.usernameTaken',
+  // The hook also requires a name; the form asks for it first, so this is a
+  // belt for a client that skipped it.
+  PAYLOAD_INVALID: 'authError.nameRequired',
+};
+
+function usernameHookErrorKey(failure: AuthFailure): AuthErrorKey | undefined {
+  if (failure.code !== 'unknown' || failure.message === undefined) return undefined;
+  return USERNAME_HOOK[failure.message];
+}
+
+/**
+ * The same contract codes when they arrive from PostgREST instead of GoTrue:
+ * `api.reserve_username` during a guest's conversion (F12/ADR-001 §8), where
+ * the code IS a structured field (`sec.raise_boundary`).
+ */
+export function usernameRpcErrorKey(code: string | null | undefined): AuthErrorKey {
+  if (code === null || code === undefined) return NETWORK;
+  return USERNAME_HOOK[code] ?? GENERIC;
+}
+
 /** A transport failure, which has no code because no response arrived. */
 function isNetworkFailure(failure: AuthFailure): boolean {
   if (failure.name === 'AuthRetryableFetchError') return true;
@@ -91,6 +135,8 @@ export function signInErrorKey(failure: AuthFailure): AuthErrorKey {
 
 export function signUpErrorKey(failure: AuthFailure): AuthErrorKey {
   if (isNetworkFailure(failure)) return NETWORK;
+  const fromHook = usernameHookErrorKey(failure);
+  if (fromHook !== undefined) return fromHook;
   const code = failure.code ?? '';
   return SIGN_UP[code] ?? SHARED[code] ?? GENERIC;
 }

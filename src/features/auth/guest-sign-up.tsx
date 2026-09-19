@@ -14,6 +14,7 @@ import {
   registrationReady,
 } from './credentials';
 import { useAuthSubmit } from './use-auth-submit';
+import { UsernameField } from './username-field';
 
 /**
  * «CREA TU CUENTA»: la ÚNICA vía de cuenta para un invitado.
@@ -26,6 +27,12 @@ import { useAuthSubmit } from './use-auth-submit';
  * al MISMO usuario anónimo en cuenta (`convertGuest` → `updateUser`, nunca
  * `signUp`), así que grupos, participantes, gastos, pagos, deudas e historia
  * siguen siendo suyos.
+ *
+ * Y pide el username (F12/ADR-001 §8): `convertGuest` lo reserva con la sesión
+ * todavía anónima (`api.reserve_username`, 7 días, mismo uid) ANTES de
+ * `updateUser`; reclamarlo es del primer ciclo autenticado de la cuenta
+ * (F12.A3). Si la reserva se rehúsa —inválido, reservado, en uso— no se envía
+ * nada a Auth y el formulario lo dice.
  *
  * Al enviar, el correo queda pendiente de confirmar y la sesión sigue siendo
  * de invitado hasta que el servidor lo diga: esta pieza muestra «Revisa tu
@@ -52,30 +59,33 @@ export function GuestSignUp({
   const { state, submit, clearError, running } = useAuthSubmit();
 
   const [displayName, setDisplayName] = useState(initialName ?? '');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [incomplete, setIncomplete] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(pendingEmail);
 
+  const usernameField = useRef<TextInput>(null);
   const emailField = useRef<TextInput>(null);
   const passwordField = useRef<TextInput>(null);
 
   /*
    * THE BUTTON SAYS WHETHER THE FORM CAN BE SENT. Grey while a field is
-   * missing or the password is under the server's minimum; yellow once name,
-   * email and password satisfy the rules Nomey can state up front
-   * (`registrationReady`). The keyboard's «go» respects the same rule.
+   * missing, the username does not satisfy the shared syntax or the password
+   * is under the server's minimum; yellow once name, username, email and
+   * password satisfy the rules Nomey can state up front (`registrationReady`).
+   * The keyboard's «go» respects the same rule.
    */
-  const ready = registrationReady({ displayName, email, password });
+  const ready = registrationReady({ displayName, username, email, password });
 
   async function onSubmit() {
     if (!ready) return;
-    const missing = missingFields({ displayName, email, password });
+    const missing = missingFields({ displayName, username, email, password });
     setIncomplete(missing.length > 0);
     if (missing.length > 0) return;
 
     clearError();
-    const result = await submit(() => convertGuest({ displayName, email, password }));
+    const result = await submit(() => convertGuest({ displayName, username, email, password }));
     // Only a conversion that is now WAITING shows «check your email»; one the
     // server had already confirmed refreshes the session and this unmounts.
     if (result?.ok === true && 'pendingConfirmation' in result) setSentTo(normaliseEmail(email));
@@ -126,6 +136,15 @@ export function GuestSignUp({
           autoCapitalize="words"
           autoComplete="name"
           textContentType="name"
+          returnKeyType="next"
+          onSubmitEditing={() => usernameField.current?.focus()}
+          submitBehavior="submit"
+        />
+        <UsernameField
+          ref={usernameField}
+          value={username}
+          onChangeText={setUsername}
+          editable={!running}
           returnKeyType="next"
           onSubmitEditing={() => emailField.current?.focus()}
           submitBehavior="submit"

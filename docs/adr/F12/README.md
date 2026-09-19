@@ -119,6 +119,26 @@ DEFINER` de `nomey_provisioner` —no de `postgres` como decía §11— bajo una
   y handles, medida: ninguna función nueva de F12 es de `postgres` ni cruza
   RLS por propiedad. `sec.public_identity(uid)` (§13) sigue la misma regla y
   sólo la ejecutan el writer y el provisioner. `username.sql` A2, F, G3.
+- **F12/ADR-001 §5 — el hook de alta, tal como quedó (F12.A2, 2026-09-19).**
+  `sec.before_user_created(event jsonb)` (migración `20260924120000`) es
+  `SECURITY DEFINER` de **`nomey_provisioner`** —no de `postgres`— y fija el
+  uid **del evento de GoTrue** como actor (`request.jwt.claims`, local a la
+  transacción de GoTrue) para escribir bajo las mismas políticas self-only de
+  A1; `supabase_auth_admin` recibe exactamente `USAGE` en `sec` y `EXECUTE`
+  sobre esa función (guardado: 1 función de `sec`, 0 de `api`, sin `core`).
+  Sólo actúa sobre altas **email/password no anónimas** (`app_metadata.provider
+= 'email'`, medido): exige `requested_username` y `display_name`, crea la
+  identidad y **reserva** 7 días sin reclamar. Un alta anónima o de otro
+  proveedor pasa sin escribir nada (A3 la llevará al gate). Rehúsa
+  **devolviendo** `{"error":{"http_code":N,"message":"CÓDIGO"}}` —nunca
+  lanzando—, y GoTrue lo entrega como `{"code":N,"error_code":"unknown","msg":"CÓDIGO"}`
+  (medido con gotrue v2.195.0): el código viaja sólo en el mensaje y el
+  cliente lo mapea por igualdad exacta gateado en `error_code = unknown`.
+  Faltar el nombre es `PAYLOAD_INVALID · 400`. La conversión Invitado → cuenta
+  no pasa por el hook (`PUT /user` no crea usuario): el cliente reserva antes
+  con `api.reserve_username` (§8), y reclamar sigue siendo de A3. Evidencia:
+  `username.sql` A3/H, `http-boundary-check.sh` §16,
+  `username-signup-race-evidence.sh`.
 
 ## Decisiones de otras fases que esta fase aplica
 
