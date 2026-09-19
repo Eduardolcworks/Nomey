@@ -71,9 +71,13 @@ describe('la cabecera de identidad', () => {
     expect(nameAt).toBeGreaterThan(avatarAt);
   });
 
-  it('los dos leen el nombre de la sesión, no de otra fuente', () => {
+  it('los dos leen el mismo nombre: el publico de core cuando existe, el de la sesion si no (F12.A3)', () => {
     expect(PROFILE).toContain('state.identity.displayName');
-    expect(PROFILE).toContain('name={displayName}');
+    expect(PROFILE).toContain(
+      "identity.status === 'ready' ? (identity.identity.publicName ?? displayName) : displayName",
+    );
+    expect(PROFILE).toContain('<AccountAvatar name={publicName} />');
+    expect(PROFILE).toContain('<DisplayNameEditor name={publicName}');
   });
 
   it('Perfil no consulta al backend para pintarse', () => {

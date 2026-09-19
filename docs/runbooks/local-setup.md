@@ -548,9 +548,10 @@ el cliente lo mapea por igualdad exacta (`src/features/auth/auth-errors.ts`).
 - El alta **anónima** (Invitado) y cualquier proveedor que no sea
   email/password pasan por el hook sin username y sin que escriba nada.
 - Una cuenta anterior a F12 no tiene identidad ni handle: ni el hook ni ninguna
-  migración se los inventan. Entra con normalidad y, cuando F12.A3 exista, la
-  app le pedirá elegir uno antes de las pestañas (gate); hasta entonces
-  simplemente no tiene username.
+  migración se los inventan. Al entrar, el ciclo del cliente (F12.A3) llama a
+  `claim_username`, recibe `USERNAME_REQUIRED` y la app le pide elegir uno
+  antes de las pestañas (gate). Sin red no hay gate: entra y se le vuelve a
+  preguntar al volver al primer plano (offline first, F07/ADR-001).
 
 **El proyecto alojado no lee este fichero.** Allí el hook hay que activarlo
 expresamente —Dashboard → Authentication → Hooks, «Before User Created», tipo

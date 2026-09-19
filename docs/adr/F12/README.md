@@ -10,8 +10,10 @@ Personales y ajusta la deuda del par por el importe completo, pudiendo cruzar
 cero) y **solicitud de pago** por enlace al portador (importe fijo, un solo
 uso, 7 días → `internal_transfer`). Nomey no mueve dinero bancario: registra
 hechos que las dos partes han querido. **Estado de la fase:** **ABIERTA el
-2026-09-17**; **F12.A0 cerrado** (los cuatro ADR aceptados, sin
-implementación); F12.A … F12.D pendientes. El detalle está en
+2026-09-17**; **F12.A0 cerrado** (los cuatro ADR aceptados) y **F12.A cerrado
+el 2026-09-19** (ADR-001 implementado de extremo a extremo: A1 backend, A2
+alta y Auth, A3 cliente); **siguiente F12.B** (backend de transferencias y
+solicitud, ADR-002…004), después F12.C y F12.D. El detalle está en
 [el roadmap](../../product/roadmap.md).
 
 **Lo que el alcance original de la fase ya habían cerrado F9 y F10, y no se
@@ -39,7 +41,7 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 
 | ADR                                                        | Título                                                                                                                                                                                                     | Estado   | Fecha      | Bloque |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- | ------ |
-| [F12/ADR-001](ADR-001-username-public-account-identity.md) | Username: la identidad pública de una cuenta (precisa F03/ADR-003 en el rol `supabase_auth_admin`)                                                                                                         | Aceptado | 2026-09-17 | F12.A0 |
+| [F12/ADR-001](ADR-001-username-public-account-identity.md) | Username: la identidad pública de una cuenta (precisa F03/ADR-003 en el rol `supabase_auth_admin`). **Implementado en F12.A (A1 `20260921120000`, A2 `20260924120000`, A3 cliente; 2026-09-19)**           | Aceptado | 2026-09-17 | F12.A0 |
 | [F12/ADR-002](ADR-002-two-will-user-transfers.md)          | Transferencias entre usuarios con dos voluntades (precisa F01/ADR-001 §10 e invariante 14; supera el contrato de F3 de `record_internal_transfer`)                                                         | Aceptado | 2026-09-17 | F12.A0 |
 | [F12/ADR-003](ADR-003-group-transfers.md)                  | Transferencias dentro de un Grupo: propuesta + aceptación → `settlement_by_transfer`, deuda algebraica (supera de forma acotada `data-model.md` §3 y el contrato de F3 de `record_settlement_by_transfer`) | Aceptado | 2026-09-17 | F12.A0 |
 | [F12/ADR-004](ADR-004-payment-request-links.md)            | Solicitudes de pago mediante enlace: capability al portador, un solo uso, 7 días → `internal_transfer` del pagador al solicitante                                                                          | Aceptado | 2026-09-17 | F12.A0 |
@@ -139,6 +141,32 @@ DEFINER` de `nomey_provisioner` —no de `postgres` como decía §11— bajo una
   con `api.reserve_username` (§8), y reclamar sigue siendo de A3. Evidencia:
   `username.sql` A3/H, `http-boundary-check.sh` §16,
   `username-signup-race-evidence.sh`.
+
+- **F12/ADR-001 §7, §10, §13 — el cliente, tal como quedó (F12.A3, 2026-09-19).**
+  El ciclo autenticado es **una sola RPC por sesión**, `api.claim_username`:
+  reserva viva → definitiva; definitiva → estado sin escribir; sin reserva o
+  caducada → `USERNAME_REQUIRED`. **Sólo ese veredicto del servidor abre el
+  gate** (nombre público precargado con el `display_name` de sesión + username;
+  sin «Saltar»; `reserve_username` reclama en el acto), que sustituye a las
+  pestañas; un **invitado nunca pregunta ni ve el gate**. Perfil enseña la
+  identidad pública de `core` (nombre público y `@username`), edita el nombre
+  con `set_public_name` **antes** de la copia en la metadata de Auth (si la
+  segunda falla no se deshace la primera: se enseña lo de `core` y se avisa) y
+  cambia el handle con `change_username`; el lápiz respeta `can_change_at` y el
+  cooldown se enseña con su fecha. Sin historial, retenidos ni uid.
+  **Offline first (F07/ADR-001):** un fallo de red **no es** `USERNAME_REQUIRED`;
+  la cuenta entra y usa Nomey sin conexión; la última identidad **definitiva**
+  confirmada por el servidor se respalda por cuenta en el almacén offline de
+  F7 (`account-identity`), **sin ser autoridad** (el servidor la sobreescribe
+  siempre y nunca abre el gate); sin respaldo y sin respuesta, un watchdog de
+  10 s deja continuar como `unavailable`; al volver al primer plano —el único
+  `AppState` listener, el mismo seam que despierta la cola— se vuelve a
+  preguntar sólo si sigue sin confirmación; sin polling. Pendiente de validar
+  con build instalada: el cold-start completamente offline en iPhone (Expo Go
+  - Metro sobre hotspot no permite aislar ese escenario); no bloquea.
+    Evidencia: `tests/lib/identity-state.test.ts`,
+    `tests/infra/username-gate-surface.test.ts`, `route-guards.test.ts`;
+    validación manual en iPhone el 2026-09-19.
 
 ## Decisiones de otras fases que esta fase aplica
 

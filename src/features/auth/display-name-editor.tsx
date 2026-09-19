@@ -5,7 +5,7 @@ import { useTranslation } from '@/lib/i18n';
 import { IconButton, ThemedText } from '@/ui/components';
 import { Radius, Spacing, Symbols, Typography, useTheme } from '@/ui/theme';
 
-import { updateDisplayName } from './auth-service';
+import { type AuthResult, updateDisplayName } from './auth-service';
 import { normaliseDisplayName } from './credentials';
 import { useAuthSubmit } from './use-auth-submit';
 
@@ -34,8 +34,24 @@ import { useAuthSubmit } from './use-auth-submit';
  * `USER_UPDATED` event, the session provider is the single subscriber, and
  * both this and Inicio's greeting re-render from it. There is no second copy
  * to keep in step.
+ *
+ * **Since F12.A3 the write is pluggable.** Profile hands in `updatePublicName`
+ * — `api.set_public_name` FIRST, the Auth metadata copy second (F12/ADR-001
+ * §10) — and shows the name `core` holds. The default stays the metadata
+ * write, for a caller that has no public identity to keep in step. `notice`
+ * is the one sentence the caller may add under the name once saved: «guardado
+ * aquí; el saludo se pondrá al día» when the metadata copy failed.
  */
-export function DisplayNameEditor({ name }: { name: string | null }) {
+export function DisplayNameEditor({
+  name,
+  onSave = updateDisplayName,
+  notice,
+}: {
+  name: string | null;
+  /** The write. Resolves to an `AuthResult`; the editor closes only on `ok`. */
+  onSave?: (draft: string) => Promise<AuthResult>;
+  readonly notice?: string;
+}) {
   const { t } = useTranslation();
   const theme = useTheme();
   const { state, submit, clearError, running } = useAuthSubmit();
@@ -55,7 +71,7 @@ export function DisplayNameEditor({ name }: { name: string | null }) {
   }
 
   async function save() {
-    const result = await submit(() => updateDisplayName(draft));
+    const result = await submit(() => onSave(draft));
     // `undefined` means the guard skipped a second submission; the first is
     // still running and owns the outcome.
     if (result?.ok === true) setEditing(false);
@@ -63,17 +79,24 @@ export function DisplayNameEditor({ name }: { name: string | null }) {
 
   if (!editing) {
     return (
-      <View style={styles.reading}>
-        <ThemedText variant="title" numberOfLines={1} style={styles.name}>
-          {name ?? t('account.noName')}
-        </ThemedText>
-        <IconButton
-          name={Symbols.edit}
-          label={t('profile.editName')}
-          size={16}
-          colour={theme.textSecondary}
-          onPress={open}
-        />
+      <View style={styles.block}>
+        <View style={styles.reading}>
+          <ThemedText variant="title" numberOfLines={1} style={styles.name}>
+            {name ?? t('account.noName')}
+          </ThemedText>
+          <IconButton
+            name={Symbols.edit}
+            label={t('profile.editName')}
+            size={16}
+            colour={theme.textSecondary}
+            onPress={open}
+          />
+        </View>
+        {notice === undefined ? null : (
+          <ThemedText variant="bodySmall" themeColor="textSecondary" style={styles.notice}>
+            {notice}
+          </ThemedText>
+        )}
       </View>
     );
   }
@@ -137,6 +160,8 @@ export function DisplayNameEditor({ name }: { name: string | null }) {
 }
 
 const styles = StyleSheet.create({
+  block: { alignItems: 'center', gap: Spacing.xxs },
+  notice: { textAlign: 'center' },
   reading: {
     flexDirection: 'row',
     alignItems: 'center',

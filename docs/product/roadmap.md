@@ -930,19 +930,27 @@ entonces viaja como esquema de la app, igual que la invitación.
 
 #### Bloques
 
-| Bloque     | Qué es                                                                                                                                                                                                                                           | Estado                   |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
-| **F12.A0** | Reconciliación del alcance y los cuatro ADR: username, transferencias con dos voluntades, transferencia de grupo, solicitud de pago; reconciliación documental                                                                                   | **Cerrado** (2026-09-17) |
-| **F12.A**  | Backend de identidad pública: relación del username, hook `before_user_created`, reserva, claim, cambio, resolver frenado, guardas de catálogo, frontera HTTP, carrera de dos altas                                                              | Pendiente                |
-| **F12.B**  | Backend de transferencias: propuestas Personal y de grupo, solicitud de pago, writers de las dos clases con el nuevo contrato, partes por versión, irreversibilidad, superficies de lectura propias, checks, carreras, frontera HTTP             | Pendiente                |
-| **F12.C**  | Cliente: username en el alta, gate y Perfil; `+ → Transferencia` en Personal y en Grupo; Solicitar dinero y su enlace; bandeja de propuestas; filas en Movimientos; retirada de los placeholders heredados. Mejor tras F11.C por la hoja de alta | Pendiente                |
-| **F12.D**  | Cierre: validación en dispositivo (incluidos `shares` y `exact_amounts`), retirada técnica de `api.settle_participant`, plegado a `api.personal_operation` si F11.C cerró, handoff, `PROJECT_STATE`                                              | Pendiente                |
+| Bloque     | Qué es                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Estado                   |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| **F12.A0** | Reconciliación del alcance y los cuatro ADR: username, transferencias con dos voluntades, transferencia de grupo, solicitud de pago; reconciliación documental                                                                                                                                                                                                                                                                                                                                                                                 | **Cerrado** (2026-09-17) |
+| **F12.A**  | Identidad pública de extremo a extremo, en tres PR: **A1** backend (relación del username, reserva, claim, cambio con cooldown, resolver frenado, diario, guardas de catálogo, frontera HTTP, carreras), **A2** alta y Auth (hook `before_user_created`, username obligatorio en el alta por correo, reserva 7 días, Invitado → cuenta reserva antes de `updateUser`, carrera de dos altas reales), **A3** cliente (ciclo de claim, gate por `USERNAME_REQUIRED`, Perfil con nombre público e `@username`, cambio con cooldown, offline first) | **Cerrado** (2026-09-19) |
+| **F12.B**  | Backend de transferencias: propuestas Personal y de grupo, solicitud de pago, writers de las dos clases con el nuevo contrato, partes por versión, irreversibilidad, superficies de lectura propias, checks, carreras, frontera HTTP                                                                                                                                                                                                                                                                                                           | **Siguiente**            |
+| **F12.C**  | Cliente de transferencias: `+ → Transferencia` en Personal y en Grupo (resolver por `@username`); Solicitar dinero y su enlace; bandeja de propuestas; filas en Movimientos; retirada de los placeholders heredados. Mejor tras F11.C por la hoja de alta. (El username en el alta, el gate y Perfil los cerró F12.A3)                                                                                                                                                                                                                         | Pendiente                |
+| **F12.D**  | Cierre: validación en dispositivo (incluidos `shares` y `exact_amounts`), retirada técnica de `api.settle_participant`, plegado a `api.personal_operation` si F11.C cerró, handoff, `PROJECT_STATE`                                                                                                                                                                                                                                                                                                                                            | Pendiente                |
 
 **Cierre.**
 
-1. Una cuenta se crea con username reservado en la misma transacción del
+1. ~~Una cuenta se crea con username reservado en la misma transacción del
    alta; `@Eduardo` y `@eduardo` son el mismo; dos altas simultáneas dejan una
-   cuenta y un `409`; una reserva caduca a los 7 días sin depender de Auth.
+   cuenta y un `409`; una reserva caduca a los 7 días sin depender de Auth.~~
+   **Cumplido en F12.A (2026-09-19):** `username.sql` B/C/H, frontera HTTP
+   §16–§17, `username-signup-race-evidence.sh` (3 rondas: una cuenta, un
+   `409 USERNAME_TAKEN`, sin residuo) y validación manual en iPhone (alta con
+   username sin gate, cuenta anterior a F12 → gate, Invitado sin gate,
+   Invitado → cuenta, Perfil, cooldown, ocupado/reservado/inválido).
+   _Pendiente de validar con build instalada:_ el cold-start completamente
+   offline en iPhone — Expo Go + Metro sobre hotspot no permite aislar ese
+   escenario; no bloquea.
 2. Los escenarios **4.8** (transferencia entre usuarios) y **4.6** (transferencia
    de grupo) de `data-model.md` se reproducen en la app **con dos voluntades**;
    una propuesta pendiente no toca ningún saldo ni deuda.
@@ -981,7 +989,8 @@ nada específico de él.
 > específico de Pareja.
 
 **Puertas.** ~~Los cuatro ADR de F12.A0 aceptados antes de F12.A.~~
-**Cumplida el 2026-09-17.**
+**Cumplida el 2026-09-17.** F12.A cerrado el 2026-09-19 con tres PR (#69 A1,
+#71 A2 y A3); la fase sigue abierta hasta F12.D.
 
 ---
 

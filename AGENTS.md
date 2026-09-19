@@ -551,26 +551,48 @@ ADRs of phases F00–F12 are accepted** (F00/ADR-001 is still Proposed; see
 `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a real local
 Supabase stack.
 
-**Phase 12 is OPEN (2026-09-17) and only F12.A0 is closed: four accepted ADRs
-and no implementation at all.** The original scope was reconciled against the
-repository — `shares`/`exact_amounts`, eligibility on correction, departed
-participants and residual access were already done or closed by F9/F10 — and
-what remains is one product idea with four contracts, none of which exists in
-the code yet ([`docs/adr/F12/`](docs/adr/F12/README.md); roadmap, Fase 12):
+**Phase 12 is OPEN (2026-09-17). F12.A0 and F12.A are CLOSED (F12.A on
+2026-09-19); the next block is F12.B.** The original scope was reconciled
+against the repository — `shares`/`exact_amounts`, eligibility on correction,
+departed participants and residual access were already done or closed by
+F9/F10 — and what remains is one product idea with four contracts: the first
+(username) is **implemented end to end**, the other three are decided and not
+started ([`docs/adr/F12/`](docs/adr/F12/README.md); roadmap, Fase 12):
 
-- **Username** ([F12/ADR-001](docs/adr/F12/ADR-001-username-public-account-identity.md)):
-  a public, unique, resolvable account attribute in its own `core` relation
-  (never Auth metadata); `^[a-z](_?[a-z0-9])*$`, 3–20, ASCII; 25 exact
-  reserved names and 4 prefixes; **reserved in the same GoTrue transaction as
-  the sign-up** by the `before_user_created` hook (one `SECURITY DEFINER`
-  function in `sec`, the only privilege `supabase_auth_admin` gets — a
-  measured, guarded precision of F03/ADR-003; no RPC for `anon`, no Edge
-  Function, no trigger on `auth.users`); 7-day provisional reservation that
-  expires when `claimed_at` is null **without reading Auth**; claim on the
-  first authenticated cycle; change with a 30-day cooldown and 90-day hold;
-  `public_name` in `core`; exact resolution throttled at 20 lookups / 10 min;
-  and every history row resolves **`uid → current public identity`** — no
-  username is ever persisted in an operation or resolved backwards.
+- **Username — DONE (F12.A, [F12/ADR-001](docs/adr/F12/ADR-001-username-public-account-identity.md)).**
+  A public, unique, resolvable account attribute in its own `core` relations
+  (`20260921120000`: `core.account_identity` 1:1 with `public_name`,
+  `core.account_handle` one row per handle with state derived from marks,
+  insert-only `core.account_handle_event`, `core.reserved_handle`,
+  `core.username_lookup_attempt`); `^[a-z](_?[a-z0-9])*$`, 3–20, ASCII; 25
+  exact reserved names and 4 prefixes shared with `src/domain/username` through
+  `tests/vectors/username.json`. **Reserved in the same GoTrue transaction as
+  the email sign-up** by `sec.before_user_created` (`20260924120000`; owner
+  `nomey_provisioner`, the ONLY `sec` function `supabase_auth_admin` executes —
+  guarded in `username.sql`; enabled in `config.toml` for the local stack, a
+  hosted project must enable it itself); the hook requires
+  `requested_username` + `display_name`, reserves for 7 days and **never
+  claims**; anonymous and non-email providers pass through. A guest reserves
+  through `api.reserve_username` BEFORE `updateUser`. The client lifecycle is
+  ONE RPC per session, `claim_username`: live reservation → definitive,
+  definitive → no write, none/expired → `USERNAME_REQUIRED`, and **only that
+  server verdict opens the username gate** (name + username, no skip) instead
+  of the tabs; a guest never asks and never sees it. Profile shows the public
+  identity from `core`, writes `set_public_name` BEFORE the Auth metadata copy,
+  changes the handle with `change_username` (30-day cooldown shown from
+  `can_change_at`, 90-day hold, recovering counts as a change). **Offline
+  first:** a transport failure is NOT `USERNAME_REQUIRED` — the account enters,
+  the last server-confirmed definitive identity is cached per actor in the F7
+  offline store (never an authority: the server always overrides it, and it
+  never opens the gate), a 10 s watchdog lets a cold start continue without an
+  answer, and the lifecycle re-asks on the next foreground through the ONE
+  `AppState` seam the queue already uses (no polling). Exact resolution
+  (`resolve_username`) throttled at 20 lookups / 10 min publishes only state,
+  handle and name; every history row resolves **`uid → current public identity`**
+  (`sec.public_identity`) — no username is ever persisted in an operation or
+  resolved backwards. _Pending a device validation with an installed build:_
+  a fully offline cold start on iPhone (Expo Go + Metro over a hotspot cannot
+  isolate that scenario); not a blocker.
 - **Transfers between users need two wills** ([F12/ADR-002](docs/adr/F12/ADR-002-two-will-user-transfers.md)):
   Nomey moves no real money, and the username makes reach global, so nobody
   may write into another Personal without its owner. `Personal → + →
@@ -705,11 +727,11 @@ Two artefacts closed Phase 5 and are worth knowing about:
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
 and twelve reproducible probes that measured the decisions behind the schema
-(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **56
-migrations** rebuilt from zero in CI with 37 SQL checks and twelve real-session
+(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **57
+migrations** rebuilt from zero in CI with 37 SQL checks and thirteen real-session
 race scripts. A pure reference implementation of the financial domain in
 `src/domain/`, with shared test vectors in `tests/vectors/` that the server
-boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 145 files.
+boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 148 files.
 Screens with economic function exist for the Modo Personal (F6, F7) and for
 Groups (F9): creating, inviting, shared expenses, balances, declared payments,
 leaving and rejoining.
