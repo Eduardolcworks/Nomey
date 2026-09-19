@@ -426,6 +426,18 @@ jobs:
           { ./scripts/vectors-prelude.sh ; cat supabase/checks/fx-ingest.sql ; } \
             | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
 
+      # FX resolver, derivation and conversion (F11/ADR-001 §6-§7; migration
+      # 20260925120000): steps 5-8 over fixed days, 503 versus 422, R/P/K = 1,
+      # coverage start and end, ARS/COP/CLP, the first ECB date, a converted
+      # amount of 0 accepted and a rate of 0 refused, int64 limits, and parity
+      # with rounding, conversion, fx-derivation, fx-dates and fx-source-decimal.
+      # Nothing calls the resolver yet: no operation converts.
+      - name: FX resolver and conversion
+        shell: bash
+        run: |
+          { ./scripts/vectors-prelude.sh ; cat supabase/checks/fx-resolution.sql ; } \
+            | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
       # Real concurrency. A single psql session has none, so the debt
       # serialization protocol of F03/ADR-010 §11 cannot be proven by a check: this
       # opens simultaneous sessions, the way E15-C did. It runs LAST because it
