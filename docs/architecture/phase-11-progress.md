@@ -32,7 +32,9 @@ Tomadas al preparar F11.B. Las de producto que cambian el contrato están en
   `infinity`, da `PAYLOAD_INVALID`, igual en TypeScript y en SQL. Ninguna fecha
   que nunca pueda llegar a estar disponible responde 503 indefinidamente.
 - **Ingesta sólo en local y CI.** La de producción espera al entorno verificado
-  de F8; no se contrata ni se introduce infraestructura de producción.
+  de F8; no se contrata ni se introduce infraestructura de producción. CI la
+  ejercita con documentos sintéticos; la carga local está en
+  [`runbooks/fx-ingest.md`](../runbooks/fx-ingest.md).
 - **Segunda barrera en base de datos.** El tipo congelado no puede diferir del
   tipo fijado para ese día, compatible con correcciones y replays.
 

@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import money from '../vectors/money.json';
 import split from '../vectors/split.json';
 import conversion from '../vectors/conversion.json';
+import fxSourceDecimal from '../vectors/fx-source-decimal.json';
+import fxDerivation from '../vectors/fx-derivation.json';
+import fxDay from '../vectors/fx-day.json';
+import fxDates from '../vectors/fx-dates.json';
 import { DOMAIN_ERROR_CODES, DomainError, isDomainError, splitExpense } from '../../src/domain';
 import { currency, participant } from './vectors';
 
@@ -16,9 +20,15 @@ describe('contrato de errores', () => {
   });
 
   it('todo código esperado por un vector existe en el contrato', () => {
-    const files = [money, split, conversion] as { cases: { expectError?: string }[] }[];
+    const files = [money, split, conversion, fxSourceDecimal, fxDerivation, fxDay, fxDates] as {
+      cases: { expectError?: string; expectConversionError?: string }[];
+    }[];
     const expected = new Set(
-      files.flatMap((file) => file.cases.map((item) => item.expectError)).filter(Boolean),
+      files
+        .flatMap((file) =>
+          file.cases.flatMap((item) => [item.expectError, item.expectConversionError]),
+        )
+        .filter(Boolean),
     );
     expect(expected.size).toBeGreaterThan(0);
     for (const code of expected) {

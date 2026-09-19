@@ -1,0 +1,232 @@
+{
+  "source": "F11/ADR-001 §7 · F11/ADR-002 §7 · F02/ADR-001 §5",
+  "note": "Cotizaciones de la fuente (unidades por 1 EUR, como texto) -> tipo origen->destino a escala 12, un unico cociente exacto redondeado una vez; y, si hay importe, la conversion con un unico redondeo final. Las monedas usan las identidades REALES del catalogo (F03/ADR-001 §4) para que SQL consuma los mismos casos. Las cotizaciones de 2026-09-10 y 2026-09-11 son las publicadas por el BCE; las demas son sinteticas y lo dicen.",
+  "catalogue": {
+    "EUR": { "id": "830e6f7e-2e33-564e-9ea3-f6c2023af1fe", "code": "EUR", "scale": 2 },
+    "USD": { "id": "34cb8424-2243-52d8-be99-e2b7d22884b8", "code": "USD", "scale": 2 },
+    "GBP": { "id": "fe22eeff-f72b-50ce-9b37-6033833df95e", "code": "GBP", "scale": 2 },
+    "JPY": { "id": "f981b2f9-a022-5de8-aa6d-3af277d9dcd3", "code": "JPY", "scale": 0 },
+    "NOK": { "id": "f2fe8324-641c-548d-b3af-411db0d39448", "code": "NOK", "scale": 2 },
+    "HUF": { "id": "8b951c59-bbd1-539b-9336-4174fbf47bdb", "code": "HUF", "scale": 2 }
+  },
+  "cases": [
+    {
+      "id": "directo-eur-usd",
+      "source": "F11/ADR-001 §7",
+      "note": "BCE 2026-09-11: USD 1.1592. 100,00 EUR -> 115,92 USD",
+      "given": {
+        "origin": { "currency": "EUR", "quote": "1" },
+        "target": { "currency": "USD", "quote": "1.1592" },
+        "amount": "10000"
+      },
+      "expect": { "rate": { "coefficient": "1159200000000", "scale": 12 }, "converted": "11592" }
+    },
+    {
+      "id": "inverso-usd-eur",
+      "source": "F11/ADR-001 §7",
+      "note": "1/1.1592 = 0.862663906142|167... -> 0.862663906142. 115,92 USD -> 99,99999999999806 -> 100,00 EUR",
+      "given": {
+        "origin": { "currency": "USD", "quote": "1.1592" },
+        "target": { "currency": "EUR", "quote": "1" },
+        "amount": "11592"
+      },
+      "expect": { "rate": { "coefficient": "862663906142", "scale": 12 }, "converted": "10000" }
+    },
+    {
+      "id": "inverso-negativo",
+      "source": "F02/ADR-001 T10",
+      "note": "El dominio admite negativos: el signo se aplica despues del redondeo",
+      "given": {
+        "origin": { "currency": "USD", "quote": "1.1592" },
+        "target": { "currency": "EUR", "quote": "1" },
+        "amount": "-11592"
+      },
+      "expect": { "rate": { "coefficient": "862663906142", "scale": 12 }, "converted": "-10000" }
+    },
+    {
+      "id": "cruzado-usd-jpy",
+      "source": "F11/ADR-001 §7",
+      "note": "BCE 2026-09-11: 178.56 / 1.1592 = 154.037267080745|34... 100,00 USD -> 15403,73 -> 15404 JPY",
+      "given": {
+        "origin": { "currency": "USD", "quote": "1.1592" },
+        "target": { "currency": "JPY", "quote": "178.56" },
+        "amount": "10000"
+      },
+      "expect": { "rate": { "coefficient": "154037267080745", "scale": 12 }, "converted": "15404" }
+    },
+    {
+      "id": "cruzado-con-fechas-distintas",
+      "source": "F11/ADR-002 §7",
+      "note": "NOK de P(X) = 2026-09-10 (10.7635) y USD de R(X) = 2026-09-11 (1.1592). 1000,00 NOK -> 107,70 USD",
+      "given": {
+        "origin": { "currency": "NOK", "quote": "10.7635", "referenceDate": "2026-09-10" },
+        "target": { "currency": "USD", "quote": "1.1592", "referenceDate": "2026-09-11" },
+        "amount": "100000"
+      },
+      "expect": { "rate": { "coefficient": "107697310354", "scale": 12 }, "converted": "10770" }
+    },
+    {
+      "id": "origen-escala-cero",
+      "source": "F11/ADR-001 §7",
+      "note": "1/178.56 = 0.005600358422|939... -> 0.005600358423. 1000 JPY -> 5,60 EUR",
+      "given": {
+        "origin": { "currency": "JPY", "quote": "178.56" },
+        "target": { "currency": "EUR", "quote": "1" },
+        "amount": "1000"
+      },
+      "expect": { "rate": { "coefficient": "5600358423", "scale": 12 }, "converted": "560" }
+    },
+    {
+      "id": "cotizacion-entera",
+      "source": "F11/ADR-001 §7",
+      "note": "Cotizacion sintetica de 140 sin decimales (como la de ISK). 123,45 EUR -> 17283 JPY",
+      "given": {
+        "origin": { "currency": "EUR", "quote": "1" },
+        "target": { "currency": "JPY", "quote": "140" },
+        "amount": "12345"
+      },
+      "expect": { "rate": { "coefficient": "140000000000000", "scale": 12 }, "converted": "17283" }
+    },
+    {
+      "id": "cotizacion-con-cero-final",
+      "source": "F11/ADR-001 §7",
+      "note": "BCE 2026-09-11: GBP 0.85815. 100,00 GBP -> 116,53 EUR",
+      "given": {
+        "origin": { "currency": "GBP", "quote": "0.85815" },
+        "target": { "currency": "EUR", "quote": "1" },
+        "amount": "10000"
+      },
+      "expect": { "rate": { "coefficient": "1165297442172", "scale": 12 }, "converted": "11653" }
+    },
+    {
+      "id": "resultado-cero-aceptado",
+      "source": "decision F11.B (conversion a cero)",
+      "note": "BCE 2026-09-11: HUF 364.45. 0,01 HUF -> 0,0000027 EUR -> 0: se acepta",
+      "given": {
+        "origin": { "currency": "HUF", "quote": "364.45" },
+        "target": { "currency": "EUR", "quote": "1" },
+        "amount": "1"
+      },
+      "expect": { "rate": { "coefficient": "2743860612", "scale": 12 }, "converted": "0" }
+    },
+    {
+      "id": "conversion-empate",
+      "source": "F02/ADR-001 T10",
+      "note": "Cotizacion sintetica 1.5. 1,00 EUR -> 1,5 JPY -> empate -> 2",
+      "given": {
+        "origin": { "currency": "EUR", "quote": "1" },
+        "target": { "currency": "JPY", "quote": "1.5" },
+        "amount": "100"
+      },
+      "expect": { "rate": { "coefficient": "1500000000000", "scale": 12 }, "converted": "2" }
+    },
+    {
+      "id": "conversion-empate-negativo",
+      "source": "F02/ADR-001 T10",
+      "given": {
+        "origin": { "currency": "EUR", "quote": "1" },
+        "target": { "currency": "JPY", "quote": "1.5" },
+        "amount": "-100"
+      },
+      "expect": { "rate": { "coefficient": "1500000000000", "scale": 12 }, "converted": "-2" }
+    },
+    {
+      "id": "derivacion-empate",
+      "source": "F11/ADR-001 §7",
+      "note": "Sintetico: 0.000000000001 / 2 = 5e-13 exacto -> empate -> 1e-12",
+      "given": {
+        "origin": { "currency": "USD", "quote": "2" },
+        "target": { "currency": "EUR", "quote": "0.000000000001" }
+      },
+      "expect": { "rate": { "coefficient": "1", "scale": 12 } }
+    },
+    {
+      "id": "derivacion-sin-empate",
+      "source": "F11/ADR-001 §7",
+      "note": "Sintetico: 0.000000000003 / 2 = 1.5e-12 -> 2e-12",
+      "given": {
+        "origin": { "currency": "USD", "quote": "2" },
+        "target": { "currency": "EUR", "quote": "0.000000000003" }
+      },
+      "expect": { "rate": { "coefficient": "2", "scale": 12 } }
+    },
+    {
+      "id": "derivacion-redondea-a-cero",
+      "source": "F11/ADR-001 §7 · F03/ADR-012",
+      "note": "Sintetico: 2.5e-13 -> 0 a escala 12: no representable como tipo",
+      "given": {
+        "origin": { "currency": "USD", "quote": "4" },
+        "target": { "currency": "EUR", "quote": "0.000000000001" }
+      },
+      "expectError": "RATE_OUT_OF_RANGE"
+    },
+    {
+      "id": "derivacion-fuera-de-64-bits",
+      "source": "F11/ADR-001 §7",
+      "note": "Sintetico: 10000000 a escala 12 = 1e19 > 2^63-1",
+      "given": {
+        "origin": { "currency": "EUR", "quote": "1" },
+        "target": { "currency": "USD", "quote": "10000000" }
+      },
+      "expectError": "RATE_OUT_OF_RANGE"
+    },
+    {
+      "id": "derivacion-maxima-representable",
+      "source": "F11/ADR-001 §7",
+      "note": "Sintetico: 9000000 a escala 12 = 9e18 <= 2^63-1",
+      "given": {
+        "origin": { "currency": "EUR", "quote": "1" },
+        "target": { "currency": "USD", "quote": "9000000" }
+      },
+      "expect": { "rate": { "coefficient": "9000000000000000000", "scale": 12 } }
+    },
+    {
+      "id": "misma-cotizacion",
+      "source": "F11/ADR-001 §7",
+      "given": {
+        "origin": { "currency": "USD", "quote": "1.1592" },
+        "target": { "currency": "USD", "quote": "1.1592" }
+      },
+      "expect": { "rate": { "coefficient": "1000000000000", "scale": 12 } }
+    },
+    {
+      "id": "conversion-fuera-de-64-bits",
+      "source": "F11/ADR-001 §7",
+      "note": "(2^63-1) centimos de EUR x 178.56 / 100 ~ 1.6e19 JPY",
+      "given": {
+        "origin": { "currency": "EUR", "quote": "1" },
+        "target": { "currency": "JPY", "quote": "178.56" },
+        "amount": "9223372036854775807"
+      },
+      "expect": { "rate": { "coefficient": "178560000000000", "scale": 12 } },
+      "expectConversionError": "CONVERSION_OUT_OF_RANGE"
+    },
+    {
+      "id": "conversion-grande-representable",
+      "source": "F11/ADR-001 §7",
+      "given": {
+        "origin": { "currency": "EUR", "quote": "1" },
+        "target": { "currency": "USD", "quote": "1.1592" },
+        "amount": "5000000000000000000"
+      },
+      "expect": {
+        "rate": { "coefficient": "1159200000000", "scale": 12 },
+        "converted": "5796000000000000000"
+      }
+    },
+    {
+      "id": "importe-mas-alla-de-2-53",
+      "source": "F02/ADR-001 §2",
+      "note": "Ningun paso pasa por number: 123456789012345678 x 0.862663906142 -> 106501715849138869",
+      "given": {
+        "origin": { "currency": "USD", "quote": "1.1592" },
+        "target": { "currency": "EUR", "quote": "1" },
+        "amount": "123456789012345678"
+      },
+      "expect": {
+        "rate": { "coefficient": "862663906142", "scale": 12 },
+        "converted": "106501715849138869"
+      }
+    }
+  ]
+}

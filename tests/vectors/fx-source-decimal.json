@@ -1,0 +1,171 @@
+{
+  "source": "F11/ADR-002 §2 (condición 4) · F03/ADR-012",
+  "note": "Texto de un tipo publicado por la fuente -> tipo exacto (coeficiente, escala). Solo digitos y un punto opcional seguido de digitos; los ceros finales no cuentan para la escala; escala maxima 12; coeficiente > 0 que quepa en 64 bits. Un valor rechazado invalida la observacion entera.",
+  "cases": [
+    {
+      "id": "usd-normal",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "1.1592" },
+      "expect": { "coefficient": "11592", "scale": 4 }
+    },
+    {
+      "id": "jpy-normal",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "178.56" },
+      "expect": { "coefficient": "17856", "scale": 2 }
+    },
+    {
+      "id": "gbp-cero-final",
+      "source": "F11/ADR-002 §2",
+      "note": "0.85580 y 0.8558 son el mismo tipo",
+      "given": { "text": "0.85580" },
+      "expect": { "coefficient": "8558", "scale": 4 }
+    },
+    {
+      "id": "idr-un-decimal",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "20420.4" },
+      "expect": { "coefficient": "204204", "scale": 1 }
+    },
+    {
+      "id": "isk-entero",
+      "source": "F11/ADR-002 §2",
+      "note": "El BCE publica ISK sin decimales: 140",
+      "given": { "text": "140" },
+      "expect": { "coefficient": "140", "scale": 0 }
+    },
+    {
+      "id": "uno-con-ceros",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "1.000" },
+      "expect": { "coefficient": "1", "scale": 0 }
+    },
+    {
+      "id": "ceros-a-la-izquierda",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "00.5" },
+      "expect": { "coefficient": "5", "scale": 1 }
+    },
+    {
+      "id": "escala-12-exacta",
+      "source": "F03/ADR-012",
+      "given": { "text": "0.123456789012" },
+      "expect": { "coefficient": "123456789012", "scale": 12 }
+    },
+    {
+      "id": "escala-13-con-cero-final",
+      "source": "F03/ADR-012",
+      "note": "El decimo tercer digito es un cero final: no cuenta",
+      "given": { "text": "0.1234567890120" },
+      "expect": { "coefficient": "123456789012", "scale": 12 }
+    },
+    {
+      "id": "escala-mayor-que-12",
+      "source": "F03/ADR-012",
+      "given": { "text": "0.1234567890123" },
+      "expectError": "RATE_DECIMAL_INVALID"
+    },
+    {
+      "id": "coeficiente-maximo",
+      "source": "F03/ADR-012",
+      "given": { "text": "9223372036854775807" },
+      "expect": { "coefficient": "9223372036854775807", "scale": 0 }
+    },
+    {
+      "id": "coeficiente-fuera-de-64-bits",
+      "source": "F03/ADR-012",
+      "given": { "text": "9223372036854775808" },
+      "expectError": "RATE_OUT_OF_RANGE"
+    },
+    {
+      "id": "coeficiente-fuera-de-64-bits-con-decimales",
+      "source": "F03/ADR-012",
+      "given": { "text": "92233720368.54775808" },
+      "expectError": "RATE_OUT_OF_RANGE"
+    },
+    {
+      "id": "cero",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "0" },
+      "expectError": "RATE_NOT_POSITIVE"
+    },
+    {
+      "id": "cero-con-decimales",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "0.0000" },
+      "expectError": "RATE_NOT_POSITIVE"
+    },
+    {
+      "id": "negativo",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "-1.5" },
+      "expectError": "RATE_DECIMAL_INVALID"
+    },
+    {
+      "id": "signo-mas",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "+1.5" },
+      "expectError": "RATE_DECIMAL_INVALID"
+    },
+    {
+      "id": "n-a",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "N/A" },
+      "expectError": "RATE_DECIMAL_INVALID"
+    },
+    {
+      "id": "vacio",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "" },
+      "expectError": "RATE_DECIMAL_INVALID"
+    },
+    {
+      "id": "notacion-cientifica",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "1e5" },
+      "expectError": "RATE_DECIMAL_INVALID"
+    },
+    {
+      "id": "nan",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "NaN" },
+      "expectError": "RATE_DECIMAL_INVALID"
+    },
+    {
+      "id": "infinito",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "Infinity" },
+      "expectError": "RATE_DECIMAL_INVALID"
+    },
+    {
+      "id": "espacio-inicial",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": " 1.2" },
+      "expectError": "RATE_DECIMAL_INVALID"
+    },
+    {
+      "id": "espacio-final",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "1.2 " },
+      "expectError": "RATE_DECIMAL_INVALID"
+    },
+    {
+      "id": "coma-decimal",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "1,2" },
+      "expectError": "RATE_DECIMAL_INVALID"
+    },
+    {
+      "id": "sin-parte-entera",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": ".5" },
+      "expectError": "RATE_DECIMAL_INVALID"
+    },
+    {
+      "id": "punto-final",
+      "source": "F11/ADR-002 §2",
+      "given": { "text": "5." },
+      "expectError": "RATE_DECIMAL_INVALID"
+    }
+  ]
+}

@@ -26,6 +26,11 @@ influencia son los argumentos que recibe.
 | `money/rounding`            | Redondeo _half away from zero_ sobre magnitud absoluta |
 | `money/exchange-rate`       | Tipo de cambio como coeficiente entero y escala        |
 | `money/convert`             | Conversión racional exacta con un único redondeo final |
+| `money/int64`               | Límites de 64 bits de `bigint` en PostgreSQL           |
+| `fx/source-decimal`         | Tipo publicado por la fuente → tipo exacto             |
+| `fx/derive-rate`            | Tipo origen → destino a escala 12, un único redondeo   |
+| `fx/effective-date`         | Fecha efectiva en el camino con conversión             |
+| `fx/day-rate`               | Tipo del día por moneda: R, P y K = 1                  |
 | `split/largest-remainder`   | Mayor resto sobre magnitud no negativa                 |
 | `split/split`               | `equal`, `shares` y `exact_amounts`                    |
 | `effects/effect`            | El efecto y sus dimensiones separadas                  |

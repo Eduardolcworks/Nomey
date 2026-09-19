@@ -1,0 +1,414 @@
+{
+  "source": "F11/ADR-002 §1, §3, §5 y §6",
+  "note": "Seleccion del tipo de una moneda para la fecha efectiva X a partir de las publicaciones de la observacion que fija el dia. R(X): la publicacion mas reciente anterior a X; P(X): la anterior a R(X); K=1 contado en publicaciones. Resultados: 'selected' (con fecha de referencia y posicion), 'not_covered' (FX_CURRENCY_NOT_COVERED 422) u 'observation_insufficient' (la observacion no fija el dia: 503 mientras tanto). Las fechas de publicacion son las reales del BCE en cada periodo; la presencia o ausencia de una moneda se ajusta en cada historia para el caso.",
+  "sourceFirstReferenceDate": "1999-01-04",
+  "coverages": {
+    "usd": { "sourceCode": "USD", "intervals": [{ "from": "1999-01-04", "until": null }] },
+    "nok": { "sourceCode": "NOK", "intervals": [{ "from": "1999-01-04", "until": null }] },
+    "nok-retirada-2026-09-09": {
+      "sourceCode": "NOK",
+      "intervals": [{ "from": "1999-01-04", "until": "2026-09-09" }]
+    },
+    "eur-pivote": { "sourceCode": null, "intervals": [{ "from": "1999-01-04", "until": null }] },
+    "brl": { "sourceCode": "BRL", "intervals": [{ "from": "2008-01-02", "until": null }] },
+    "ron": { "sourceCode": "RON", "intervals": [{ "from": "2005-07-01", "until": null }] },
+    "isk-con-hueco": {
+      "sourceCode": "ISK",
+      "intervals": [
+        { "from": "1999-01-04", "until": "2008-12-09" },
+        { "from": "2018-02-01", "until": null }
+      ]
+    },
+    "sin-correspondencia": null
+  },
+  "histories": {
+    "septiembre-2026": [
+      { "referenceDate": "2026-09-08", "sourceCodes": ["USD", "JPY", "NOK"] },
+      { "referenceDate": "2026-09-09", "sourceCodes": ["USD", "JPY", "NOK"] },
+      { "referenceDate": "2026-09-10", "sourceCodes": ["USD", "JPY", "NOK"] },
+      { "referenceDate": "2026-09-11", "sourceCodes": ["USD", "JPY", "NOK"] },
+      { "referenceDate": "2026-09-14", "sourceCodes": ["USD", "JPY", "NOK"] },
+      { "referenceDate": "2026-09-15", "sourceCodes": ["USD", "JPY", "NOK"] }
+    ],
+    "nok-falta-el-viernes": [
+      { "referenceDate": "2026-09-09", "sourceCodes": ["USD", "NOK"] },
+      { "referenceDate": "2026-09-10", "sourceCodes": ["USD", "NOK"] },
+      { "referenceDate": "2026-09-11", "sourceCodes": ["USD"] },
+      { "referenceDate": "2026-09-14", "sourceCodes": ["USD", "NOK"] }
+    ],
+    "nok-falta-jueves-y-viernes": [
+      { "referenceDate": "2026-09-09", "sourceCodes": ["USD", "NOK"] },
+      { "referenceDate": "2026-09-10", "sourceCodes": ["USD"] },
+      { "referenceDate": "2026-09-11", "sourceCodes": ["USD"] },
+      { "referenceDate": "2026-09-14", "sourceCodes": ["USD", "NOK"] }
+    ],
+    "fin-de-ano": [
+      { "referenceDate": "2025-12-29", "sourceCodes": ["USD", "NOK"] },
+      { "referenceDate": "2025-12-30", "sourceCodes": ["USD", "NOK"] },
+      { "referenceDate": "2025-12-31", "sourceCodes": ["USD", "NOK"] },
+      { "referenceDate": "2026-01-02", "sourceCodes": ["USD", "NOK"] },
+      { "referenceDate": "2026-01-05", "sourceCodes": ["USD", "NOK"] }
+    ],
+    "fin-de-ano-nok-falta-el-2-de-enero": [
+      { "referenceDate": "2025-12-30", "sourceCodes": ["USD", "NOK"] },
+      { "referenceDate": "2025-12-31", "sourceCodes": ["USD", "NOK"] },
+      { "referenceDate": "2026-01-02", "sourceCodes": ["USD"] },
+      { "referenceDate": "2026-01-05", "sourceCodes": ["USD", "NOK"] }
+    ],
+    "pascua-2026": [
+      { "referenceDate": "2026-04-01", "sourceCodes": ["USD", "NOK"] },
+      { "referenceDate": "2026-04-02", "sourceCodes": ["USD"] },
+      { "referenceDate": "2026-04-07", "sourceCodes": ["USD"] },
+      { "referenceDate": "2026-04-08", "sourceCodes": ["USD", "NOK"] }
+    ],
+    "inicio-de-la-fuente": [
+      { "referenceDate": "1999-01-04", "sourceCodes": ["USD"] },
+      { "referenceDate": "1999-01-05", "sourceCodes": ["USD"] }
+    ],
+    "ventana-sin-anterior": [{ "referenceDate": "2026-09-11", "sourceCodes": ["USD"] }],
+    "inicio-de-brl": [
+      { "referenceDate": "2007-12-28", "sourceCodes": ["USD"] },
+      { "referenceDate": "2007-12-31", "sourceCodes": ["USD"] },
+      { "referenceDate": "2008-01-02", "sourceCodes": ["USD", "BRL"] },
+      { "referenceDate": "2008-01-03", "sourceCodes": ["USD", "BRL"] }
+    ],
+    "inicio-de-brl-sin-el-primer-dia": [
+      { "referenceDate": "2007-12-31", "sourceCodes": ["USD", "BRL"] },
+      { "referenceDate": "2008-01-02", "sourceCodes": ["USD"] },
+      { "referenceDate": "2008-01-03", "sourceCodes": ["USD", "BRL"] }
+    ],
+    "ron-tras-rol": [
+      { "referenceDate": "2005-06-29", "sourceCodes": ["USD", "ROL"] },
+      { "referenceDate": "2005-06-30", "sourceCodes": ["USD", "ROL", "RON"] },
+      { "referenceDate": "2005-07-01", "sourceCodes": ["USD"] },
+      { "referenceDate": "2005-07-04", "sourceCodes": ["USD", "RON"] }
+    ],
+    "isk-2008": [
+      { "referenceDate": "2008-12-08", "sourceCodes": ["USD", "ISK"] },
+      { "referenceDate": "2008-12-09", "sourceCodes": ["USD", "ISK"] },
+      { "referenceDate": "2008-12-10", "sourceCodes": ["USD"] }
+    ],
+    "fecha-duplicada": [
+      { "referenceDate": "2026-09-10", "sourceCodes": ["USD"] },
+      { "referenceDate": "2026-09-10", "sourceCodes": ["USD"] }
+    ]
+  },
+  "cases": [
+    {
+      "id": "jueves",
+      "source": "F11/ADR-001 §3.2",
+      "given": { "history": "septiembre-2026", "effectiveDate": "2026-09-10", "coverage": "usd" },
+      "expect": { "kind": "selected", "referenceDate": "2026-09-09", "position": "R" }
+    },
+    {
+      "id": "sabado-usa-el-viernes",
+      "source": "F11/ADR-001 §3.2",
+      "given": { "history": "septiembre-2026", "effectiveDate": "2026-09-12", "coverage": "usd" },
+      "expect": { "kind": "selected", "referenceDate": "2026-09-11", "position": "R" }
+    },
+    {
+      "id": "domingo-usa-el-viernes",
+      "source": "F11/ADR-001 §3.2",
+      "given": { "history": "septiembre-2026", "effectiveDate": "2026-09-13", "coverage": "usd" },
+      "expect": { "kind": "selected", "referenceDate": "2026-09-11", "position": "R" }
+    },
+    {
+      "id": "lunes-usa-el-viernes",
+      "source": "F11/ADR-001 §3.2",
+      "given": { "history": "septiembre-2026", "effectiveDate": "2026-09-14", "coverage": "usd" },
+      "expect": { "kind": "selected", "referenceDate": "2026-09-11", "position": "R" }
+    },
+    {
+      "id": "martes-usa-el-lunes",
+      "source": "F11/ADR-001 §3.2",
+      "given": { "history": "septiembre-2026", "effectiveDate": "2026-09-15", "coverage": "usd" },
+      "expect": { "kind": "selected", "referenceDate": "2026-09-14", "position": "R" }
+    },
+    {
+      "id": "pivote-eur",
+      "source": "F11/ADR-002 §3",
+      "given": {
+        "history": "septiembre-2026",
+        "effectiveDate": "2026-09-12",
+        "coverage": "eur-pivote"
+      },
+      "expect": { "kind": "selected", "referenceDate": "2026-09-11", "position": "pivot" }
+    },
+    {
+      "id": "retraso-sabado-usa-p",
+      "source": "F11/ADR-002 §3",
+      "note": "NOK falta el viernes: el sabado usa el jueves (una publicacion atras)",
+      "given": {
+        "history": "nok-falta-el-viernes",
+        "effectiveDate": "2026-09-12",
+        "coverage": "nok"
+      },
+      "expect": { "kind": "selected", "referenceDate": "2026-09-10", "position": "P" }
+    },
+    {
+      "id": "retraso-otras-monedas-usan-r",
+      "source": "F11/ADR-002 §7",
+      "note": "El mismo dia, USD usa el viernes: fechas de referencia distintas por moneda",
+      "given": {
+        "history": "nok-falta-el-viernes",
+        "effectiveDate": "2026-09-12",
+        "coverage": "usd"
+      },
+      "expect": { "kind": "selected", "referenceDate": "2026-09-11", "position": "R" }
+    },
+    {
+      "id": "retraso-lunes-usa-p",
+      "source": "F11/ADR-002 §3",
+      "given": {
+        "history": "nok-falta-el-viernes",
+        "effectiveDate": "2026-09-14",
+        "coverage": "nok"
+      },
+      "expect": { "kind": "selected", "referenceDate": "2026-09-10", "position": "P" }
+    },
+    {
+      "id": "martes-vuelve-a-r",
+      "source": "F11/ADR-002 §3",
+      "given": {
+        "history": "nok-falta-el-viernes",
+        "effectiveDate": "2026-09-15",
+        "coverage": "nok"
+      },
+      "expect": { "kind": "selected", "referenceDate": "2026-09-14", "position": "R" }
+    },
+    {
+      "id": "falta-en-r-y-en-p",
+      "source": "F11/ADR-002 §3 y §6",
+      "note": "NOK falta jueves y viernes: el lunes no tiene tipo; nunca se usa el miercoles",
+      "given": {
+        "history": "nok-falta-jueves-y-viernes",
+        "effectiveDate": "2026-09-14",
+        "coverage": "nok"
+      },
+      "expect": { "kind": "not_covered", "reason": "beyond_staleness_limit" }
+    },
+    {
+      "id": "dos-seguidas-sabado",
+      "source": "F11/ADR-002 §3 y §6",
+      "given": {
+        "history": "nok-falta-jueves-y-viernes",
+        "effectiveDate": "2026-09-12",
+        "coverage": "nok"
+      },
+      "expect": { "kind": "not_covered", "reason": "beyond_staleness_limit" }
+    },
+    {
+      "id": "dos-seguidas-otra-moneda-intacta",
+      "source": "F11/ADR-002 §3",
+      "given": {
+        "history": "nok-falta-jueves-y-viernes",
+        "effectiveDate": "2026-09-14",
+        "coverage": "usd"
+      },
+      "expect": { "kind": "selected", "referenceDate": "2026-09-11", "position": "R" }
+    },
+    {
+      "id": "festivo-1-de-enero",
+      "source": "F11/ADR-001 §3.2",
+      "given": { "history": "fin-de-ano", "effectiveDate": "2026-01-01", "coverage": "usd" },
+      "expect": { "kind": "selected", "referenceDate": "2025-12-31", "position": "R" }
+    },
+    {
+      "id": "dia-tras-el-festivo",
+      "source": "F11/ADR-001 §3.2",
+      "given": { "history": "fin-de-ano", "effectiveDate": "2026-01-02", "coverage": "usd" },
+      "expect": { "kind": "selected", "referenceDate": "2025-12-31", "position": "R" }
+    },
+    {
+      "id": "sabado-3-de-enero",
+      "source": "F11/ADR-001 §3.2",
+      "given": { "history": "fin-de-ano", "effectiveDate": "2026-01-03", "coverage": "usd" },
+      "expect": { "kind": "selected", "referenceDate": "2026-01-02", "position": "R" }
+    },
+    {
+      "id": "festivo-p-es-la-publicacion-anterior",
+      "source": "F11/ADR-002 §1",
+      "note": "NOK falta el 2 de enero: el 3 usa el 31 de diciembre, que es P aunque haya un festivo por medio",
+      "given": {
+        "history": "fin-de-ano-nok-falta-el-2-de-enero",
+        "effectiveDate": "2026-01-03",
+        "coverage": "nok"
+      },
+      "expect": { "kind": "selected", "referenceDate": "2025-12-31", "position": "P" }
+    },
+    {
+      "id": "pascua-p-a-cinco-dias",
+      "source": "F11/ADR-002 §1",
+      "note": "Viernes Santo y Lunes de Pascua cerrados: el miercoles 8 tiene R = martes 7 y P = jueves 2",
+      "given": { "history": "pascua-2026", "effectiveDate": "2026-04-08", "coverage": "nok" },
+      "expect": { "kind": "not_covered", "reason": "beyond_staleness_limit" }
+    },
+    {
+      "id": "pascua-p-disponible",
+      "source": "F11/ADR-002 §1",
+      "note": "El martes 7 tiene R = jueves 2 (sin NOK) y P = miercoles 1 (con NOK)",
+      "given": { "history": "pascua-2026", "effectiveDate": "2026-04-07", "coverage": "nok" },
+      "expect": { "kind": "selected", "referenceDate": "2026-04-01", "position": "P" }
+    },
+    {
+      "id": "retirada-antes-del-fin",
+      "source": "F11/ADR-002 §5",
+      "given": {
+        "history": "septiembre-2026",
+        "effectiveDate": "2026-09-10",
+        "coverage": "nok-retirada-2026-09-09"
+      },
+      "expect": { "kind": "selected", "referenceDate": "2026-09-09", "position": "R" }
+    },
+    {
+      "id": "retirada-prevalece-sobre-k",
+      "source": "F11/ADR-002 §5",
+      "note": "R = 2026-09-10 esta fuera de la cobertura: no se usa P aunque lo permita K=1",
+      "given": {
+        "history": "septiembre-2026",
+        "effectiveDate": "2026-09-11",
+        "coverage": "nok-retirada-2026-09-09"
+      },
+      "expect": { "kind": "not_covered", "reason": "outside_coverage" }
+    },
+    {
+      "id": "sin-correspondencia",
+      "source": "F11/ADR-001 §5.1",
+      "given": {
+        "history": "septiembre-2026",
+        "effectiveDate": "2026-09-12",
+        "coverage": "sin-correspondencia"
+      },
+      "expect": { "kind": "not_covered", "reason": "no_source_mapping" }
+    },
+    {
+      "id": "sin-correspondencia-antes-de-mirar-el-dia",
+      "source": "F11/ADR-001 §6",
+      "note": "ARS no espera a nada: da igual que la observacion no alcance",
+      "given": {
+        "history": "ventana-sin-anterior",
+        "effectiveDate": "2026-09-14",
+        "coverage": "sin-correspondencia"
+      },
+      "expect": { "kind": "not_covered", "reason": "no_source_mapping" }
+    },
+    {
+      "id": "primera-publicacion-de-la-fuente",
+      "source": "decision F11.B (fechas anteriores al BCE)",
+      "given": {
+        "history": "inicio-de-la-fuente",
+        "effectiveDate": "1999-01-04",
+        "coverage": "usd"
+      },
+      "expect": { "kind": "not_covered", "reason": "no_reference_publication" }
+    },
+    {
+      "id": "anterior-a-la-fuente",
+      "source": "decision F11.B (fechas anteriores al BCE)",
+      "given": {
+        "history": "inicio-de-la-fuente",
+        "effectiveDate": "1998-12-31",
+        "coverage": "usd"
+      },
+      "expect": { "kind": "not_covered", "reason": "no_reference_publication" }
+    },
+    {
+      "id": "dia-siguiente-a-la-primera",
+      "source": "F11/ADR-002 §1",
+      "note": "R es la primera publicacion: P no existe y no hace falta",
+      "given": {
+        "history": "inicio-de-la-fuente",
+        "effectiveDate": "1999-01-05",
+        "coverage": "usd"
+      },
+      "expect": { "kind": "selected", "referenceDate": "1999-01-04", "position": "R" }
+    },
+    {
+      "id": "segundo-dia-de-la-fuente",
+      "source": "F11/ADR-002 §1",
+      "given": {
+        "history": "inicio-de-la-fuente",
+        "effectiveDate": "1999-01-06",
+        "coverage": "usd"
+      },
+      "expect": { "kind": "selected", "referenceDate": "1999-01-05", "position": "R" }
+    },
+    {
+      "id": "observacion-sin-p",
+      "source": "F11/ADR-002 §2 (condicion 7)",
+      "given": {
+        "history": "ventana-sin-anterior",
+        "effectiveDate": "2026-09-12",
+        "coverage": "usd"
+      },
+      "expect": { "kind": "observation_insufficient", "reason": "previous_publication_missing" }
+    },
+    {
+      "id": "observacion-sin-r",
+      "source": "F11/ADR-002 §2 (condicion 7)",
+      "given": {
+        "history": "ventana-sin-anterior",
+        "effectiveDate": "2026-09-11",
+        "coverage": "usd"
+      },
+      "expect": { "kind": "observation_insufficient", "reason": "reference_publication_missing" }
+    },
+    {
+      "id": "antes-del-inicio-de-cobertura",
+      "source": "F11/ADR-002 §5",
+      "note": "BRL cubierta desde 2008-01-02: X = 2008-01-02 tiene R = 2007-12-31, fuera de su cobertura",
+      "given": { "history": "inicio-de-brl", "effectiveDate": "2008-01-02", "coverage": "brl" },
+      "expect": { "kind": "not_covered", "reason": "outside_coverage" }
+    },
+    {
+      "id": "primer-dia-de-cobertura",
+      "source": "F11/ADR-002 §5",
+      "given": { "history": "inicio-de-brl", "effectiveDate": "2008-01-03", "coverage": "brl" },
+      "expect": { "kind": "selected", "referenceDate": "2008-01-02", "position": "R" }
+    },
+    {
+      "id": "p-anterior-al-inicio-de-cobertura",
+      "source": "F11/ADR-002 §5",
+      "note": "R = 2008-01-02 sin BRL y P = 2007-12-31 anterior al inicio de su cobertura: no se usa",
+      "given": {
+        "history": "inicio-de-brl-sin-el-primer-dia",
+        "effectiveDate": "2008-01-03",
+        "coverage": "brl"
+      },
+      "expect": { "kind": "not_covered", "reason": "beyond_staleness_limit" }
+    },
+    {
+      "id": "ron-nunca-usa-un-tipo-anterior-a-su-cobertura",
+      "source": "F11/ADR-002 §5",
+      "note": "Historia sintetica: RON cubierta desde 2005-07-01; R = 07-01 sin RON y P = 06-30 anterior a su cobertura",
+      "given": { "history": "ron-tras-rol", "effectiveDate": "2005-07-02", "coverage": "ron" },
+      "expect": { "kind": "not_covered", "reason": "beyond_staleness_limit" }
+    },
+    {
+      "id": "moneda-con-hueco-dentro",
+      "source": "F11/ADR-002 §5",
+      "given": {
+        "history": "isk-2008",
+        "effectiveDate": "2008-12-10",
+        "coverage": "isk-con-hueco"
+      },
+      "expect": { "kind": "selected", "referenceDate": "2008-12-09", "position": "R" }
+    },
+    {
+      "id": "moneda-con-hueco-fuera",
+      "source": "F11/ADR-002 §5",
+      "given": {
+        "history": "isk-2008",
+        "effectiveDate": "2008-12-11",
+        "coverage": "isk-con-hueco"
+      },
+      "expect": { "kind": "not_covered", "reason": "outside_coverage" }
+    },
+    {
+      "id": "fecha-de-referencia-duplicada",
+      "source": "F11/ADR-002 §2 (condicion 3)",
+      "given": { "history": "fecha-duplicada", "effectiveDate": "2026-09-11", "coverage": "usd" },
+      "expectError": "FX_PUBLICATION_DUPLICATED"
+    }
+  ]
+}
