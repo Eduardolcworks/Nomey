@@ -5,7 +5,16 @@ import { type ReactNode, useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { isRecoveryActive, RecoveryProvider, useRecovery, useRecoveryLink } from '@/features/auth';
+import {
+  AccountIdentityProvider,
+  isRecoveryActive,
+  needsUsernameGate,
+  RecoveryProvider,
+  useAccountIdentity,
+  useRecovery,
+  useRecoveryLink,
+  wakeIdentity,
+} from '@/features/auth';
 import { groupCommandHandlers, sendGroupCreate, useInvitationLink } from '@/features/groups';
 import { personalCommandHandlers, sendPersonalEntry } from '@/features/personal';
 import { useQueueRuntime, AddBackdropProvider, ScopeProvider } from '@/features/shell';
@@ -67,7 +76,7 @@ export default function RootLayout() {
        * foreground trigger (F07/ADR-001 §12): `onForeground` is the seam F7.C left
        * for it, and there is no second listener anywhere.
        */}
-      <SessionProvider onForeground={wakeQueue}>
+      <SessionProvider onForeground={wakeOnForeground}>
         {/*
          * `RecoveryProvider` sits INSIDE the session provider and owns nothing it
          * owns. It models one transaction - a password recovery - over a separate,
@@ -81,13 +90,15 @@ export default function RootLayout() {
         <RecoveryProvider>
           <ScopeBinding>
             <QueueBinding>
-              {/*
-               * Fixed light, not "auto". The app is dark-only, so the status bar
-               * content is always light-on-dark; "auto" would resolve from the
-               * scheme and add a branch that can only go one way.
-               */}
-              <StatusBar style="light" />
-              <RootNavigator />
+              <IdentityBinding>
+                {/*
+                 * Fixed light, not "auto". The app is dark-only, so the status bar
+                 * content is always light-on-dark; "auto" would resolve from the
+                 * scheme and add a branch that can only go one way.
+                 */}
+                <StatusBar style="light" />
+                <RootNavigator />
+              </IdentityBinding>
             </QueueBinding>
           </ScopeBinding>
         </RecoveryProvider>
@@ -99,6 +110,18 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 });
+
+/**
+ * THE ONE FOREGROUND SIGNAL, shared (F07/ADR-001 §12). The session provider
+ * owns the only `AppState` listener; the offline queue wakes from it, and so
+ * does an account identity the server never confirmed (F12.A3, offline
+ * first): back in the foreground is when connectivity is most likely back.
+ * Neither knows about the other; the composition root fans the signal out.
+ */
+function wakeOnForeground(): void {
+  wakeQueue();
+  wakeIdentity();
+}
 
 /**
  * EL TEMA DE NAVEGACIÓN, Y POR QUÉ HAY QUE DECLARARLO.
@@ -217,10 +240,43 @@ function QueueBinding({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * La identidad pública de la cuenta, resuelta una vez por sesión (F12/ADR-001
+ * §7). Mismo motivo que `ScopeBinding` y `QueueBinding`: el proveedor no puede
+ * preguntar a la sesión quién es el actor ni si es un invitado, así que la raíz
+ * se lo pasa. Un invitado no pregunta y nunca ve el gate; una cuenta normal
+ * reclama su reserva o cae en `required`, y `RootNavigator` decide la rama.
+ */
+function IdentityBinding({ children }: { children: ReactNode }) {
+  const { state } = useSession();
+  return (
+    <AccountIdentityProvider
+      actorId={state.status === 'signed-in' ? state.identity.userId : ''}
+      isAnonymous={state.status === 'signed-in' && state.identity.isAnonymous}>
+      {children}
+    </AccountIdentityProvider>
+  );
+}
+
 function RootNavigator() {
   const { state } = useSession();
   const { state: recovery } = useRecovery();
-  const resolved = isResolved(state);
+  const { state: identity, pending: identityPending } = useAccountIdentity();
+  /*
+   * Resuelto = la sesión contestó Y, si es una cuenta normal, su identidad
+   * también. Mientras el ciclo pregunta al servidor si hay username, ni las
+   * pestañas ni el gate se montan: enseñar uno y cambiarlo al otro sería
+   * mentir sobre lo que esta cuenta es. Un invitado no espera nada.
+   */
+  const resolved = isResolved(state) && !identityPending;
+  /*
+   * Con la sesión resuelta, una cuenta normal está en las pestañas o en el
+   * gate, y SOLO el servidor la manda al gate (USERNAME_REQUIRED). Sin red la
+   * identidad queda `unavailable` y la cuenta entra igual: Nomey abre sin
+   * conexión (F07/ADR-001), y el ciclo vuelve a preguntar al volver al primer
+   * plano. Un invitado está siempre en las pestañas: el ciclo no le pregunta.
+   */
+  const gate = needsUsernameGate(identity);
 
   /*
    * The recovery deep link has exactly one owner, and it is here.
@@ -323,7 +379,18 @@ function RootNavigator() {
             <Stack.Screen name="(recovery)" />
           </Stack.Protected>
 
-          <Stack.Protected guard={isSignedIn(state) && !recovering}>
+          {/*
+           * EL GATE DE USERNAME (F12/ADR-001 §7): una cuenta normal sin username
+           * definitivo no llega a las pestañas. Navegación, no seguridad —el
+           * servidor rehúsa por su cuenta lo que exige un username—, y sin
+           * «Saltar»: la única salida es elegir uno, y entonces la guarda de
+           * abajo se abre sola. Un invitado nunca entra aquí.
+           */}
+          <Stack.Protected guard={isSignedIn(state) && !recovering && gate}>
+            <Stack.Screen name="username-gate" />
+          </Stack.Protected>
+
+          <Stack.Protected guard={isSignedIn(state) && !recovering && !gate}>
             <Stack.Screen name="(tabs)" />
             {/*
              * **`transparentModal` NO basta, y aquí está la prueba.**

@@ -93,7 +93,13 @@ describe('un worker, en la raíz, con el listener de AppState que ya existía', 
   const LAYOUT = stripComments(source('src/app/_layout.tsx'));
 
   it('la raíz monta el runtime una vez y cablea el primer plano por el seam de F5', () => {
-    expect(LAYOUT).toContain('<SessionProvider onForeground={wakeQueue}>');
+    // Desde F12.A3 el seam se reparte en la raíz: la cola y la identidad de la
+    // cuenta se despiertan del MISMO listener; sigue sin haber un segundo.
+    expect(LAYOUT).toContain('<SessionProvider onForeground={wakeOnForeground}>');
+    expect(LAYOUT).toMatch(
+      /function wakeOnForeground\(\): void \{\s*wakeQueue\(\);\s*wakeIdentity\(\);\s*\}/,
+    );
+    expect(LAYOUT).not.toMatch(/AppState\.addEventListener/);
     expect(LAYOUT).toContain('useQueueRuntime(');
     expect(LAYOUT.match(/useQueueRuntime\(/g)).toHaveLength(1);
   });

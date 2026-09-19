@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import {
@@ -7,7 +7,10 @@ import {
   buildSignOutConfirmation,
   DisplayNameEditor,
   signOut,
+  updatePublicName,
+  useAccountIdentity,
   useAuthSubmit,
+  UsernameEditor,
 } from '@/features/auth';
 import { isGuest, useSession } from '@/features/session';
 import { PlaceholderScreen } from '@/features/shell';
@@ -61,6 +64,27 @@ export default function ProfileScreen() {
    */
   const displayName = state.status === 'signed-in' ? state.identity.displayName : null;
   const { submit: leave, state: leaving } = useAuthSubmit();
+
+  /*
+   * LA IDENTIDAD PÚBLICA (F12/ADR-001 §10, §13): lo que los demás ven. `core`
+   * es la autoridad —`api.my_account_handle` por el proveedor de identidad—,
+   * así que el nombre que Perfil enseña es el público cuando existe, y el de la
+   * sesión (metadata de Auth) sólo mientras no haya identidad que leer.
+   * Editarlo escribe PRIMERO `api.set_public_name` y después la copia de Auth;
+   * si la segunda falla no se deshace la primera: se enseña lo que `core`
+   * dice, y una sola frase avisa de que el saludo de Inicio se pondrá al día.
+   */
+  const { state: identity, apply: applyIdentity } = useAccountIdentity();
+  const [nameNotice, setNameNotice] = useState<string | undefined>(undefined);
+  const publicName =
+    identity.status === 'ready' ? (identity.identity.publicName ?? displayName) : displayName;
+  const savePublicName = async (draft: string) => {
+    const result = await updatePublicName(draft);
+    if (!result.ok) return result;
+    applyIdentity(result.identity);
+    setNameNotice(result.metadataStale ? t('identity.nameSyncPending') : undefined);
+    return { ok: true } as const;
+  };
 
   const general: readonly Option[] = [
     { icon: Symbols.language, label: t('profile.languageCurrency') },
@@ -149,8 +173,13 @@ export default function ProfileScreen() {
   return (
     <PlaceholderScreen title="nav.profile">
       <View style={styles.identity}>
-        <AccountAvatar name={displayName} />
-        <DisplayNameEditor name={displayName} />
+        <AccountAvatar name={publicName} />
+        <DisplayNameEditor name={publicName} onSave={savePublicName} notice={nameNotice} />
+        {/*
+         * Una cuenta normal solo llega a Perfil con identidad lista: sin
+         * veredicto del servidor la raiz la retiene antes de las pestañas.
+         */}
+        {identity.status === 'ready' ? <UsernameEditor identity={identity.identity} /> : null}
       </View>
 
       <Section title={t('profile.general')}>

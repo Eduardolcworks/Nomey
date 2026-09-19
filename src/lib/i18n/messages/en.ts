@@ -458,6 +458,8 @@ export const en: Record<MessageKey, string> = {
     'Only lowercase letters, numbers and _, starting with a letter, 3 to 20 characters.',
   'authError.usernameReserved': 'That username is reserved. Pick another one.',
   'authError.usernameTaken': 'That username is already taken. Pick another one.',
+  'authError.usernameCooldown':
+    'You changed your username recently. You cannot change it again yet.',
   'authError.nameRequired': 'Enter a name.',
   'authError.emailRequired': 'Enter your email.',
   'authError.passwordRequired': 'Enter a password.',
@@ -564,6 +566,18 @@ export const en: Record<MessageKey, string> = {
   'profile.photoSoonTitle': 'Profile photo',
   'profile.photoSoonBody': 'You cannot upload a photo yet. It is coming later.',
   'profile.editName': 'Edit name',
+
+  'identity.gateTitle': 'Choose your username',
+  'identity.gateBody':
+    'This is how other people will find you in Nomey. You can change it later, every 30 days.',
+  'identity.gateAction': 'Continue',
+  'identity.publicName': 'Public name',
+  'identity.publicNameHint': 'What other people see next to your username.',
+  'identity.noUsername': 'No username',
+  'identity.editUsername': 'Change username',
+  'identity.changeHint': 'Your previous one is kept for 90 days; type it again to get it back.',
+  'identity.cooldownUntil': 'You can change it from {date}.',
+  'identity.nameSyncPending': 'Name saved. The greeting on Home will catch up in a moment.',
 
   'dev.states': 'Common states',
   'dev.statesHint': 'Development only. For checking them on the device.',

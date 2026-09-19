@@ -99,7 +99,14 @@ describe('la sesion de invitado es un estado real, reconocido por lo que dice Su
     expect(SESSION_STATE).toContain(
       "export function isGuest(state: SessionState): boolean {\n  return state.status === 'signed-in' && state.identity.isAnonymous;\n}",
     );
-    expect(LAYOUT).toContain('<Stack.Protected guard={isSignedIn(state) && !recovering}>');
+    // Desde F12.A3 la rama con sesion se abre en dos: las pestañas o el gate de
+    // username (solo cuentas normales sin username definitivo, dicho por el
+    // servidor); el invitado sigue siendo signed-in y nunca ve el gate
+    // (isAnonymous → el ciclo no pregunta), con o sin red.
+    expect(LAYOUT).toContain('<Stack.Protected guard={isSignedIn(state) && !recovering && !gate}>');
+    expect(LAYOUT).toContain(
+      "isAnonymous={state.status === 'signed-in' && state.identity.isAnonymous}",
+    );
     expect(LAYOUT).not.toMatch(/name="register"|name="recover"|isGuest/);
     expect(SESSION_STATE).not.toMatch(/guestMode|GUEST_BIT|simulad/i);
   });
