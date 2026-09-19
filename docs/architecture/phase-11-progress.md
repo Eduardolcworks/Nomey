@@ -11,12 +11,12 @@
 
 ## Estado
 
-| Bloque    | Estado                                                                                                                                                            |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **F11.A** | **Cerrado**: contrato de fuente y resolución en F11/ADR-001. Sin implementación                                                                                   |
-| **F11.B** | En preparación sobre F11/ADR-002 (aceptado): catálogo, fijación diaria, ingesta, resolver en SQL, conversión congelada. **No se despliega sin F11.C** (ver abajo) |
-| **F11.C** | Pendiente: lecturas, estadísticas, cola sin conexión y presentación                                                                                               |
-| **F11.D** | Pendiente: integración del gasto de grupo y cierre de los criterios de la fase                                                                                    |
+| Bloque    | Estado                                                                                                                                                                                                                                                                                                                                                  |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **F11.A** | **Cerrado**: contrato de fuente y resolución en F11/ADR-001. Sin implementación                                                                                                                                                                                                                                                                         |
+| **F11.B** | En curso sobre F11/ADR-002: **B1** (dominio y vectores), **B2** (catálogo y cobertura curada) y **B3** (ingesta y fijación diaria) cerrados e integrados (PR #70); **B4** (resolver y conversión en SQL) en implementación. Quedan los writers personales con `core.frozen_conversion` y su procedencia (B5). **No se despliega sin F11.C** (ver abajo) |
+| **F11.C** | Pendiente: lecturas, estadísticas, cola sin conexión y presentación                                                                                                                                                                                                                                                                                     |
+| **F11.D** | Pendiente: integración del gasto de grupo y cierre de los criterios de la fase                                                                                                                                                                                                                                                                          |
 
 ### Decisiones de implementación de F11.B (2026-09-15)
 

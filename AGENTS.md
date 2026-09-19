@@ -660,8 +660,10 @@ deleted and no compensating adjustment exists. Measured in
 `scripts/personal-start-race-evidence.sh`.
 
 **Phase 11 is OPEN**, and only **F11.A** is closed: the contract for resolving
-exchange rates, [F11/ADR-001](docs/adr/F11/ADR-001-fx-rate-resolution.md), with
-no implementation. F11.B is being prepared; the per-currency daily rate, with a limit of one ECB
+exchange rates, [F11/ADR-001](docs/adr/F11/ADR-001-fx-rate-resolution.md). Of
+F11.B, the domain, the FX catalogue and the daily ingest and fixation (B1–B3)
+are integrated and B4, the SQL resolver, is in progress; nothing converts yet.
+The per-currency daily rate, with a limit of one ECB
 publication of staleness, is fixed in
 [F11/ADR-002](docs/adr/F11/ADR-002-per-currency-daily-rate.md). Every operation in a currency other than the base of a
 reached scope is still refused with `CURRENCY_CONVERSION_UNSUPPORTED`; what is
@@ -703,11 +705,11 @@ Two artefacts closed Phase 5 and are worth knowing about:
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
 and twelve reproducible probes that measured the decisions behind the schema
-(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **52
-migrations** rebuilt from zero in CI with 33 SQL checks and eleven real-session
+(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **56
+migrations** rebuilt from zero in CI with 37 SQL checks and twelve real-session
 race scripts. A pure reference implementation of the financial domain in
 `src/domain/`, with shared test vectors in `tests/vectors/` that the server
-boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 135 files.
+boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 145 files.
 Screens with economic function exist for the Modo Personal (F6, F7) and for
 Groups (F9): creating, inviting, shared expenses, balances, declared payments,
 leaving and rejoining.
@@ -816,7 +818,7 @@ writer of one class can no longer correct an operation of another**, guarded in
 [F06/ADR-002](docs/adr/F06/ADR-002-version-content-and-time.md) and
 [F06/ADR-003](docs/adr/F06/ADR-003-category-catalogue.md).
 
-**Migrations have started.** `supabase/migrations/` holds 52. The first is the
+**Migrations have started.** `supabase/migrations/` holds 56. The first is the
 **bootstrap of the data boundary** — the three schemas, explicit revokes and the
 default-privilege sanitising — and nothing else. Rebuilding from zero is
 verified, and so is F03/ADR-011: `api` is served and `public`, `core` and `sec`

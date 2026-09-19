@@ -42,7 +42,7 @@ exception when others then
   return sqlstate;
 end $$;
 
-grant execute on function pg_temp.super(), pg_temp.try(text, text) to nomey_fx_ingest;
+grant execute on function pg_temp.super(), pg_temp.try(text, text) to nomey_fx_ingest, nomey_writer, anon, authenticated, nomey_provisioner;
 
 -- Como `try`, pero ademas adelanta la comprobacion de las constraints
 -- diferidas: es la unica forma de ver dentro de una transaccion lo que, en una
@@ -142,14 +142,17 @@ begin
     fallos := array_append(fallos, format('A1 %s de 6 tablas con RLS y propiedad de postgres', v_n));
   end if;
 
-  -- A2 · privilegios EXACTOS: solo la ingesta, y solo SELECT e INSERT.
+  -- A2 · privilegios EXACTOS: la ingesta, SELECT e INSERT; y el writer, solo
+  --      SELECT de las tres tablas que lee el resolver (20260925120000).
   foreach v_rel in array c_tablas loop
     select string_agg(g.rolname || '=' || a.privilege_type, ',' order by g.rolname, a.privilege_type)
       into v_t
       from pg_class c cross join lateral aclexplode(c.relacl) a
       join pg_roles g on g.oid = a.grantee
      where c.oid = ('core.' || v_rel)::regclass and a.grantee <> c.relowner;
-    if v_t is distinct from 'nomey_fx_ingest=INSERT,nomey_fx_ingest=SELECT' then
+    if v_t is distinct from ('nomey_fx_ingest=INSERT,nomey_fx_ingest=SELECT'
+         || case when v_rel in ('fx_day', 'fx_day_rate', 'fx_publication_rate')
+                 then ',nomey_writer=SELECT' else '' end) then
       fallos := array_append(fallos, format('A2 %s: %s', v_rel, coalesce(v_t, 'sin privilegios')));
     end if;
     select string_agg(r || ':' || p, ',') into v_t
@@ -157,7 +160,9 @@ begin
                         'nomey_provisioner', 'nomey_fx_ingest']) r,
            unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) p
      where has_table_privilege(r, 'core.' || v_rel, p)
-       and not (r = 'nomey_fx_ingest' and p in ('SELECT', 'INSERT'));
+       and not (r = 'nomey_fx_ingest' and p in ('SELECT', 'INSERT'))
+       and not (r = 'nomey_writer' and p = 'SELECT'
+                and v_rel in ('fx_day', 'fx_day_rate', 'fx_publication_rate'));
     if v_t is not null then
       fallos := array_append(fallos, format('A2b %s: %s', v_rel, v_t));
     end if;
@@ -167,8 +172,9 @@ begin
     end if;
   end loop;
 
-  -- A3 · policies: una de lectura y una de insercion por tabla, las doce solo
-  --      para la ingesta; y las cuatro que atan la validez siguen ahi.
+  -- A3 · policies: una de lectura y una de insercion por tabla para la
+  --      ingesta (doce), mas una de lectura para el writer en las tres que lee
+  --      el resolver (quince); y las cuatro que atan la validez siguen ahi.
   select count(*) into v_n
     from pg_policy p join pg_class c on c.oid = p.polrelid
     join pg_namespace n on n.oid = c.relnamespace
@@ -178,8 +184,17 @@ begin
   if v_n <> 12
      or (select count(*) from pg_policy p join pg_class c on c.oid = p.polrelid
           join pg_namespace n on n.oid = c.relnamespace
-          where n.nspname = 'core' and c.relname = any (c_tablas)) <> 12 then
-    fallos := array_append(fallos, format('A3 %s de 12 policies previstas', v_n));
+          where n.nspname = 'core' and c.relname = any (c_tablas)) <> 15 then
+    fallos := array_append(fallos, format('A3 %s de 12 policies de la ingesta, o no son 15 en total', v_n));
+  end if;
+  select string_agg(c.relname || ':' || p.polcmd::text || ':' || pg_get_expr(p.polqual, p.polrelid),
+                    ',' order by c.relname)
+    into v_t
+    from pg_policy p join pg_class c on c.oid = p.polrelid
+   where c.relnamespace = 'core'::regnamespace and c.relname = any (c_tablas)
+     and p.polroles = array['nomey_writer'::regrole::oid];
+  if v_t is distinct from 'fx_day:r:true,fx_day_rate:r:true,fx_publication_rate:r:true' then
+    fallos := array_append(fallos, 'A3c policies del writer: ' || coalesce(v_t, 'ninguna'));
   end if;
   select string_agg(c.relname, ',' order by c.relname) into v_t
     from pg_policy p join pg_class c on c.oid = p.polrelid
@@ -212,7 +227,7 @@ begin
   end loop;
 
   -- A5 · ninguna superficie nueva: 9 record_*, nada de api toca FX, el writer
-  --      no lee todavia nada de la ingesta y frozen_conversion sigue sin ruta.
+  --      solo lee lo que resuelve (A2, E3) y frozen_conversion sigue sin ruta.
   select count(*) into v_n
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.proname like 'record\_%';
@@ -241,7 +256,7 @@ begin
   if cardinality(fallos) > 0 then
     raise exception E'A · catalogo:\n  - %', array_to_string(fallos, E'\n  - ');
   end if;
-  raise notice 'A · seis tablas con RLS, solo la ingesta lee e inserta, funciones cerradas, sin superficie nueva: OK';
+  raise notice 'A · seis tablas con RLS, la ingesta lee e inserta, el writer solo lee lo que resuelve, funciones cerradas, sin superficie nueva: OK';
 end
 $a$;
 
@@ -806,17 +821,24 @@ begin
                           'fix_d', 'https://www.ecb.europa.eu/', repeat('0', 64), 'otro'), 'postgres');
   if v <> '23514' then fallos := array_append(fallos, 'E2i motivo fuera del vocabulario: ' || v); end if;
 
-  -- E3 · nadie mas lee nada de esto todavia.
-  foreach v in array array['anon', 'authenticated', 'nomey_writer', 'nomey_provisioner'] loop
+  -- E3 · los clientes y el provisioner no leen nada de esto; el writer lee
+  --      solo lo que resuelve (20260925120000), y nada de las observaciones ni
+  --      de las versiones.
+  foreach v in array array['anon', 'authenticated', 'nomey_provisioner'] loop
     if pg_temp.try('select 1 from core.fx_day_rate limit 1', v) <> '42501' then
       fallos := array_append(fallos, format('E3 %s lee core.fx_day_rate', v));
     end if;
   end loop;
+  if pg_temp.try('select 1 from core.fx_day_rate limit 1', 'nomey_writer') <> 'OK'
+     or pg_temp.try('select 1 from core.fx_observation limit 1', 'nomey_writer') <> '42501'
+     or pg_temp.try('select 1 from core.fx_publication limit 1', 'nomey_writer') <> '42501' then
+    fallos := array_append(fallos, 'E3b el writer no lee exactamente lo que resuelve');
+  end if;
 
   if cardinality(fallos) > 0 then
     raise exception E'E · segunda barrera:\n  - %', array_to_string(fallos, E'\n  - ');
   end if;
-  raise notice 'E · policies de validez, insert-only, FK de dia, version y observacion, nadie mas lee: OK';
+  raise notice 'E · policies de validez, insert-only, FK de dia, version y observacion, el writer solo lee lo que resuelve: OK';
 end
 $e$;
 

@@ -219,7 +219,8 @@ begin
    where n.nspname in ('api', 'sec', 'core')
      and (p.prosrc like '%fx\_source%' or p.prosrc like '%fx\_coverage%');
   if v_t is distinct from 'sec.fx_coverage_keeps_fixations(),'
-                          'sec.fx_ingest_at(text,text,jsonb,timestamp with time zone)' then
+                          'sec.fx_ingest_at(text,text,jsonb,timestamp with time zone),'
+                          'sec.fx_resolve(date,uuid,uuid,text)' then
     fallos := array_append(fallos, 'A6c funciones que leen el catalogo FX: ' || coalesce(v_t, 'ninguna'));
   end if;
   select count(*) into v_n from pg_depend d
