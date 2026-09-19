@@ -167,6 +167,26 @@ insert into core.scope (id,kind,base_currency_definition_id,owner_user_id) value
 insert into core.scope (id,kind,base_currency_definition_id) values
   ('a0000000-0000-4000-8000-0000000000f1','group','cccccccc-cccc-4ccc-8ccc-cccccccccccc');
 
+-- Desde F12.B1 (20260926120000) una transferencia entre usuarios nace de una
+-- PROPUESTA a @handle que el receptor acepta, asi que los tres duenos llevan
+-- identidad publica (F12/ADR-001), por las funciones reales: una cuenta normal
+-- reserva y reclama en el acto.
+do $identidades$
+declare
+  v_u text; v_h text;
+begin
+  for v_u, v_h in select * from (values
+      ('11111111-1111-4111-8111-111111111111', 'vec_a'),
+      ('22222222-2222-4222-8222-222222222222', 'vec_b'),
+      ('44444444-4444-4444-8444-444444444444', 'vec_jpy')) as t(u, h) loop
+    set local role authenticated;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_u)::text, true);
+    perform * from api.reserve_username(jsonb_build_object('handle', v_h, 'public_name', upper(v_h)));
+    reset role;
+  end loop;
+end
+$identidades$;
+
 -- ============================ B · las cuatro clases, en positivo ===========
 do $clases$
 declare
@@ -203,11 +223,17 @@ begin
         'command_contract_version',1,'effective_date','2026-01-12',
         'scope_id',SPA,'delta','-3000','currency_definition_id',EUR));
 
+  -- F12/ADR-002 (F12.B1): dos voluntades. A propone a @vec_b y B acepta; el
+  -- writer toma emisor, receptor, importe y moneda de la propuesta.
+  r := api.create_transfer_proposal(jsonb_build_object(
+        'client_command_id','10000000-0000-4000-8000-000000000004',
+        'command_contract_version',1,'handle','vec_b','amount','10000',
+        'currency_definition_id',EUR));
+  perform set_config('request.jwt.claims','{"sub":"22222222-2222-4222-8222-222222222222"}',true);
   r := api.record_internal_transfer(jsonb_build_object(
         'client_operation_id','10000000-0000-4000-8000-000000000004',
-        'command_contract_version',1,'effective_date','2026-01-13',
-        'from_scope_id',SPA,'to_scope_id',SPB,'amount','10000',
-        'currency_definition_id',EUR));
+        'command_contract_version',1,'proposal_id', r ->> 'proposal_id'));
+  perform set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
 
   reset role;
 
@@ -257,8 +283,13 @@ begin
     fallos := array_append(fallos, format('B5b: hay %s clases distintas y deberian ser 4', v_n));
   end if;
 
-  -- B6 · toda operacion queda atribuida al actor de la peticion.
-  if exists (select 1 from core.operation where created_by <> '11111111-1111-4111-8111-111111111111') then
+  -- B6 · toda operacion queda atribuida al actor de la peticion. La
+  -- transferencia la escribio B al aceptar (F12/ADR-002 §12: created_by es
+  -- quien materializa, nunca el emisor), y las otras tres, A.
+  if exists (select 1 from core.operation
+              where created_by <> case when operation_class = 'internal_transfer'
+                                       then '22222222-2222-4222-8222-222222222222'
+                                       else '11111111-1111-4111-8111-111111111111' end::uuid) then
     fallos := array_append(fallos, 'B6: alguna operacion quedo atribuida a otro actor');
   end if;
 
@@ -652,28 +683,46 @@ begin
 
   -- E8 · transferencia interna con importe negativo: invertiria la direccion y
   -- sacaria dinero del ambito del tercero. Es la primitiva de apropiacion que
-  -- `data-model.md` §8 prohibe.
+  -- `data-model.md` §8 prohibe. Desde F12.B1 el importe vive en la PROPUESTA,
+  -- y es alli donde se rehusa.
   begin
-    r := api.record_internal_transfer(jsonb_build_object(
-          'client_operation_id','30000000-0000-4000-8000-000000000009',
-          'command_contract_version',1,'effective_date','2026-03-01',
-          'from_scope_id',SPB,'to_scope_id',SPA,'amount','-5000',
+    r := api.create_transfer_proposal(jsonb_build_object(
+          'client_command_id','30000000-0000-4000-8000-000000000009',
+          'command_contract_version',1,'handle','vec_b','amount','-5000',
           'currency_definition_id',EUR));
-    fallos := array_append(fallos, 'E8: se acepto un importe negativo en una transferencia interna');
+    fallos := array_append(fallos, 'E8: se acepto un importe negativo en una propuesta de transferencia');
   exception when sqlstate 'PGRST' then null;
   end;
 
-  -- E8b · y tampoco puede originarse desde el ambito de otro (invariante 14).
+  -- E8b · y tampoco puede originarse desde el ambito de otro (invariante 14,
+  -- precisado por F12/ADR-002 §13): el writer ya no acepta un `from` del
+  -- payload —los campos de F3 son PAYLOAD_INVALID—, y solo materializa una
+  -- propuesta dirigida al actor. Quien la creo no puede aceptarla (seria
+  -- fabricar la entrada en el Personal de otro con una sola voluntad).
   begin
     r := api.record_internal_transfer(jsonb_build_object(
           'client_operation_id','30000000-0000-4000-8000-00000000000a',
           'command_contract_version',1,'effective_date','2026-03-01',
           'from_scope_id',SPB,'to_scope_id',SPA,'amount','5000',
           'currency_definition_id',EUR));
-    fallos := array_append(fallos, 'E8b: se origino una salida desde el Modo Personal de otro');
+    fallos := array_append(fallos, 'E8b: el writer acepto el payload de F3 con from_scope_id');
+  exception when sqlstate 'PGRST' then
+    if sqlerrm not like '%PAYLOAD_INVALID%' then
+      fallos := array_append(fallos, format('E8b: codigo inesperado: %s', sqlerrm));
+    end if;
+  end;
+  begin
+    r := api.create_transfer_proposal(jsonb_build_object(
+          'client_command_id','30000000-0000-4000-8000-00000000000b',
+          'command_contract_version',1,'handle','vec_b','amount','5000',
+          'currency_definition_id',EUR));
+    r := api.record_internal_transfer(jsonb_build_object(
+          'client_operation_id','30000000-0000-4000-8000-00000000000c',
+          'command_contract_version',1,'proposal_id', r ->> 'proposal_id'));
+    fallos := array_append(fallos, 'E8c: quien propuso materializo su propia propuesta');
   exception when sqlstate 'PGRST' then
     if sqlerrm not like '%NOT_AUTHORIZED%' then
-      fallos := array_append(fallos, format('E8b: codigo inesperado: %s', sqlerrm));
+      fallos := array_append(fallos, format('E8c: codigo inesperado: %s', sqlerrm));
     end if;
   end;
 
@@ -848,6 +897,14 @@ declare
     'personal-A','11111111-1111-4111-8111-111111111111',
     'personal-B','22222222-2222-4222-8222-222222222222',
     'personal-JPY','44444444-4444-4444-8444-444444444444');
+  -- F12.B1: la transferencia se propone a un @handle, no a un ambito.
+  v_handle jsonb := jsonb_build_object(
+    'personal-A','vec_a', 'personal-B','vec_b', 'personal-JPY','vec_jpy');
+  -- Las operaciones de una transferencia de dos voluntades llevan la fecha del
+  -- servidor al aceptar (F12/ADR-002 §21), no la del vector: se identifican por
+  -- su operation_id y no por la fecha.
+  v_transfers uuid[];
+  v_env jsonb;
   -- La moneda del vector se resuelve a la definicion del AMBITO, no a EUR
   -- siempre: sin esto un vector en JPY entraria con la moneda equivocada y lo
   -- rechazaria `assert_no_conversion` en vez de ejecutarse.
@@ -872,6 +929,7 @@ begin
 
     v_seen := v_seen + 1;
     v_fecha := date '2026-04-01' + (v_seen - 1);
+    v_transfers := '{}'::uuid[];
 
     for v_op in select o from jsonb_array_elements(v_case -> 'operations') as o loop
       v_key := v_key + 1;
@@ -919,13 +977,20 @@ begin
             format('G: el escenario %s tiene importes distintos por extremo y 7a no soporta conversion', v_case ->> 'id'));
           continue;
         end if;
-        perform api.record_internal_transfer(jsonb_build_object(
-          'client_operation_id', ('40000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
-          'command_contract_version', 1, 'effective_date', v_fecha::text,
-          'from_scope_id', v_ids ->> (v_op ->> 'fromScope'),
-          'to_scope_id',   v_ids ->> (v_op ->> 'toScope'),
+        -- Dos voluntades (F12/ADR-002): el dueno del ambito de salida propone
+        -- al handle del dueno del de entrada, y este acepta.
+        v_env := api.create_transfer_proposal(jsonb_build_object(
+          'client_command_id', ('40000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
+          'command_contract_version', 1,
+          'handle', v_handle ->> (v_op ->> 'toScope'),
           'amount', v_op ->> 'fromAmount',
           'currency_definition_id', v_moneda));
+        perform set_config('request.jwt.claims',
+                           json_build_object('sub', v_owner ->> (v_op ->> 'toScope'))::text, true);
+        v_env := api.record_internal_transfer(jsonb_build_object(
+          'client_operation_id', ('40000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
+          'command_contract_version', 1, 'proposal_id', v_env ->> 'proposal_id'));
+        v_transfers := v_transfers || (v_env ->> 'operation_id')::uuid;
       end if;
       reset role;
     end loop;
@@ -937,8 +1002,10 @@ begin
       select coalesce(sum(e.balance_amount), 0) into v_got
         from core.current_effect e
         join core.operation_version ov on ov.id = e.operation_version_id
+        join core.operation o on o.id = ov.operation_id
        where e.scope_id = (v_ids ->> (v_exp ->> 'scope'))::uuid
-         and ov.effective_date = v_fecha;
+         and ((ov.effective_date = v_fecha and o.operation_class <> 'internal_transfer')
+              or ov.operation_id = any(v_transfers));
       if v_got <> v_want then
         fallos := array_append(fallos, format('G/%s: saldo de %s = %s y el vector espera %s',
           v_case ->> 'id', v_exp ->> 'scope', v_got, v_want));
@@ -953,7 +1020,8 @@ begin
        where e.scope_id = (v_ids ->> (v_exp ->> 'scope'))::uuid
          and e.accounting_class = 'expense'
          and e.economic_amount is not null
-         and ov.effective_date = v_fecha;
+         and ((ov.effective_date = v_fecha and (select o.operation_class from core.operation o where o.id = ov.operation_id) <> 'internal_transfer')
+              or ov.operation_id = any(v_transfers));
       if v_got <> v_want then
         fallos := array_append(fallos, format('G/%s: economica de %s = %s y el vector espera %s',
           v_case ->> 'id', v_exp ->> 'scope', v_got, v_want));

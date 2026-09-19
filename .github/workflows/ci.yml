@@ -387,6 +387,21 @@ jobs:
           { ./scripts/vectors-prelude.sh ; cat supabase/checks/username.sql ; } \
             | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
 
+      # Transfer proposals and the two-will internal_transfer (F12/ADR-002,
+      # F12.B1, 20260926120000): structure, owners (provisioner for the proposal,
+      # writer for the accounting, nothing new owned by postgres), EXECUTE per
+      # role, the client without uid columns, the writer's created_by = actor
+      # policies intact; create (no operation, replay, every refusal of §5 and
+      # §20, the shared resolver throttle, not_found as a state), anti-spam
+      # (3 pending per pair, 10 created / 60 min), accept (only the target,
+      # -N/+N, parts, created_by = receiver, server date, one version,
+      # PROPOSAL_* codes, negative balance allowed, currency mismatch, handle
+      # resolved once), cancel/decline, irreversibility (TRANSFER_NOT_EDITABLE,
+      # OPERATION_NOT_ANNULLABLE, persist_version backstop), the two views,
+      # counts_in_personal with fresh, and the client not reaching core.
+      - name: Transfer proposal checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/transfer-proposals.sql
+
       # Oversettlement guards refuse only what a correction or annulment
       # worsens (pair oriented by its settlements); the canonical
       # 5000/4000 → 3000 example still refuses.
@@ -514,6 +529,15 @@ jobs:
       # leaves neither auth.users nor any identity row. Three rounds.
       - name: Username sign-up races (real GoTrue)
         run: bash scripts/username-signup-race-evidence.sh
+
+      # Transfer proposals as real sessions (F12/ADR-002 §10, §18; F12.B1):
+      # accept vs cancel in both orders, decline vs accept, double accept with
+      # two keys, retry with the same key while the first is open — at most one
+      # terminal transition and at most one operation —, the per-sender budget
+      # exact under concurrency (9 + 2 simultaneous → 10; 11 simultaneous → 10)
+      # and distinct senders not waiting on each other. Fixture only; removed.
+      - name: Transfer proposal races (real sessions)
+        run: bash scripts/transfer-proposal-race-evidence.sh
 
       # Two ingests of the same source at once (F11/ADR-002 §4): the second
       # waits on the per-source advisory lock and fixes nothing already fixed,
