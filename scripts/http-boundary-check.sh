@@ -161,10 +161,14 @@ delete from auth.users where email in ('${EMAIL_A}','${EMAIL_B}','${EMAIL_C}','n
 SQL
 }
 
-alta() {
+# Desde F12/ADR-001 §5 (20260924120000) un alta por correo SIN username la
+# rehusa el hook before_user_created: cada alta manda su nombre y su username
+# (`data`, como la app), y el hook reserva el handle 7 dias en la misma
+# transaccion. Los handles son deterministas y distintos por usuario.
+alta() { # $1 email, $2 username
   curl -s -X POST "${API}/auth/v1/signup" \
     -H "apikey: ${KEY}" -H 'Content-Type: application/json' \
-    --data-binary "{\"email\":\"$1\",\"password\":\"${PASS}\"}"
+    --data-binary "{\"email\":\"$1\",\"password\":\"${PASS}\",\"data\":{\"display_name\":\"Cuenta $2\",\"requested_username\":\"$2\"}}"
 }
 
 # Marca el correo como confirmado. `email_confirmed_at` es la columna escribible;
@@ -323,8 +327,8 @@ borrar_usuarios
 
 # 1 · alta. Con confirmacion obligatoria esto NO trae token, y el `id` viaja en
 #     la raiz de la respuesta en vez de bajo `user`.
-RA=$(alta "${EMAIL_A}")
-RB=$(alta "${EMAIL_B}")
+RA=$(alta "${EMAIL_A}" http_ana)
+RB=$(alta "${EMAIL_B}" http_bea)
 UID_A=$(printf '%s' "${RA}" | jget id)
 UID_B=$(printf '%s' "${RB}" | jget id)
 
@@ -671,7 +675,7 @@ echo "== 8 · provisioning del Modo Personal, por HTTP y de extremo a extremo ==
 # el ambito de C lo crea el provisioning real, por HTTP y con su JWT. Todo lo
 # demas del check sigue sembrando a mano, porque lo que mide es otra cosa.
 
-RC=$(alta "${EMAIL_C}")
+RC=$(alta "${EMAIL_C}" http_c)
 UID_C=$(printf '%s' "${RC}" | jget id)
 confirmar "${EMAIL_C}"
 TOK_C=$(sesion "${EMAIL_C}" | jget access_token)
@@ -1631,13 +1635,91 @@ fi
 
 # ============================================================================
 echo ""
-echo "== 16 · el username por HTTP con JWT real (F12/ADR-001, F12.A1) =="
+echo "== 16 · el alta reserva el username: hook before_user_created REAL (F12/ADR-001 §5, F12.A2) =="
+# Lo que solo GoTrue demuestra: que el hook corre DENTRO de la transaccion del
+# alta como supabase_auth_admin, que un alta por correo sin username, con uno
+# invalido, reservado o en uso NO crea la cuenta y no deja ninguna fila, que la
+# reserva del alta valido es provisional (claimed_at nulo, 7 dias) y del uid
+# que GoTrue emitio, que el anonimo pasa sin tocar nada, y la FORMA EXACTA en
+# que el rechazo llega al cliente: {"code":N,"error_code":"unknown","msg":"CODIGO"}.
+alta16() { # $1 email, $2 data json (sin email/password); imprime "status cuerpo"
+  local cuerpo estado
+  cuerpo=$(mktemp)
+  estado=$(curl -s -o "${cuerpo}" -w '%{http_code}' -X POST "${API}/auth/v1/signup" \
+    -H "apikey: ${KEY}" -H 'Content-Type: application/json' \
+    --data-binary "{\"email\":\"$1\",\"password\":\"${PASS}\",\"data\":$2}")
+  printf '%s %s\n' "${estado}" "$(tr -d '\n' <"${cuerpo}")"
+  rm -f "${cuerpo}"
+}
+fila16() { # $1 handle → 'uid|reserva|viva|nombre' o '-'
+  "${DBQ[@]}" -c "select coalesce((select h.user_id::text || '|' || (h.claimed_at is null)::text || '|' || (h.reserved_until > now())::text || '|' || i.public_name from core.account_handle h join core.account_identity i using (user_id) where h.handle = '$1'), '-');" | tr -d '[:space:]'
+}
+existe16() { "${DBQ[@]}" -c "select count(*) from auth.users where email = '$1';" | tr -d '[:space:]'; }
+
+# El alta valido de «preparando»: la reserva es del uid que GoTrue emitio,
+# provisional y viva, con el nombre del evento; el diario tiene un solo 'reserved'.
+v=$(fila16 http_ana)
+[ "${v}" = "${UID_A}|true|true|Cuentahttp_ana" ] && ok "http_ana: reservado (claimed_at nulo, 7 dias) para el uid del evento, con el display_name del alta" || fallo "reserva de A tras el alta: ${v}"
+v=$("${DBQ[@]}" -c "select string_agg(event, ',' order by id) from core.account_handle_event where handle = 'http_ana';" | tr -d '[:space:]')
+[ "${v}" = "reserved" ] && ok "diario de http_ana tras el alta: reserved, y nada mas" || fallo "diario tras el alta: ${v}"
+v=$(fila16 http_c)
+[ "${v}" = "${UID_C}|true|true|Cuentahttp_c" ] && ok "http_c: la reserva de C tambien nacio con su alta" || fallo "reserva de C: ${v}"
+
+# Los rechazos: status, error_code y msg EXACTOS; sin cuenta y sin filas.
+rechazo16() { # $1 nombre, $2 email, $3 data, $4 status, $5 codigo, $6 handle-que-no-debe-existir
+  local rr ee cc
+  rr=$(alta16 "$2" "$3"); ee=$(estado_de "${rr}"); cc=$(cuerpo_de "${rr}")
+  local ec msg
+  ec=$(printf '%s' "${cc}" | jget error_code); msg=$(printf '%s' "${cc}" | jget msg)
+  if [ "${ee}" = "$4" ] && [ "${ec}" = "unknown" ] && [ "${msg}" = "$5" ]; then
+    ok "$1: $4 · error_code=unknown · msg=$5"
+  else
+    fallo "$1: se esperaba $4/unknown/$5 y llego ${ee} ${cc}"
+  fi
+  [ "$(existe16 "$2")" = "0" ] && ok "$1: la cuenta NO se creo" || fallo "$1: quedo un auth.users para $2"
+  if [ -n "$6" ]; then
+    [ "$(fila16 "$6")" = "-" ] && ok "$1: sin fila de handle/identidad" || fallo "$1: quedo fila para $6: $(fila16 "$6")"
+  fi
+}
+IDENT_ANTES=$("${DBQ[@]}" -c "select count(*) from core.account_identity;" | tr -d '[:space:]')
+rechazo16 "sin username"   nomey-http-hook-miss@example.test  '{"display_name":"Sin Username"}' 400 USERNAME_REQUIRED ""
+rechazo16 "username invalido" nomey-http-hook-inv@example.test '{"display_name":"Inv","requested_username":"ab"}' 400 USERNAME_INVALID ""
+rechazo16 "username reservado" nomey-http-hook-res@example.test '{"display_name":"Res","requested_username":"admin_hook"}' 422 USERNAME_RESERVED admin_hook
+rechazo16 "username en uso (reserva viva de A)" nomey-http-hook-taken@example.test '{"display_name":"Taken","requested_username":"Http_Ana"}' 409 USERNAME_TAKEN ""
+rechazo16 "sin nombre" nomey-http-hook-noname@example.test '{"requested_username":"hook_noname"}' 400 PAYLOAD_INVALID hook_noname
+IDENT_DESPUES=$("${DBQ[@]}" -c "select count(*) from core.account_identity;" | tr -d '[:space:]')
+[ "${IDENT_ANTES}" = "${IDENT_DESPUES}" ] && ok "ningun rechazo dejo identidad: ${IDENT_ANTES} antes y despues" || fallo "identidades: ${IDENT_ANTES} → ${IDENT_DESPUES}"
+v=$(fila16 http_ana)
+[ "${v}" = "${UID_A}|true|true|Cuentahttp_ana" ] && ok "la reserva de A sigue intacta tras el choque" || fallo "reserva de A tras el choque: ${v}"
+
+# El alta anonima pasa por el hook sin username y sin tocar nada.
+RANON=$(curl -s -w ' %{http_code}' -X POST "${API}/auth/v1/signup" -H "apikey: ${KEY}" -H 'Content-Type: application/json' --data-binary '{"data":{"display_name":"Anon Hook"}}')
+ANON_UID=$(printf '%s' "${RANON% *}" | jget user.id)
+if [ -n "${ANON_UID}" ] && [ "${RANON##* }" = "200" ]; then
+  ok "alta anonima: 200 con sesion, sin username"
+  v=$("${DBQ[@]}" -c "select count(*) from core.account_identity where user_id = '${ANON_UID}';" | tr -d '[:space:]')
+  [ "${v}" = "0" ] && ok "el invitado no tiene identidad ni reserva: el hook no le pide username" || fallo "el hook creo identidad al invitado"
+  "${DB[@]}" >/dev/null 2>&1 <<SQL
+delete from auth.users where id = '${ANON_UID}';
+SQL
+else
+  fallo "alta anonima con el hook activo: ${RANON}"
+fi
+
+# El hook es la UNICA puerta de supabase_auth_admin a sec, medido en el catalogo vivo.
+v=$("${DBQ[@]}" -c "select (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'sec' and has_function_privilege('supabase_auth_admin', p.oid, 'execute')) || '/' || (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'api' and has_function_privilege('supabase_auth_admin', p.oid, 'execute')) || '/' || has_schema_privilege('supabase_auth_admin', 'core', 'usage')::text || '/' || pg_get_userbyid((select proowner from pg_proc where oid = 'sec.before_user_created(jsonb)'::regprocedure));" | tr -d '[:space:]')
+[ "${v}" = "1/0/false/nomey_provisioner" ] && ok "supabase_auth_admin: 1 funcion de sec, 0 de api, sin core; el hook es del provisioner" || fallo "privilegios de auth_admin: ${v}"
+
+# ============================================================================
+echo ""
+echo "== 17 · el username por HTTP con JWT real (F12/ADR-001, F12.A1) =="
 # Lo que solo la ruta real demuestra: que las cinco funciones del provisioner
 # responden por PostgREST con el JWT real, que los codigos viajan con su
 # estado, que un JWT ANONIMO real (is_anonymous en el token) reserva y no
 # reclama, que la vista propia es solo la fila propia, y que el resolver
-# devuelve estados, nunca un identificador interno. Sin hook de alta: eso es
-# F12.A2, y aqui nadie se registra con username.
+# devuelve estados, nunca un identificador interno. A y B llegan con la
+# reserva provisional que el hook de alta les hizo (§16): la primera llamada
+# de A la RECLAMA (mismo handle), no la crea.
 r16() { # $1 nombre, $2 fn, $3 tok, $4 body (ya con el parametro), $5 estado esperado
   local rr ee cc
   rr=$(rpc "$2" "$3" "$4"); ee=$(estado_de "${rr}"); cc=$(cuerpo_de "${rr}")
@@ -1648,7 +1730,7 @@ estado16() { printf '%s' "${ULTIMO_CUERPO}" | jarr 'a.length===1 ? (a[0].handle|
 codigo16() { printf '%s' "${ULTIMO_CUERPO}" | jget code; }
 
 # A reserva: cuenta normal → reclamado en el acto; repetir devuelve el estado.
-r16 "reserve_username como A" reserve_username "${TOK_A}" '{"payload":{"handle":" @Http_Ana ","public_name":"Ana"}}' 200
+r16 "reserve_username como A (reclama la reserva del alta)" reserve_username "${TOK_A}" '{"payload":{"handle":" @Http_Ana ","public_name":"Ana"}}' 200
 [ "$(estado16)" = "http_ana|claimed|-|can" ] && ok "A: http_ana definitivo, sin reserva provisional" || fallo "estado de A: $(estado16)"
 r16 "reserve_username otra vez (idempotente)" reserve_username "${TOK_A}" '{"payload":{"handle":"http_ana"}}' 200
 [ "$(estado16)" = "http_ana|claimed|-|can" ] && ok "A: el mismo estado" || fallo "estado de A tras repetir: $(estado16)"
@@ -1665,14 +1747,23 @@ r16 "B pide uno reservado" reserve_username "${TOK_B}" '{"payload":{"handle":"ad
 [ "$(codigo16)" = "USERNAME_RESERVED" ] && ok "USERNAME_RESERVED · 422" || fallo "codigo: $(codigo16)"
 r16 "B pide uno invalido" reserve_username "${TOK_B}" '{"payload":{"handle":"b","public_name":"Bea"}}' 400
 [ "$(codigo16)" = "USERNAME_INVALID" ] && ok "USERNAME_INVALID · 400" || fallo "codigo: $(codigo16)"
-r16 "B sin public_name la primera vez" reserve_username "${TOK_B}" '{"payload":{"handle":"http_bea"}}' 400
-[ "$(codigo16)" = "PAYLOAD_INVALID" ] && ok "PAYLOAD_INVALID · 400" || fallo "codigo: $(codigo16)"
-r16 "B resuelve sin tener username" resolve_username "${TOK_B}" '{"p_handle":"http_ana"}' 409
+# B solo tiene la RESERVA del alta: resolver exige un definitivo.
+r16 "B resuelve con solo una reserva" resolve_username "${TOK_B}" '{"p_handle":"http_ana"}' 409
 [ "$(codigo16)" = "USERNAME_REQUIRED" ] && ok "USERNAME_REQUIRED · 409" || fallo "codigo: $(codigo16)"
-r16 "B reclama sin nada" claim_username "${TOK_B}" '{}' 409
+# Y la reclama por claim_username, que es lo que hara el ciclo autenticado (F12.A3).
+r16 "B reclama la reserva del alta" claim_username "${TOK_B}" '{}' 200
+[ "$(estado16)" = "http_bea|claimed|-|can" ] && ok "B: http_bea definitivo por claim" || fallo "estado de B tras claim: $(estado16)"
+r16 "B reclama otra vez (idempotente)" claim_username "${TOK_B}" '{}' 200
+[ "$(estado16)" = "http_bea|claimed|-|can" ] && ok "B: el mismo estado" || fallo "estado de B tras repetir claim: $(estado16)"
+v=$("${DBQ[@]}" -c "select string_agg(event, ',' order by id) from core.account_handle_event where handle = 'http_bea';" | tr -d '[:space:]')
+[ "${v}" = "reserved,claimed" ] && ok "diario de http_bea: reserved (hook), claimed (claim); nada por repetir" || fallo "diario de B: ${v}"
+# C reclama sin reserva viva: la del alta se retira como fixture → USERNAME_REQUIRED.
+"${DB[@]}" >/dev/null 2>&1 <<SQL
+delete from core.account_handle_event where handle = 'http_c';
+delete from core.account_handle where handle = 'http_c';
+SQL
+r16 "C reclama sin reserva" claim_username "${TOK_C}" '{}' 409
 [ "$(codigo16)" = "USERNAME_REQUIRED" ] && ok "claim sin reserva: USERNAME_REQUIRED · 409" || fallo "codigo: $(codigo16)"
-r16 "B reserva el suyo" reserve_username "${TOK_B}" '{"payload":{"handle":"http_bea","public_name":"Bea"}}' 200
-[ "$(estado16)" = "http_bea|claimed|-|can" ] && ok "B: http_bea definitivo" || fallo "estado de B: $(estado16)"
 # Cambio y cooldown.
 r16 "A cambia" change_username "${TOK_A}" '{"payload":{"handle":"http_ana2"}}' 200
 [ "$(estado16)" = "http_ana2|claimed|-|can" ] && ok "A: http_ana2; http_ana queda retenido" || fallo "estado de A tras cambiar: $(estado16)"
@@ -1718,6 +1809,8 @@ v=$(curl -s -o /dev/null -w '%{http_code}' "${API}/rest/v1/my_account_handle" -H
 [ "${v}" != "200" ] && ok "sin JWT la vista no responde 200 (${v})" || fallo "la vista respondio 200 sin JWT"
 # El invitado REAL (JWT anonimo del segundo invitado de §14): reserva, y nada mas.
 if [ -n "${TOK_G3:-}" ]; then
+  r16 "invitado sin public_name la primera vez" reserve_username "${TOK_G3}" '{"payload":{"handle":"http_guest"}}' 400
+  [ "$(codigo16)" = "PAYLOAD_INVALID" ] && ok "PAYLOAD_INVALID · 400: la primera reserva trae el nombre" || fallo "codigo: $(codigo16)"
   r16 "invitado reserva" reserve_username "${TOK_G3}" '{"payload":{"handle":"http_guest","public_name":"Invitado"}}' 200
   [ "$(estado16)" = "http_guest|reserved|until|-" ] && ok "invitado: reserva provisional con reserved_until, sin reclamar" || fallo "estado del invitado: $(estado16)"
   r16 "invitado reclama" claim_username "${TOK_G3}" '{}' 403

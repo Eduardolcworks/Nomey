@@ -157,10 +157,11 @@ describe('1–5 · Inicio de invitado es «Crea tu cuenta», y nada mas', () => 
     expect(EN).toContain("'auth.guestSignUpSubtitle': 'to enjoy Personal mode',");
   });
 
-  it('el boton dice si el formulario se puede enviar: gris hasta que nombre, email y contraseña valen; amarillo entonces', () => {
-    // `ready` = campos presentes + contraseña al minimo REAL del servidor (credentials.ts, atado al toml).
+  it('el boton dice si el formulario se puede enviar: gris hasta que nombre, username, email y contraseña valen; amarillo entonces', () => {
+    // `ready` = campos presentes + username con la sintaxis compartida (F12/ADR-001 §3)
+    // + contraseña al minimo REAL del servidor (credentials.ts, atado al toml).
     expect(GUEST_SIGN_UP).toContain(
-      'const ready = registrationReady({ displayName, email, password });',
+      'const ready = registrationReady({ displayName, username, email, password });',
     );
     expect(GUEST_SIGN_UP).toContain('disabled={running || !ready}');
     expect(GUEST_SIGN_UP).toContain('if (!ready) return;');
@@ -250,8 +251,15 @@ describe('9–10 · la conversion sigue siendo updateUser sobre el mismo usuario
     expect(convert).toContain('await supabase.auth.updateUser({');
     expect(convert).toContain('email,\n    password,\n    data: { display_name: displayName },');
     expect(convert).not.toContain('signUp');
+    // F12/ADR-001 §8: el username se reserva ANTES, con la sesion aun anonima, y
+    // sin reserva no se envia nada a Auth. Reclamarlo es de F12.A3, no de aqui.
+    expect(convert.indexOf('await reserveUsername(username, displayName)')).toBeLessThan(
+      convert.indexOf('await supabase.auth.updateUser({'),
+    );
+    expect(convert).toContain('if (!reservation.ok) return reservation;');
+    expect(convert).not.toContain('claim_username');
     expect(GUEST_SIGN_UP).toContain(
-      'await submit(() => convertGuest({ displayName, email, password }));',
+      'await submit(() => convertGuest({ displayName, username, email, password }));',
     );
     expect(GUEST_SIGN_UP).toContain("{t('auth.guestCheckEmailStep')}");
     // «Revisa tu correo» sobrevive a un reload mientras el servidor espere (presentacion: new_email);

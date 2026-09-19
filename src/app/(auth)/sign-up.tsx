@@ -9,6 +9,8 @@ import {
   normaliseEmail,
   signUp,
   useAuthSubmit,
+  UsernameField,
+  usernameProblem,
 } from '@/features/auth';
 import { useTranslation } from '@/lib/i18n';
 import { ActionButton, Section, ThemedText } from '@/ui/components';
@@ -26,6 +28,11 @@ import { Spacing } from '@/ui/theme';
  * The name is collected here and goes to Auth as `display_name` metadata.
  * Presentation only: it is not an identity, it never appears in RLS, and it
  * never resolves a membership or a scope.
+ *
+ * The username is collected here too and goes as `requested_username`, and
+ * that one IS consumed by the server: the sign-up hook reserves it inside
+ * GoTrue's transaction or refuses the whole sign-up (F12/ADR-001 §5). The
+ * field says the syntax before sending; «ya está en uso» only the server says.
  */
 export default function SignUpScreen() {
   const { t } = useTranslation();
@@ -33,21 +40,25 @@ export default function SignUpScreen() {
   const { state, submit, clearError, running } = useAuthSubmit();
 
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [incomplete, setIncomplete] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
+  const usernameField = useRef<TextInput>(null);
   const emailField = useRef<TextInput>(null);
   const passwordField = useRef<TextInput>(null);
 
   async function onSubmit() {
-    const missing = missingFields({ displayName, email, password });
+    const missing = missingFields({ displayName, username, email, password });
     setIncomplete(missing.length > 0);
     if (missing.length > 0) return;
+    // The field already shows why; nothing invalid or reserved is sent.
+    if (usernameProblem(username) !== null) return;
 
     clearError();
-    const result = await submit(() => signUp({ displayName, email, password }));
+    const result = await submit(() => signUp({ displayName, username, email, password }));
     if (result?.ok === true) setSentTo(normaliseEmail(email));
   }
 
@@ -104,6 +115,15 @@ export default function SignUpScreen() {
           autoCapitalize="words"
           autoComplete="name"
           textContentType="name"
+          returnKeyType="next"
+          onSubmitEditing={() => usernameField.current?.focus()}
+          submitBehavior="submit"
+        />
+        <UsernameField
+          ref={usernameField}
+          value={username}
+          onChangeText={setUsername}
+          editable={!running}
           returnKeyType="next"
           onSubmitEditing={() => emailField.current?.focus()}
           submitBehavior="submit"

@@ -494,6 +494,72 @@ Lo que hay que saber para leerla:
 > `set constraints all deferred`. Con `ON_ERROR_STOP=0` esto fallaba en silencio
 > y dejaba operaciones huérfanas — de ahí que use `ON_ERROR_STOP=1`.
 
+### El hook de alta `before_user_created` (F12/ADR-001 §5)
+
+Desde la migración `20260924120000` el username se reserva **en la misma
+transacción de GoTrue que crea el usuario**: GoTrue llama a
+`sec.before_user_created(event)` como `supabase_auth_admin` —la **única**
+función de `sec` que ese rol puede ejecutar, y su único privilegio allí,
+guardado por `supabase/checks/username.sql` A3— y, si la función devuelve un
+error, la cuenta no nace y no queda ninguna fila.
+
+**Cómo está activado en local.** En `supabase/config.toml`:
+
+```toml
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/sec/before_user_created"
+```
+
+Es configuración de contenedor, no de base: **un cambio aquí exige `stop` +
+`start`**, como cualquier otro cambio de `config.toml` (véase arriba); `db
+reset` no lo relee. Medido: tras el ciclo, el contenedor de Auth arranca con
+`GOTRUE_HOOK_BEFORE_USER_CREATED_ENABLED=true` y
+`GOTRUE_HOOK_BEFORE_USER_CREATED_URI=pg-functions://postgres/sec/before_user_created`.
+
+**Cómo comprobar que GoTrue lo está usando de verdad** (que el TOML parse no
+demuestra nada):
+
+```bash
+docker exec supabase_auth_Nomey sh -c 'env | grep GOTRUE_HOOK_BEFORE_USER_CREATED'
+```
+
+y, contra la frontera, un alta por correo **sin** `requested_username` tiene
+que responder `400 {"code":400,"error_code":"unknown","msg":"USERNAME_REQUIRED"}`
+y no crear el usuario:
+
+```bash
+curl -s -X POST http://127.0.0.1:54321/auth/v1/signup -H "apikey: <publishable>" \
+  -H 'Content-Type: application/json' \
+  --data-binary '{"email":"probe@example.test","password":"Probe-2026!","data":{"display_name":"Probe"}}'
+```
+
+Lo hace `scripts/http-boundary-check.sh` §16 con los cinco rechazos, el alta
+anónima y la reserva del alta válida, y `scripts/username-signup-race-evidence.sh`
+con dos altas simultáneas del mismo username. Medido contra gotrue v2.195.0:
+el código del contrato viaja **sólo** en `msg` (`error_code` es `"unknown"`), y
+el cliente lo mapea por igualdad exacta (`src/features/auth/auth-errors.ts`).
+
+**Consecuencias en este entorno:**
+
+- Toda alta por correo —scripts, sondas, pruebas manuales con `curl`— tiene que
+  mandar `data.display_name` y `data.requested_username`; sin ellos el hook la
+  rehusa. Los scripts del repo ya lo hacen (`alta email username`).
+- El alta **anónima** (Invitado) y cualquier proveedor que no sea
+  email/password pasan por el hook sin username y sin que escriba nada.
+- Una cuenta anterior a F12 no tiene identidad ni handle: ni el hook ni ninguna
+  migración se los inventan. Entra con normalidad y, cuando F12.A3 exista, la
+  app le pedirá elegir uno antes de las pestañas (gate); hasta entonces
+  simplemente no tiene username.
+
+**El proyecto alojado no lee este fichero.** Allí el hook hay que activarlo
+expresamente —Dashboard → Authentication → Hooks, «Before User Created», tipo
+Postgres, esquema `sec`, función `before_user_created`— o con la configuración
+que se empuje al proyecto. **No está hecho:** este repositorio no apunta a
+ningún proyecto remoto (§8), y mientras el hook no esté activo allí las altas
+por correo crearían cuentas sin reservar username. Es un requisito del
+despliegue, y va en su checklist junto al preflight de `btree_gist`.
+
 ### Preflight de `btree_gist` antes de un despliegue real
 
 El esquema depende de la extensión **`btree_gist`**, que es lo que da a `uuid` el

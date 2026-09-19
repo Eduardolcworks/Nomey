@@ -6,9 +6,11 @@ import {
   normaliseDisplayName,
   normaliseEmail,
   normaliseRegistration,
+  normaliseUsername,
   PASSWORD_MIN_LENGTH,
   passwordMeetsMinimum,
   registrationReady,
+  usernameProblem,
 } from '../../src/features/auth/credentials';
 import { createExclusiveRunner, SKIPPED } from '../../src/features/auth/submit-guard';
 import CONFIG from '../../supabase/config.toml?raw';
@@ -31,14 +33,42 @@ describe('el minimo de contraseña que se dice de antemano', () => {
     expect(passwordMeetsMinimum('     6')).toBe(true);
   });
 
-  it('un alta esta lista solo con nombre, email y contraseña al minimo; nada mas se juzga', () => {
-    const base = { displayName: 'Edu', email: 'edu@nomey.test', password: 'secreto' };
+  it('un alta esta lista con nombre, username valido, email y contraseña al minimo; nada mas se juzga', () => {
+    const base = {
+      displayName: 'Edu',
+      username: '@Edu_1',
+      email: 'edu@nomey.test',
+      password: 'secreto',
+    };
     expect(registrationReady(base)).toBe(true);
     expect(registrationReady({ ...base, password: 'corta' })).toBe(false);
     expect(registrationReady({ ...base, displayName: '  ' })).toBe(false);
     expect(registrationReady({ ...base, email: '' })).toBe(false);
+    // El username si se juzga en su SINTAXIS (F12/ADR-001 §3-§4, dominio compartido):
+    expect(registrationReady({ ...base, username: '' })).toBe(false);
+    expect(registrationReady({ ...base, username: 'ed' })).toBe(false);
+    expect(registrationReady({ ...base, username: 'admin_edu' })).toBe(false);
     // Lo que es un email lo decide el servidor: aqui basta con que haya algo.
     expect(registrationReady({ ...base, email: 'sin-arroba' })).toBe(true);
+  });
+});
+
+describe('el username, antes del viaje (F12/ADR-001 §3)', () => {
+  it('dice vacio, invalido o reservado; nunca «en uso», que solo sabe el servidor', () => {
+    expect(usernameProblem('   ')).toBe('empty');
+    expect(usernameProblem('ab')).toBe('invalid');
+    expect(usernameProblem('ana__lopez')).toBe('invalid');
+    expect(usernameProblem('eduardo_álvarez')).toBe('invalid');
+    expect(usernameProblem('nomey_pay')).toBe('reserved');
+    expect(usernameProblem('help')).toBe('reserved');
+    expect(usernameProblem(' @Eduardo ')).toBeNull();
+  });
+
+  it('se envia en su forma almacenada —sin @, en minusculas— y, si no la tiene, tal cual recortado', () => {
+    expect(normaliseUsername(' @Eduardo ')).toBe('eduardo');
+    expect(normaliseUsername('Ana_Lopez')).toBe('ana_lopez');
+    // Invalido: se manda lo tecleado (recortado) y el servidor lo rehusa con su codigo.
+    expect(normaliseUsername(' ab ')).toBe('ab');
   });
 });
 
@@ -85,14 +115,20 @@ describe('normalización', () => {
     });
   });
 
-  it('el registro normaliza los tres campos a la vez', () => {
+  it('el registro normaliza los cuatro campos a la vez', () => {
     expect(
       normaliseRegistration({
         displayName: '  Ana  ',
+        username: ' @Ana_Lopez ',
         email: '  ANA@Example.com ',
         password: ' secreta ',
       }),
-    ).toEqual({ displayName: 'Ana', email: 'ana@example.com', password: ' secreta ' });
+    ).toEqual({
+      displayName: 'Ana',
+      username: 'ana_lopez',
+      email: 'ana@example.com',
+      password: ' secreta ',
+    });
   });
 });
 
@@ -109,6 +145,16 @@ describe('campos que faltan', () => {
 
   it('detecta el email y la contraseña vacíos', () => {
     expect(missingFields({ email: '  ', password: '' })).toEqual(['email', 'password']);
+  });
+
+  it('detecta el username vacío solo donde se pide', () => {
+    expect(
+      missingFields({ displayName: 'Ana', username: ' ', email: 'a@b.c', password: 'x' }),
+    ).toEqual(['username']);
+    // Y solo juzga que haya algo: la sintaxis es de usernameProblem, la unicidad del servidor.
+    expect(
+      missingFields({ displayName: 'Ana', username: 'ab', email: 'a@b.c', password: 'x' }),
+    ).toEqual([]);
   });
 
   it('no exige nombre donde no se pide, que es el inicio de sesión', () => {

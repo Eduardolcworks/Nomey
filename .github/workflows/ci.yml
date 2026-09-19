@@ -495,6 +495,14 @@ jobs:
       - name: Username races (real sessions)
         run: bash scripts/username-race-evidence.sh
 
+      # Two REAL sign-ups through GoTrue at once, different emails, same
+      # username (F12/ADR-001 §5, F12.A2): the before_user_created hook runs
+      # inside GoTrue's transaction and the unique index arbitrates — exactly
+      # one account and one reservation, the loser gets 409 USERNAME_TAKEN and
+      # leaves neither auth.users nor any identity row. Three rounds.
+      - name: Username sign-up races (real GoTrue)
+        run: bash scripts/username-signup-race-evidence.sh
+
       # Two ingests of the same source at once (F11/ADR-002 §4): the second
       # waits on the per-source advisory lock and fixes nothing already fixed,
       # whether it brings the same document or a different one. Fixture source

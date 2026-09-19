@@ -320,9 +320,17 @@ max_frequency = "5s"
 # inactivity_timeout = "8h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
-# [auth.hook.before_user_created]
-# enabled = true
-# uri = "pg-functions://postgres/auth/before-user-created-hook"
+#
+# F12/ADR-001 §5 (migration 20260924120000): the username is reserved in the
+# SAME GoTrue transaction as the sign-up. `sec.before_user_created` is the ONLY
+# function `supabase_auth_admin` may execute, and the only privilege it holds in
+# `sec` — guarded in supabase/checks/username.sql. A hosted project must enable
+# this hook itself (Dashboard → Authentication → Hooks, or its own config): this
+# file configures the LOCAL stack only. Changing it needs `stop` + `start`, not
+# `db reset` (docs/runbooks/local-setup.md).
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/sec/before_user_created"
 
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
 # [auth.hook.custom_access_token]

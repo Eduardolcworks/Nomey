@@ -22,6 +22,7 @@ import {
   normaliseRegistration,
   type Registration,
 } from './credentials';
+import { reserveUsername } from './username-reservation';
 
 /**
  * Every call Nomey makes to Auth, and nothing else.
@@ -53,16 +54,23 @@ export type AuthResult =
  * for the JWT's `sub`. `AGENTS.md` and F03/ADR-013 are unambiguous that ownership
  * and membership are the authorities, and a display name is neither.
  *
+ * The username travels the same way, as `requested_username`, and it is NOT
+ * presentation: `sec.before_user_created` reads it inside GoTrue's own
+ * transaction, validates it, creates the public identity and reserves the
+ * handle for seven days — or refuses the whole sign-up, so no account is
+ * created without one (F12/ADR-001 §5; migration 20260924120000). The
+ * metadata copy is what the hook consumed, nothing reads it afterwards.
+ *
  * With confirmations mandatory this never returns a session, and that is the
  * point rather than a limitation: the caller shows "check your email".
  */
 export async function signUp(raw: Registration): Promise<AuthResult> {
-  const { email, password, displayName } = normaliseRegistration(raw);
+  const { email, password, displayName, username } = normaliseRegistration(raw);
 
   const { error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { display_name: displayName } },
+    options: { data: { display_name: displayName, requested_username: username } },
   });
 
   if (error !== null) return { ok: false, messageKey: signUpErrorKey(error) };
@@ -169,7 +177,7 @@ export async function signInAnonymously(rawDisplayName: string): Promise<AuthRes
  * and the HTTP boundary check hold that as evidence.
  */
 export async function convertGuest(raw: Registration): Promise<AuthResult> {
-  const { email, password, displayName } = normaliseRegistration(raw);
+  const { email, password, displayName, username } = normaliseRegistration(raw);
 
   /*
    * ASK THE SERVER FIRST. A guest who already confirmed the email — on another
@@ -187,6 +195,18 @@ export async function convertGuest(raw: Registration): Promise<AuthResult> {
     if (refreshError !== null) return { ok: false, messageKey: updateUserErrorKey(refreshError) };
     return { ok: true };
   }
+
+  /*
+   * THE USERNAME FIRST, WHILE STILL ANONYMOUS (F12/ADR-001 §8). `PUT /user`
+   * never runs the sign-up hook, so the guest reserves through
+   * `api.reserve_username`: seven provisional days, same uid. If the
+   * reservation is refused — invalid, reserved, taken — nothing is sent to
+   * Auth and the form says why. If it succeeds and the conversion below
+   * fails, the reservation simply stays provisional and expires on its own:
+   * no distributed rollback, and a retry with the same handle is idempotent.
+   */
+  const reservation = await reserveUsername(username, displayName);
+  if (!reservation.ok) return reservation;
 
   const { error } = await supabase.auth.updateUser({
     email,

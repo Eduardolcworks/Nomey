@@ -12,7 +12,8 @@
 --
 --   A · estructura: tablas, RLS, indices, CHECKs, propietarios (todo del
 --       provisioner, nada de postgres), definer/invoker, EXECUTE por rol,
---       la vista security_invoker, supabase_auth_admin sigue sin nada en sec
+--       la vista security_invoker; supabase_auth_admin ejecuta EXACTAMENTE
+--       una funcion de sec (el hook de alta) y nada mas
 --   B · vectores: normalize_handle y assert_handle_valid reproducen los 69
 --       casos; los reservados sembrados son los 25 exactos y 4 prefijos
 --   C · reservar y reclamar: normal reclama en el acto; anonimo solo reserva
@@ -34,6 +35,14 @@
 --   G · RLS y permisos: la vista es solo la fila propia; el cliente no llega a
 --       core; el provisioner no toca filas ajenas vigentes ni el diario;
 --       public_identity resuelve uid → identidad actual
+--   H · el hook de alta (20260924120000, F12.A2) con eventos SINTETICOS de la
+--       forma medida: owner, definer, search_path, grants; email valido →
+--       identidad + reserva provisional del uid del evento + un 'reserved';
+--       sin username, invalido, reservado, en uso y sin nombre → el error
+--       {"http_code","message"} exacto y NINGUNA fila; anonimo y proveedor
+--       no-email → {} sin tocar nada; el claim del evento no sobrevive a la
+--       transaccion. Lo REAL por GoTrue lo mide http-boundary-check.sh §16 y
+--       username-signup-race-evidence.sh; esto es la geometria del cuerpo.
 \pset pager off
 \set ON_ERROR_STOP on
 begin;
@@ -209,11 +218,26 @@ begin
   for v_t in select unnest(array['sec.normalize_handle(text)', 'sec.assert_handle_valid(text)', 'sec.evict_expired_handle(text)', 'sec.account_handle_state(uuid)']) loop
     if has_function_privilege('nomey_writer', v_t, 'execute') then raise exception 'A: el writer ejecuta %', v_t; end if;
   end loop;
-  -- supabase_auth_admin: nada todavia (el hook es F12.A2)
-  if has_schema_privilege('supabase_auth_admin', 'sec', 'usage') then raise exception 'A: supabase_auth_admin tiene USAGE en sec antes de F12.A2'; end if;
+  -- supabase_auth_admin: USAGE en sec y EXACTAMENTE una funcion, el hook de
+  -- alta (F12/ADR-001 §5, precision de F03/ADR-003); ninguna de api; sin core.
+  if not has_schema_privilege('supabase_auth_admin', 'sec', 'usage') then raise exception 'A: supabase_auth_admin sin USAGE en sec: el hook no podria correr'; end if;
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'sec' and has_function_privilege('supabase_auth_admin', p.oid, 'execute');
-  if v_n <> 0 then raise exception 'A: supabase_auth_admin ejecuta % funciones de sec', v_n; end if;
+  if v_n <> 1 then raise exception 'A: supabase_auth_admin ejecuta % funciones de sec; debe ser exactamente 1', v_n; end if;
+  if not has_function_privilege('supabase_auth_admin', 'sec.before_user_created(jsonb)', 'execute') then raise exception 'A: la unica funcion de auth_admin no es el hook'; end if;
+  select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'api' and has_function_privilege('supabase_auth_admin', p.oid, 'execute');
+  if v_n <> 0 then raise exception 'A: supabase_auth_admin ejecuta % funciones de api', v_n; end if;
+  if has_schema_privilege('supabase_auth_admin', 'core', 'usage') or has_schema_privilege('supabase_auth_admin', 'api', 'usage') then
+    raise exception 'A: supabase_auth_admin llega a core o api';
+  end if;
+  if has_function_privilege('authenticated', 'sec.before_user_created(jsonb)', 'execute') or has_function_privilege('anon', 'sec.before_user_created(jsonb)', 'execute')
+     or has_function_privilege('nomey_writer', 'sec.before_user_created(jsonb)', 'execute') then
+    raise exception 'A: alguien mas ejecuta el hook';
+  end if;
+  select pg_get_userbyid(p.proowner) || '|' || p.prosecdef::text || '|' || coalesce(array_to_string(p.proconfig, ','), '') into v_t
+    from pg_proc p where p.oid = 'sec.before_user_created(jsonb)'::regprocedure;
+  if v_t <> 'nomey_provisioner|true|search_path=""' then raise exception 'A: el hook no es definer del provisioner con search_path vacio: %', v_t; end if;
   -- el cliente no llega a core, ni al diario, ni a los apuntes, ni a los reservados
   if has_schema_privilege('authenticated', 'core', 'usage') or has_schema_privilege('anon', 'core', 'usage') then raise exception 'A: el cliente tiene USAGE en core'; end if;
   for v_t in select unnest(array['core.account_handle_event', 'core.username_lookup_attempt', 'core.reserved_handle']) loop
@@ -229,7 +253,7 @@ begin
   if not has_table_privilege('authenticated', 'api.my_account_handle', 'select') or has_table_privilege('anon', 'api.my_account_handle', 'select') then
     raise exception 'A: el SELECT de la vista no es el esperado';
   end if;
-  raise notice 'OK · A3 · EXECUTE y SELECT por rol; auth_admin sin nada en sec; el diario insert-only; la vista security_invoker';
+  raise notice 'OK · A3 · EXECUTE y SELECT por rol; auth_admin: solo el hook (definer del provisioner); el diario insert-only; la vista security_invoker';
 end
 $a$;
 
@@ -573,5 +597,93 @@ begin
   raise notice 'OK · G3 · public_identity: nombre y handle definitivo actual, nunca una reserva ni un liberado';
 end
 $g$;
+
+-- ═══════════════════════ H · el hook de alta ══════════════════════════════════
+-- SIN JWT, como llega de GoTrue: el evento trae el uid. postgres no es miembro
+-- de supabase_auth_admin (SET ROLE se rehusa, medido), asi que aqui se llama
+-- como postgres; la funcion es definer y corre como el provisioner sea quien
+-- sea el invocador, y que auth_admin PUEDA llamarla lo guarda A3 y lo ejerce
+-- de verdad http-boundary-check.sh §16. El claim que el hook fija es local a
+-- la transaccion: aqui se limpia antes de cada evento para no heredar nada.
+create function pg_temp.hook(p_event jsonb) returns text language plpgsql as $$
+declare v jsonb;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  v := sec.before_user_created(p_event);
+  return coalesce((v -> 'error' ->> 'http_code') || ' ' || (v -> 'error' ->> 'message'), 'ok');
+end $$;
+create function pg_temp.evento(p_uid uuid, p_provider text, p_anon boolean, p_meta jsonb) returns jsonb language sql as $$
+  select jsonb_build_object(
+    'user', jsonb_build_object('id', p_uid, 'aud', 'authenticated', 'role', '', 'email', case when p_anon then '' else p_uid::text || '@example.test' end,
+                               'is_anonymous', p_anon,
+                               'app_metadata', case when p_provider is null then '{}'::jsonb else jsonb_build_object('provider', p_provider, 'providers', jsonb_build_array(p_provider)) end,
+                               'user_metadata', p_meta, 'identities', '[]'::jsonb),
+    'metadata', jsonb_build_object('name', 'before-user-created', 'uuid', gen_random_uuid(), 'time', now(), 'ip_address', '127.0.0.1'));
+$$;
+
+do $h$
+declare
+  u1 uuid := 'a8000000-0000-4000-8000-000000000001';
+  u2 uuid := 'a8000000-0000-4000-8000-000000000002';
+  u3 uuid := 'a8000000-0000-4000-8000-000000000003';
+  v_n integer;
+  v_t text;
+  v_claims text;
+begin
+  -- H1 · alta email valida: identidad + reserva provisional del uid del evento + un reserved
+  select count(*) into v_n from core.account_identity;
+  perform pg_temp.espera('H1 valido', pg_temp.hook(pg_temp.evento(u1, 'email', false, '{"display_name":"  Hook   Uno ","requested_username":" @Hook_Uno "}')), 'ok');
+  if not exists (select 1 from core.account_identity where user_id = u1 and public_name = 'Hook Uno' and handle_changed_at is null) then raise exception 'H1: sin identidad canonica del uid del evento'; end if;
+  if not exists (select 1 from core.account_handle where handle = 'hook_uno' and user_id = u1 and claimed_at is null and reserved_until = now() + interval '7 days' and released_at is null) then raise exception 'H1: la reserva no es provisional de 7 dias del uid del evento'; end if;
+  perform pg_temp.espera('H1 diario', pg_temp.diario('hook_uno'), 'reserved');
+  if (select count(*) from core.account_handle_event where handle = 'hook_uno' and actor_user_id = u1) <> 1 then raise exception 'H1: el actor del diario no es el uid del evento'; end if;
+  -- el claim que fijo el hook es local a la transaccion (aqui, al bloque que lo fijo): no se filtra al siguiente evento
+  v_claims := current_setting('request.jwt.claims', true);
+  if coalesce(v_claims, '') <> '' and v_claims::jsonb ->> 'sub' <> u1::text then raise exception 'H1: claims inesperados %', v_claims; end if;
+  raise notice 'OK · H1 · alta email valida: identidad + reserva provisional (7 dias) del uid del evento + un solo reserved';
+
+  -- H2 · rechazos: error exacto y ninguna fila
+  perform pg_temp.espera('H2 sin username', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos"}')), '400 USERNAME_REQUIRED');
+  perform pg_temp.espera('H2 username vacio', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos","requested_username":"   "}')), '400 USERNAME_REQUIRED');
+  perform pg_temp.espera('H2 invalido', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos","requested_username":"ab"}')), '400 USERNAME_INVALID');
+  perform pg_temp.espera('H2 reservado', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos","requested_username":"nomey_dos"}')), '422 USERNAME_RESERVED');
+  perform pg_temp.espera('H2 en uso (reserva viva)', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos","requested_username":"HOOK_UNO"}')), '409 USERNAME_TAKEN');
+  perform pg_temp.espera('H2 en uso (definitivo de bea)', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos","requested_username":"cris"}')), '409 USERNAME_TAKEN');
+  perform pg_temp.espera('H2 sin nombre', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"requested_username":"hook_dos"}')), '400 PAYLOAD_INVALID');
+  perform pg_temp.espera('H2 nombre vacio', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"  ","requested_username":"hook_dos"}')), '400 PAYLOAD_INVALID');
+  if exists (select 1 from core.account_identity where user_id = u2) then raise exception 'H2: un rechazo dejo identidad'; end if;
+  if exists (select 1 from core.account_handle where user_id = u2) or exists (select 1 from core.account_handle where handle = 'hook_dos') then raise exception 'H2: un rechazo dejo handle'; end if;
+  if exists (select 1 from core.account_handle_event where user_id = u2 or actor_user_id = u2) then raise exception 'H2: un rechazo dejo diario'; end if;
+  if (select count(*) from core.account_identity) <> v_n + 1 then raise exception 'H2: el numero de identidades no es el de H1'; end if;
+  raise notice 'OK · H2 · sin username, vacio, invalido, reservado, en uso (reserva y definitivo), sin nombre: el error exacto y ninguna fila';
+
+  -- H3 · anonimo y proveedor no-email: {} y nada escrito (aunque traigan username)
+  perform pg_temp.espera('H3 anonimo', pg_temp.hook(pg_temp.evento(u3, null, true, '{"display_name":"Anon"}')), 'ok');
+  perform pg_temp.espera('H3 anonimo con username', pg_temp.hook(pg_temp.evento(u3, null, true, '{"display_name":"Anon","requested_username":"hook_tres"}')), 'ok');
+  perform pg_temp.espera('H3 oauth sin username', pg_temp.hook(pg_temp.evento(u3, 'google', false, '{"full_name":"Tres"}')), 'ok');
+  perform pg_temp.espera('H3 oauth con username', pg_temp.hook(pg_temp.evento(u3, 'google', false, '{"display_name":"Tres","requested_username":"hook_tres"}')), 'ok');
+  perform pg_temp.espera('H3 evento sin usuario', pg_temp.hook('{"metadata":{"name":"before-user-created"}}'::jsonb), 'ok');
+  if exists (select 1 from core.account_identity where user_id = u3) or exists (select 1 from core.account_handle where handle = 'hook_tres') then raise exception 'H3: el hook escribio para un anonimo o un proveedor no-email'; end if;
+  raise notice 'OK · H3 · anonimo y proveedor no-email pasan sin tocar nada; un evento sin usuario tampoco';
+
+  -- H4 · una reserva caducada ajena se desaloja en el alta; el propio uid reservando otra vez sustituye
+  update core.account_handle set reserved_at = now() - interval '8 days', reserved_until = now() - interval '1 second' where handle = 'hook_uno';
+  perform pg_temp.espera('H4 caducada la toma otro', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos","requested_username":"hook_uno"}')), 'ok');
+  if not exists (select 1 from core.account_handle where handle = 'hook_uno' and user_id = u2 and claimed_at is null) then raise exception 'H4: el handle caducado no paso al nuevo alta'; end if;
+  perform pg_temp.espera('H4 diario', pg_temp.diario('hook_uno'), 'reserved,evicted,reserved');
+  if (select count(*) from core.account_handle_event where handle = 'hook_uno' and event = 'evicted' and user_id = u1 and actor_user_id = u2) <> 1 then raise exception 'H4: el desalojo no apunta dueño u1 y actor u2'; end if;
+  raise notice 'OK · H4 · una reserva caducada no bloquea el alta: se desaloja con apunte y pasa al nuevo uid';
+
+  -- H5 · el hook como cliente: nadie mas lo ejecuta
+  perform pg_temp.actor(u1);
+  begin
+    execute 'select sec.before_user_created($1)' using '{}'::jsonb;
+    raise exception 'H5: authenticated ejecuta el hook';
+  exception when insufficient_privilege then null;
+  end;
+  perform pg_temp.super();
+  raise notice 'OK · H5 · el cliente no ejecuta el hook';
+end
+$h$;
 
 rollback;

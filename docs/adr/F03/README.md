@@ -50,8 +50,8 @@ anota aquí, con fecha, citando el ADR que lo hace.
   sin `USAGE` sobre `api`; `core` y `sec` siguen fuera de toda superficie
   cliente. Una **guarda de catálogo** exigida por el ADR afirma que
   `supabase_auth_admin` ejecuta una y sólo una función de `sec` y ninguna de
-  `api`. Los grants concretos llegan con la migración que implemente el
-  hook.
+  `api`. Los grants concretos los trae la migración `20260924120000`
+  (F12.A2, 2026-09-19), y la guarda vive en `supabase/checks/username.sql` A3.
 - **F03/ADR-006 y los writers de F3 de `api.record_internal_transfer` y
   `api.record_settlement_by_transfer` — su contrato de F3 queda superado por
   [F12/ADR-002](../F12/ADR-002-two-will-user-transfers.md) y

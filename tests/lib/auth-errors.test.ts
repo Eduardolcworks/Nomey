@@ -5,6 +5,7 @@ import {
   signInAnonymouslyErrorKey,
   signInErrorKey,
   signUpErrorKey,
+  usernameRpcErrorKey,
 } from '../../src/features/auth/auth-errors';
 import { esES } from '../../src/lib/i18n/messages/es-ES';
 
@@ -68,6 +69,55 @@ describe('errores de registro', () => {
     // aquí lo destaparía justo en el formulario que más se prueba a mano.
     expect(signUpErrorKey(codes('user_already_exists'))).toBe('authError.checkYourEmail');
     expect(signUpErrorKey(codes('email_exists'))).toBe('authError.checkYourEmail');
+  });
+});
+
+describe('el username en el alta: lo que dice el hook (F12/ADR-001 §5)', () => {
+  /**
+   * MEDIDO contra gotrue v2.195.0: un hook before_user_created que devuelve
+   * {"error":{"http_code":N,"message":"CODE"}} llega al SDK como AuthApiError
+   * con status = N, code = "unknown" y el CODIGO como mensaje entero. No hay
+   * campo estructurado: el mapeo es igualdad exacta sobre un conjunto cerrado,
+   * y solo cuando code es "unknown".
+   */
+  const hook = (message: string, status: number) => ({ code: 'unknown', status, message });
+
+  it('los cuatro codigos del contrato tienen su frase', () => {
+    expect(signUpErrorKey(hook('USERNAME_REQUIRED', 400))).toBe('authError.usernameRequired');
+    expect(signUpErrorKey(hook('USERNAME_INVALID', 400))).toBe('authError.usernameInvalid');
+    expect(signUpErrorKey(hook('USERNAME_RESERVED', 422))).toBe('authError.usernameReserved');
+    expect(signUpErrorKey(hook('USERNAME_TAKEN', 409))).toBe('authError.usernameTaken');
+    expect(signUpErrorKey(hook('PAYLOAD_INVALID', 400))).toBe('authError.nameRequired');
+  });
+
+  it('un mensaje de GoTrue que no es del hook NUNCA se lee: sigue siendo la frase generica', () => {
+    expect(
+      signUpErrorKey({ code: 'unknown', status: 500, message: 'Database error saving new user' }),
+    ).toBe('authError.generic');
+    // Y un codigo real de GoTrue con nuestro texto en el mensaje no se confunde.
+    expect(signUpErrorKey({ code: 'weak_password', status: 422, message: 'USERNAME_TAKEN' })).toBe(
+      'authError.weakPassword',
+    );
+  });
+
+  it('los mismos codigos desde PostgREST (reserve_username del invitado) dicen lo mismo', () => {
+    expect(usernameRpcErrorKey('USERNAME_TAKEN')).toBe('authError.usernameTaken');
+    expect(usernameRpcErrorKey('USERNAME_RESERVED')).toBe('authError.usernameReserved');
+    expect(usernameRpcErrorKey('USERNAME_INVALID')).toBe('authError.usernameInvalid');
+    expect(usernameRpcErrorKey(null)).toBe('authError.network');
+    expect(usernameRpcErrorKey('NOT_AUTHORIZED')).toBe('authError.generic');
+  });
+
+  it('las frases existen en castellano y ninguna ensena el codigo tecnico', () => {
+    for (const key of [
+      'authError.usernameRequired',
+      'authError.usernameInvalid',
+      'authError.usernameReserved',
+      'authError.usernameTaken',
+    ] as const) {
+      expect(esES[key]).toBeTruthy();
+      expect(esES[key]).not.toMatch(/USERNAME_/);
+    }
   });
 });
 

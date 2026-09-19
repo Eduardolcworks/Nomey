@@ -9,6 +9,7 @@ export {
   signOutErrorKey,
   signUpErrorKey,
   updateUserErrorKey,
+  usernameRpcErrorKey,
   type AuthErrorKey,
   type AuthFailure,
   type RecoveryErrorTitleKey,
@@ -45,7 +46,9 @@ export {
   normaliseDisplayName,
   normaliseEmail,
   normaliseRegistration,
+  normaliseUsername,
   passwordProblem,
+  usernameProblem,
   type Credentials,
   type PasswordProblem,
   type Registration,
@@ -64,3 +67,5 @@ export { readRecoveryLink, type RecoveryProof } from './recovery-link';
 export { useRecoveryLink } from './use-recovery-link';
 export { SignInForm, type SignInFormProps } from './sign-in-form';
 export { GuestSignUp } from './guest-sign-up';
+export { reserveUsername, type ReservationResult } from './username-reservation';
+export { UsernameField, type UsernameFieldProps } from './username-field';

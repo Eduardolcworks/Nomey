@@ -80,10 +80,12 @@ SQL
 
 ANTES=$(censo)
 
-alta() {
+# F12/ADR-001 §5: el hook before_user_created exige un username en el alta por
+# correo; se manda uno determinista por usuario, como hace la app.
+alta() { # $1 email, $2 username
   curl -s -X POST "${API}/auth/v1/signup" \
     -H "apikey: ${KEY}" -H 'Content-Type: application/json' \
-    -d "{\"email\":\"$1\",\"password\":\"${PASS}\"}" >/dev/null
+    -d "{\"email\":\"$1\",\"password\":\"${PASS}\",\"data\":{\"display_name\":\"Sonda $2\",\"requested_username\":\"$2\"}}" >/dev/null
 }
 
 confirmar() {
@@ -128,6 +130,12 @@ delete from core.operation where created_by in (${ACTORES});
 delete from core.membership where scope_id in (${MIOS});
 delete from core.participant where scope_id in (${MIOS});
 delete from core.scope where owner_user_id in (${ACTORES});
+-- F12/ADR-001 (20260921120000, 20260924120000): la identidad publica que el
+-- hook de alta reservo para estas cuentas.
+delete from core.account_handle_event where user_id in (${ACTORES}) or actor_user_id in (${ACTORES});
+delete from core.username_lookup_attempt where user_id in (${ACTORES});
+delete from core.account_handle where user_id in (${ACTORES});
+delete from core.account_identity where user_id in (${ACTORES});
 delete from auth.users where email like '${PREFIJO}%';
 commit;
 SQL
@@ -136,8 +144,8 @@ SQL
 trap limpiar EXIT
 
 limpiar
-alta "${EMAIL_A}"; confirmar "${EMAIL_A}"; TOKEN_A=$(jwt "${EMAIL_A}")
-alta "${EMAIL_B}"; confirmar "${EMAIL_B}"; TOKEN_B=$(jwt "${EMAIL_B}")
+alta "${EMAIL_A}" sonda_a; confirmar "${EMAIL_A}"; TOKEN_A=$(jwt "${EMAIL_A}")
+alta "${EMAIL_B}" sonda_b; confirmar "${EMAIL_B}"; TOKEN_B=$(jwt "${EMAIL_B}")
 
 if [ -z "${TOKEN_A}" ] || [ -z "${TOKEN_B}" ]; then
   echo "error: no se obtuvo un JWT real. ¿Esta GoTrue arrancado?" >&2
