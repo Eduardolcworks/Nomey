@@ -37,6 +37,8 @@ influencia son los argumentos que recibe.
 | `effects/derive`            | Operación → efectos                                    |
 | `effects/balance`           | Saldos y totales económicos derivados                  |
 | `effects/debt`              | Deudas netas, liquidaciones y pagos parciales          |
+| `username/handle`           | Sintaxis y normalización del username (F12/ADR-001 §3) |
+| `username/reserved`         | Handles reservados: 25 exactos y 4 prefijos (§4)       |
 
 **Fuera de esta capa, por decisión:** la autorización —quién puede registrar
 qué—, la idempotencia y la selección de la versión vigente pertenecen a la

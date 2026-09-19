@@ -4,7 +4,7 @@
 # ============================================================================
 #
 # Descarga un documento oficial del BCE y lo entrega a sec.fx_ingest
-# (migracion 20260920120000), que decide si la observacion es completa, guarda
+# (migracion 20260923120000), que decide si la observacion es completa, guarda
 # las versiones y fija los dias con la hora del servidor. Este script no decide
 # nada: solo transporta el documento y la evidencia HTTP.
 #

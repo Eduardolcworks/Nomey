@@ -4,6 +4,7 @@ export { DateSheet } from './date-sheet';
 export { DepthLayer, type DepthLayerProps } from './depth-layer';
 export { ActionButton, type ActionButtonProps } from './action-button';
 export { GlassPressable, type GlassPressableProps } from './glass-pressable';
+export { type GlassEdge, glassEdgeStyle } from './glass-pressable-style';
 export { type GlassRim, GlassSurface, type GlassSurfaceProps } from './glass-surface';
 export { useNativeGlass } from './use-native-glass';
 export { WindowMaterial, type WindowMaterialProps } from './window-material';

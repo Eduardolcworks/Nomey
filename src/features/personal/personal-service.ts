@@ -49,6 +49,57 @@ export async function ensurePersonalScope(currencyCode: string | null): Promise<
 }
 
 /**
+ * LA DECISIÓN DE INICIO DEL MODO PERSONAL (F10/ADR-005): `include` o `fresh`,
+ * una sola vez, persistida por el servidor en `core.personal_start`.
+ *
+ * Comando de provisioning con su clave (F09/ADR-002): un reintento con la
+ * misma clave devuelve la decisión original; la misma decisión con otra
+ * clave también (idempotente por estado); otra decisión distinta se rehúsa
+ * con `PERSONAL_START_DECIDED`. `automatic` es el primer acceso sin historia:
+ * el servidor lo rehúsa con `PERSONAL_START_DECISION_REQUIRED` si en ese
+ * instante sí la hay, y entonces se pregunta.
+ *
+ * No lanza: el código de frontera es lo que el hook interpreta, y una
+ * excepción lo perdería.
+ */
+export type StartPersonalScopePayload = {
+  readonly client_command_id: string;
+  readonly command_contract_version: 1;
+  readonly mode: 'include' | 'fresh';
+  readonly automatic?: true;
+};
+
+export type StartPersonalScopeResult = {
+  readonly status: number;
+  readonly code: string | null;
+  readonly mode: 'include' | 'fresh' | null;
+  readonly ok: boolean;
+};
+
+export async function startPersonalScope(
+  payload: StartPersonalScopePayload,
+): Promise<StartPersonalScopeResult> {
+  const response = (await supabase.rpc('start_personal_scope', {
+    payload: payload as never,
+  })) as unknown as {
+    data: unknown;
+    error: { code?: string | null } | null;
+    status?: number;
+  };
+  const status = typeof response.status === 'number' ? response.status : 0;
+  if (response.error !== null && response.error !== undefined) {
+    return { status, code: response.error.code ?? null, mode: null, ok: false };
+  }
+  const mode = (response.data as { mode?: unknown } | null)?.mode;
+  return {
+    status,
+    code: null,
+    mode: mode === 'include' || mode === 'fresh' ? mode : null,
+    ok: true,
+  };
+}
+
+/**
  * El `Disponible`, derivado por el servidor.
  *
  * **Cero filas significa que NO HAY ÁMBITO**, no saldo cero: la vista devuelve

@@ -22,12 +22,14 @@ import {
   ShareRow,
   shareKey,
   type ProjectedOperation,
+  PersonalStart,
   readyScope,
   resolveInterval,
   todayInDeviceCalendar,
   useAnnulMovement,
   usePersonalHome,
   usePersonalScope,
+  usePersonalStart,
   useProjectedHome,
 } from '@/features/personal';
 import {
@@ -108,7 +110,9 @@ export default function HomeScreen() {
    */
   const actorId = state.status === 'signed-in' ? state.identity.userId : '';
 
-  const scope = usePersonalScope(actorId);
+  // Por identidad de sesion: convertirse conserva el actor y cambia lo que el
+  // servidor dice del punto de inicio (F10/ADR-005), asi que se relee.
+  const scope = usePersonalScope(actorId, guest);
   const [interval, setIntervalKind] = useState<IntervalKind>(INITIAL_INTERVAL);
   const [openFlow, setOpenFlow] = useState<'income' | 'expense' | null>(null);
   const [openMovement, setOpenMovement] = useState<string | null>(null);
@@ -124,6 +128,20 @@ export default function HomeScreen() {
 
   const ready = readyScope(scope.state);
   /*
+   * EL PUNTO DE INICIO DEL PERSONAL (F10/ADR-005), antes de consultar nada. Una
+   * cuenta que nacio como Invitado y llega aqui con historia de grupos elige
+   * como empezar; sin historia, se persiste `include` sin preguntar. Mientras
+   * haya algo que decidir o en vuelo, el Personal NO se lee: sus cifras
+   * cambiarian bajo la persona. Quien lo dice es el servidor en
+   * `ensure_personal_scope`, y `scope.retry` lo relee tras decidir.
+   *
+   * **Un invitado no decide** (`enabled = !guest`): mientras la sesion sea
+   * anonima el hook no pregunta, no auto-incluye y no envia nada; al
+   * convertirse, relee el ambito una vez y solo entonces evalua.
+   */
+  const start = usePersonalStart(scope.state, scope.retry, !guest);
+  const startPending = start.state.status !== 'none';
+  /*
    * Y con Pareja activo NO se consulta nada de Personal: el hook recibe `false`
    * y sus dos efectos salen antes de pedir nada. No es una optimización, es la
    * misma separación — un ámbito que no se está mirando no genera tráfico sobre
@@ -133,7 +151,7 @@ export default function HomeScreen() {
    * el Modo Personal de la cuenta y no depende de qué pestaña se esté mirando.
    * Es idempotente por estado y corre una sola vez.
    */
-  const home = usePersonalHome(ready !== null && personal, range, actorId);
+  const home = usePersonalHome(ready !== null && personal && !startPending, range, actorId);
 
   /*
    * LO QUE SE PINTA ES LA PROYECCIÓN, no el snapshot (F07/ADR-001 §8): el saldo,
@@ -524,6 +542,33 @@ export default function HomeScreen() {
                 retry={{ label: t('action.retry'), onPress: scope.retry }}
                 fill
               />
+            </View>
+          </>
+        ) : start.state.status === 'ask' || start.state.status === 'failed' ? (
+          /*
+           * «¿Como quieres empezar tu Modo Personal?» (F10/ADR-005 §6): en el
+           * lugar del Personal, una sola vez, sin nada que se pueda pulsar
+           * fuera de la eleccion. Grupos y Perfil siguen en sus pestañas.
+           */
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[
+              styles.gate,
+              { paddingBottom: DOCK_HEIGHT + insets.bottom + Spacing.xl },
+            ]}>
+            <PersonalStart
+              onDecide={start.decide}
+              busy={false}
+              failed={start.state.status === 'failed'}
+              onRetry={start.retry}
+            />
+          </ScrollView>
+        ) : start.state.status === 'resolving' ? (
+          /* El include automatico, o la decision recien tomada, en vuelo. */
+          <>
+            {greeting}
+            <View style={styles.centre}>
+              <LoadingState label={t('home.preparing')} fill />
             </View>
           </>
         ) : (

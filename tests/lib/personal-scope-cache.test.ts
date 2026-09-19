@@ -49,6 +49,10 @@ const ready = (over: Partial<Ready> = {}): Ready => ({
   currencyCode: 'EUR',
   currencyScale: 2,
   created: false,
+  // El respaldo no guarda el punto de inicio (F10/ADR-005): recordado, es `null`,
+  // y no se leyo como invitado.
+  start: null,
+  readAsGuest: false,
   ...over,
 });
 

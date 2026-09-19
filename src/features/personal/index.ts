@@ -82,10 +82,15 @@ export {
   IDLE,
   isResolving,
   type PersonalScopeState,
+  type PersonalStart as PersonalStartFacts,
+  type PersonalStartMode,
+  personalStartAction,
   readyScope,
   recommendedCurrencyCode,
   scopeFromResult,
 } from './personal-scope';
+export { PersonalStart } from './personal-start';
+export { type PersonalStartState, usePersonalStart } from './use-personal-start';
 export {
   categorySlices,
   type CategorySlice,

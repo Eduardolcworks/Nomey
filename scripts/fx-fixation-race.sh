@@ -3,7 +3,7 @@
 # INGESTA Y FIJACION EN CARRERA, CON DOS SESIONES REALES (F11/ADR-002 §4)
 # ============================================================================
 #
-# sec.fx_ingest_at (migracion 20260920120000) toma un candado consultivo por
+# sec.fx_ingest_at (migracion 20260923120000) toma un candado consultivo por
 # fuente antes de leer lo guardado. La primera sesion ingiere y RETIENE su
 # transaccion 3 s antes de confirmar; la segunda arranca 1 s despues. Se mide
 # que la segunda ESPERO (clock_timestamp() − now() ≥ 1,5 s) y que el resultado

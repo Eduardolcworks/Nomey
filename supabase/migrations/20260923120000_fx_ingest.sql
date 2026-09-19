@@ -2,7 +2,7 @@
 -- INGESTA Y FIJACION DEL TIPO DEL DIA · F11/ADR-002 §1-§5 · Bloque F11.B, M2
 -- ============================================================================
 --
--- Parte del estado que dejo 20260919120000 (catalogo y cobertura curada).
+-- Parte del estado que dejo 20260922120000 (catalogo y cobertura curada).
 --
 --   §0  las tablas de la ingesta y la fijacion, cada una con su RLS:
 --         core.fx_observation              cada lectura de la fuente

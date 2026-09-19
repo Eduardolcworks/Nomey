@@ -89,11 +89,11 @@ lo migrado — [F06/ADR-002](../adr/F06/ADR-002-version-content-and-time.md).
 
 ## 4 · Escenarios resueltos (§4)
 
-| Escenario                                            | Estado                                            |
-| ---------------------------------------------------- | ------------------------------------------------- |
-| 4.1 · 4.2 · 4.3 · 4.4 · 4.5 · 4.6 · 4.7 · 4.8 · 4.11 | **Ejecutables** por las siete funciones           |
-| «gasto de grupo con tres monedas»                    | **Aplazado** — necesita FX (§7 de este documento) |
-| 4.9 · 4.10 · 4.12 · 4.13 · 4.14                      | **Aplazado** — Modo Pareja                        |
+| Escenario                                            | Estado                                                                                                                                                                                                                          |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4.1 · 4.2 · 4.3 · 4.4 · 4.5 · 4.6 · 4.7 · 4.8 · 4.11 | **Ejecutables** por las siete funciones. **4.6 y 4.8 cambian de contrato en F12.A0** (propuesta + aceptación, dos voluntades; F12/ADR-002/003): los efectos finales son los mismos; el writer de F3 se recrea al implementarlos |
+| «gasto de grupo con tres monedas»                    | **Aplazado** — necesita FX (§7 de este documento)                                                                                                                                                                               |
+| 4.9 · 4.10 · 4.12 · 4.13 · 4.14                      | **Aplazado** — Modo Pareja                                                                                                                                                                                                      |
 
 **Aplazado — Modo Pareja (4.9, 4.10, 4.12, 4.13, 4.14).**
 Gasto con saldo común, financiación personal de un gasto de pareja, retirada
@@ -152,10 +152,11 @@ fantasma); fantasma → cuenta es reclamar o asociar; las cadenas de fusión son
 un invariante prohibido. **Revocar el vínculo de otro está prohibido** por
 principio ([`phase-10-opening.md`](phase-10-opening.md)).
 
-**Aplazado — acceso residual.**
-Qué puede ver y hacer quien abandona un ámbito con saldo distinto de cero. → No
-es de F3: ningún ADR lo decide y ninguna relación migrada lo prejuzga. → Queda
-abierto en el handoff §11, sin fase asignada.
+~~**Aplazado — acceso residual.**~~
+**CERRADO en F9 y confirmado en F12.A0 (2026-09-17).** Nadie sale de un grupo
+con neto ≠ 0 (F09/ADR-007 C5/C8), así que no existe «quien abandona con saldo
+pendiente»; quien salió conserva sólo el acceso acotado a sus propios pagos
+(F09/ADR-007 C6) y su vínculo histórico (F10/ADR-003). F12 no lo reabre.
 
 ---
 
@@ -188,12 +189,12 @@ frontera autoritativa, donde hoy lo garantizan el lock y el CAS.
 
 ## 8 · Permisos y efectos sobre otros (§8)
 
-| Concepto                                       | Categoría      | Dónde                                           |
-| ---------------------------------------------- | -------------- | ----------------------------------------------- |
-| Derecho a producir los efectos que alcanza     | **Runtime**    | Autorización por clase en la frontera + RLS     |
-| Solo el emisor origina una transferencia       | **Runtime**    | `record_internal_transfer`, invariante 14       |
-| Solo el deudor paga su deuda por transferencia | **Runtime**    | `record_settlement_by_transfer`, por el vínculo |
-| Atribución e historial                         | **Persistido** | `created_by` de operación y de versión          |
+| Concepto                                       | Categoría      | Dónde                                                                                                                                                           |
+| ---------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Derecho a producir los efectos que alcanza     | **Runtime**    | Autorización por clase en la frontera + RLS                                                                                                                     |
+| Solo el emisor origina una transferencia       | **Runtime**    | `record_internal_transfer`, invariante 14. **Precisado en F12.A0**: originar = autorizar por propuesta; nace con dos voluntades (F12/ADR-002)                   |
+| Solo el deudor paga su deuda por transferencia | **Runtime**    | `record_settlement_by_transfer`, por el vínculo. **Superado en F12.A0**: transferencia de grupo con dos voluntades, cualquier dirección, sin tope (F12/ADR-003) |
+| Atribución e historial                         | **Persistido** | `created_by` de operación y de versión                                                                                                                          |
 
 **Aplazado — notificación.**
 Toda operación con efectos sobre otro usuario **genera notificación**
@@ -338,21 +339,21 @@ persistido, es derivable, tiene proyección, vive en la frontera, o está aplaza
 
 Los aplazados, en una línea cada uno:
 
-| Aplazado                                                                                    | Destino                                                                         |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Modo Pareja completo (4.9, 4.10, 4.12–4.14)                                                 | Su fase                                                                         |
-| Atributos de Grupo                                                                          | Su fase                                                                         |
-| ~~Resolución autoritativa del FX~~                                                          | **Decidida en F11.A** — F11/ADR-001                                             |
-| ~~Siembra del catálogo monetario~~                                                          | **Resuelto en F6.A**                                                            |
-| ~~Provisioning del Modo Personal~~                                                          | **Resuelto en F6.A**                                                            |
-| ~~Provisioning de Grupos y participantes~~                                                  | **Resuelto en F9**                                                              |
-| ~~Mecanismo de claim~~ · ~~ciclo de vida del vínculo, cesión y fusión fantasma ↔ fantasma~~ | **Resuelto en F9** · **F10 (ADR-002/003; cesión y fusiones fuera por ADR-004)** |
-| Acceso residual                                                                             | Abierto                                                                         |
-| Notificación                                                                                | Abierto                                                                         |
-| ~~Anulación como concepto distinto~~                                                        | **Resuelto en F6.C**                                                            |
-| Idempotencia de otros orígenes                                                              | Abierto                                                                         |
-| Previsualización de correcciones                                                            | Fase de pantallas                                                               |
-| ~~Clase `ingreso` sin ruta~~                                                                | **Resuelto en F6.B**                                                            |
-| ~~Conflicto por configuración monetaria anterior~~                                          | **Decidido en F11.A** — F11/ADR-001 §10                                         |
-| Caja del fantasma asociado en un gasto de grupo en otra moneda                              | **F11.D**, sin decidir                                                          |
-| `exact_amounts` en moneda extranjera                                                        | **F11.D**, sin decidir                                                          |
+| Aplazado                                                                                    | Destino                                                                                                                                 |
+| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Modo Pareja completo (4.9, 4.10, 4.12–4.14)                                                 | Su fase                                                                                                                                 |
+| Atributos de Grupo                                                                          | Su fase                                                                                                                                 |
+| ~~Resolución autoritativa del FX~~                                                          | **Decidida en F11.A** — F11/ADR-001                                                                                                     |
+| ~~Siembra del catálogo monetario~~                                                          | **Resuelto en F6.A**                                                                                                                    |
+| ~~Provisioning del Modo Personal~~                                                          | **Resuelto en F6.A**                                                                                                                    |
+| ~~Provisioning de Grupos y participantes~~                                                  | **Resuelto en F9**                                                                                                                      |
+| ~~Mecanismo de claim~~ · ~~ciclo de vida del vínculo, cesión y fusión fantasma ↔ fantasma~~ | **Resuelto en F9** · **F10, cerrada (ADR-002/003; cesión y fusiones fuera por ADR-004; inicio del Personal tras el Invitado, ADR-005)** |
+| ~~Acceso residual~~                                                                         | **Cerrado en F9 (F09/ADR-003, F09/ADR-007 C5/C6/C8) y confirmado en F12.A0**                                                            |
+| Notificación                                                                                | Abierto                                                                                                                                 |
+| ~~Anulación como concepto distinto~~                                                        | **Resuelto en F6.C**                                                                                                                    |
+| Idempotencia de otros orígenes                                                              | Abierto                                                                                                                                 |
+| Previsualización de correcciones                                                            | Fase de pantallas                                                                                                                       |
+| ~~Clase `ingreso` sin ruta~~                                                                | **Resuelto en F6.B**                                                                                                                    |
+| ~~Conflicto por configuración monetaria anterior~~                                          | **Decidido en F11.A** — F11/ADR-001 §10                                                                                                 |
+| Caja del fantasma asociado en un gasto de grupo en otra moneda                              | **F11.D**, sin decidir                                                                                                                  |
+| `exact_amounts` en moneda extranjera                                                        | **F11.D**, sin decidir                                                                                                                  |

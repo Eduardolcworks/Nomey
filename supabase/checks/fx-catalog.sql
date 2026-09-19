@@ -2,7 +2,7 @@
 -- CATALOGO FX Y COBERTURA CURADA · F11/ADR-001 §5 · F11/ADR-002 §5
 -- ============================================================================
 --
--- Migracion 20260919120000 (F11.B, M1); lo que 20260920120000 (M2) anade al
+-- Migracion 20260922120000 (F11.B, M1); lo que 20260923120000 (M2) anade al
 -- rol de ingesta se comprueba aqui tambien. Contra el catalogo REAL, con
 -- fixtures propias y ROLLBACK. Lo que se afirma:
 --
@@ -80,7 +80,7 @@ begin
 
   -- A2 · el rol de ingesta: NOLOGIN, NOBYPASSRLS, sin poderes, sin heredar
   --      ningun otro rol, sin poseer tablas, y como unicas funciones propias
-  --      las dos de la ingesta (20260920120000).
+  --      las dos de la ingesta (20260923120000).
   if not exists (select 1 from pg_roles
                   where rolname = 'nomey_fx_ingest'
                     and not rolcanlogin and not rolbypassrls and not rolsuper
@@ -244,7 +244,7 @@ begin
   end if;
 
   -- A8 · la integridad la dan constraints, con UNA excepcion razonada: la
-  --      guarda de F11/ADR-002 §5 (20260920120000 §3) cruza la cobertura y las
+  --      guarda de F11/ADR-002 §5 (20260923120000 §3) cruza la cobertura y las
   --      fijaciones, y ninguna constraint puede expresar eso.
   select string_agg(c.relname || ':' || t.tgname, ',' order by c.relname) into v_t
     from pg_trigger t join pg_class c on c.oid = t.tgrelid

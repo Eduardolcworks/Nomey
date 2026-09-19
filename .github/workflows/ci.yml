@@ -356,6 +356,37 @@ jobs:
       - name: Link lifecycle checks
         run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/link-lifecycle.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
 
+      # The Personal start after the guest (F10/ADR-005): the guest-origin mark,
+      # the insert-only decision, include as identity, fresh as a cutoff that
+      # leaves prior group history out of balance/history/statistics/shares but
+      # never out of debts, later operations in, prior ones edited still out,
+      # derive_balance = personal_balance, auto-include on a first access with
+      # no history.
+      - name: Personal start checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/personal-start.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # The two closures F10/ADR-004 assigned to C0: retiring (or settling) a
+      # merge source is refused with PARTICIPANT_MERGED, and a merge is one hop
+      # by catalogue — a source is never a target, a target is never a source,
+      # no re-pointing — whoever writes the row.
+      - name: Merge invariant checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/merge-invariants.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
+      # Username (F12/ADR-001, F12.A1): the shared syntax vectors reproduced by
+      # sec.normalize_handle / sec.assert_handle_valid and the seeded reserved
+      # names; reserve/claim/change/set_public_name/resolve against the real
+      # functions as each account (normal and anonymous claim); 7-day reservation
+      # expiry without reading Auth, lazy eviction, 30-day cooldown, 90-day hold,
+      # recovery by the old owner, resolver states and its 20/10 min throttle;
+      # owners (all nomey_provisioner, none postgres), grants, own-row RLS,
+      # insert-only journal, supabase_auth_admin still without anything in sec.
+      # Piped through the vector prelude, like the writer checks.
+      - name: Username checks
+        shell: bash
+        run: |
+          { ./scripts/vectors-prelude.sh ; cat supabase/checks/username.sql ; } \
+            | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
       # Oversettlement guards refuse only what a correction or annulment
       # worsens (pair oriented by its settlements); the canonical
       # 5000/4000 → 3000 example still refuses.
@@ -377,14 +408,14 @@ jobs:
       - name: Group identity lock guard
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/group-identity-lock.sql
 
-      # FX catalogue (F11/ADR-001 §5, F11/ADR-002 §5; migration 20260919120000):
+      # FX catalogue (F11/ADR-001 §5, F11/ADR-002 §5; migration 20260922120000):
       # the ECB source with EUR as pivot, the curated coverage of 17 of the 20
       # definitions in closed, non-overlapping intervals, the nomey_fx_ingest
       # role, and no application role able to write any of it.
       - name: FX catalogue and curated coverage
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/fx-catalog.sql
 
-      # FX ingest and daily fixation (F11/ADR-002; migration 20260920120000),
+      # FX ingest and daily fixation (F11/ADR-002; migration 20260923120000),
       # on fixture sources only: every completeness condition recorded with its
       # reason, one fixation per day from 00:00 Europe/Berlin, versions and
       # amendments, and the 36 cases of tests/vectors/fx-day.json reproduced by
@@ -448,6 +479,21 @@ jobs:
       # no partial write, not even its idempotency key.
       - name: Departed obligation races (real sessions)
         run: bash scripts/departed-obligation-race-evidence.sh
+
+      # The Personal start decision vs a group expense that writes the same
+      # personal cash, as two real sessions (F10/ADR-005 §5): serialized by the
+      # scope lock, and the instants reflect the serial order.
+      - name: Personal start races (real sessions)
+        run: bash scripts/personal-start-race-evidence.sh
+
+      # The username lifecycle as two real sessions (F12/ADR-001, F12.A1): two
+      # changes of the same account (the second waits and sees the cooldown),
+      # a guest reservation vs a normal account asking for the same handle, a
+      # claim racing the eviction of its expired reservation, and two accounts
+      # asking for one handle. The unique index and the identity lock decide;
+      # nobody ends up with two live handles.
+      - name: Username races (real sessions)
+        run: bash scripts/username-race-evidence.sh
 
       # Two ingests of the same source at once (F11/ADR-002 §4): the second
       # waits on the per-source advisory lock and fixes nothing already fixed,

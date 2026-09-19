@@ -95,6 +95,31 @@ sustituye se cita.
   dejar la identidad por la mera existencia de una fusión— deja de aplicar; una
   fusión previa a la instancia forma parte de su línea base y no bloquea, y una
   fusión durante la instancia bloquea sólo si absorbió atribución económica.
+- **F09/ADR-007 «Alternativas» y §C — sin contradicción con F12
+  ([F12/ADR-003](../F12/ADR-003-group-transfers.md), Aceptado, 2026-09-17).**
+  F09 descartó «reutilizar `record_settlement_by_transfer`» para el pago
+  declarado porque aquel flujo es **declarativo y unilateral** (una parte
+  declara, la otra puede anular, importe acotado por la deuda, descomposición
+  por caminos). Esa decisión **sigue siendo válida**. F12 usa
+  `settlement_by_transfer` para su propósito propio: la **transferencia dentro
+  de un grupo**, con dos voluntades (propuesta + aceptación), par directo,
+  importe completo que puede cruzar cero, e irreversible. `group_payment`
+  («Saldado») conserva íntegro su contrato de C1–C8. La cabecera del ADR que
+  llama a `record_settlement_by_transfer` «writer de F11» era una expectativa
+  escrita en F9, no una decisión (ya anotado por F11); la clase no convierte
+  moneda (F11/ADR-001 §4).
+- **F09/ADR-003 (cabecera: «cierra F03/ADR-009 §12: no hay acceso
+  residual») y F09/ADR-007 C6 — confirmados por F12.A0 (2026-09-17).** El alcance original de F12
+  hablaba de un «acceso residual general» de quien sale con saldo; no existe:
+  nadie sale con neto ≠ 0 (C5/C8) y el acceso de quien salió es el acotado de
+  C6 y de [F10/ADR-003](../F10/ADR-003-active-and-historical-link.md). F12 no
+  lo reabre.
+- **F09/ADR-004 — precedente reutilizado por
+  [F12/ADR-004](../F12/ADR-004-payment-request-links.md) (Aceptado,
+  2026-09-17):** la solicitud de pago es una capability opaca al portador con
+  el mismo patrón (token de 32 bytes, sólo su hash, caducidad, revocación por
+  el creador, previsualización frenada por cuenta que devuelve estado), con
+  dos diferencias de contrato: un solo uso y caducidad fija de 7 días.
 - **F09/ADR-006 y F09/ADR-005 — «pendiente de validación visual en el
   iPhone»:** F9 cerró validada en iPhone y emulador Android (roadmap, Fase 9,
   «Estado de cierre»).

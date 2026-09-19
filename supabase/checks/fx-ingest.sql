@@ -2,7 +2,7 @@
 -- INGESTA Y FIJACION DEL TIPO DEL DIA · F11/ADR-002 §1-§5
 -- ============================================================================
 --
--- Migracion 20260920120000 (F11.B, M2). Contra las funciones REALES, con
+-- Migracion 20260923120000 (F11.B, M2). Contra las funciones REALES, con
 -- fuentes de fixture (nunca la fuente real `ecb`, que puede tener datos en una
 -- base local) y ROLLBACK. EXIGE el prologo de vectores, porque la seccion B
 -- compara la fijacion con tests/vectors/fx-day.json:

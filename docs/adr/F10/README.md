@@ -10,9 +10,9 @@ y fusiones (ninguna entra, F10/ADR-004). **Fuera:** revocación del vínculo
 ajeno, expulsión, roles, identidad anónima, recuperación global de cuenta,
 soporte administrativo, cesión de identidad entre cuentas
 (`identity_handover`), fusión de dos participantes con cuenta y fusión
-fantasma ↔ fantasma. **Estado de la fase:** Abierta el 2026-09-14; F10.A0 …
-F10.B0 cerrados (A3 y B0 el 2026-09-16); B1 y B2 no existen; el siguiente
-bloque es F10.C0 (cierre).
+fantasma ↔ fantasma. **Estado de la fase:** **CERRADA el 2026-09-16** (abierta el
+2026-09-14); A0 … C0 cerrados; B1 y B2 no existen. El punto de entrada es el
+[handoff](../../architecture/phase-10-handoff.md).
 El detalle está en [el roadmap](../../product/roadmap.md) y la
 apertura, con las mediciones previas y los insumos de cada ADR, en
 [`phase-10-opening.md`](../../architecture/phase-10-opening.md).
@@ -24,15 +24,19 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 
 ## ADR de esta fase
 
-| ADR                                                  | Título                                                                                                                                                                                                                                                              | Estado   | Fecha      | Bloque |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- | ------ |
-| [F10/ADR-001](ADR-001-link-instance-lifecycle.md)    | Ciclo de vida de una instancia propia de vínculo cuenta ↔ identidad contextual — **superado en parte** por F10/ADR-002 (§2, §4–§12, §14: la baja); §0, §1, §3 y §13 siguen vigentes                                                                                 | Aceptado | 2026-09-14 | F10.A1 |
-| [F10/ADR-002](ADR-002-permanent-identity.md)         | Identidad permanente en el grupo: el vínculo cuenta ↔ participante no se deshace — **precisado** por F10/ADR-003 (§2: salir termina el vínculo; §3: el copy al reclamar)                                                                                            | Aceptado | 2026-09-15 | F10.A3 |
-| [F10/ADR-003](ADR-003-active-and-historical-link.md) | Vínculo activo y vínculo histórico: salir termina la identidad en el grupo, volver la reactiva o elige otra (supera la única opción al volver de F09/ADR-010)                                                                                                       | Aceptado | 2026-09-15 | F10.A3 |
-| [F10/ADR-004](ADR-004-identity-scope-closure.md)     | Cierre de alcance: sin cesiones, sin fusiones nuevas y sin `identity_handover`; cadenas de fusión prohibidas como invariante — **supera** las referencias a «F10.B0» de ADR-001 (No cubre), ADR-002 (Consecuencias: «única vía prevista») y ADR-003 (Consecuencias) | Aceptado | 2026-09-16 | F10.B0 |
+| ADR                                                  | Título                                                                                                                                                                                                                                                                                                               | Estado   | Fecha      | Bloque |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- | ------ |
+| [F10/ADR-001](ADR-001-link-instance-lifecycle.md)    | Ciclo de vida de una instancia propia de vínculo cuenta ↔ identidad contextual — **superado en parte** por F10/ADR-002 (§2, §4–§12, §14: la baja); §0, §1, §3 y §13 siguen vigentes                                                                                                                                  | Aceptado | 2026-09-14 | F10.A1 |
+| [F10/ADR-002](ADR-002-permanent-identity.md)         | Identidad permanente en el grupo: el vínculo cuenta ↔ participante no se deshace — **precisado** por F10/ADR-003 (§2: salir termina el vínculo; §3: el copy al reclamar)                                                                                                                                             | Aceptado | 2026-09-15 | F10.A3 |
+| [F10/ADR-003](ADR-003-active-and-historical-link.md) | Vínculo activo y vínculo histórico: salir termina la identidad en el grupo, volver la reactiva o elige otra (supera la única opción al volver de F09/ADR-010)                                                                                                                                                        | Aceptado | 2026-09-15 | F10.A3 |
+| [F10/ADR-004](ADR-004-identity-scope-closure.md)     | Cierre de alcance: sin cesiones, sin fusiones nuevas y sin `identity_handover`; cadenas de fusión prohibidas como invariante — **supera** las referencias a «F10.B0» de ADR-001 (No cubre), ADR-002 (Consecuencias: «única vía prevista») y ADR-003 (Consecuencias)                                                  | Aceptado | 2026-09-16 | F10.B0 |
+| [F10/ADR-005](ADR-005-personal-start.md)             | Punto de inicio del Modo Personal tras el Invitado: incluir los movimientos de grupos o empezar desde cero, una sola vez, persistido; `fresh` es un corte por `operation.created_at` que respeta el saldo, el historial, las estadísticas y las cuotas, nunca las deudas (supera en parte F06/ADR-004 y F06/ADR-007) | Aceptado | 2026-09-16 | F10.C0 |
 
-No queda ningún ADR previsto en esta fase: F10.C0 es documental (regresión,
-criterios, `PROJECT_STATE` y handoff).
+La fase está cerrada y no queda ningún ADR previsto. F10.C0 trajo F10/ADR-005
+—una decisión de producto nacida del flujo Invitado → cuenta de A3— y cumplió
+los dos cierres que ADR-004 le asignó (migración `20260920120000`: retirar o
+saldar a un origen fusionado se rehúsa con `PARTICIPANT_MERGED`; una fusión es
+de un salto por trigger de catálogo; `merge-invariants.sql`).
 
 Lo que cada uno recibe como insumo está en `phase-10-opening.md` §5 y §6; el
 primero está aceptado sobre esos insumos y las mediciones de F10.A1; el

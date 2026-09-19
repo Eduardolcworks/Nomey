@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Pressable, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
+import { type GlassEdge, glassEdgeStyle } from './glass-pressable-style';
 import { type GlassRim, GlassSurface } from './glass-surface';
 import { usePressScale } from '@/ui/theme/motion-runtime';
-import { Radius, type TactileState } from '@/ui/theme';
+import { Radius, type TactileState, useTheme } from '@/ui/theme';
 
 export type GlassPressableProps = {
   onPress: () => void;
@@ -18,6 +19,11 @@ export type GlassPressableProps = {
   selected?: boolean;
   /** Cuánto brilla el borde superior. Ver `GlassRim`. */
   rim?: GlassRim;
+  /**
+   * El borde con el amarillo oficial (`accent`): la opción ELEGIDA de un grupo
+   * excluyente. Sin él, el borde del material. Ver `glass-pressable-style`.
+   */
+  edge?: GlassEdge;
   radius?: number;
   /**
    * Recorta el contenido a la forma redondeada de la superficie.
@@ -68,6 +74,7 @@ export function GlassPressable({
   busy = false,
   selected = false,
   rim = 'catch',
+  edge,
   radius = Radius.full,
   clip = false,
   material = 'control',
@@ -76,6 +83,7 @@ export function GlassPressable({
 }: GlassPressableProps) {
   const [pressed, setPressed] = useState(false);
   const press = usePressScale();
+  const theme = useTheme();
 
   const animated = useAnimatedStyle(() => ({ transform: [{ scale: press.scale.value }] }));
 
@@ -128,7 +136,7 @@ export function GlassPressable({
            * elija ademas su variante de profundidad. iOS lo ignora.
            */
           disabled={disabled}
-          style={disabled ? { opacity: 0.45 } : undefined}>
+          style={[disabled ? { opacity: 0.45 } : null, glassEdgeStyle(edge, theme.accent)]}>
           {children}
         </GlassSurface>
       </Animated.View>

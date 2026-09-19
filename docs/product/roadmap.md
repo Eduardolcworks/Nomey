@@ -642,13 +642,13 @@ cambió, por ADR aceptados durante la fase, es **qué implementación los
 satisface**; se anota aquí, y el detalle con la evidencia está en el
 [seguimiento de F9](../architecture/phase-9-progress.md).
 
-| Criterio                                               | Estado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 · escenarios 4.2–4.5 en la app                       | **4.2, 4.3 y 4.4 cumplidos** (vectores compartidos dominio/servidor; validados en iPhone y emulador). **4.5 sustituido por [F09/ADR-007](../adr/F09/ADR-007-group-payments-and-exit-without-debt.md) §2**: en la app, «marcar saldado» es un **pago declarado** —caja en los dos Personales y deuda, la registre el pagador o el receptor—; la vía «sólo deuda» de 4.5 sigue existiendo como capacidad del writer (`record_debt_settlement`) **sin UI**, y no se añade una para cumplir la letra. 4.6 sigue siendo la transferencia ordenada desde la app, de F12 (invariante 14). |
-| 2 · no depende de quién registra (inv. 10)             | **Cumplido**: Eduardo registra un gasto pagado por Aitor; pagador, cuotas y Disponibles como si lo hubiera registrado Aitor (sólo cambia la autoría). Evidencia automática: `authoritative-writer-debt` E1.                                                                                                                                                                                                                                                                                                                                                                        |
-| 3 · gasto económico de todos (inv. 9)                  | **Cumplido**: cuota de 1 € a cada uno sobre 2 €, sin mover el Disponible de quien no pagó. `personal-statistics` M1–M4.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| 4 · atribución y notificación (inv. 15)                | **Cumplido con el invariante 15 tal como quedó fijado el 2026-09-14** (`data-model.md` §11): atribución por versión (F03/ADR-008); aviso interno para correcciones, perfil, salidas, «Saldado», anulaciones y liquidaciones (`core.group_notice`, seis `kind`); **el alta de un gasto y la reincorporación no avisan, por decisión de producto** — lo nuevo se ve al abrir el grupo o Inicio. Evidencia: `group-notices-seen`, `group-payments-evidence`; campana vista en los dos móviles.                                                                                        |
-| 5 · reparto del resto determinista en dos dispositivos | **Cumplido**: el mismo reparto en iPhone y emulador; 22/22 vectores idénticos dominio/servidor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Criterio                                               | Estado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 · escenarios 4.2–4.5 en la app                       | **4.2, 4.3 y 4.4 cumplidos** (vectores compartidos dominio/servidor; validados en iPhone y emulador). **4.5 sustituido por [F09/ADR-007](../adr/F09/ADR-007-group-payments-and-exit-without-debt.md) §2**: en la app, «marcar saldado» es un **pago declarado** —caja en los dos Personales y deuda, la registre el pagador o el receptor—; la vía «sólo deuda» de 4.5 sigue existiendo como capacidad del writer (`record_debt_settlement`) **sin UI**, y no se añade una para cumplir la letra. 4.6 quedó para F12 y en F12.A0 pasó a ser la transferencia de grupo con dos voluntades (propuesta + aceptación, F12/ADR-003), no una transferencia ordenada unilateral. |
+| 2 · no depende de quién registra (inv. 10)             | **Cumplido**: Eduardo registra un gasto pagado por Aitor; pagador, cuotas y Disponibles como si lo hubiera registrado Aitor (sólo cambia la autoría). Evidencia automática: `authoritative-writer-debt` E1.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 3 · gasto económico de todos (inv. 9)                  | **Cumplido**: cuota de 1 € a cada uno sobre 2 €, sin mover el Disponible de quien no pagó. `personal-statistics` M1–M4.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 4 · atribución y notificación (inv. 15)                | **Cumplido con el invariante 15 tal como quedó fijado el 2026-09-14** (`data-model.md` §11): atribución por versión (F03/ADR-008); aviso interno para correcciones, perfil, salidas, «Saldado», anulaciones y liquidaciones (`core.group_notice`, seis `kind`); **el alta de un gasto y la reincorporación no avisan, por decisión de producto** — lo nuevo se ve al abrir el grupo o Inicio. Evidencia: `group-notices-seen`, `group-payments-evidence`; campana vista en los dos móviles.                                                                                                                                                                               |
+| 5 · reparto del resto determinista en dos dispositivos | **Cumplido**: el mismo reparto en iPhone y emulador; 22/22 vectores idénticos dominio/servidor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 **Decisión de producto (2026-09-14) que cerró el criterio 4:** **no** se
 emiten avisos por el alta de un gasto ni por la reincorporación a un grupo;
@@ -671,7 +671,7 @@ de las dos es funcionalidad nueva ni condiciona F10.
 
 ### Fase 10 — Identidad contextual y ciclo de vida del vínculo
 
-`PRODUCTO` · **ABIERTA el 2026-09-14** · _beta cerrada recomendable desde aquí_
+`PRODUCTO` · **CERRADA el 2026-09-16** · _beta cerrada recomendable desde aquí_
 
 **Objetivo.** Cerrar el ciclo de vida del vínculo entre una cuenta y una
 identidad contextual **sin que ninguna cuenta adjudique la identidad de otra**.
@@ -697,7 +697,7 @@ de alcance de las cesiones y fusiones (`F10/ADR-004`: ninguna entra).
 **Fuera, explícitamente.** Revocación unilateral del vínculo ajeno · expulsión
 de otra cuenta · roles o moderadores · identidad anónima autenticada · cambio o
 recuperación global de cuenta · soporte administrativo de disputas · acceso
-residual general (F12) · **cesión de identidad entre cuentas
+residual general (que F12.A0 confirmó inexistente: F09/ADR-007) · **cesión de identidad entre cuentas
 (`identity_handover`), fusión de dos participantes con cuenta y fusión de dos
 participantes sin cuenta** ([F10/ADR-004](../adr/F10/ADR-004-identity-scope-closure.md),
 2026-09-16: la identidad activa es fija mientras la cuenta participa;
@@ -714,16 +714,18 @@ B0 lo tomó el ciclo de vida del vínculo en A3).
 
 #### Bloques
 
-| Sub-bloque | Qué es                                                                                                                                                                                                                                                                                                                                                                        | Estado                                                                      |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| **F10.A0** | Apertura: reconciliación F9/F10, criterios nuevos, mediciones previas, deuda documental                                                                                                                                                                                                                                                                                       | **Cerrado**                                                                 |
-| **F10.A1** | `F10/ADR-001`: principio de no adjudicación y ciclo de vida del vínculo propio                                                                                                                                                                                                                                                                                                | **Cerrado**                                                                 |
-| **F10.A2** | Backend de A1: instancia y procedencia del vínculo, desvinculación, guardas, carreras                                                                                                                                                                                                                                                                                         | **Cerrado**                                                                 |
-| **F10.A3** | `F10/ADR-002` (identidad permanente) y `F10/ADR-003` (vínculo activo/histórico: salir termina la identidad; volver como X o como un sin cuenta), retirada de toda baja, confirmación al reclamar, cronología única de Movimientos, **modo Invitado real** (`F05/ADR-003`: sesión anónima de Auth, conversión conservando el id)                                               | **Cerrado** (2026-09-16, validación final y aprobación visual en el iPhone) |
-| **F10.B0** | `F10/ADR-004`: **cierre de alcance** — medido el modelo tras A3, ninguna cesión ni fusión entra (sin `identity_handover`, sin cuenta → cuenta, sin cuenta ↔ cuenta, sin fantasma ↔ fantasma; fantasma → cuenta ya resuelto; cadenas prohibidas como invariante). Bloque documental: **B1 y B2 no existen**                                                                    | **Cerrado** (2026-09-16)                                                    |
-| **F10.C0** | Cierre: regresión, criterios, documentación, `PROJECT_STATE` y handoff. Incluye dos cierres que F10/ADR-004 le asigna: la **regresión** de `retire_participant` sobre un origen fusionado (rehusar con `PARTICIPANT_MERGED`, también en cualquier writer equivalente) y la **verificación del invariante de un solo salto** en modelo/catálogo (guarda pequeña si hace falta) | **Siguiente**                                                               |
+| Sub-bloque | Qué es                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Estado                                                                      |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **F10.A0** | Apertura: reconciliación F9/F10, criterios nuevos, mediciones previas, deuda documental                                                                                                                                                                                                                                                                                                                                                                                                            | **Cerrado**                                                                 |
+| **F10.A1** | `F10/ADR-001`: principio de no adjudicación y ciclo de vida del vínculo propio                                                                                                                                                                                                                                                                                                                                                                                                                     | **Cerrado**                                                                 |
+| **F10.A2** | Backend de A1: instancia y procedencia del vínculo, desvinculación, guardas, carreras                                                                                                                                                                                                                                                                                                                                                                                                              | **Cerrado**                                                                 |
+| **F10.A3** | `F10/ADR-002` (identidad permanente) y `F10/ADR-003` (vínculo activo/histórico: salir termina la identidad; volver como X o como un sin cuenta), retirada de toda baja, confirmación al reclamar, cronología única de Movimientos, **modo Invitado real** (`F05/ADR-003`: sesión anónima de Auth, conversión conservando el id)                                                                                                                                                                    | **Cerrado** (2026-09-16, validación final y aprobación visual en el iPhone) |
+| **F10.B0** | `F10/ADR-004`: **cierre de alcance** — medido el modelo tras A3, ninguna cesión ni fusión entra (sin `identity_handover`, sin cuenta → cuenta, sin cuenta ↔ cuenta, sin fantasma ↔ fantasma; fantasma → cuenta ya resuelto; cadenas prohibidas como invariante). Bloque documental: **B1 y B2 no existen**                                                                                                                                                                                         | **Cerrado** (2026-09-16)                                                    |
+| **F10.C0** | Cierre. `F10/ADR-005`, el punto de inicio del Modo Personal tras el Invitado (incluir los movimientos de grupos o empezar desde cero, una sola vez, persistido; migración 51, check, frontera §15, carrera, pantalla; validado en iPhone); los dos cierres de `F10/ADR-004` (migración 52: retirar/saldar a un origen fusionado → `PARTICIPANT_MERGED`; una fusión es de un salto por trigger de catálogo); auditoría documental, `PROJECT_STATE` y [handoff](../architecture/phase-10-handoff.md) | **Cerrado** (2026-09-16)                                                    |
 
 **Cierre.** Sustituye a los cuatro criterios originales, cumplidos por F9.
+**Los trece se cumplen el 2026-09-16**; la demostración, criterio por criterio,
+está en el [handoff de la fase](../architecture/phase-10-handoff.md).
 
 1. **La identidad en el grupo es permanente** (F10/ADR-002): una vez una
    cuenta se vincula a un participante —creando el grupo, entrando como nuevo o
@@ -775,7 +777,8 @@ B0 lo tomó el ciclo de vida del vínculo en A3).
 11. Validado en dispositivo: Android; iOS si hay aparato.
 12. Roadmap, `PROJECT_STATE.md`, `model-coverage.md` y `AGENTS.md` sin
     contradicciones sobre identidad.
-13. **Cierres que F10/ADR-004 asigna a C0:** `api.retire_participant` —y
+13. **Cierres que F10/ADR-004 asigna a C0 — cumplidos** (migración
+    `20260920120000`, `merge-invariants.sql`): `api.retire_participant` —y
     cualquier writer equivalente sobre `sec.retire_participant_core`— rehúsa a
     un participante que ya es origen de `participant_merge` con
     `PARTICIPANT_MERGED` (regresión existente, medida en B0); y el invariante
@@ -870,36 +873,115 @@ de arriba, y no se reescriben.
 
 ### Fase 12 — Capacidades compartidas avanzadas
 
-`PRODUCTO` · **MVP técnico interno**
+`PRODUCTO` · **ABIERTA el 2026-09-17** · **MVP técnico interno**
 
-**Objetivo.** Cubrir la cola larga del modelo compartido.
+**Objetivo.** Que el dinero pueda moverse entre personas **dentro del modelo
+de Nomey** con el consentimiento de las dos: encontrar a alguien por su
+`@username`, proponerle una transferencia, aceptarla; transferir dentro de un
+grupo ajustando la deuda entre los dos; y pedir dinero con un enlace. Nomey no
+mueve dinero bancario: registra hechos que las dos partes han querido.
 
-**Alcance.** `shares` · `exact_amounts` · transferencia entre usuarios ·
-pagar deuda mediante transferencia · correcciones en ámbito compartido con
-elegibilidad de participantes en la fecha efectiva original · bajas de miembros
-con saldo pendiente y acceso residual · participante histórico.
+**Alcance reconciliado (F12.A0, 2026-09-17).** El alcance original de la fase
+—`shares`, `exact_amounts`, transferencia ordenada unilateral, pagar deuda
+mediante transferencia, correcciones con elegibilidad, bajas con saldo
+pendiente, acceso residual, participante histórico— se contrastó con el
+repositorio y con F9/F10, y quedó así:
 
-**Dependencias.** F10 · F11.
+| Elemento original                                            | Estado                                                                                                                                                                             |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shares` y `exact_amounts`                                   | **Hechos** en backend (F3), dominio y cliente (F9). Pendiente sólo su validación en dispositivo, en el cierre                                                                      |
+| Correcciones con elegibilidad en la fecha efectiva           | **Hechas** (F09/ADR-003 §5, F09/ADR-008): la elegibilidad se evalúa en la fecha de la versión que se escribe, con la excepción de quien ya constaba. Se afirma, no se reimplementa |
+| Bajas con saldo pendiente y acceso residual                  | **Ya no aplican**: nadie sale con neto ≠ 0 (F09/ADR-007 C5/C8) y el acceso de quien salió es el acotado de F09/ADR-007 C6 y F10/ADR-003                                            |
+| Participante histórico                                       | **Hecho** (F03/ADR-009, F09/ADR-005, F10/ADR-003)                                                                                                                                  |
+| Transferencia entre usuarios y pagar deuda por transferencia | **Redefinidas** por los cuatro ADR de F12.A0: dos voluntades, nunca unilateral                                                                                                     |
+
+**Alcance vigente.** Cuatro capacidades, cuatro ADR aceptados
+([`docs/adr/F12/`](../adr/F12/README.md)):
+
+- **Identidad pública** ([F12/ADR-001](../adr/F12/ADR-001-username-public-account-identity.md)):
+  username único por cuenta, reservado en el alta, con nombre público;
+  descubrimiento **exacto** por `@username`; sin contactos, teléfono ni correo.
+- **Transferencia entre usuarios** ([F12/ADR-002](../adr/F12/ADR-002-two-will-user-transfers.md)):
+  `Personal → + → Transferencia → @username` crea una **propuesta dirigida**;
+  el receptor la acepta y sólo entonces nace una `internal_transfer` (−N / +N
+  en los dos Personales), irreversible.
+- **Transferencia dentro de un grupo** ([F12/ADR-003](../adr/F12/ADR-003-group-transfers.md)):
+  `Grupo → + → Transferencia → participante` crea una propuesta dirigida; al
+  aceptarla nace una `settlement_by_transfer`: −N / +N en los Personales y
+  `settlement −N` sobre el par en ese grupo, **por el importe completo**,
+  pudiendo cruzar cero. «Saldado» (`group_payment`) sigue igual.
+- **Solicitar dinero** ([F12/ADR-004](../adr/F12/ADR-004-payment-request-links.md)):
+  `Personal → Solicitar dinero` genera un **enlace al portador** de importe
+  fijo; quien lo abre y paga materializa una `internal_transfer`. Sin grupo,
+  sin deuda.
+
+**Fuera, explícitamente.** Contactos del teléfono, teléfono verificado,
+SMS/OTP, búsqueda por correo o agenda; transferencias bancarias reales, Open
+Banking, tarjeta; bote común, préstamos, adelantos, pagos programados,
+transferencias múltiples; solicitudes de dinero dentro de un grupo;
+transferencias a cuentas inexistentes; conversión monetaria nueva (F11
+conserva su autoridad); Unicode en el username; Modo Pareja.
+
+**Dependencias.** F10 (cerrada) · F11 sólo en lo que toca a moneda: las
+transferencias no convierten (F11/ADR-001 §4), y la vista `api.personal_operation`
+la recrea F11.C, así que F12 publica sus filas por una superficie propia hasta
+entonces · F8.B para el enlace HTTPS de la solicitud de pago, que hasta
+entonces viaja como esquema de la app, igual que la invitación.
+
+#### Bloques
+
+| Bloque     | Qué es                                                                                                                                                                                                                                           | Estado                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| **F12.A0** | Reconciliación del alcance y los cuatro ADR: username, transferencias con dos voluntades, transferencia de grupo, solicitud de pago; reconciliación documental                                                                                   | **Cerrado** (2026-09-17) |
+| **F12.A**  | Backend de identidad pública: relación del username, hook `before_user_created`, reserva, claim, cambio, resolver frenado, guardas de catálogo, frontera HTTP, carrera de dos altas                                                              | Pendiente                |
+| **F12.B**  | Backend de transferencias: propuestas Personal y de grupo, solicitud de pago, writers de las dos clases con el nuevo contrato, partes por versión, irreversibilidad, superficies de lectura propias, checks, carreras, frontera HTTP             | Pendiente                |
+| **F12.C**  | Cliente: username en el alta, gate y Perfil; `+ → Transferencia` en Personal y en Grupo; Solicitar dinero y su enlace; bandeja de propuestas; filas en Movimientos; retirada de los placeholders heredados. Mejor tras F11.C por la hoja de alta | Pendiente                |
+| **F12.D**  | Cierre: validación en dispositivo (incluidos `shares` y `exact_amounts`), retirada técnica de `api.settle_participant`, plegado a `api.personal_operation` si F11.C cerró, handoff, `PROJECT_STATE`                                              | Pendiente                |
 
 **Cierre.**
 
-1. Los escenarios 4.6, 4.7 y 4.8 de `data-model.md` se reproducen en la app.
-2. **Solo el emisor** puede originar una transferencia directa entre Modos
-   Personales, y existe un test que demuestra que el destinatario no puede,
-   según el invariante 14.
-3. Una corrección en ámbito compartido respeta la elegibilidad de participantes
-   en la fecha efectiva original.
-4. Quien sale de un grupo con saldo distinto de cero conserva acceso residual
-   acotado.
+1. Una cuenta se crea con username reservado en la misma transacción del
+   alta; `@Eduardo` y `@eduardo` son el mismo; dos altas simultáneas dejan una
+   cuenta y un `409`; una reserva caduca a los 7 días sin depender de Auth.
+2. Los escenarios **4.8** (transferencia entre usuarios) y **4.6** (transferencia
+   de grupo) de `data-model.md` se reproducen en la app **con dos voluntades**;
+   una propuesta pendiente no toca ningún saldo ni deuda.
+3. **Nadie puede provocar una salida en un Personal ajeno**, ni una entrada sin
+   el consentimiento de su dueño: medido en SQL y por HTTP con JWT real para
+   la propuesta, la aceptación y el pago de una solicitud.
+4. Una transferencia de grupo aceptada ajusta la deuda del par por el importe
+   completo y puede cruzar cero (78 + 80 → el acreedor debe 2); `group_payment`
+   y `record_debt_settlement` siguen rehusando el sobrepago.
+5. Una `internal_transfer` o `settlement_by_transfer` materializada tiene
+   exactamente una versión: corrección y anulación rehusadas por cualquiera de
+   las partes.
+6. `operation.created_by` es quien materializa; emisor y receptor salen de las
+   partes; ninguna vista los deriva de `created_by`; ninguna respuesta publica
+   `uid`, `scope_id` ni correo ajenos.
+7. Una solicitud de pago se paga una sola vez, caduca a los 7 días y queda
+   `paid` para siempre; el enlace no contiene identificadores.
+8. Una corrección en ámbito compartido respeta la elegibilidad en la fecha
+   efectiva de la versión que se escribe (F09/ADR-003 §5, F09/ADR-008): se
+   afirma en un check nombrado.
+9. `shares` y `exact_amounts` validados en dispositivo; `api.settle_participant`
+   retirado.
+10. Roadmap, `PROJECT_STATE`, `data-model`, glosario y `AGENTS.md` sin
+    contradicciones sobre transferencias, username ni acceso residual.
 
-**Deja.** El modelo avanzado de **Modo Personal y Grupos completo**, y la
-infraestructura común —operación, efecto, ámbito, corrección, notificación—
-preparada para implementar el tercer ámbito.
+**Deja.** Un modelo compartido completo para Personal y Grupos —identidad
+pública, transferencias consentidas, solicitudes— y la infraestructura común
+(propuestas como intención no contable, partes por versión, capabilities
+opacas) que un ámbito futuro puede reutilizar sin que F12 haya construido
+nada específico de él.
 
-> **F01/ADR-001 no está implementado en todos sus ámbitos hasta cerrar F13.** Modo
-> Pareja forma parte del modelo que F01/ADR-001 fija y llega en la fase siguiente.
+> **F01/ADR-001 no está implementado en todos sus ámbitos hasta cerrar F13.**
+> Modo Pareja forma parte del modelo que F01/ADR-001 fija; por decisión de
+> producto (2026-09-17) queda **diferido previsiblemente hasta después del
+> lanzamiento**, sin salir del modelo ni del roadmap. F12 no construye nada
+> específico de Pareja.
 
-**Puertas.** Ninguna.
+**Puertas.** ~~Los cuatro ADR de F12.A0 aceptados antes de F12.A.~~
+**Cumplida el 2026-09-17.**
 
 ---
 
@@ -1193,6 +1275,7 @@ Ordenadas por riesgo.
 | 9    | Qué significa «notificación»: en la app, o push                                                                                                                                                            |
 | 10   | ~~ADR de invitación y reclamación~~ · **cumplida: F09/ADR-004**. ~~`F10/ADR-001` antes de A2~~ · **cumplida**. ~~`F10/ADR-004` antes de B1~~ · **sin objeto: F10/ADR-004 cierra el alcance; B1 no existe** |
 | 11   | ~~Proveedor de tipos de cambio con histórico~~ · **cumplida: [F11/ADR-001](../adr/F11/ADR-001-fx-rate-resolution.md)**                                                                                     |
+| 12   | ~~Los cuatro ADR de F12.A0 antes de F12.A~~ · **cumplida el 2026-09-17: [F12/ADR-001…004](../adr/F12/README.md)**                                                                                          |
 | 15   | Presentación de agregaciones entre definiciones monetarias                                                                                                                                                 |
 | 16   | ~~ADR de código nativo aceptado~~ · **cumplida: F08/ADR-001**                                                                                                                                              |
 | 17   | ADR de conciliación · contrato y viabilidad regulatoria                                                                                                                                                    |
