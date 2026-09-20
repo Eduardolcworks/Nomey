@@ -181,26 +181,33 @@ begin
     fallos := array_append(fallos, 'A4 policies del writer: ' || coalesce(v_t, 'ninguna'));
   end if;
 
-  -- A5 · ninguna ruta del cliente convierte todavia: 9 record_*, ninguna
-  --      funcion de api llama al resolver ni a la conversion, y
-  --      frozen_conversion sigue sin INSERT para el writer.
+  -- A5 · 9 record_*, y el resolver y la conversion solo los usan los dos
+  --      writers personales de F11.B (20260929120000): ninguna otra clase
+  --      convierte. frozen_conversion se escribe solo con la segunda barrera, y
+  --      la procedencia vive en su propia tabla.
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.proname like 'record\_%';
   if v_n <> 9 then
     fallos := array_append(fallos, format('A5 hay %s funciones api.record_*', v_n));
   end if;
-  select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  select string_agg(p.oid::regprocedure::text, ',' order by p.oid::regprocedure::text collate "C") into v_t
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname in ('api', 'sec') and p.proname not like 'fx\_%'
-     and (p.prosrc like '%fx\_resolve%' or p.prosrc like '%fx\_convert%' or p.prosrc like '%fx\_derive%');
-  if v_n <> 0 then
-    fallos := array_append(fallos, format('A5b %s funciones fuera del resolver ya lo usan', v_n));
+     and (p.prosrc like '%fx\_resolve%' or p.prosrc like '%fx\_convert%' or p.prosrc like '%fx\_derive%'
+          or p.prosrc like '%fx\_personal\_rate%');
+  if v_t is distinct from 'api.record_personal_expense(jsonb),api.record_personal_income(jsonb)' then
+    fallos := array_append(fallos, 'A5b funciones que convierten: ' || coalesce(v_t, 'ninguna'));
   end if;
-  if has_table_privilege('nomey_writer', 'core.frozen_conversion', 'INSERT') then
-    fallos := array_append(fallos, 'A5c nomey_writer tiene INSERT sobre core.frozen_conversion');
+  if not has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert')
+     or not exists (select 1 from pg_policy p
+                     where p.polrelid = 'core.frozen_conversion'::regclass and p.polcmd = 'a'
+                       and pg_get_expr(p.polwithcheck, p.polrelid) like '%fx_resolve%') then
+    fallos := array_append(fallos,
+      'A5c: el INSERT sobre core.frozen_conversion no es el de F11.B, con la segunda barrera en su policy');
   end if;
-  if exists (select 1 from information_schema.tables where table_schema = 'core'
-              and table_name = 'frozen_conversion_provenance') then
-    fallos := array_append(fallos, 'A5d la procedencia persistida es de M4, no de M3');
+  if not exists (select 1 from information_schema.tables where table_schema = 'core'
+                  and table_name = 'frozen_conversion_provenance') then
+    fallos := array_append(fallos, 'A5d falta la procedencia persistida de 20260929120000');
   end if;
 
   if cardinality(fallos) > 0 then

@@ -488,6 +488,18 @@ jobs:
           { ./scripts/vectors-prelude.sh ; cat supabase/checks/fx-resolution.sql ; } \
             | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
 
+      # Conversion in the two personal writers (F11/ADR-001 §4, §6-§10;
+      # migration 20260929120000): the original amount and currency kept on the
+      # version, the effect in the scope's base with a single conversion, the
+      # frozen rate and its provenance, inheritance on a correction with the
+      # same date and currency, a new resolution when either changes, the
+      # assumed-base conflict, 422 and 503 without burning the idempotency key,
+      # and the second barrier on both insert policies. The fixed days it needs
+      # are seeded as postgres inside the rolled-back transaction, in 2099: no
+      # synthetic document is ever ingested into the real `ecb` source.
+      - name: FX in the personal writers
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/fx-personal-writers.sql
+
       # Real concurrency. A single psql session has none, so the debt
       # serialization protocol of F03/ADR-010 §11 cannot be proven by a check: this
       # opens simultaneous sessions, the way E15-C did. It runs LAST because it

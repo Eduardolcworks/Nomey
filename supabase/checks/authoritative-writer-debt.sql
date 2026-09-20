@@ -75,10 +75,14 @@ begin
      or not has_table_privilege('nomey_writer', 'core.split_participant', 'insert') then
     fallos := array_append(fallos, 'A3: el writer no puede insertar el reparto que record_group_expense escribe');
   end if;
-  -- Y el que NO vuelve: sin regla de resolucion de FX no hay ruta que escriba
-  -- una conversion congelada (ADR-009 §8).
-  if has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert') then
-    fallos := array_append(fallos, 'A3b: el writer recupero INSERT sobre core.frozen_conversion y ninguna ruta lo ejerce');
+  -- Y el de la conversion congelada, que volvio en F11.B (20260929120000) con
+  -- los dos writers personales, SOLO con la segunda barrera en su policy.
+  if not has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert')
+     or not exists (select 1 from pg_policy p
+                     where p.polrelid = 'core.frozen_conversion'::regclass and p.polcmd = 'a'
+                       and pg_get_expr(p.polwithcheck, p.polrelid) like '%fx_resolve%') then
+    fallos := array_append(fallos,
+      'A3b: el INSERT sobre core.frozen_conversion no es el de F11.B, con la segunda barrera en su policy');
   end if;
 
   -- A4 · la proyeccion canonica es alcanzable por el writer. Sin este grant, la
