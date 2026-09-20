@@ -2,7 +2,7 @@
 -- CONVERSION EN LOS WRITERS PERSONALES · F11/ADR-001 §4, §6-§10 · F11/ADR-002
 -- ============================================================================
 --
--- Migracion 20260926120000 (F11.B, M4). Contra los writers REALES, con
+-- Migracion 20260929120000 (F11.B, M4). Contra los writers REALES, con
 -- identidad simulada, fixtures propias y ROLLBACK.
 --
 -- El camino con exito necesita dias fijados de la fuente real `ecb`, porque

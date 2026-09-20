@@ -228,7 +228,7 @@ begin
 
   -- A5 · ninguna superficie nueva: 9 record_*, nada de api toca FX, el writer
   --      solo lee lo que resuelve (A2, E3) y frozen_conversion solo se escribe
-  --      con la segunda barrera (20260926120000).
+  --      con la segunda barrera (20260929120000).
   select count(*) into v_n
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.proname like 'record\_%';
@@ -236,7 +236,7 @@ begin
     fallos := array_append(fallos, format('A5 hay %s funciones api.record_*', v_n));
   end if;
   -- Nada de api se llama FX, y lo unico que toca FX son los dos writers
-  -- personales que convierten desde 20260926120000.
+  -- personales que convierten desde 20260929120000.
   select string_agg(p.proname, ',' order by p.proname collate "C") into v_t
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.prosrc like '%fx\_%';

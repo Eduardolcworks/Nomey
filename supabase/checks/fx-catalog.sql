@@ -230,7 +230,7 @@ begin
     fallos := array_append(fallos, format('A6d %s vistas leen el catalogo FX', v_n));
   end if;
 
-  -- A7 · la conversion congelada tiene ruta desde 20260926120000: el INSERT del
+  -- A7 · la conversion congelada tiene ruta desde 20260929120000: el INSERT del
   --      writer existe SOLO con la segunda barrera en su policy.
   if not has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert')
      or not exists (select 1 from pg_policy p

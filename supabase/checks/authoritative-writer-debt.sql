@@ -75,7 +75,7 @@ begin
      or not has_table_privilege('nomey_writer', 'core.split_participant', 'insert') then
     fallos := array_append(fallos, 'A3: el writer no puede insertar el reparto que record_group_expense escribe');
   end if;
-  -- Y el de la conversion congelada, que volvio en F11.B (20260926120000) con
+  -- Y el de la conversion congelada, que volvio en F11.B (20260929120000) con
   -- los dos writers personales, SOLO con la segunda barrera en su policy.
   if not has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert')
      or not exists (select 1 from pg_policy p

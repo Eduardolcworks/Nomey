@@ -86,7 +86,7 @@ begin
   -- ruta concreta» tambien se aplica hacia atras. **`split` y
   -- `split_participant` lo RECUPERARON en 7b**, cuando `record_group_expense`
   -- paso a ejercerlo. `frozen_conversion` lo recupero en F11.B
-  -- (20260926120000) con los dos writers personales que convierten.
+  -- (20260929120000) con los dos writers personales que convierten.
   select count(*) into v_n
   from information_schema.table_privileges
   where table_schema = 'core'
@@ -776,7 +776,7 @@ begin
     when others then fallos := array_append(fallos, format('F1b: sqlstate inesperado %s', sqlstate));
   end;
 
-  -- F1c · `frozen_conversion` tiene ruta desde F11.B (20260926120000), pero
+  -- F1c · `frozen_conversion` tiene ruta desde F11.B (20260929120000), pero
   -- ninguna fila puede congelar un tipo que el resolver no da: estas monedas de
   -- fixture no tienen correspondencia con la fuente, y la segunda barrera de la
   -- policy lo rechaza (el resolver responde FX_CURRENCY_NOT_COVERED).

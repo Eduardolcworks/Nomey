@@ -182,7 +182,7 @@ begin
   end if;
 
   -- A5 · 9 record_*, y el resolver y la conversion solo los usan los dos
-  --      writers personales de F11.B (20260926120000): ninguna otra clase
+  --      writers personales de F11.B (20260929120000): ninguna otra clase
   --      convierte. frozen_conversion se escribe solo con la segunda barrera, y
   --      la procedencia vive en su propia tabla.
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -207,7 +207,7 @@ begin
   end if;
   if not exists (select 1 from information_schema.tables where table_schema = 'core'
                   and table_name = 'frozen_conversion_provenance') then
-    fallos := array_append(fallos, 'A5d falta la procedencia persistida de 20260926120000');
+    fallos := array_append(fallos, 'A5d falta la procedencia persistida de 20260929120000');
   end if;
 
   if cardinality(fallos) > 0 then

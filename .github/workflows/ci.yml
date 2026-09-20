@@ -439,7 +439,7 @@ jobs:
             | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
 
       # Conversion in the two personal writers (F11/ADR-001 §4, §6-§10;
-      # migration 20260926120000): the original amount and currency kept on the
+      # migration 20260929120000): the original amount and currency kept on the
       # version, the effect in the scope's base with a single conversion, the
       # frozen rate and its provenance, inheritance on a correction with the
       # same date and currency, a new resolution when either changes, the

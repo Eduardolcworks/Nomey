@@ -81,7 +81,7 @@ begin
   -- A4 · 7a revoco el INSERT sobre `frozen_conversion`, `split` y
   -- `split_participant` porque ninguna ruta lo ejercia. Los dos ultimos
   -- VOLVIERON en 7b con `api.record_group_expense`; el primero, en F11.B
-  -- (20260926120000), con los dos writers personales que convierten, y SOLO con
+  -- (20260929120000), con los dos writers personales que convierten, y SOLO con
   -- la segunda barrera en su policy: el tipo congelado es el que devuelve
   -- sec.fx_resolve para esa fecha y ese par.
   if not has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert')
