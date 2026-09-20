@@ -483,6 +483,72 @@ export type Database = {
         };
         Relationships: [];
       };
+      my_payment_requests: {
+        Row: {
+          amount: string | null;
+          concept: string | null;
+          created_at: string | null;
+          currency_definition_id: string | null;
+          expires_at: string | null;
+          paid_at: string | null;
+          paid_operation_id: string | null;
+          payer_handle: string | null;
+          payer_public_name: string | null;
+          request_id: string | null;
+          state: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'payment_request_currency_definition_id_fkey';
+            columns: ['currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'currency_definition';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'payment_request_paid_operation_id_fkey';
+            columns: ['paid_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_operation';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'payment_request_paid_operation_id_fkey';
+            columns: ['paid_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_payment';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'payment_request_paid_operation_id_fkey';
+            columns: ['paid_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_payment_allocation';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'payment_request_paid_operation_id_fkey';
+            columns: ['paid_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'my_transfers';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'payment_request_paid_operation_id_fkey';
+            columns: ['paid_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_operation';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'payment_request_paid_operation_id_fkey';
+            columns: ['paid_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_operation_version';
+            referencedColumns: ['operation_id'];
+          },
+        ];
+      };
       my_transfer_proposals: {
         Row: {
           accepted_operation_id: string | null;
@@ -562,6 +628,7 @@ export type Database = {
           effective_time: string | null;
           operation_created_at: string | null;
           operation_id: string | null;
+          payment_request_id: string | null;
           proposal_id: string | null;
           scope_id: string | null;
         };
@@ -771,6 +838,7 @@ export type Database = {
     Functions: {
       annul_operation: { Args: { payload: Json }; Returns: Json };
       associate_participant: { Args: { payload: Json }; Returns: Json };
+      cancel_payment_request: { Args: { payload: Json }; Returns: Json };
       cancel_transfer_proposal: { Args: { payload: Json }; Returns: Json };
       change_username: {
         Args: { payload: Json };
@@ -805,6 +873,7 @@ export type Database = {
       create_custom_category: { Args: { payload: Json }; Returns: Json };
       create_group: { Args: { payload: Json }; Returns: Json };
       create_group_invitation: { Args: { payload: Json }; Returns: Json };
+      create_payment_request: { Args: { payload: Json }; Returns: Json };
       create_transfer_proposal: { Args: { payload: Json }; Returns: Json };
       decline_transfer_proposal: { Args: { payload: Json }; Returns: Json };
       ensure_personal_scope: { Args: { payload: Json }; Returns: Json };
@@ -879,6 +948,7 @@ export type Database = {
         Returns: Json;
       };
       preview_invitation: { Args: { p_token: string }; Returns: Json };
+      preview_payment_request: { Args: { p_token: string }; Returns: Json };
       record_adjustment: { Args: { payload: Json }; Returns: Json };
       record_debt_settlement: { Args: { payload: Json }; Returns: Json };
       record_external_transfer: { Args: { payload: Json }; Returns: Json };

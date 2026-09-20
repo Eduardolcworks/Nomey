@@ -253,6 +253,10 @@ delete from core.effect where scope_id in (${MIOS});
 delete from core.transfer_part tp using core.operation_version ov
   where ov.id = tp.operation_version_id and ov.created_by in (${ACTORES});
 delete from core.transfer_proposal where created_by in (${ACTORES}) or target_user_id in (${ACTORES});
+-- F12/ADR-004 (20260927120000): las solicitudes de pago de estos actores y
+-- los apuntes de su previsualizacion.
+delete from core.payment_request_attempt where user_id in (${ACTORES});
+delete from core.payment_request where created_by in (${ACTORES}) or paid_by in (${ACTORES});
 -- F10/ADR-001 (20260915120000): linea base y sujetos de las instancias creadas por
 -- estos actores, antes que sus versiones y participantes.
 delete from core.link_baseline b using core.operation o where o.id = b.operation_id and o.created_by in (${ACTORES});
@@ -1968,7 +1972,7 @@ v=$(curl -s "${API}/rest/v1/my_transfer_proposals?select=direction,state&order=c
 [ "${v}" = "outgoing:accepted;outgoing:cancelled" ] && ok "my_transfer_proposals de A: accepted y cancelled; la entrante rechazada ya no" || fallo "vista de A: ${v}"
 v=$(curl -s "${API}/rest/v1/my_transfer_proposals?select=direction,state&order=created_at" "${GB[@]}" | jarr 'a.map(x=>x.direction+":"+x.state).join(";")')
 [ "${v}" = "outgoing:declined" ] && ok "my_transfer_proposals de B: su declined; las entrantes no pending, no" || fallo "vista de B: ${v}"
-v=$(curl -s "${API}/rest/v1/my_transfers?select=*" "${GA[@]}" | jarr 'a.length===1 && a[0].direction==="outgoing" && a[0].balance_amount==="-10000" && a[0].amount==="10000" && a[0].concept==="Cena" && a[0].counterpart_handle==="http_bea" && a[0].scope_id==="'"${PA}"'" && typeof a[0].balance_amount==="string" && Object.keys(a[0]).sort().join(",")==="amount,balance_amount,concept,counterpart_handle,counterpart_public_name,currency_definition_id,direction,effective_date,effective_time,operation_created_at,operation_id,proposal_id,scope_id" ? "ok" : JSON.stringify(a)')
+v=$(curl -s "${API}/rest/v1/my_transfers?select=*" "${GA[@]}" | jarr 'a.length===1 && a[0].direction==="outgoing" && a[0].balance_amount==="-10000" && a[0].amount==="10000" && a[0].concept==="Cena" && a[0].counterpart_handle==="http_bea" && a[0].scope_id==="'"${PA}"'" && typeof a[0].balance_amount==="string" && Object.keys(a[0]).sort().join(",")==="amount,balance_amount,concept,counterpart_handle,counterpart_public_name,currency_definition_id,direction,effective_date,effective_time,operation_created_at,operation_id,payment_request_id,proposal_id,scope_id" ? "ok" : JSON.stringify(a)')
 [ "${v}" = "ok" ] && ok "my_transfers de A: saliente -10000 «Cena» a @http_bea, solo su ambito, importes como texto" || fallo "my_transfers de A: ${v}"
 v=$(curl -s "${API}/rest/v1/my_transfers?select=direction,balance_amount,counterpart_handle,counterpart_public_name,scope_id" "${GB[@]}" | jarr 'a.length===1 && a[0].direction==="incoming" && a[0].balance_amount==="10000" && a[0].counterpart_handle==="http_ana2" && a[0].counterpart_public_name==="Ana HTTP" && a[0].scope_id==="'"${PB}"'" ? "ok" : JSON.stringify(a)')
 [ "${v}" = "ok" ] && ok "my_transfers de B: entrante +10000 de @http_ana2 · Ana HTTP, en su ambito" || fallo "my_transfers de B: ${v}"
@@ -1980,6 +1984,141 @@ for vista in my_transfer_proposals my_transfers; do
 done
 for fn in create_transfer_proposal cancel_transfer_proposal decline_transfer_proposal; do
   rr=$(rpc "${fn}" "" '{"payload":{}}')
+  ee=$(estado_de "${rr}")
+  case "${ee}" in 200|201) fallo "${fn} se acepto SIN JWT (${ee})" ;; *) ok "${fn} sin JWT: ${ee}" ;; esac
+done
+
+# ============================================================================
+echo ""
+echo "== 19 · solicitudes de pago mediante enlace, por HTTP (F12/ADR-004, F12.B2) =="
+# Lo que solo la ruta real demuestra: que crear entrega el token una vez y el
+# replay lo niega, que la previsualizacion devuelve estados con 200 y solo lo
+# minimo para pagar, que pagar por token con el JWT del portador materializa
+# la transferencia con la autoria correcta, que los codigos viajan con su
+# estado, que las vistas de las dos partes publican la identidad actual y
+# ni un uid, ni un ambito ajeno, ni el hash. A es http_ana2 (definitivo), B
+# es http_bea (definitivo), C no tiene handle, G3 es un JWT anonimo real.
+r19() { # $1 nombre, $2 fn, $3 tok, $4 body, $5 estado esperado
+  local rr ee cc
+  rr=$(rpc "$2" "$3" "$4"); ee=$(estado_de "${rr}"); cc=$(cuerpo_de "${rr}")
+  ULTIMO_CUERPO="${cc}"
+  [ "${ee}" = "$5" ] && ok "$1: ${ee}" || fallo "$1 devolvio ${ee} y se esperaba $5: ${cc}"
+}
+codigo19() { printf '%s' "${ULTIMO_CUERPO}" | jget code; }
+campo19()  { printf '%s' "${ULTIMO_CUERPO}" | jget "$1"; }
+claves19() { printf '%s' "${ULTIMO_CUERPO}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s);console.log(Object.keys(o).sort().join(","))})'; }
+
+# 19.1 · B crea: el token, una vez; el replay lo niega; ninguna operacion.
+ops_antes=$("${DBQ[@]}" -c "select count(*) from core.operation where created_by in ('${UID_A}','${UID_B}');" | tr -d '[:space:]')
+r19 "B crea una solicitud" create_payment_request "${TOK_B}" "$(env_payload "{\"client_command_id\":\"a1900000-0000-4000-8000-000000000001\",\"command_contract_version\":1,\"amount\":\"4200\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"  Entradas  \"}")" 200
+REQ_1=$(campo19 request_id); TOKEN_1=$(campo19 token)
+[ -n "${REQ_1}" ] && [ "${#TOKEN_1}" = "43" ] && [ "$(campo19 already_processed)" = "false" ] && ok "request_id ${REQ_1:0:8}… y token de 43 chars base64url" || fallo "crear: ${ULTIMO_CUERPO}"
+[ "$(claves19)" = "already_processed,expires_at,request_id,token" ] && ok "la respuesta trae exactamente already_processed, expires_at, request_id y token" || fallo "claves: $(claves19)"
+v=$("${DBQ[@]}" -c "select count(*) from core.payment_request where token_hash = sec.invitation_hash('${TOKEN_1}') and created_by = '${UID_B}';" | tr -d '[:space:]')
+[ "${v}" = "1" ] && ok "la base guarda el sha256 del token" || fallo "hash: ${v}"
+v=$("${DBQ[@]}" -c "select count(*) from core.payment_request where position(convert_to('${TOKEN_1}', 'utf8') in token_hash) > 0;" | tr -d '[:space:]')
+[ "${v}" = "0" ] && ok "y no el token en claro" || fallo "token en claro: ${v}"
+ops_despues=$("${DBQ[@]}" -c "select count(*) from core.operation where created_by in ('${UID_A}','${UID_B}');" | tr -d '[:space:]')
+[ "${ops_antes}" = "${ops_despues}" ] && ok "crear no crea operacion" || fallo "crear creo una operacion"
+r19 "B repite la clave (replay)" create_payment_request "${TOK_B}" "$(env_payload "{\"client_command_id\":\"a1900000-0000-4000-8000-000000000001\",\"command_contract_version\":1,\"amount\":\"4200\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Entradas\"}")" 200
+[ "$(campo19 request_id)" = "${REQ_1}" ] && [ "$(campo19 already_processed)" = "true" ] && [ -z "$(campo19 token)" ] && ok "replay: la misma solicitud, token null" || fallo "replay: ${ULTIMO_CUERPO}"
+r19 "C sin handle crea" create_payment_request "${TOK_C}" "$(env_payload "{\"client_command_id\":\"a1900000-0000-4000-8000-000000000002\",\"command_contract_version\":1,\"amount\":\"1\",\"currency_definition_id\":\"${EUR}\"}")" 409
+[ "$(codigo19)" = "USERNAME_REQUIRED" ] && ok "USERNAME_REQUIRED · 409" || fallo "codigo: $(codigo19)"
+if [ -n "${TOK_G3:-}" ]; then
+  r19 "el invitado crea" create_payment_request "${TOK_G3}" "$(env_payload "{\"client_command_id\":\"a1900000-0000-4000-8000-000000000003\",\"command_contract_version\":1,\"amount\":\"1\",\"currency_definition_id\":\"${EUR}\"}")" 403
+  [ "$(codigo19)" = "NOT_AUTHORIZED" ] && ok "anonimo: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo19)"
+fi
+
+# 19.2 · previsualizar: estados con 200, solo lo minimo.
+r19 "A previsualiza" preview_payment_request "${TOK_A}" "{\"p_token\":\"${TOKEN_1}\"}" 200
+[ "$(campo19 state)" = "ok" ] && [ "$(campo19 amount)" = "4200" ] && [ "$(campo19 concept)" = "Entradas" ] && [ "$(campo19 creator_handle)" = "http_bea" ] && ok "ok · 4200 · Entradas · @http_bea" || fallo "preview de A: ${ULTIMO_CUERPO}"
+[ "$(claves19)" = "amount,concept,creator_handle,creator_public_name,currency_definition_id,state" ] && ok "exactamente amount, concept, creator_handle, creator_public_name, currency_definition_id y state: ni id, ni hash, ni uid" || fallo "claves: $(claves19)"
+r19 "B previsualiza la suya" preview_payment_request "${TOK_B}" "{\"p_token\":\"${TOKEN_1}\"}" 200
+[ "$(campo19 state)" = "own" ] && ok "own" || fallo "preview de B: ${ULTIMO_CUERPO}"
+r19 "C previsualiza (sin handle, con sesion)" preview_payment_request "${TOK_C}" "{\"p_token\":\"${TOKEN_1}\"}" 200
+[ "$(campo19 state)" = "ok" ] && ok "ok: previsualizar solo exige sesion normal" || fallo "preview de C: ${ULTIMO_CUERPO}"
+r19 "token invalido" preview_payment_request "${TOK_A}" '{"p_token":"nada"}' 200
+[ "$(campo19 state)" = "invalid" ] && [ "$(claves19)" = "state" ] && ok "invalid, con 200 y solo state" || fallo "preview invalido: ${ULTIMO_CUERPO}"
+v=$("${DBQ[@]}" -c "select count(*) from core.payment_request_attempt a join auth.users u on u.id = a.user_id where u.email = '${EMAIL_A}';" | tr -d '[:space:]')
+[ "${v}" = "1" ] && ok "solo el invalid apunto (A: 1)" || fallo "apuntes de A: ${v}"
+if [ -n "${TOK_G3:-}" ]; then
+  r19 "el invitado previsualiza" preview_payment_request "${TOK_G3}" "{\"p_token\":\"${TOKEN_1}\"}" 403
+  [ "$(codigo19)" = "NOT_AUTHORIZED" ] && ok "anonimo: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo19)"
+fi
+
+# 19.3 · pagar: la autorizacion va ANTES del token (A–F): quien no puede pagar
+# recibe lo mismo con el bearer valido o inventado; solo un elegible lo resuelve.
+TOKEN_X=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+if [ -n "${TOK_G3:-}" ]; then
+  r19 "A · el invitado paga con token valido" record_internal_transfer "${TOK_G3}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000013\",\"command_contract_version\":1,\"payment_request_token\":\"${TOKEN_1}\"}")" 403
+  [ "$(codigo19)" = "NOT_AUTHORIZED" ] && ok "anonimo + valido: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo19)"
+  r19 "B · el invitado paga con token inventado" record_internal_transfer "${TOK_G3}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000013\",\"command_contract_version\":1,\"payment_request_token\":\"${TOKEN_X}\"}")" 403
+  [ "$(codigo19)" = "NOT_AUTHORIZED" ] && ok "anonimo + inventado: el mismo NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo19)"
+fi
+r19 "C · C sin handle paga con token valido" record_internal_transfer "${TOK_C}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000012\",\"command_contract_version\":1,\"payment_request_token\":\"${TOKEN_1}\"}")" 409
+[ "$(codigo19)" = "USERNAME_REQUIRED" ] && ok "sin handle + valido: USERNAME_REQUIRED · 409" || fallo "codigo: $(codigo19)"
+r19 "D · C sin handle paga con token inventado" record_internal_transfer "${TOK_C}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000012\",\"command_contract_version\":1,\"payment_request_token\":\"${TOKEN_X}\"}")" 409
+[ "$(codigo19)" = "USERNAME_REQUIRED" ] && ok "sin handle + inventado: el mismo USERNAME_REQUIRED · 409" || fallo "codigo: $(codigo19)"
+r19 "E · A elegible con token inventado" record_internal_transfer "${TOK_A}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000014\",\"command_contract_version\":1,\"payment_request_token\":\"${TOKEN_X}\"}")" 404
+[ "$(codigo19)" = "PAYMENT_REQUEST_INVALID" ] && ok "elegible + inventado: PAYMENT_REQUEST_INVALID · 404" || fallo "codigo: $(codigo19)"
+r19 "F · B paga la suya" record_internal_transfer "${TOK_B}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000011\",\"command_contract_version\":1,\"payment_request_token\":\"${TOKEN_1}\"}")" 422
+[ "$(codigo19)" = "PAYMENT_REQUEST_OWN" ] && ok "elegible + propia: PAYMENT_REQUEST_OWN · 422" || fallo "codigo: $(codigo19)"
+r19 "A con token y proposal_id" record_internal_transfer "${TOK_A}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000014\",\"command_contract_version\":1,\"payment_request_token\":\"${TOKEN_1}\",\"proposal_id\":\"${PROP_1}\"}")" 400
+[ "$(codigo19)" = "PAYLOAD_INVALID" ] && ok "XOR: los dos origenes es PAYLOAD_INVALID · 400" || fallo "codigo: $(codigo19)"
+r19 "A sin origen" record_internal_transfer "${TOK_A}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000014\",\"command_contract_version\":1}")" 400
+[ "$(codigo19)" = "PAYLOAD_INVALID" ] && ok "XOR: ninguno es PAYLOAD_INVALID · 400" || fallo "codigo: $(codigo19)"
+r19 "A con importe en el payload" record_internal_transfer "${TOK_A}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000014\",\"command_contract_version\":1,\"payment_request_token\":\"${TOKEN_1}\",\"amount\":\"4200\"}")" 400
+[ "$(codigo19)" = "PAYLOAD_INVALID" ] && ok "el importe no viaja: PAYLOAD_INVALID · 400" || fallo "codigo: $(codigo19)"
+SALDO_A19=$("${DBQ[@]}" -c "select coalesce(sum(e.balance_amount),0) from core.current_effect e where e.scope_id = '${PA}' and e.balance_amount is not null;" | tr -d '[:space:]')
+r19 "A paga" record_internal_transfer "${TOK_A}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000015\",\"command_contract_version\":1,\"payment_request_token\":\"${TOKEN_1}\"}")" 200
+OP_R19=$(campo19 operation_id)
+[ -n "${OP_R19}" ] && [ "$(campo19 already_processed)" = "false" ] && ok "pagada: operation_id ${OP_R19:0:8}…" || fallo "pagar: ${ULTIMO_CUERPO}"
+r19 "A paga otra vez (replay)" record_internal_transfer "${TOK_A}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000015\",\"command_contract_version\":1,\"payment_request_token\":\"${TOKEN_1}\"}")" 200
+[ "$(campo19 operation_id)" = "${OP_R19}" ] && [ "$(campo19 already_processed)" = "true" ] && ok "replay: la misma operacion" || fallo "replay: ${ULTIMO_CUERPO}"
+r19 "A con otra clave" record_internal_transfer "${TOK_A}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000016\",\"command_contract_version\":1,\"payment_request_token\":\"${TOKEN_1}\"}")" 409
+[ "$(codigo19)" = "PAYMENT_REQUEST_ALREADY_PAID" ] && ok "PAYMENT_REQUEST_ALREADY_PAID · 409: una sola operacion" || fallo "codigo: $(codigo19)"
+r19 "previsualizar una pagada" preview_payment_request "${TOK_C}" "{\"p_token\":\"${TOKEN_1}\"}" 200
+[ "$(campo19 state)" = "paid" ] && ok "paid" || fallo "preview pagada: ${ULTIMO_CUERPO}"
+v=$("${DBQ[@]}" -c "select coalesce(sum(e.balance_amount),0) from core.current_effect e where e.scope_id = '${PA}' and e.balance_amount is not null;" | tr -d '[:space:]')
+[ "${v}" = "$((SALDO_A19 - 4200))" ] && ok "el Disponible de A baja 4200 (${SALDO_A19} → ${v})" || fallo "saldo de A: ${SALDO_A19} → ${v}"
+v=$("${DBQ[@]}" -c "select r.paid_by = '${UID_A}' and o.created_by = '${UID_A}' and ov.created_by = '${UID_A}' and tp.from_scope_id = '${PA}' and tp.to_scope_id = '${PB}' and ov.version_no = 1 and ov.effective_date = current_date from core.payment_request r join core.operation o on o.id = r.paid_operation_id join core.operation_version ov on ov.id = o.current_version_id join core.transfer_part tp on tp.operation_version_id = ov.id where r.id = '${REQ_1}';" | tr -d '[:space:]')
+[ "${v}" = "t" ] && ok "paid_by = created_by = pagador, partes PA → PB, una version, fecha del servidor" || fallo "anatomia: ${v}"
+VER_R19=$("${DBQ[@]}" -c "select current_version_id from core.operation where id = '${OP_R19}';" | tr -d '[:space:]')
+r19 "B anula" annul_operation "${TOK_B}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000017\",\"command_contract_version\":1,\"operation_id\":\"${OP_R19}\",\"expected_version_id\":\"${VER_R19}\"}")" 422
+[ "$(codigo19)" = "OPERATION_NOT_ANNULLABLE" ] && ok "OPERATION_NOT_ANNULLABLE · 422" || fallo "codigo: $(codigo19)"
+
+# 19.4 · cancelar: solo el creador; una cancelada no se paga; idempotente.
+r19 "B crea otra" create_payment_request "${TOK_B}" "$(env_payload "{\"client_command_id\":\"a1900000-0000-4000-8000-000000000021\",\"command_contract_version\":1,\"amount\":\"300\",\"currency_definition_id\":\"${EUR}\"}")" 200
+REQ_2=$(campo19 request_id); TOKEN_2=$(campo19 token)
+r19 "A cancela la de B" cancel_payment_request "${TOK_A}" "$(env_payload "{\"request_id\":\"${REQ_2}\"}")" 403
+[ "$(codigo19)" = "NOT_AUTHORIZED" ] && ok "NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo19)"
+r19 "B cancela" cancel_payment_request "${TOK_B}" "$(env_payload "{\"request_id\":\"${REQ_2}\"}")" 200
+[ "$(campo19 state)" = "cancelled" ] && ok "cancelled" || fallo "cancelar: ${ULTIMO_CUERPO}"
+r19 "B cancela otra vez" cancel_payment_request "${TOK_B}" "$(env_payload "{\"request_id\":\"${REQ_2}\"}")" 200
+[ "$(campo19 already_processed)" = "true" ] && ok "idempotente por estado" || fallo "repetir: ${ULTIMO_CUERPO}"
+r19 "A paga la cancelada" record_internal_transfer "${TOK_A}" "$(env_payload "{\"client_operation_id\":\"a1900000-0000-4000-8000-000000000022\",\"command_contract_version\":1,\"payment_request_token\":\"${TOKEN_2}\"}")" 409
+[ "$(codigo19)" = "PAYMENT_REQUEST_CANCELLED" ] && ok "PAYMENT_REQUEST_CANCELLED · 409" || fallo "codigo: $(codigo19)"
+r19 "previsualizar la cancelada" preview_payment_request "${TOK_A}" "{\"p_token\":\"${TOKEN_2}\"}" 200
+[ "$(campo19 state)" = "cancelled" ] && ok "cancelled" || fallo "preview cancelada: ${ULTIMO_CUERPO}"
+r19 "B cancela la pagada" cancel_payment_request "${TOK_B}" "$(env_payload "{\"request_id\":\"${REQ_1}\"}")" 409
+[ "$(codigo19)" = "PAYMENT_REQUEST_ALREADY_PAID" ] && ok "PAYMENT_REQUEST_ALREADY_PAID · 409" || fallo "codigo: $(codigo19)"
+r19 "B crea una tercera (queda pendiente)" create_payment_request "${TOK_B}" "$(env_payload "{\"client_command_id\":\"a1900000-0000-4000-8000-000000000023\",\"command_contract_version\":1,\"amount\":\"99\",\"currency_definition_id\":\"${EUR}\",\"concept\":\"Pendiente\"}")" 200
+
+# 19.5 · las vistas: B ve las tres con estado y el pagador actual; A ninguna; my_transfers de las dos partes.
+v=$(curl -s "${API}/rest/v1/my_payment_requests?select=*&order=created_at" "${GB[@]}" | jarr 'a.length===3 && a[0].state==="paid" && a[0].amount==="4200" && a[0].concept==="Entradas" && a[0].payer_handle==="http_ana2" && a[0].payer_public_name==="Ana HTTP" && a[1].state==="cancelled" && a[1].payer_handle===null && a[2].state==="pending" && Object.keys(a[0]).sort().join(",")==="amount,concept,created_at,currency_definition_id,expires_at,paid_at,paid_operation_id,payer_handle,payer_public_name,request_id,state" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "my_payment_requests de B: paid (pagada por @http_ana2), cancelled y pending; sin token, hash ni uid" || fallo "vista de B: ${v}"
+v=$(curl -s "${API}/rest/v1/my_payment_requests?select=request_id" "${GA[@]}" | jarr 'a.length===0 ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "my_payment_requests de A: ninguna (la que pago no es suya)" || fallo "vista de A: ${v}"
+v=$(curl -s "${API}/rest/v1/my_transfers?select=direction,balance_amount,concept,counterpart_handle,payment_request_id,proposal_id,scope_id&payment_request_id=eq.${REQ_1}" "${GA[@]}" | jarr 'a.length===1 && a[0].direction==="outgoing" && a[0].balance_amount==="-4200" && a[0].concept==="Entradas" && a[0].counterpart_handle==="http_bea" && a[0].proposal_id===null && a[0].scope_id==="'"${PA}"'" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "my_transfers de A: saliente -4200 «Entradas» a @http_bea por la solicitud, en su ambito" || fallo "my_transfers de A: ${v}"
+v=$(curl -s "${API}/rest/v1/my_transfers?select=direction,balance_amount,concept,counterpart_handle,scope_id&payment_request_id=eq.${REQ_1}" "${GB[@]}" | jarr 'a.length===1 && a[0].direction==="incoming" && a[0].balance_amount==="4200" && a[0].concept==="Entradas" && a[0].counterpart_handle==="http_ana2" && a[0].scope_id==="'"${PB}"'" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "my_transfers de B: entrante +4200 de @http_ana2, en su ambito" || fallo "my_transfers de B: ${v}"
+v=$(curl -s "${API}/rest/v1/my_transfers?select=proposal_id,payment_request_id&proposal_id=eq.${PROP_1}" "${GA[@]}" | jarr 'a.length===1 && a[0].payment_request_id===null ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "la transferencia de §18 (propuesta) sigue en la vista, sin solicitud" || fallo "fila de la propuesta: ${v}"
+v=$(curl -s -o /dev/null -w '%{http_code}' "${API}/rest/v1/my_payment_requests" -H "apikey: ${KEY}")
+[ "${v}" != "200" ] && ok "my_payment_requests sin JWT no responde 200 (${v})" || fallo "la vista respondio 200 sin JWT"
+for fn in create_payment_request cancel_payment_request preview_payment_request; do
+  rr=$(rpc "${fn}" "" '{}')
   ee=$(estado_de "${rr}")
   case "${ee}" in 200|201) fallo "${fn} se acepto SIN JWT (${ee})" ;; *) ok "${fn} sin JWT: ${ee}" ;; esac
 done

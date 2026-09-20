@@ -14,9 +14,10 @@ hechos que las dos partes han querido. **Estado de la fase:** **ABIERTA el
 el 2026-09-19** (ADR-001 implementado de extremo a extremo: A1 backend, A2
 alta y Auth, A3 cliente); **F12.B en curso** (backend de transferencias y
 solicitud): **B1** —la propuesta y la `internal_transfer` de dos voluntades,
-`20260926120000`— implementado el 2026-09-19; B2 (solicitud de pago,
-ADR-004) y B3 (transferencia de grupo, ADR-003) pendientes; después F12.C y
-F12.D. El detalle está en [el roadmap](../../product/roadmap.md).
+`20260926120000`— implementado el 2026-09-19; **B2** —la solicitud de
+pago mediante enlace, `20260927120000`— implementado el 2026-09-20; B3
+(transferencia de grupo, ADR-003) pendiente; después F12.C y F12.D. El
+detalle está en [el roadmap](../../product/roadmap.md).
 
 **Lo que el alcance original de la fase ya habían cerrado F9 y F10, y no se
 reabre:** `shares` y `exact_amounts` (hechos en F3/F9), las correcciones con
@@ -46,7 +47,7 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 | [F12/ADR-001](ADR-001-username-public-account-identity.md) | Username: la identidad pública de una cuenta (precisa F03/ADR-003 en el rol `supabase_auth_admin`). **Implementado en F12.A (A1 `20260921120000`, A2 `20260924120000`, A3 cliente; 2026-09-19)**              | Aceptado | 2026-09-17 | F12.A0 |
 | [F12/ADR-002](ADR-002-two-will-user-transfers.md)          | Transferencias entre usuarios con dos voluntades (precisa F01/ADR-001 §10 e invariante 14; supera el contrato de F3 de `record_internal_transfer`). **Implementado en F12.B1 (`20260926120000`, 2026-09-19)** | Aceptado | 2026-09-17 | F12.A0 |
 | [F12/ADR-003](ADR-003-group-transfers.md)                  | Transferencias dentro de un Grupo: propuesta + aceptación → `settlement_by_transfer`, deuda algebraica (supera de forma acotada `data-model.md` §3 y el contrato de F3 de `record_settlement_by_transfer`)    | Aceptado | 2026-09-17 | F12.A0 |
-| [F12/ADR-004](ADR-004-payment-request-links.md)            | Solicitudes de pago mediante enlace: capability al portador, un solo uso, 7 días → `internal_transfer` del pagador al solicitante                                                                             | Aceptado | 2026-09-17 | F12.A0 |
+| [F12/ADR-004](ADR-004-payment-request-links.md)            | Solicitudes de pago mediante enlace: capability al portador, un solo uso, 7 días → `internal_transfer` del pagador al solicitante. **Implementado en F12.B2 (`20260927120000`, 2026-09-20)**                  | Aceptado | 2026-09-17 | F12.A0 |
 
 Qué contrato cubre cada uno, en una línea:
 
@@ -250,6 +251,82 @@ DEFINER` de `nomey_provisioner` —no de `postgres` como decía §11— bajo una
     `scripts/transfer-proposal-race-evidence.sh` (7 carreras), frontera HTTP
     §18, y los vectores 4.8 por la vía de dos voluntades en
     `authoritative-writer.sql` (B, E8, G) y `authoritative-writer-debt.sql` (J).
+
+- **F12/ADR-004 — la solicitud de pago mediante enlace, tal como quedó
+  (F12.B2, `20260927120000`, 2026-09-20).** `core.payment_request` es una
+  relación propia (§29), separada de la propuesta; `record_settlement_by_transfer`
+  sigue con su contrato de F3 hasta B3. Precisiones que la implementación fija:
+  - **Token al portador, una sola entrega.** Lo genera el servidor
+    (`sec.new_invitation_token`, 256 bits base64url) y se persiste sólo su
+    sha256 (`sec.invitation_hash`, los helpers genéricos de bearer de
+    F09/ADR-004, con EXECUTE del hash también para el writer). El token viaja
+    **una vez**, en el cuerpo de la respuesta de `create_payment_request`; el
+    **replay** de la misma `client_command_id` devuelve la misma solicitud
+    con `token: null` y `already_processed: true`. Un cliente que perdió la
+    primera respuesta cancela esa solicitud y crea otra con otra clave. Nada
+    se guarda en claro ni cifrado. **El token es el bearer que el cliente
+    (F12.C) incorporará al enlace compartible**: la solicitud existe para
+    compartirse; lo que nunca sale de la base es el hash.
+  - **Anónimo → `NOT_AUTHORIZED · 403`** al crear, previsualizar y pagar (no
+    existe `GUEST_NOT_ALLOWED`, como en F12.A y B1). Sin handle definitivo →
+    `USERNAME_REQUIRED · 409` al crear y al pagar; previsualizar sólo exige
+    sesión normal.
+  - **Al pagar, el payload no lleva importe, moneda ni concepto**: el writer
+    los toma de la solicitud bloqueada. `PAYMENT_REQUEST_AMOUNT_MISMATCH`
+    (§7) **no existe**: no hay nada que comparar, y es más fuerte que
+    comparar lo que el cliente reenvía. Los campos de F3 y `amount` son
+    `PAYLOAD_INVALID`.
+  - **Un solo writer, dos orígenes (XOR).** `api.record_internal_transfer`
+    acepta `proposal_id` **o** `payment_request_token`, exactamente uno
+    (`PAYLOAD_INVALID` si ninguno o los dos); la vía de B1 no cambia. Orden
+    al pagar: forma → XOR → **anónimo (`NOT_AUTHORIZED · 403`) y handle
+    definitivo (`USERNAME_REQUIRED · 409`) antes de mirar el token**, de
+    modo que quien todavía no puede pagar no distingue si el bearer existe
+    (misma respuesta con token válido o inválido) → token → fila por hash
+    (`PAYMENT_REQUEST_INVALID · 404`; no frenado: con 256 bits no es oráculo
+    útil, §23) → propia (`PAYMENT_REQUEST_OWN · 422`, sin clave) → clave →
+    fila `for update` (policy del writer: sólo las ajenas) →
+    `PAYMENT_REQUEST_ALREADY_PAID | CANCELLED | EXPIRED · 409` → Personal
+    del pagador (from) y del creador (to, `RECIPIENT_WITHOUT_PERSONAL_SCOPE`)
+    → `assert_no_conversion` ×2 → `lock_scopes` → `persist_version` (fecha
+    del servidor) → efectos → `core.transfer_part` → `observe_balances` →
+    `paid_at`, `paid_by`, `paid_operation_id` en la misma transacción.
+    Orden de cerrojos: clave → fila → ámbitos; cancelar toma sólo la fila; sin
+    ciclo con B1.
+  - **`paid_by` es auditoría**, escrita por el writer con `paid_at` y
+    `paid_operation_id`, y coincide con `operation.created_by`,
+    `operation_version.created_by` y el dueño de `transfer_part.from_scope_id`
+    (medido). Los roles económicos siguen saliendo de las partes; ninguna
+    vista deriva la dirección de `created_by`.
+  - **Previsualización** (`api.preview_payment_request`): definer del
+    provisioner, no de `postgres`; estados y nunca excepciones (`ok`, `own`,
+    `paid`, `cancelled`, `expired`, `invalid`, `throttled`); en `ok`/`own` publica
+    exactamente `amount`, `currency_definition_id`, `concept`,
+    `creator_handle` y `creator_public_name` (identidad actual). Freno: **sólo
+    los `invalid` apuntan y cuentan** (20 / 10 min, `core.payment_request_attempt`
+    con actor e instante, nunca el token); `throttled`, `ok`, `own` y los
+    terminales no apuntan. Que `invalid` sea estado y no excepción es lo que
+    hace persistir el apunte.
+  - **Tope de 20 pendientes propias** (`PAYMENT_REQUEST_LIMIT · 409`),
+    contado bajo un cerrojo transaccional por creador
+    (`sec.lock_payment_request_cap`): exacto (19 + 2 simultáneas → 20). Sin
+    rate limit de creación ni presupuesto compartido con las propuestas
+    (§23). Cancelar, caducar o pagar libera hueco.
+  - **Cancelar**: sólo `created_by`; `cancelled` y `expired` responden su
+    estado con `already_processed: true`; `paid` es
+    `PAYMENT_REQUEST_ALREADY_PAID · 409`; ajena o inexistente,
+    `NOT_AUTHORIZED · 403`.
+  - **Lectura**: `api.my_payment_requests` (sólo las creadas por el actor,
+    con estado, `paid_at`, `paid_operation_id` y la identidad actual del
+    pagador si se pagó) y `api.my_transfers` ampliada con
+    `payment_request_id` y el concepto de la solicitud;
+    `sec.my_transfer_counterparts()` cubre propuestas y solicitudes. El
+    cliente no tiene privilegio de lectura sobre `token_hash`, `created_by` ni
+    `paid_by`.
+  - Evidencia: `supabase/checks/payment-requests.sql` (A–H),
+    `scripts/payment-request-race-evidence.sh` (7 carreras), frontera HTTP
+    §19. Pendiente para F12.C: el enlace compartible y su retención sin
+    sesión (evidencia 17 del ADR).
 
 ## Decisiones de otras fases que esta fase aplica
 

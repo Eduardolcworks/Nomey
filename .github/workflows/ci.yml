@@ -402,6 +402,20 @@ jobs:
       - name: Transfer proposal checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/transfer-proposals.sql
 
+      # Payment requests by link (F12/ADR-004, F12.B2, 20260927120000):
+      # structure and owners (provisioner for the request, writer for the
+      # accounting), the client without token_hash/created_by/paid_by, create
+      # (no operation, token delivered once and only its sha256 stored, replay
+      # with token null, the 20-pending cap and what frees a slot), preview as
+      # states (ok/own with exactly the minimal fields, invalid counting and
+      # throttled at 20/10 min without counting), pay (only one, -N/+N, parts
+      # payer → creator, paid_by = created_by = owner of from, PAYMENT_REQUEST_*
+      # codes, XOR with proposal_id, F3 fields refused, currency mismatch), the
+      # B1 proposal path still alive, cancel, irreversibility, both views with
+      # the current identity, and the client not reaching core or the hash.
+      - name: Payment request checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/payment-requests.sql
+
       # Oversettlement guards refuse only what a correction or annulment
       # worsens (pair oriented by its settlements); the canonical
       # 5000/4000 → 3000 example still refuses.
@@ -538,6 +552,13 @@ jobs:
       # and distinct senders not waiting on each other. Fixture only; removed.
       - name: Transfer proposal races (real sessions)
         run: bash scripts/transfer-proposal-race-evidence.sh
+
+      # Payment requests as real sessions (F12/ADR-004 §19, §23; F12.B2): two
+      # payers at once, pay vs cancel in both orders, double tap with the same
+      # key, two keys of the same payer, expiry before paying, and the
+      # 20-pending cap exact under two simultaneous creations. Fixture only.
+      - name: Payment request races (real sessions)
+        run: bash scripts/payment-request-race-evidence.sh
 
       # Two ingests of the same source at once (F11/ADR-002 §4): the second
       # waits on the per-source advisory lock and fixes nothing already fixed,

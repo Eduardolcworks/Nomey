@@ -327,7 +327,8 @@ begin
     raise exception 'A: columnas de api.my_transfer_proposals: %', v_t;
   end if;
   select string_agg(column_name, ',' order by ordinal_position) into v_t from information_schema.columns where table_schema = 'api' and table_name = 'my_transfers';
-  if v_t <> 'operation_id,scope_id,currency_definition_id,balance_amount,direction,amount,effective_date,effective_time,concept,counterpart_handle,counterpart_public_name,proposal_id,operation_created_at' then
+  -- F12.B2 (20260927120000) anadio payment_request_id al final: la solicitud de pago es el otro origen de la clase.
+  if v_t <> 'operation_id,scope_id,currency_definition_id,balance_amount,direction,amount,effective_date,effective_time,concept,counterpart_handle,counterpart_public_name,proposal_id,operation_created_at,payment_request_id' then
     raise exception 'A: columnas de api.my_transfers: %', v_t;
   end if;
   -- la superficie de escritura sigue siendo enumerable: NUEVE record_*
