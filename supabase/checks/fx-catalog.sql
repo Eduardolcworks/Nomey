@@ -290,7 +290,7 @@ begin
   if cardinality(fallos) > 0 then
     raise exception E'A · catalogo:\n  - %', array_to_string(fallos, E'\n  - ');
   end if;
-  raise notice 'A · RLS, rol de ingesta, privilegios exactos, sin superficie nueva, frozen_conversion sin ruta: OK';
+  raise notice 'A · RLS, rol de ingesta, privilegios exactos, sin superficie nueva, frozen_conversion con la ruta de F11.B y su segunda barrera: OK';
 end
 $a$;
 

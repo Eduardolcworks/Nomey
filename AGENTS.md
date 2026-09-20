@@ -759,12 +759,14 @@ deleted and no compensating adjustment exists. Measured in
 
 **Phase 11 is OPEN**, and only **F11.A** is closed: the contract for resolving
 exchange rates, [F11/ADR-001](docs/adr/F11/ADR-001-fx-rate-resolution.md). Of
-F11.B, the domain, the FX catalogue and the daily ingest and fixation (B1–B3)
-are integrated and B4, the SQL resolver, is in progress; nothing converts yet.
-The per-currency daily rate, with a limit of one ECB
+F11.B, the domain, the FX catalogue, the daily ingest and fixation, the SQL
+resolver and the conversion in the two personal writers (B1–B5) are
+integrated. The per-currency daily rate, with a limit of one ECB
 publication of staleness, is fixed in
-[F11/ADR-002](docs/adr/F11/ADR-002-per-currency-daily-rate.md). Every operation in a currency other than the base of a
-reached scope is still refused with `CURRENCY_CONVERSION_UNSUPPORTED`; what is
+[F11/ADR-002](docs/adr/F11/ADR-002-per-currency-daily-rate.md). **Only
+`personal_expense` and `personal_income` convert**; every other class still
+refuses a currency other than the base of a reached scope with
+`CURRENCY_CONVERSION_UNSUPPORTED`. What is
 decided, and what stays out of F11, is in
 [`docs/architecture/phase-11-progress.md`](docs/architecture/phase-11-progress.md).
 
@@ -1090,9 +1092,10 @@ a write boundary must stay under it (E16). Do not unify them.
   [F11/ADR-001](docs/adr/F11/ADR-001-fx-rate-resolution.md) opens conversion
   only for `personal_expense`, `personal_income` and `group_expense`: F11.B
   replaces the refusal for the two personal classes, group expenses wait for
-  F11.D, and every other class keeps the refusal. Until F11.B,
-  `core.frozen_conversion` has no write route, and the writer has no `INSERT`
-  on it.
+  F11.D, and every other class keeps the refusal. Since F11.B B5
+  (`20260929120000`) the writer has `INSERT` on `core.frozen_conversion`, and
+  only with the second barrier in its policy: the frozen rate is the one
+  `sec.fx_resolve` returns for that date and that pair.
 - **Parity with `src/domain/` is the shared vectors, not shared code**
   (F03/ADR-006 §1). `scripts/vectors-prelude.sh` pipes `tests/vectors/*.json` into
   the checks, because psql runs inside the container and cannot read the
