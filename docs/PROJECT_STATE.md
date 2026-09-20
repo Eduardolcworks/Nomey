@@ -13,10 +13,11 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-09-19**, al **cerrar F12.A** (identidad pública de la
-cuenta de extremo a extremo: backend A1, alta y Auth A2, cliente A3; las
-transferencias y las solicitudes de pago de F12.A0 siguen decididas y sin
-implementar; **siguiente: F12.B**). La **Fase 10** cerró el
+Actualizado el **2026-09-20**, al **cerrar F12.B** (backend de
+transferencias: B1 propuestas Personal e `internal_transfer`, B2 solicitudes
+de pago mediante enlace, B3 propuestas de grupo y `settlement_by_transfer`;
+las tres clases de F12 tienen escritor y ninguna pantalla todavía;
+**siguiente: F12.C**). La **Fase 10** cerró el
 2026-09-16 y la **Fase 9** el 2026-09-14. **F11.A** está cerrada (decisiones
 de multimoneda, F11/ADR-001) y de **F11.B** están integrados el dominio, el
 catálogo FX y la ingesta con fijación diaria (B1–B3); B4, el resolver en SQL,
@@ -26,14 +27,14 @@ está en curso. Ninguna operación convierte todavía.
 
 ## Dónde estamos
 
-|                         |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes) y **Fase 11** abierta (**F11.A** cerrada; **F11.B**: B1–B3 integrados, B4 en curso, ninguna operación convierte todavía). **Fase 12** abierta el 2026-09-17: **F12.A0** y **F12.A** cerrados (identidad pública: backend, alta con hook y cliente con gate, Perfil y offline-first, 2026-09-19); **F12.B en curso**: B1 (propuestas y `internal_transfer` de dos voluntades, `20260926120000`) y B2 (solicitudes de pago mediante enlace, `20260927120000`) implementados, B3 pendiente; después F12.C y F12.D                                          |
-| **Última fase cerrada** | **Fase 10 — Identidad contextual y ciclo de vida del vínculo**, el 2026-09-16. **Validada en iPhone (Expo Go)**; Android no en esta fase. Antes, la **Fase 9** el 2026-09-14                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **ADR aceptados**       | 52 de 53 (F00–F12; F00/ADR-001 sigue Propuesto), organizados por fase en docs/adr/FNN/                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **56 migraciones**: las de F10 dejan la identidad permanente (F10/ADR-002), el vínculo activo/histórico (F10/ADR-003), el punto de inicio del Personal tras el Invitado (F10/ADR-005) y los dos cierres de F10/ADR-004 (retirar a un origen fusionado rehusado; una fusión es de un salto por catálogo); después, la identidad de cuenta de F12.A1, el hook de alta de F12.A2, las tres de F11.B (catálogo y cobertura FX, ingesta y fijación diaria, resolver) , las propuestas de transferencia de F12.B1 y las solicitudes de pago de F12.B2. **59 migraciones** en total |
-| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**; **modo Invitado** real (sesión anónima, convertible en cuenta sin cambiar de id; F05/ADR-003). **Faltan Google y Apple** (F8.B)                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+|                         |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Fases en curso**      | **Fase 8** (distribución interna: F8.A0 … F8.A5 cerrados, **F8.B** y **F8.C** pendientes) y **Fase 11** abierta (**F11.A** cerrada; **F11.B**: B1–B3 integrados, B4 en curso, ninguna operación convierte todavía). **Fase 12** abierta el 2026-09-17: **F12.A0** y **F12.A** cerrados (identidad pública: backend, alta con hook y cliente con gate, Perfil y offline-first, 2026-09-19); **F12.B cerrado** (2026-09-20): B1 (propuestas y `internal_transfer` de dos voluntades, `20260926120000`), B2 (solicitudes de pago mediante enlace, `20260927120000`) y B3 (propuestas de grupo y `settlement_by_transfer` algebraica, `20260928120000`); después F12.C y F12.D           |
+| **Última fase cerrada** | **Fase 10 — Identidad contextual y ciclo de vida del vínculo**, el 2026-09-16. **Validada en iPhone (Expo Go)**; Android no en esta fase. Antes, la **Fase 9** el 2026-09-14                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **ADR aceptados**       | 52 de 53 (F00–F12; F00/ADR-001 sigue Propuesto), organizados por fase en docs/adr/FNN/                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Backend**             | Migrado y reconstruible desde cero, con CI verificándolo en cada PR. **56 migraciones**: las de F10 dejan la identidad permanente (F10/ADR-002), el vínculo activo/histórico (F10/ADR-003), el punto de inicio del Personal tras el Invitado (F10/ADR-005) y los dos cierres de F10/ADR-004 (retirar a un origen fusionado rehusado; una fusión es de un salto por catálogo); después, la identidad de cuenta de F12.A1, el hook de alta de F12.A2, las tres de F11.B (catálogo y cobertura FX, ingesta y fijación diaria, resolver) , las propuestas de transferencia de F12.B1, las solicitudes de pago de F12.B2 y las propuestas de grupo de F12.B3. **60 migraciones** en total |
+| **App visible**         | **Inicio escribe dinero real y funciona sin conexión**; **Grupos**: crear, invitar, gastos, saldos, pagos declarados, salir y volver                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Sesión**              | Email y contraseña, entrar, salir **y recuperar**; **modo Invitado** real (sesión anónima, convertible en cuenta sin cambiar de id; F05/ADR-003). **Faltan Google y Apple** (F8.B)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 **La Fase 8 está ABIERTA.** F8.A0 aceptó
 [F08/ADR-001](adr/F08/ADR-001-native-code-model.md) y
@@ -174,11 +175,12 @@ hay que saber antes de tocar identidad:
   revocarla; sin ella el grupo es inaccesible. F10 no lo cambia; queda
   registrado como consecuencia que merece decisión futura.
 
-**La Fase 12 está ABIERTA (2026-09-17). F12.A0 y F12.A están CERRADOS
-(F12.A el 2026-09-19); el siguiente bloque es F12.B.** La identidad pública
-existe de extremo a extremo —backend (A1), alta y Auth (A2) y cliente (A3)—;
-las transferencias y las solicitudes de pago siguen decididas y **sin
-implementar** ([`docs/adr/F12/`](adr/F12/README.md); roadmap, Fase 12):
+**La Fase 12 está ABIERTA (2026-09-17). F12.A0, F12.A y F12.B están
+CERRADOS (F12.A el 2026-09-19, F12.B el 2026-09-20); el siguiente bloque es
+F12.C.** La identidad pública existe de extremo a extremo —backend (A1), alta
+y Auth (A2) y cliente (A3)—; las tres clases de transferencia tienen su
+backend (B1, B2, B3) y **ninguna pantalla todavía**
+([`docs/adr/F12/`](adr/F12/README.md); roadmap, Fase 12):
 
 - **F12.A1 — backend de identidad (`20260921120000`).** `core.account_identity`
   (1:1, `public_name`, `handle_changed_at`), `core.account_handle` (una fila por
@@ -279,7 +281,32 @@ throttled`, 20 consultas / 10 min; sólo handle y nombre); vista propia
   («Saldado») y `record_debt_settlement` conservan su tope. Salir del grupo
   invalida la propuesta **pendiente** (derivado de `core.group_departure` en
   la ventana, sin tocar `leave_group`; nunca una ya terminal; no revive al
-  volver). Se ofrece sólo desde `+`, no desde Pagos sugeridos.
+  volver). Se ofrece sólo desde `+`, no desde Pagos sugeridos. **Implementado
+  en F12.B3 (`20260928120000`, 2026-09-20):** `core.group_transfer_proposal`
+  (receptor fijado al crear desde el vínculo del participante) y
+  `core.transfer_part` con `group_scope_id` y los dos participantes
+  (todo-o-nada; B1 y B2 a `NULL`); los tres comandos y el writer bajo
+  `nomey_writer`: `api.create_group_transfer_proposal` (participante activo,
+  vinculado y elegible hoy, del mismo grupo; username definitivo de los dos;
+  moneda = base del grupo; 3 pendientes por pareja; presupuesto de 10 / 60
+  min **compartido** con las propuestas del Personal bajo el mismo cerrojo),
+  `cancel_` y `decline_group_transfer_proposal` (idempotentes por estado);
+  `api.record_settlement_by_transfer` recreada con el payload
+  `{proposal_id}`, sólo el receptor, tres efectos (`balance ∓N` en los
+  Personales, `settlement −N` en el grupo por el importe íntegro, cruzando
+  cero: 78 + 80 → el acreedor debe 2), `created_by` = receptor, una sola
+  versión (`TRANSFER_NOT_EDITABLE`, `OPERATION_NOT_ANNULLABLE`, backstop en
+  `sec.persist_version`); `SETTLEMENT_EXCEEDS_DEBT` deja de aplicar **sólo**
+  a esta clase, `group_payment` y `record_debt_settlement` conservan su
+  tope (medido). La salida se deriva sin marca (`created_at < left_at <
+expires_at`) bajo el rango 1 del grupo que las tres transiciones toman
+  antes de escribir, `PROPOSAL_CANCELLED` con `details.reason = departure |
+creator`; el estado sale de `sec.group_transfer_proposal_state`, un
+  definer con autorización interna (sólo creador o receptor, cero filas en
+  otro caso, sólo `state` y `cancel_reason`). Vistas
+  `api.group_transfer_proposals`, `api.group_transfers` y `api.my_transfers`
+  ampliada (`group_scope_id`, `group_transfer_proposal_id`). Precisiones en
+  [`docs/adr/F12/README.md`](adr/F12/README.md).
 - **Solicitud de pago** ([F12/ADR-004](adr/F12/ADR-004-payment-request-links.md)):
   `Personal → Solicitar dinero` genera un **enlace al portador** (token opaco,
   sólo su hash, patrón de la invitación): importe y moneda fijos, concepto en
@@ -865,6 +892,24 @@ token UNA vez, el replay lo devuelve `null`), `cancel_payment_request`
 paid | cancelled | expired | invalid | throttled`)— y la vista
 `my_payment_requests`; `my_transfers` publica `payment_request_id`.
 
+**`record_settlement_by_transfer` es sólo aceptación, dentro de un grupo**
+(F12/ADR-003, F12.B3): su payload es `{client_operation_id,
+command_contract_version, proposal_id}` y grupo, emisor, receptor, importe
+y moneda (la base del grupo) salen de la propuesta; sólo el receptor la
+materializa; tres efectos (`balance` ∓N en los dos Personales y
+`settlement` −N emisor → receptor en el grupo, por el importe íntegro y
+cruzando cero); una sola versión `record`, ni corrección
+(`TRANSFER_NOT_EDITABLE`) ni anulación (`OPERATION_NOT_ANNULLABLE`).
+Alrededor, tres comandos **del writer** — `create_group_transfer_proposal`
+(`scope_id`, `receiver_participant_id`, importe, concepto opcional;
+devuelve `proposal_id` y `expires_at`), `cancel_group_transfer_proposal` y
+`decline_group_transfer_proposal` (`{proposal_id}`, idempotentes por
+estado)— y dos vistas propias, `group_transfer_proposals` (con `state` y
+`cancel_reason` derivados, identidad por `display_name`) y
+`group_transfers`; `my_transfers` publica `group_scope_id` y
+`group_transfer_proposal_id`. Con B3 el contrato de F3 de esta función ya
+no existe en el catálogo.
+
 **`record_group_payment` es sólo alta** (F09/ADR-007): un pago hecho fuera de la
 app que declara el pagador o el receptor, con la foto de netos que la pantalla
 enseñó (`expected_positions` → `SETTLEMENT_STALE` si cambió). El servidor lo
@@ -1339,7 +1384,7 @@ está en [`model-coverage.md`](architecture/model-coverage.md).
 | Ciclo de vida del vínculo y fusiones                 | **La identidad en el grupo es permanente** (F10/ADR-002, F10.A3): ningún vínculo se deshace; salir del grupo es la economía de F9 y, desde F10/ADR-003, termina el vínculo sin borrarlo (quien salió es historia: vuelve como entonces o como un sin cuenta). El `unclaim` de F09/ADR-006 y el `unlink` de F10.A2 se retiraron. **Asociar un fantasma a la propia cuenta: HECHO** — `api.associate_participant` (F09/ADR-009, Aceptado; validado en iPhone). **F10/ADR-004 (B0) cierra el alcance**: ninguna cesión (identity_handover, cuenta → cuenta) ni fusión nueva (cuenta ↔ cuenta, fantasma ↔ fantasma); cadenas de fusión prohibidas como invariante **y guardadas en catálogo** (C0, migración 52); **revocar el vínculo de otro está prohibido**. **F10 cerrada el 2026-09-16** ([`phase-10-handoff.md`](architecture/phase-10-handoff.md)) |
 | Notificación                                         | **Hecha en F9** — `core.group_notice`, una relación con siete `kind` (ediciones, perfil, salidas, liquidaciones, pagos, anulaciones y, desde F10.A2, identidad liberada, oculto a `api` hasta A3); campana del cliente (F09/ADR-003 §7). **Sin aviso por alta de gasto ni reincorporación** (decisión de producto, 2026-09-14); sin push                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ~~Acceso residual~~                                  | **Cerrado por F09/ADR-003 y F09/ADR-007 C5/C6/C8; confirmado en F12.A0**: no existe. Quien sale conserva su Personal por vínculo y el acceso acotado a sus propios pagos                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Transferencias entre usuarios, solicitud de pago** | **Decididas en F12.A0** (F12/ADR-002…004, 2026-09-17); **username hecho** (F12.A, 2026-09-19); **F12.B en curso**: B1 (propuestas e `internal_transfer` de dos voluntades) y B2 (solicitud de pago mediante enlace) hechos, B3 (transferencia de grupo) pendiente; después F12.C (cliente de transferencias) y F12.D (cierre)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Transferencias entre usuarios, solicitud de pago** | **Decididas en F12.A0** (F12/ADR-002…004, 2026-09-17); **username hecho** (F12.A, 2026-09-19); **F12.B cerrado** (2026-09-20): B1 (propuestas e `internal_transfer` de dos voluntades), B2 (solicitud de pago mediante enlace) y B3 (propuesta de grupo y `settlement_by_transfer` algebraica) hechos; después F12.C (cliente de transferencias) y F12.D (cierre)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | Salir de un grupo y pagos registrados                | **HECHO** — `api.leave_group` a neto cero con novación de salida (F09/ADR-007 C8, `LEAVE_BLOCKED_DEBT`), `api.record_group_payment` (clase `group_payment`, sin edición, anulable por las partes), Pagos sugeridos «Los míos»/«Todos» con «Saldado» (F09/ADR-007, Aceptado); la obligación de quien salió es intocable (F09/ADR-008, Aceptado). `api.settle_participant` queda sin UI para el estado heredado. **Volver tras salir: HECHO** — `redeem_invitation` con `choice = 'rejoin'` recupera la identidad de entonces y abre un periodo desde hoy (F09/ADR-010, Aceptado; migración `20260914140000` aplicada a la base local y validada en el iPhone). La guarda de sobreliquidación sólo rehúsa lo que empeora el par (`20260914150000`, aplicada a la base local). **Pendiente:** validar en dispositivo lo demás                             |
 | ~~Anulación, distinta de la corrección~~             | **Resuelta en F6.C** — F06/ADR-006                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Idempotencia de recurrencias e importaciones         | Abierto                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |

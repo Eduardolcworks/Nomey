@@ -249,7 +249,8 @@ begin
     elsif r.owner <> 'nomey_provisioner' then
       raise exception 'A: % es de %, no del provisioner', r.name, r.owner;
     end if;
-    if r.definer <> (r.name like 'api.%' or r.name in ('sec.has_personal_scope', 'sec.my_transfer_counterparts')) then
+    -- F12.B3: sec.assert_proposal_budget paso a definer del provisioner (cuenta tambien las de grupo cuando la llama el writer).
+    if r.definer <> (r.name like 'api.%' or r.name in ('sec.has_personal_scope', 'sec.my_transfer_counterparts', 'sec.assert_proposal_budget')) then
       raise exception 'A: % definer=% no es lo esperado', r.name, r.definer;
     end if;
   end loop;
@@ -328,7 +329,8 @@ begin
   end if;
   select string_agg(column_name, ',' order by ordinal_position) into v_t from information_schema.columns where table_schema = 'api' and table_name = 'my_transfers';
   -- F12.B2 (20260927120000) anadio payment_request_id al final: la solicitud de pago es el otro origen de la clase.
-  if v_t <> 'operation_id,scope_id,currency_definition_id,balance_amount,direction,amount,effective_date,effective_time,concept,counterpart_handle,counterpart_public_name,proposal_id,operation_created_at,payment_request_id' then
+  -- F12.B3 (20260928120000) anadio group_scope_id y group_transfer_proposal_id al final.
+  if v_t <> 'operation_id,scope_id,currency_definition_id,balance_amount,direction,amount,effective_date,effective_time,concept,counterpart_handle,counterpart_public_name,proposal_id,operation_created_at,payment_request_id,group_scope_id,group_transfer_proposal_id' then
     raise exception 'A: columnas de api.my_transfers: %', v_t;
   end if;
   -- la superficie de escritura sigue siendo enumerable: NUEVE record_*

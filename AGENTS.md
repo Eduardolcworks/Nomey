@@ -551,13 +551,13 @@ ADRs of phases F00–F12 are accepted** (F00/ADR-001 is still Proposed; see
 `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a real local
 Supabase stack.
 
-**Phase 12 is OPEN (2026-09-17). F12.A0 and F12.A are CLOSED (F12.A on
-2026-09-19); the next block is F12.B.** The original scope was reconciled
+**Phase 12 is OPEN (2026-09-17). F12.A0, F12.A and F12.B are CLOSED (F12.A
+on 2026-09-19, F12.B on 2026-09-20); the next block is F12.C.** The original scope was reconciled
 against the repository — `shares`/`exact_amounts`, eligibility on correction,
 departed participants and residual access were already done or closed by
 F9/F10 — and what remains is one product idea with four contracts: the first
-(username) is **implemented end to end**, the other three are decided and not
-started ([`docs/adr/F12/`](docs/adr/F12/README.md); roadmap, Fase 12):
+(username) is **implemented end to end** and the other three have their
+backend (B1, B2, B3) and no screen yet ([`docs/adr/F12/`](docs/adr/F12/README.md); roadmap, Fase 12):
 
 - **Username — DONE (F12.A, [F12/ADR-001](docs/adr/F12/ADR-001-username-public-account-identity.md)).**
   A public, unique, resolvable account attribute in its own `core` relations
@@ -637,7 +637,44 @@ Transferencia → @username` creates a **directed proposal** (non-accounting
   keep their cap. Leaving the group invalidates a **pending** proposal
   (derived from `core.group_departure` inside the window, `leave_group`
   untouched, never a terminal one, never revived by rejoining). Offered only
-  from `+`, never from Pagos sugeridos.
+  from `+`, never from Pagos sugeridos. **Implemented in F12.B3
+  (`20260928120000`, 2026-09-20):** `core.group_transfer_proposal` (target
+  fixed at creation from the participant's link) and `core.transfer_part`
+  extended with `group_scope_id` + both participants (all-or-nothing; B1/B2
+  rows stay NULL); the three commands and the writer are owned by
+  `nomey_writer`. `api.create_group_transfer_proposal` takes
+  `receiver_participant_id` (active, linked, eligible today, same group; no
+  @handle in groups), requires a definitive username on BOTH sides, derives
+  the currency from the group base, caps 3 pending per pair and shares the
+  10 / 60 min budget with the Personal proposals under the SAME advisory
+  lock (`sec.assert_proposal_budget`, now a provisioner definer counting
+  both relations; exact and mixed — measured); `cancel_` /
+  `decline_group_transfer_proposal` are idempotent by state. The departure
+  cancellation is DERIVED (no persisted mark; `created_at < left_at <
+expires_at`; precedence accepted → declined → cancelled·creator →
+  cancelled·departure → expired → pending) and every transition takes the
+  group's range-1 lock — the one `leave_group` takes first — before reading
+  it, so a mark can only be written with no departure in the window;
+  `PROPOSAL_CANCELLED · 409` carries `details.reason`. The state leaves
+  through `sec.group_transfer_proposal_state`, a writer definer with
+  INTERNAL authorization (actor from `sec.request_actor_id()`; a row only
+  for the creator or the target; foreign and nonexistent indistinguishable;
+  only `state` and `cancel_reason`) — and `authenticated` has no USAGE on
+  `sec`, so it is reachable only through `api.group_transfer_proposals`.
+  `api.record_settlement_by_transfer` was recreated with payload
+  `{client_operation_id, command_contract_version, proposal_id}` (F3 fields
+  `PAYLOAD_INVALID`, `operation_id`/`expected_version_id`
+  `TRANSFER_NOT_EDITABLE` before the key), only the target accepts, lock
+  order key → row → range 1 → scopes ascending, three effects for the full
+  amount crossing zero (measured: 78 owed + 80 sent → the creditor owes 2),
+  `created_by` = the receiver, direction from the parts never from
+  `created_by`; `SETTLEMENT_EXCEEDS_DEBT` stops applying ONLY to this
+  class — `group_payment` and `record_debt_settlement` keep their cap
+  (measured), and the delta guard still refuses annulling a later settlement
+  that would reopen a crossed pair negative. Read through
+  `api.group_transfer_proposals`, `api.group_transfers` and
+  `api.my_transfers` (two new columns at the end); `api.group_operation`
+  untouched. Precisions in `docs/adr/F12/README.md`.
 - **Payment requests by link** ([F12/ADR-004](docs/adr/F12/ADR-004-payment-request-links.md)):
   a **bearer capability** (opaque token, hash only, invitation pattern) with
   fixed amount and currency, concept on the request, **single use**, 7 days,
@@ -766,8 +803,8 @@ Two artefacts closed Phase 5 and are worth knowing about:
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
 and twelve reproducible probes that measured the decisions behind the schema
-(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **59
-migrations** rebuilt from zero in CI with 39 SQL checks and fifteen real-session
+(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **60
+migrations** rebuilt from zero in CI with 40 SQL checks and sixteen real-session
 race scripts. A pure reference implementation of the financial domain in
 `src/domain/`, with shared test vectors in `tests/vectors/` that the server
 boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 148 files.
@@ -1040,9 +1077,10 @@ a write boundary must stay under it (E16). Do not unify them.
   admit neither correction nor annulment. **`internal_transfer` is so by code
   since F12.B1** (`20260926120000`: `record_internal_transfer` takes a
   `proposal_id`, and `sec.persist_version` refuses a second version of the
-  class). **`settlement_by_transfer` is not yet:** until F12.B3 lands,
-  `record_settlement_by_transfer` still carries its F3 contract in the
-  catalogue; do not build on it.
+  class). **`settlement_by_transfer` is so by code since F12.B3**
+  (`20260928120000`: `record_settlement_by_transfer` takes a `proposal_id`
+  of a group proposal, and `sec.persist_version` and `api.annul_operation`
+  refuse both classes). The F3 contract of that function no longer exists.
 - **Claim the idempotency key before the CAS** (F03/ADR-008 §13), and authorize
   after the claim (F03/ADR-007 §5). A replay never re-derives, re-authorizes or
   creates a version.

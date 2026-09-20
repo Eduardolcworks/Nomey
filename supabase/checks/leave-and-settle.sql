@@ -469,23 +469,41 @@ begin
 
   -- F2 · liquidaciones con un inactivo: NUNCA, ni retro-fechadas. Es la
   --      barrera que impide mover la caja de quien salio (E23).
-  foreach v_t in array array['record_debt_settlement', 'record_settlement_by_transfer'] loop
-    begin
-      -- La sin caja: Edu cobra a Ana (inactiva). La de transferencia exige que
-      -- el actor sea quien paga: Edu (debe 50 a Luis) paga a Luis (inactivo);
-      -- sin la barrera entraria caja en el Personal de Luis, que ya salio.
-      execute format('select api.%I($1)', v_t) using jsonb_build_object(
-        'client_operation_id', gen_random_uuid(), 'command_contract_version', 1,
-        case when v_t = 'record_debt_settlement' then 'scope_id' else 'debt_scope_id' end, r.g,
-        'currency_definition_id', r.eur, 'amount', '50',
-        'effective_date', (current_date - 5)::text,
-        'debtor_participant_id',   case when v_t = 'record_debt_settlement' then r.p_ana else r.p_edu end,
-        'creditor_participant_id', case when v_t = 'record_debt_settlement' then r.p_edu else r.p_luis end);
-      fallos := array_append(fallos, 'F2 ' || v_t || ' con Ana retro-fechada se acepto');
-    exception when others then
-      if pg_temp.code(sqlerrm) <> 'PARTICIPANT_INACTIVE' then fallos := array_append(fallos, 'F2b ' || v_t || ': ' || pg_temp.code(sqlerrm)); end if;
-    end;
-  end loop;
+  --      La sin caja: Edu cobra a Ana (inactiva), con el payload de F3.
+  begin
+    perform api.record_debt_settlement(jsonb_build_object(
+      'client_operation_id', gen_random_uuid(), 'command_contract_version', 1,
+      'scope_id', r.g, 'currency_definition_id', r.eur, 'amount', '50',
+      'effective_date', (current_date - 5)::text,
+      'debtor_participant_id', r.p_ana, 'creditor_participant_id', r.p_edu));
+    fallos := array_append(fallos, 'F2 record_debt_settlement con Ana retro-fechada se acepto');
+  exception when others then
+    if pg_temp.code(sqlerrm) <> 'PARTICIPANT_INACTIVE' then fallos := array_append(fallos, 'F2b record_debt_settlement: ' || pg_temp.code(sqlerrm)); end if;
+  end;
+  --      La de transferencia nace desde F12.B3 (20260928120000) de una PROPUESTA
+  --      de grupo (F12/ADR-003): Edu (debe 50 a Luis) propone a Luis (inactivo);
+  --      sin la barrera entraria caja en el Personal de Luis, que ya salio. La
+  --      propuesta exige username definitivo del emisor (§5): Edu lo reserva.
+  perform api.reserve_username(jsonb_build_object('handle', 'lys_edu', 'public_name', 'Edu'));
+  begin
+    perform api.create_group_transfer_proposal(jsonb_build_object(
+      'client_command_id', gen_random_uuid(), 'command_contract_version', 1,
+      'group_scope_id', r.g, 'receiver_participant_id', r.p_luis, 'amount', '50'));
+    fallos := array_append(fallos, 'F2 propuesta de grupo a Luis (inactivo) se acepto');
+  exception when others then
+    if pg_temp.code(sqlerrm) <> 'PARTICIPANT_INACTIVE' then fallos := array_append(fallos, 'F2b create_group_transfer_proposal: ' || pg_temp.code(sqlerrm)); end if;
+  end;
+  --      Y el writer ya no admite deudor, acreedor ni fecha del payload.
+  begin
+    perform api.record_settlement_by_transfer(jsonb_build_object(
+      'client_operation_id', gen_random_uuid(), 'command_contract_version', 1,
+      'debt_scope_id', r.g, 'currency_definition_id', r.eur, 'amount', '50',
+      'effective_date', (current_date - 5)::text,
+      'debtor_participant_id', r.p_edu, 'creditor_participant_id', r.p_luis));
+    fallos := array_append(fallos, 'F2 record_settlement_by_transfer con el payload de F3 se acepto');
+  exception when others then
+    if pg_temp.code(sqlerrm) <> 'PAYLOAD_INVALID' then fallos := array_append(fallos, 'F2b record_settlement_by_transfer: ' || pg_temp.code(sqlerrm)); end if;
+  end;
   perform pg_temp.super();
   select count(*) into v_n from core.current_effect e where e.scope_id = 'a3400000-0000-4000-8000-0000000000f3' and e.balance_amount is not null;
   if v_n <> 1 then fallos := array_append(fallos, format('F2c el Personal de Luis tiene %s efectos de caja y era 1 (E2)', v_n)); end if;

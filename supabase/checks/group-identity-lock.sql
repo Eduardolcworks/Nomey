@@ -67,7 +67,13 @@ begin
     -- instancia escribe su linea base y su S0 bajo el cerrojo, create_group
     -- incluida: 20260915120000).
     ('api.associate_participant'),
-    ('api.create_group')) as t(name)
+    ('api.create_group'),
+    -- F12/ADR-003 §5 y §14 (F12.B3, 20260928120000): la propuesta de grupo se
+    -- crea, cancela, rechaza y acepta bajo el cerrojo; la salida (leave_group)
+    -- lo toma tambien, y asi se serializan con la derivacion de §6.
+    ('api.create_group_transfer_proposal'),
+    ('api.cancel_group_transfer_proposal'),
+    ('api.decline_group_transfer_proposal')) as t(name)
   loop
     perform pg_temp.antes(r.name, 'sec.lock_participant_claims(', 'sec.assert_member(');
     perform pg_temp.antes(r.name, 'sec.lock_participant_claims(', 'sec.is_member(');
@@ -82,7 +88,7 @@ begin
     perform pg_temp.antes(r.name, 'sec.lock_participant_claims(', 'sec.lock_scopes(');
     perform pg_temp.antes(r.name, 'sec.lock_participant_claims(', 'sec.lock_and_cas(');
   end loop;
-  raise notice 'OK · B · once funciones toman el cerrojo antes de leer o cambiar identidad, y antes de las filas';
+  raise notice 'OK · B · catorce funciones toman el cerrojo antes de leer o cambiar identidad, y antes de las filas';
 
   -- C · la clave de idempotencia va ANTES del cerrojo (0 < 1), donde la hay
   --     por insercion: los writers (begin_command) y el provisioner
@@ -97,6 +103,11 @@ begin
   perform pg_temp.antes('api.redeem_invitation',             'core.provisioning_command', 'sec.lock_participant_claims(');
   perform pg_temp.antes('api.associate_participant',          'core.provisioning_command', 'sec.lock_participant_claims(');
   perform pg_temp.antes('api.create_group',                   'core.provisioning_command', 'sec.lock_participant_claims(');
+  perform pg_temp.antes('api.create_group_transfer_proposal', 'core.provisioning_command', 'sec.lock_participant_claims(');
+  -- cancelar y rechazar: la FILA de la propuesta antes que el cerrojo (F12/ADR-003 §14).
+  perform pg_temp.antes('api.cancel_group_transfer_proposal',  'for update', 'sec.lock_participant_claims(');
+  perform pg_temp.antes('api.decline_group_transfer_proposal', 'for update', 'sec.lock_participant_claims(');
+  perform pg_temp.antes('api.record_settlement_by_transfer',   'for update', 'sec.lock_participant_claims(');
   raise notice 'OK · C · la clave se reclama antes del cerrojo';
 
   -- D · orden 2 < 3 en quien tiene los dos.

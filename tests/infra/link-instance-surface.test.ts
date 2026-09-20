@@ -189,7 +189,9 @@ describe('la evidencia', () => {
 
   it('la guarda del cerrojo vigila ahora a associate_participant y a create_group', () => {
     expect(GUARD).toContain("('api.associate_participant'),");
-    expect(GUARD).toContain("('api.create_group')) as t(name)");
+    expect(GUARD).toContain("('api.create_group'),");
+    // F12.B3 (20260928120000): the three group-proposal commands close the list.
+    expect(GUARD).toContain("('api.decline_group_transfer_proposal')) as t(name)");
     expect(GUARD).toContain(
       "perform pg_temp.antes('api.create_group',                   'core.provisioning_command', 'sec.lock_participant_claims(');",
     );

@@ -416,6 +416,27 @@ jobs:
       - name: Payment request checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/payment-requests.sql
 
+      # Group transfer proposals and the two-will settlement_by_transfer
+      # (F12/ADR-003, F12.B3, 20260928120000): structure and owners (the three
+      # commands and the accounting under the writer, the shared budget under
+      # the provisioner, nothing new owned by postgres), transfer_part with its
+      # group columns all-or-nothing and the B1/B2 rows untouched, create
+      # (member, both linked with username, receiver active and eligible,
+      # currency = group base, 3 pending per pair, the 10 / 60 min budget
+      # SHARED with the Personal proposals), the state helper only through
+      # the view and only for a party (creator, target, third party
+      # indistinguishable from a nonexistent id, guest, no departure data),
+      # the departure-derived cancellation with its precedence and a real
+      # rejoin never reviving it, accept (only the receiver, three effects,
+      # the full amount crossing zero: 78 owed + 80 sent → the creditor owes
+      # 2, created_by = receiver, one version, replay, PROPOSAL_* codes),
+      # group_payment and record_debt_settlement still capped, irreversibility
+      # (TRANSFER_NOT_EDITABLE, OPERATION_NOT_ANNULLABLE, persist_version
+      # backstop), the two group views and my_transfers extended, and the
+      # client not reaching core.
+      - name: Group transfer proposal checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/group-transfer-proposals.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
       # Oversettlement guards refuse only what a correction or annulment
       # worsens (pair oriented by its settlements); the canonical
       # 5000/4000 → 3000 example still refuses.
@@ -559,6 +580,18 @@ jobs:
       # 20-pending cap exact under two simultaneous creations. Fixture only.
       - name: Payment request races (real sessions)
         run: bash scripts/payment-request-race-evidence.sh
+
+      # Group transfer proposals as real sessions (F12/ADR-003 §9, §13;
+      # F12.B3): accept vs leave_group in both orders (range 1 serializes
+      # them: either the settlement lands and the departure waits for net
+      # zero, or the departure wins and the proposal is cancelled by
+      # departure), decline vs leave and cancel vs leave in both orders,
+      # accept vs cancel, double accept with two keys, expiry vs leave, the
+      # budget shared between a Personal and a group proposal (9 + 2
+      # simultaneous → 10) and a real rejoin after a departure-cancelled
+      # proposal. Fixture only; removed.
+      - name: Group transfer races (real sessions)
+        run: bash scripts/group-transfer-race-evidence.sh
 
       # Two ingests of the same source at once (F11/ADR-002 §4): the second
       # waits on the per-source advisory lock and fixes nothing already fixed,

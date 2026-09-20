@@ -316,7 +316,8 @@ begin
     raise exception 'A: columnas de api.my_payment_requests: %', v_t;
   end if;
   select string_agg(column_name, ',' order by ordinal_position) into v_t from information_schema.columns where table_schema = 'api' and table_name = 'my_transfers';
-  if v_t <> 'operation_id,scope_id,currency_definition_id,balance_amount,direction,amount,effective_date,effective_time,concept,counterpart_handle,counterpart_public_name,proposal_id,operation_created_at,payment_request_id' then
+  -- F12.B3 (20260928120000) anadio group_scope_id y group_transfer_proposal_id al final.
+  if v_t <> 'operation_id,scope_id,currency_definition_id,balance_amount,direction,amount,effective_date,effective_time,concept,counterpart_handle,counterpart_public_name,proposal_id,operation_created_at,payment_request_id,group_scope_id,group_transfer_proposal_id' then
     raise exception 'A: columnas de api.my_transfers: %', v_t;
   end if;
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'api' and p.proname like 'record\_%';

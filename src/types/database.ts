@@ -473,6 +473,188 @@ export type Database = {
           },
         ];
       };
+      group_transfer_proposals: {
+        Row: {
+          accepted_operation_id: string | null;
+          amount: string | null;
+          cancel_reason: string | null;
+          concept: string | null;
+          created_at: string | null;
+          currency_definition_id: string | null;
+          direction: string | null;
+          expires_at: string | null;
+          group_scope_id: string | null;
+          proposal_id: string | null;
+          receiver_display_name: string | null;
+          receiver_participant_id: string | null;
+          sender_display_name: string | null;
+          sender_participant_id: string | null;
+          state: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'group_transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_operation';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_payment';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_payment_allocation';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_transfers';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'my_transfers';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_operation';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_operation_version';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_currency_definition_id_fkey';
+            columns: ['currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'currency_definition';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_emisor_del_grupo';
+            columns: ['sender_participant_id', 'group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_balance';
+            referencedColumns: ['participant_id', 'scope_id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_emisor_del_grupo';
+            columns: ['sender_participant_id', 'group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_participant';
+            referencedColumns: ['participant_id', 'scope_id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_group_scope_id_fkey';
+            columns: ['group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_balance';
+            referencedColumns: ['scope_id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_group_scope_id_fkey';
+            columns: ['group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_scope';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_receptor_del_grupo';
+            columns: ['receiver_participant_id', 'group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_balance';
+            referencedColumns: ['participant_id', 'scope_id'];
+          },
+          {
+            foreignKeyName: 'group_transfer_proposal_receptor_del_grupo';
+            columns: ['receiver_participant_id', 'group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_participant';
+            referencedColumns: ['participant_id', 'scope_id'];
+          },
+        ];
+      };
+      group_transfers: {
+        Row: {
+          amount: string | null;
+          concept: string | null;
+          currency_definition_id: string | null;
+          effective_date: string | null;
+          effective_time: string | null;
+          group_scope_id: string | null;
+          is_receiver: boolean | null;
+          is_sender: boolean | null;
+          operation_created_at: string | null;
+          operation_id: string | null;
+          proposal_id: string | null;
+          receiver_display_name: string | null;
+          receiver_participant_id: string | null;
+          sender_display_name: string | null;
+          sender_participant_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'transfer_part_emisor_del_grupo';
+            columns: ['sender_participant_id', 'group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_balance';
+            referencedColumns: ['participant_id', 'scope_id'];
+          },
+          {
+            foreignKeyName: 'transfer_part_emisor_del_grupo';
+            columns: ['sender_participant_id', 'group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_participant';
+            referencedColumns: ['participant_id', 'scope_id'];
+          },
+          {
+            foreignKeyName: 'transfer_part_group_scope_id_fkey';
+            columns: ['group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_balance';
+            referencedColumns: ['scope_id'];
+          },
+          {
+            foreignKeyName: 'transfer_part_group_scope_id_fkey';
+            columns: ['group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_scope';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'transfer_part_receptor_del_grupo';
+            columns: ['receiver_participant_id', 'group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_balance';
+            referencedColumns: ['participant_id', 'scope_id'];
+          },
+          {
+            foreignKeyName: 'transfer_part_receptor_del_grupo';
+            columns: ['receiver_participant_id', 'group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_participant';
+            referencedColumns: ['participant_id', 'scope_id'];
+          },
+        ];
+      };
       my_account_handle: {
         Row: {
           can_change_at: string | null;
@@ -524,6 +706,13 @@ export type Database = {
             columns: ['paid_operation_id'];
             isOneToOne: false;
             referencedRelation: 'group_payment_allocation';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'payment_request_paid_operation_id_fkey';
+            columns: ['paid_operation_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_transfers';
             referencedColumns: ['operation_id'];
           },
           {
@@ -589,6 +778,13 @@ export type Database = {
             foreignKeyName: 'transfer_proposal_accepted_operation_id_fkey';
             columns: ['accepted_operation_id'];
             isOneToOne: false;
+            referencedRelation: 'group_transfers';
+            referencedColumns: ['operation_id'];
+          },
+          {
+            foreignKeyName: 'transfer_proposal_accepted_operation_id_fkey';
+            columns: ['accepted_operation_id'];
+            isOneToOne: false;
             referencedRelation: 'my_transfers';
             referencedColumns: ['operation_id'];
           },
@@ -626,6 +822,8 @@ export type Database = {
           direction: string | null;
           effective_date: string | null;
           effective_time: string | null;
+          group_scope_id: string | null;
+          group_transfer_proposal_id: string | null;
           operation_created_at: string | null;
           operation_id: string | null;
           payment_request_id: string | null;
@@ -657,6 +855,20 @@ export type Database = {
           {
             foreignKeyName: 'effect_scope_id_fkey';
             columns: ['scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_scope';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'transfer_part_group_scope_id_fkey';
+            columns: ['group_scope_id'];
+            isOneToOne: false;
+            referencedRelation: 'personal_balance';
+            referencedColumns: ['scope_id'];
+          },
+          {
+            foreignKeyName: 'transfer_part_group_scope_id_fkey';
+            columns: ['group_scope_id'];
             isOneToOne: false;
             referencedRelation: 'personal_scope';
             referencedColumns: ['id'];
@@ -838,6 +1050,7 @@ export type Database = {
     Functions: {
       annul_operation: { Args: { payload: Json }; Returns: Json };
       associate_participant: { Args: { payload: Json }; Returns: Json };
+      cancel_group_transfer_proposal: { Args: { payload: Json }; Returns: Json };
       cancel_payment_request: { Args: { payload: Json }; Returns: Json };
       cancel_transfer_proposal: { Args: { payload: Json }; Returns: Json };
       change_username: {
@@ -873,8 +1086,13 @@ export type Database = {
       create_custom_category: { Args: { payload: Json }; Returns: Json };
       create_group: { Args: { payload: Json }; Returns: Json };
       create_group_invitation: { Args: { payload: Json }; Returns: Json };
+      create_group_transfer_proposal: { Args: { payload: Json }; Returns: Json };
       create_payment_request: { Args: { payload: Json }; Returns: Json };
       create_transfer_proposal: { Args: { payload: Json }; Returns: Json };
+      decline_group_transfer_proposal: {
+        Args: { payload: Json };
+        Returns: Json;
+      };
       decline_transfer_proposal: { Args: { payload: Json }; Returns: Json };
       ensure_personal_scope: { Args: { payload: Json }; Returns: Json };
       group_reopened_pair: {
