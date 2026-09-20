@@ -85,8 +85,8 @@ begin
   -- autoritativa lo ejercia: el principio «cada privilegio corresponde a una
   -- ruta concreta» tambien se aplica hacia atras. **`split` y
   -- `split_participant` lo RECUPERARON en 7b**, cuando `record_group_expense`
-  -- paso a ejercerlo. `frozen_conversion` sigue sin el, y seguira hasta que
-  -- exista una regla de resolucion de FX (ADR-009 §8).
+  -- paso a ejercerlo. `frozen_conversion` lo recupero en F11.B
+  -- (20260926120000) con los dos writers personales que convierten.
   select count(*) into v_n
   from information_schema.table_privileges
   where table_schema = 'core'
@@ -122,11 +122,14 @@ begin
       format('A5e: el writer tiene %s privilegios distintos de SELECT e INSERT (ADR-011 §14)', v_n));
   end if;
 
-  -- Y `frozen_conversion` sigue SIN ruta: sin regla de FX no hay funcion que la
-  -- escriba, asi que tampoco privilegio.
-  if has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert') then
+  -- Y `frozen_conversion` tiene ruta desde F11.B: el INSERT existe, y SOLO con
+  -- la segunda barrera en su policy.
+  if not has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert')
+     or not exists (select 1 from pg_policy p
+                     where p.polrelid = 'core.frozen_conversion'::regclass and p.polcmd = 'a'
+                       and pg_get_expr(p.polwithcheck, p.polrelid) like '%fx_resolve%') then
     fallos := array_append(fallos,
-      'A5f: el writer recupero INSERT sobre core.frozen_conversion y ninguna ruta lo ejerce');
+      'A5f: el INSERT sobre core.frozen_conversion no es el de F11.B, con la segunda barrera en su policy');
   end if;
 
   -- A5c · y nadie distinto del propietario puede mutarlas (ADR-011 §14).
@@ -773,16 +776,20 @@ begin
     when others then fallos := array_append(fallos, format('F1b: sqlstate inesperado %s', sqlstate));
   end;
 
-  -- F1c · `frozen_conversion` sigue SIN ruta, y lo que lo impide es la AUSENCIA
-  -- DE GRANT y no una policy: mientras el FX cross-currency no tenga regla de
-  -- resolucion, ninguna funcion la escribe (ADR-009 §8).
+  -- F1c · `frozen_conversion` tiene ruta desde F11.B (20260926120000), pero
+  -- ninguna fila puede congelar un tipo que el resolver no da: estas monedas de
+  -- fixture no tienen correspondencia con la fuente, y la segunda barrera de la
+  -- policy lo rechaza (el resolver responde FX_CURRENCY_NOT_COVERED).
   begin
     insert into core.frozen_conversion
       (operation_version_id, scope_id, source_currency_definition_id,
        target_currency_definition_id, rate_coefficient, rate_scale, resolved_for_date)
     values (V4, S2, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', EUR, 1, 0, date '2026-01-15');
-    fallos := array_append(fallos, 'F1c: el writer congelo una conversion sin regla de FX que la resuelva');
-  exception when insufficient_privilege then null;
+    fallos := array_append(fallos, 'F1c: el writer congelo un tipo que el resolver no da');
+  exception when sqlstate 'PGRST' then
+    if sqlerrm not like '%FX_CURRENCY_NOT_COVERED%' then
+      fallos := array_append(fallos, format('F1c: rechazo inesperado %s', sqlerrm));
+    end if;
     when others then fallos := array_append(fallos, format('F1c: sqlstate inesperado %s', sqlstate));
   end;
 

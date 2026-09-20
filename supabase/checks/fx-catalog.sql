@@ -230,10 +230,14 @@ begin
     fallos := array_append(fallos, format('A6d %s vistas leen el catalogo FX', v_n));
   end if;
 
-  -- A7 · la conversion congelada sigue sin ruta: el writer no recupero INSERT,
-  --      y su policy de INSERT disenada sigue ahi.
-  if has_table_privilege('nomey_writer', 'core.frozen_conversion', 'INSERT') then
-    fallos := array_append(fallos, 'A7 nomey_writer tiene INSERT sobre core.frozen_conversion');
+  -- A7 · la conversion congelada tiene ruta desde 20260926120000: el INSERT del
+  --      writer existe SOLO con la segunda barrera en su policy.
+  if not has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert')
+     or not exists (select 1 from pg_policy p
+                     where p.polrelid = 'core.frozen_conversion'::regclass and p.polcmd = 'a'
+                       and pg_get_expr(p.polwithcheck, p.polrelid) like '%fx_resolve%') then
+    fallos := array_append(fallos,
+      'A7: el INSERT sobre core.frozen_conversion no es el de F11.B, con la segunda barrera en su policy');
   end if;
   if has_table_privilege('nomey_fx_ingest', 'core.frozen_conversion', 'SELECT') then
     fallos := array_append(fallos, 'A7b la ingesta alcanza core.frozen_conversion');

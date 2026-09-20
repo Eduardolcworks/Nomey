@@ -78,16 +78,18 @@ begin
     fallos := array_append(fallos, format('A3b: nomey_writer posee %s tablas de core', v_n));
   end if;
 
-  -- A4 · REVOCACIONES que siguen vivas: privilegios sin ruta autoritativa.
-  --
-  -- 7a revoco el INSERT sobre `frozen_conversion`, `split` y
-  -- `split_participant`. Los dos ultimos VOLVIERON en 7b, porque
-  -- `api.record_group_expense` los ejerce; el primero no vuelve mientras el FX
-  -- cross-currency siga sin regla de resolucion (ADR-009 §8). Comprobar hoy los
-  -- tres seria comprobar que 7b no existe.
-  if has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert') then
+  -- A4 · 7a revoco el INSERT sobre `frozen_conversion`, `split` y
+  -- `split_participant` porque ninguna ruta lo ejercia. Los dos ultimos
+  -- VOLVIERON en 7b con `api.record_group_expense`; el primero, en F11.B
+  -- (20260926120000), con los dos writers personales que convierten, y SOLO con
+  -- la segunda barrera en su policy: el tipo congelado es el que devuelve
+  -- sec.fx_resolve para esa fecha y ese par.
+  if not has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert')
+     or not exists (select 1 from pg_policy p
+                     where p.polrelid = 'core.frozen_conversion'::regclass and p.polcmd = 'a'
+                       and pg_get_expr(p.polwithcheck, p.polrelid) like '%fx_resolve%') then
     fallos := array_append(fallos,
-      'A4: nomey_writer tiene INSERT sobre core.frozen_conversion y ninguna ruta autoritativa lo ejerce');
+      'A4: el INSERT sobre core.frozen_conversion no es el de F11.B, con la segunda barrera en su policy');
   end if;
 
   -- A4b · pero las policies de INSERT ya disenadas siguen intactas: son

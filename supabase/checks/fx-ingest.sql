@@ -227,23 +227,36 @@ begin
   end loop;
 
   -- A5 · ninguna superficie nueva: 9 record_*, nada de api toca FX, el writer
-  --      solo lee lo que resuelve (A2, E3) y frozen_conversion sigue sin ruta.
+  --      solo lee lo que resuelve (A2, E3) y frozen_conversion solo se escribe
+  --      con la segunda barrera (20260926120000).
   select count(*) into v_n
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.proname like 'record\_%';
   if v_n <> 9 then
     fallos := array_append(fallos, format('A5 hay %s funciones api.record_*', v_n));
   end if;
+  -- Nada de api se llama FX, y lo unico que toca FX son los dos writers
+  -- personales que convierten desde 20260926120000.
+  select string_agg(p.proname, ',' order by p.proname collate "C") into v_t
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'api' and p.prosrc like '%fx\_%';
+  if v_t is distinct from 'record_personal_expense,record_personal_income' then
+    fallos := array_append(fallos, 'A5b funciones de api que tocan FX: ' || coalesce(v_t, 'ninguna'));
+  end if;
   select count(*) into v_n
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'api' and (p.proname ilike '%fx%' or p.prosrc like '%fx\_%');
+   where n.nspname = 'api' and p.proname ilike '%fx%';
   v_n := v_n + (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
                  where n.nspname = 'api' and c.relname ilike '%fx%');
   if v_n <> 0 then
-    fallos := array_append(fallos, format('A5b %s objetos de api tocan FX', v_n));
+    fallos := array_append(fallos, format('A5c %s objetos de api se llaman FX', v_n));
   end if;
-  if has_table_privilege('nomey_writer', 'core.frozen_conversion', 'INSERT') then
-    fallos := array_append(fallos, 'A5c nomey_writer tiene INSERT sobre core.frozen_conversion');
+  if not has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert')
+     or not exists (select 1 from pg_policy p
+                     where p.polrelid = 'core.frozen_conversion'::regclass and p.polcmd = 'a'
+                       and pg_get_expr(p.polwithcheck, p.polrelid) like '%fx_resolve%') then
+    fallos := array_append(fallos,
+      'A5c: el INSERT sobre core.frozen_conversion no es el de F11.B, con la segunda barrera en su policy');
   end if;
 
   -- A6 · constraints, no triggers.

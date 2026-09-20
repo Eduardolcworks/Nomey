@@ -810,6 +810,54 @@ let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
     200|201) fallo "se creo un Modo Personal SIN JWT (${e})" ;;
     *)       ok "sin JWT, el provisioning no responde 200 (${e})" ;;
   esac
+
+  # 8.12 · LOS TRES RESULTADOS DE FX, POR HTTP (F11/ADR-001 §6). Es la
+  #        verificacion que ningun check SQL puede dar: que PostgREST entrega
+  #        cada codigo con SU estado, y en particular que «todavia no
+  #        disponible» llega como 5xx, que el cliente vigente clasifica como
+  #        reintentable con la misma clave, y no como rechazo terminal.
+  #
+  #        Solo errores: no se siembra ningun dia fijado, asi que el camino con
+  #        exito no se ejerce aqui —lo cubre fx-personal-writers.sql— y la
+  #        fuente `ecb` de esta base no se toca.
+  #
+  #        El ambito de C es el unico con una moneda del catalogo real (JPY),
+  #        que es lo que la cobertura del BCE necesita.
+  USD_REAL=34cb8424-2243-52d8-be99-e2b7d22884b8
+  ARS_REAL=6cbdabc6-2d2f-5090-a063-3a366f9fd23d
+  JPY_REAL=f981b2f9-a022-5de8-aa6d-3af277d9dcd3
+
+  comprobar_error "FX sin fijar" record_personal_expense "${TOK_C}" "{
+    \"client_operation_id\":\"c0000000-0000-4000-8000-0000000f0c01\",
+    \"command_contract_version\":2,\"effective_date\":\"2099-12-31\",\"effective_time\":\"10:00\",
+    \"scope_id\":\"${SC}\",\"currency_definition_id\":\"${USD_REAL}\",\"amount\":\"1000\",
+    \"expected_base_currency_definition_id\":\"${JPY_REAL}\",
+    \"concept\":\"Compra\",\"category_id\":\"${CAT_GASTO}\"}" \
+    FX_RATE_NOT_YET_AVAILABLE 503
+
+  # ... y el 503 no quema la clave: el reintento vuelve a esperar, no choca.
+  comprobar_error "FX sin fijar, reintento con la misma clave" record_personal_expense "${TOK_C}" "{
+    \"client_operation_id\":\"c0000000-0000-4000-8000-0000000f0c01\",
+    \"command_contract_version\":2,\"effective_date\":\"2099-12-31\",\"effective_time\":\"10:00\",
+    \"scope_id\":\"${SC}\",\"currency_definition_id\":\"${USD_REAL}\",\"amount\":\"1000\",
+    \"expected_base_currency_definition_id\":\"${JPY_REAL}\",
+    \"concept\":\"Compra\",\"category_id\":\"${CAT_GASTO}\"}" \
+    FX_RATE_NOT_YET_AVAILABLE 503
+
+  comprobar_error "FX sin cobertura" record_personal_income "${TOK_C}" "{
+    \"client_operation_id\":\"c0000000-0000-4000-8000-0000000f0c02\",
+    \"command_contract_version\":1,\"effective_date\":\"2099-12-31\",\"effective_time\":\"10:00\",
+    \"scope_id\":\"${SC}\",\"currency_definition_id\":\"${ARS_REAL}\",\"amount\":\"1000\",
+    \"expected_base_currency_definition_id\":\"${JPY_REAL}\",\"concept\":\"Cobro\"}" \
+    FX_CURRENCY_NOT_COVERED 422
+
+  comprobar_error "FX con otra base asumida" record_personal_expense "${TOK_C}" "{
+    \"client_operation_id\":\"c0000000-0000-4000-8000-0000000f0c03\",
+    \"command_contract_version\":2,\"effective_date\":\"2099-12-31\",\"effective_time\":\"10:00\",
+    \"scope_id\":\"${SC}\",\"currency_definition_id\":\"${USD_REAL}\",\"amount\":\"1000\",
+    \"expected_base_currency_definition_id\":\"${USD_REAL}\",
+    \"concept\":\"Compra\",\"category_id\":\"${CAT_GASTO}\"}" \
+    CURRENCY_CONVERSION_UNSUPPORTED 422
 fi
 
 # ============================================================================
