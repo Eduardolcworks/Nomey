@@ -257,6 +257,8 @@ delete from core.transfer_proposal where created_by in (${ACTORES}) or target_us
 -- los apuntes de su previsualizacion.
 delete from core.payment_request_attempt where user_id in (${ACTORES});
 delete from core.payment_request where created_by in (${ACTORES}) or paid_by in (${ACTORES});
+-- F12/ADR-003 (20260928120000): las propuestas de grupo de estos actores.
+delete from core.group_transfer_proposal where created_by in (${ACTORES}) or target_user_id in (${ACTORES});
 -- F10/ADR-001 (20260915120000): linea base y sujetos de las instancias creadas por
 -- estos actores, antes que sus versiones y participantes.
 delete from core.link_baseline b using core.operation o where o.id = b.operation_id and o.created_by in (${ACTORES});
@@ -267,7 +269,11 @@ delete from core.participant_period where participant_id in
   (select id from core.participant where scope_id in (${MIOS}));
 -- Invitaciones (seccion 14: un invitado invita), antes que su ambito.
 delete from core.group_invitation where scope_id in (${MIOS});
+-- F10/ADR-003: el vinculo historico apunta a la salida (seccion 20 sale por
+-- HTTP de verdad); el vinculo primero, la salida despues, y esta antes que el
+-- participante que referencia.
 delete from core.participant_user_link where scope_id in (${MIOS});
+delete from core.group_departure where scope_id in (${MIOS});
 -- F10/ADR-005: la decision de inicio del Personal referencia el ambito.
 delete from core.personal_start where scope_id in (${MIOS});
 delete from core.provisioning_command where created_by in (${ACTORES});
@@ -445,7 +451,7 @@ fi
 
 # ============================================================================
 echo ""
-echo "== 4 · las funciones publicas de escritura, por HTTP y con JWT real (seis aqui; la septima en §18) =="
+echo "== 4 · las funciones publicas de escritura, por HTTP y con JWT real (cinco aqui; §18 y §20 escriben las dos de dos voluntades) =="
 
 # El cuerpo sale por una GLOBAL y no por stdout: `ok` y `fallo` tambien escriben
 # ahi, y capturarlo con $( ) mezclaria el diagnostico con el JSON.
@@ -481,8 +487,8 @@ llamada "record_external_transfer" record_external_transfer "${TOK_A}" "{
 
 # record_internal_transfer ya no se escribe aqui: desde F12.B1 (F12/ADR-002)
 # nace de una PROPUESTA que el receptor acepta, y A y B todavia no tienen su
-# username definitivo (lo reclaman en §17). La septima clase se escribe en
-# §18, que vuelve a contar las siete.
+# username definitivo (lo reclaman en §17). La sexta clase se escribe en
+# §18 y la septima en §20; cada una vuelve a contar las suyas.
 
 llamada "record_group_expense" record_group_expense "${TOK_A}" "{
   \"client_operation_id\":\"a1000000-0000-4000-8000-000000000005\",
@@ -512,11 +518,10 @@ llamada "gasto previo en GY" record_group_expense "${TOK_B}" "{
   \"participants\":[\"${YB}\",\"${YA}\"],
   \"split_method\":{\"kind\":\"equal\"}}"
 
-llamada "record_settlement_by_transfer" record_settlement_by_transfer "${TOK_A}" "{
-  \"client_operation_id\":\"a1000000-0000-4000-8000-000000000008\",
-  \"command_contract_version\":1,\"effective_date\":\"2026-02-08\",
-  \"debt_scope_id\":\"${GY}\",\"currency_definition_id\":\"${EUR}\",\"amount\":\"3000\",
-  \"debtor_participant_id\":\"${YA}\",\"creditor_participant_id\":\"${YB}\"}"
+# record_settlement_by_transfer tampoco se escribe aqui: desde F12.B3
+# (F12/ADR-003) nace de una PROPUESTA de grupo que el receptor acepta, y A y B
+# reclaman su username en §17. La deuda de GY (A debe 30 a B) queda viva para
+# §20, que la cruza (30 + 40 → B debe 10).
 
 # EL RECUENTO TAMBIEN VA ACOTADO. Contaba las clases de la tabla entera, que
 # era exacto mientras el script fuera el unico habitante de la base. Sobre una
@@ -526,16 +531,16 @@ llamada "record_settlement_by_transfer" record_settlement_by_transfer "${TOK_A}"
 # camino; este no llego a fallar en CI, y se acota antes de que lo haga.
 #
 # Las clases las escriben ${UID_A} y ${UID_B} por la ruta HTTP, asi que
-# acotar por ellos no relaja nada: sigue exigiendo que se persistan. SEIS
-# aqui; la septima, la transferencia entre usuarios, en §18.
+# acotar por ellos no relaja nada: sigue exigiendo que se persistan. CINCO
+# aqui; la internal_transfer en §18 y la settlement_by_transfer en §20.
 ejercitadas=$("${DBQ[@]}" <<SQL 2>/dev/null
 select count(distinct operation_class) from core.operation
  where created_by in ('${UID_A}','${UID_B}');
 SQL
 )
-[ "$(tr -d '[:space:]' <<<"${ejercitadas}")" = "6" ] \
-  && ok "SEIS clases de operacion quedaron escritas por la ruta HTTP (la septima en §18)" \
-  || fallo "solo $(tr -d '[:space:]' <<<"${ejercitadas}") clases distintas llegaron a persistirse y se esperaban 6"
+[ "$(tr -d '[:space:]' <<<"${ejercitadas}")" = "5" ] \
+  && ok "CINCO clases de operacion quedaron escritas por la ruta HTTP (la sexta en §18, la septima en §20)" \
+  || fallo "solo $(tr -d '[:space:]' <<<"${ejercitadas}") clases distintas llegaron a persistirse y se esperaban 5"
 
 # ============================================================================
 echo ""
@@ -1853,7 +1858,7 @@ echo "== 18 · transferencias entre usuarios con dos voluntades, por HTTP (F12/A
 # viajan con su estado, que el estado not_found viaja con 200, que el freno
 # compartido del resolver frena tambien aqui (B llega FRENADO de §17), que las
 # vistas publican la identidad actual de la contraparte y ni un uid ni un
-# ambito ajeno, y que la septima clase —la que §4 ya no escribe de una sola
+# ambito ajeno, y que la sexta clase —la que §4 ya no escribe de una sola
 # voluntad— queda persistida por A y B. A es http_ana2 (cambio en §17); B,
 # http_bea; C no tiene handle (§17 le retiro la reserva).
 r18() { # $1 nombre, $2 fn, $3 tok, $4 body (ya con el parametro), $5 estado esperado
@@ -1929,7 +1934,7 @@ v=$("${DBQ[@]}" -c "select coalesce(sum(e.balance_amount),0) from core.current_e
 v=$("${DBQ[@]}" -c "select o.created_by = '${UID_B}' and ov.version_no = 1 and ov.effective_date = current_date and tp.from_scope_id = '${PA}' and tp.to_scope_id = '${PB}' from core.operation o join core.operation_version ov on ov.id = o.current_version_id join core.transfer_part tp on tp.operation_version_id = ov.id where o.id = '${OP_T18}';" | tr -d '[:space:]')
 [ "${v}" = "t" ] && ok "created_by = B, una version, fecha del servidor, partes PA → PB" || fallo "anatomia de la transferencia: ${v}"
 ejercitadas=$("${DBQ[@]}" -c "select count(*) from core.operation where operation_class = 'internal_transfer' and created_by in ('${UID_A}','${UID_B}');" | tr -d '[:space:]')
-[ "${ejercitadas}" = "1" ] && ok "con esta, la septima clase (internal_transfer) quedo escrita por la ruta HTTP: las seis de §4 y esta" || fallo "internal_transfer escritas por A y B: ${ejercitadas}, y debia ser 1"
+[ "${ejercitadas}" = "1" ] && ok "con esta, la sexta clase (internal_transfer) quedo escrita por la ruta HTTP: las cinco de §4 y esta" || fallo "internal_transfer escritas por A y B: ${ejercitadas}, y debia ser 1"
 
 # 18.6 · irreversible: corregir y anular, por las dos partes.
 VER_T18=$("${DBQ[@]}" -c "select current_version_id from core.operation where id = '${OP_T18}';" | tr -d '[:space:]')
@@ -1972,7 +1977,7 @@ v=$(curl -s "${API}/rest/v1/my_transfer_proposals?select=direction,state&order=c
 [ "${v}" = "outgoing:accepted;outgoing:cancelled" ] && ok "my_transfer_proposals de A: accepted y cancelled; la entrante rechazada ya no" || fallo "vista de A: ${v}"
 v=$(curl -s "${API}/rest/v1/my_transfer_proposals?select=direction,state&order=created_at" "${GB[@]}" | jarr 'a.map(x=>x.direction+":"+x.state).join(";")')
 [ "${v}" = "outgoing:declined" ] && ok "my_transfer_proposals de B: su declined; las entrantes no pending, no" || fallo "vista de B: ${v}"
-v=$(curl -s "${API}/rest/v1/my_transfers?select=*" "${GA[@]}" | jarr 'a.length===1 && a[0].direction==="outgoing" && a[0].balance_amount==="-10000" && a[0].amount==="10000" && a[0].concept==="Cena" && a[0].counterpart_handle==="http_bea" && a[0].scope_id==="'"${PA}"'" && typeof a[0].balance_amount==="string" && Object.keys(a[0]).sort().join(",")==="amount,balance_amount,concept,counterpart_handle,counterpart_public_name,currency_definition_id,direction,effective_date,effective_time,operation_created_at,operation_id,payment_request_id,proposal_id,scope_id" ? "ok" : JSON.stringify(a)')
+v=$(curl -s "${API}/rest/v1/my_transfers?select=*" "${GA[@]}" | jarr 'a.length===1 && a[0].direction==="outgoing" && a[0].balance_amount==="-10000" && a[0].amount==="10000" && a[0].concept==="Cena" && a[0].counterpart_handle==="http_bea" && a[0].scope_id==="'"${PA}"'" && typeof a[0].balance_amount==="string" && Object.keys(a[0]).sort().join(",")==="amount,balance_amount,concept,counterpart_handle,counterpart_public_name,currency_definition_id,direction,effective_date,effective_time,group_scope_id,group_transfer_proposal_id,operation_created_at,operation_id,payment_request_id,proposal_id,scope_id" ? "ok" : JSON.stringify(a)')
 [ "${v}" = "ok" ] && ok "my_transfers de A: saliente -10000 «Cena» a @http_bea, solo su ambito, importes como texto" || fallo "my_transfers de A: ${v}"
 v=$(curl -s "${API}/rest/v1/my_transfers?select=direction,balance_amount,counterpart_handle,counterpart_public_name,scope_id" "${GB[@]}" | jarr 'a.length===1 && a[0].direction==="incoming" && a[0].balance_amount==="10000" && a[0].counterpart_handle==="http_ana2" && a[0].counterpart_public_name==="Ana HTTP" && a[0].scope_id==="'"${PB}"'" ? "ok" : JSON.stringify(a)')
 [ "${v}" = "ok" ] && ok "my_transfers de B: entrante +10000 de @http_ana2 · Ana HTTP, en su ambito" || fallo "my_transfers de B: ${v}"
@@ -2119,6 +2124,128 @@ v=$(curl -s -o /dev/null -w '%{http_code}' "${API}/rest/v1/my_payment_requests" 
 [ "${v}" != "200" ] && ok "my_payment_requests sin JWT no responde 200 (${v})" || fallo "la vista respondio 200 sin JWT"
 for fn in create_payment_request cancel_payment_request preview_payment_request; do
   rr=$(rpc "${fn}" "" '{}')
+  ee=$(estado_de "${rr}")
+  case "${ee}" in 200|201) fallo "${fn} se acepto SIN JWT (${ee})" ;; *) ok "${fn} sin JWT: ${ee}" ;; esac
+done
+
+
+# ============================================================================
+echo ""
+echo "== 20 · transferencias dentro de un grupo con dos voluntades, por HTTP (F12/ADR-003, F12.B3) =="
+# Lo que solo la ruta real demuestra: que la propuesta de grupo y su
+# aceptacion (record_settlement_by_transfer con el contrato nuevo) responden
+# por PostgREST con el JWT de cada parte, que los codigos viajan con su
+# estado, que el algebra cruza cero (A debe 30 en GY del gasto de §4; propone
+# 40; B acepta; B pasa a deber 10), que una salida REAL invalida la propuesta
+# pendiente (PROPOSAL_CANCELLED con reason departure) y que las vistas
+# publican participantes y estados sin uid ni Personal ajeno. Es la septima
+# clase que §4 dejo de escribir de una sola voluntad. A y B llevan handle
+# definitivo desde §17.
+r20() { # $1 nombre, $2 fn, $3 tok, $4 body, $5 estado esperado
+  local rr ee cc
+  rr=$(rpc "$2" "$3" "$4"); ee=$(estado_de "${rr}"); cc=$(cuerpo_de "${rr}")
+  ULTIMO_CUERPO="${cc}"
+  [ "${ee}" = "$5" ] && ok "$1: ${ee}" || fallo "$1 devolvio ${ee} y se esperaba $5: ${cc}"
+}
+codigo20() { printf '%s' "${ULTIMO_CUERPO}" | jget code; }
+campo20()  { printf '%s' "${ULTIMO_CUERPO}" | jget "$1"; }
+razon20()  { printf '%s' "${ULTIMO_CUERPO}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const e=JSON.parse(s);const d=JSON.parse(e.details||"{}");console.log(d.reason||"-")}catch{console.log("-")}})'; }
+
+# 20.1 · el writer ya no acepta el contrato de F3; A propone 40 a B en GY (A le debe 30).
+r20 "A con el payload de F3" record_settlement_by_transfer "${TOK_A}" "$(env_payload "{\"client_operation_id\":\"a1000000-0000-4000-8000-000000000008\",\"command_contract_version\":1,\"effective_date\":\"2026-02-08\",\"debt_scope_id\":\"${GY}\",\"currency_definition_id\":\"${EUR}\",\"amount\":\"3000\",\"debtor_participant_id\":\"${YA}\",\"creditor_participant_id\":\"${YB}\"}")" 400
+[ "$(codigo20)" = "PAYLOAD_INVALID" ] && ok "el contrato de F3 ya no existe: PAYLOAD_INVALID · 400" || fallo "codigo: $(codigo20)"
+r20 "A propone 40 a B en GY" create_group_transfer_proposal "${TOK_A}" "$(env_payload "{\"client_command_id\":\"a2000000-0000-4000-8000-000000000001\",\"command_contract_version\":1,\"group_scope_id\":\"${GY}\",\"receiver_participant_id\":\"${YB}\",\"amount\":\"4000\",\"concept\":\"  Taxi y algo mas  \"}")" 200
+GPROP_1=$(campo20 proposal_id)
+[ -n "${GPROP_1}" ] && [ "$(campo20 already_processed)" = "false" ] && ok "proposal_id ${GPROP_1:0:8}…" || fallo "crear: ${ULTIMO_CUERPO}"
+v=$(printf '%s' "${ULTIMO_CUERPO}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s);console.log(Object.keys(o).sort().join(","))})')
+[ "${v}" = "already_processed,expires_at,proposal_id" ] && ok "la respuesta trae exactamente already_processed, expires_at y proposal_id" || fallo "claves: ${v}"
+r20 "A repite la clave (replay)" create_group_transfer_proposal "${TOK_A}" "$(env_payload "{\"client_command_id\":\"a2000000-0000-4000-8000-000000000001\",\"command_contract_version\":1,\"group_scope_id\":\"${GY}\",\"receiver_participant_id\":\"${YB}\",\"amount\":\"4000\",\"concept\":\"Taxi y algo mas\"}")" 200
+[ "$(campo20 proposal_id)" = "${GPROP_1}" ] && [ "$(campo20 already_processed)" = "true" ] && ok "replay: la misma propuesta" || fallo "replay: ${ULTIMO_CUERPO}"
+r20 "A a si misma" create_group_transfer_proposal "${TOK_A}" "$(env_payload "{\"client_command_id\":\"a2000000-0000-4000-8000-000000000002\",\"command_contract_version\":1,\"group_scope_id\":\"${GY}\",\"receiver_participant_id\":\"${YA}\",\"amount\":\"1\"}")" 400
+[ "$(codigo20)" = "PAYLOAD_INVALID" ] && ok "a uno mismo: PAYLOAD_INVALID · 400" || fallo "codigo: $(codigo20)"
+r20 "C (no miembro) propone" create_group_transfer_proposal "${TOK_C}" "$(env_payload "{\"client_command_id\":\"a2000000-0000-4000-8000-000000000003\",\"command_contract_version\":1,\"group_scope_id\":\"${GY}\",\"receiver_participant_id\":\"${YB}\",\"amount\":\"1\"}")" 409
+[ "$(codigo20)" = "USERNAME_REQUIRED" ] && ok "C sin handle: USERNAME_REQUIRED · 409 (antes que la membresia)" || fallo "codigo: $(codigo20)"
+if [ -n "${TOK_G3:-}" ]; then
+  r20 "el invitado propone" create_group_transfer_proposal "${TOK_G3}" "$(env_payload "{\"client_command_id\":\"a2000000-0000-4000-8000-000000000004\",\"command_contract_version\":1,\"group_scope_id\":\"${GY}\",\"receiver_participant_id\":\"${YB}\",\"amount\":\"1\"}")" 403
+  [ "$(codigo20)" = "NOT_AUTHORIZED" ] && ok "anonimo: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo20)"
+fi
+ops_antes=$("${DBQ[@]}" -c "select count(*) from core.operation where created_by in ('${UID_A}','${UID_B}');" | tr -d '[:space:]')
+
+# 20.2 · las vistas antes de aceptar.
+v=$(curl -s "${API}/rest/v1/group_transfer_proposals?select=*" "${GA[@]}" | jarr 'a.length===1 && a[0].direction==="outgoing" && a[0].state==="pending" && a[0].cancel_reason===null && a[0].sender_display_name==="A" && a[0].receiver_display_name==="B" && a[0].amount==="4000" && a[0].concept==="Taxi y algo mas" && Object.keys(a[0]).sort().join(",")==="accepted_operation_id,amount,cancel_reason,concept,created_at,currency_definition_id,direction,expires_at,group_scope_id,proposal_id,receiver_display_name,receiver_participant_id,sender_display_name,sender_participant_id,state" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "group_transfer_proposals de A: saliente, pending, A > B, importe como texto, sin uid" || fallo "vista de A: ${v}"
+v=$(curl -s "${API}/rest/v1/group_transfer_proposals?select=direction,state" "${GB[@]}" | jarr 'a.length===1 && a[0].direction==="incoming" && a[0].state==="pending" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "group_transfer_proposals de B: entrante, pending" || fallo "vista de B: ${v}"
+v=$(curl -s "${API}/rest/v1/group_transfer_proposals?select=proposal_id" -H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_C}" | jarr 'a.length===0 ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "C no ve propuestas de otros" || fallo "vista de C: ${v}"
+
+# 20.3 · aceptar: solo B; el algebra cruza cero.
+r20 "A acepta la suya" record_settlement_by_transfer "${TOK_A}" "$(env_payload "{\"client_operation_id\":\"a2000000-0000-4000-8000-000000000011\",\"command_contract_version\":1,\"proposal_id\":\"${GPROP_1}\"}")" 403
+[ "$(codigo20)" = "NOT_AUTHORIZED" ] && ok "quien propuso no materializa: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo20)"
+r20 "B corrige" record_settlement_by_transfer "${TOK_B}" "$(env_payload "{\"client_operation_id\":\"a2000000-0000-4000-8000-000000000012\",\"command_contract_version\":1,\"proposal_id\":\"${GPROP_1}\",\"operation_id\":\"${GPROP_1}\",\"expected_version_id\":\"${GPROP_1}\"}")" 422
+[ "$(codigo20)" = "TRANSFER_NOT_EDITABLE" ] && ok "TRANSFER_NOT_EDITABLE · 422" || fallo "codigo: $(codigo20)"
+NETO_ANTES=$("${DBQ[@]}" -c "select sec.net_debt('${GY}', '${YA}', '${YB}', null);" | tr -d '[:space:]')
+[ "${NETO_ANTES}" = "3000" ] && ok "A debe 30 a B en GY antes de aceptar" || fallo "neto antes: ${NETO_ANTES}"
+r20 "B acepta" record_settlement_by_transfer "${TOK_B}" "$(env_payload "{\"client_operation_id\":\"a2000000-0000-4000-8000-000000000013\",\"command_contract_version\":1,\"proposal_id\":\"${GPROP_1}\"}")" 200
+OP_G20=$(campo20 operation_id)
+[ -n "${OP_G20}" ] && [ "$(campo20 already_processed)" = "false" ] && ok "aceptada: operation_id ${OP_G20:0:8}…" || fallo "aceptar: ${ULTIMO_CUERPO}"
+r20 "B acepta otra vez (replay)" record_settlement_by_transfer "${TOK_B}" "$(env_payload "{\"client_operation_id\":\"a2000000-0000-4000-8000-000000000013\",\"command_contract_version\":1,\"proposal_id\":\"${GPROP_1}\"}")" 200
+[ "$(campo20 operation_id)" = "${OP_G20}" ] && [ "$(campo20 already_processed)" = "true" ] && ok "replay: la misma operacion" || fallo "replay: ${ULTIMO_CUERPO}"
+r20 "B con otra clave" record_settlement_by_transfer "${TOK_B}" "$(env_payload "{\"client_operation_id\":\"a2000000-0000-4000-8000-000000000014\",\"command_contract_version\":1,\"proposal_id\":\"${GPROP_1}\"}")" 409
+[ "$(codigo20)" = "PROPOSAL_ACCEPTED" ] && ok "PROPOSAL_ACCEPTED · 409: una sola operacion" || fallo "codigo: $(codigo20)"
+v=$("${DBQ[@]}" -c "select sec.net_debt('${GY}', '${YA}', '${YB}', null) || '|' || sec.pending_debt('${GY}', '${YB}', '${YA}', null);" | tr -d '[:space:]')
+[ "${v}" = "-1000|1000" ] && ok "30 + 40 → B debe 10 a A: net_debt -1000, pending_debt B→A 1000" || fallo "algebra: ${v}"
+v=$(curl -s "${API}/rest/v1/group_pending_pair?select=debtor_participant_id,creditor_participant_id,amount&scope_id=eq.${GY}" "${GA[@]}" | jarr 'a.length===1 && a[0].debtor_participant_id==="'"${YB}"'" && a[0].creditor_participant_id==="'"${YA}"'" && a[0].amount==="1000" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "group_pending_pair por HTTP: B > A 10" || fallo "pares: ${v}"
+v=$("${DBQ[@]}" -c "select (o.created_by = '${UID_B}' and ov.created_by = '${UID_B}' and ov.version_no = 1 and tp.from_scope_id = '${PA}' and tp.to_scope_id = '${PB}' and tp.group_scope_id = '${GY}' and tp.sender_participant_id = '${YA}' and tp.receiver_participant_id = '${YB}')::text || '|' || (select count(*) from core.effect e where e.operation_version_id = ov.id) from core.operation o join core.operation_version ov on ov.id = o.current_version_id join core.transfer_part tp on tp.operation_version_id = ov.id where o.id = '${OP_G20}';" | tr -d '[:space:]')
+[ "${v}" = "true|3" ] && ok "created_by = B (receptor), partes PA → PB con grupo y participantes, tres efectos, una version" || fallo "anatomia: ${v}"
+ejercitadas=$("${DBQ[@]}" -c "select count(*) from core.operation where operation_class = 'settlement_by_transfer' and created_by in ('${UID_A}','${UID_B}');" | tr -d '[:space:]')
+[ "${ejercitadas}" = "1" ] && ok "con esta, las SIETE clases quedaron escritas por la ruta HTTP (cinco en §4, la internal_transfer en §18 y esta)" || fallo "settlement_by_transfer escritas: ${ejercitadas}"
+VER_G20=$("${DBQ[@]}" -c "select current_version_id from core.operation where id = '${OP_G20}';" | tr -d '[:space:]')
+r20 "A anula" annul_operation "${TOK_A}" "$(env_payload "{\"client_operation_id\":\"a2000000-0000-4000-8000-000000000015\",\"command_contract_version\":1,\"operation_id\":\"${OP_G20}\",\"expected_version_id\":\"${VER_G20}\"}")" 422
+[ "$(codigo20)" = "OPERATION_NOT_ANNULLABLE" ] && ok "OPERATION_NOT_ANNULLABLE · 422" || fallo "codigo: $(codigo20)"
+
+# 20.4 · las vistas despues: group_transfers para los dos, my_transfers con grupo.
+v=$(curl -s "${API}/rest/v1/group_transfers?select=*&group_scope_id=eq.${GY}" "${GB[@]}" | jarr 'a.length===1 && a[0].sender_display_name==="A" && a[0].receiver_display_name==="B" && a[0].is_sender===false && a[0].is_receiver===true && a[0].amount==="4000" && a[0].concept==="Taxi y algo mas" && a[0].proposal_id==="'"${GPROP_1}"'" && Object.keys(a[0]).sort().join(",")==="amount,concept,currency_definition_id,effective_date,effective_time,group_scope_id,is_receiver,is_sender,operation_created_at,operation_id,proposal_id,receiver_display_name,receiver_participant_id,sender_display_name,sender_participant_id" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "group_transfers de B: A → B 40 «Taxi y algo mas», is_receiver, sin uid ni Personal" || fallo "group_transfers de B: ${v}"
+v=$(curl -s "${API}/rest/v1/my_transfers?select=direction,balance_amount,concept,counterpart_handle,group_scope_id,group_transfer_proposal_id,scope_id&group_transfer_proposal_id=eq.${GPROP_1}" "${GA[@]}" | jarr 'a.length===1 && a[0].direction==="outgoing" && a[0].balance_amount==="-4000" && a[0].concept==="Taxi y algo mas" && a[0].counterpart_handle==="http_bea" && a[0].group_scope_id==="'"${GY}"'" && a[0].scope_id==="'"${PA}"'" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "my_transfers de A: saliente -4000 a @http_bea con grupo, en su Personal" || fallo "my_transfers de A: ${v}"
+v=$(curl -s "${API}/rest/v1/group_transfer_proposals?select=state,accepted_operation_id" "${GA[@]}" | jarr 'a.length===1 && a[0].state==="accepted" && a[0].accepted_operation_id==="'"${OP_G20}"'" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "group_transfer_proposals de A: accepted, ligada" || fallo "vista de A: ${v}"
+
+# 20.5 · una salida REAL invalida la pendiente: A propone en GZ y B sale de GZ (neto cero); cancel_reason = departure.
+r20 "A propone en GZ" create_group_transfer_proposal "${TOK_A}" "$(env_payload "{\"client_command_id\":\"a2000000-0000-4000-8000-000000000021\",\"command_contract_version\":1,\"group_scope_id\":\"${GZ}\",\"receiver_participant_id\":\"${ZB}\",\"amount\":\"700\"}")" 200
+GPROP_2=$(campo20 proposal_id)
+sleep 1
+r20 "B sale de GZ" leave_group "${TOK_B}" "$(env_payload "{\"client_command_id\":\"a2000000-0000-4000-8000-000000000022\",\"command_contract_version\":1,\"scope_id\":\"${GZ}\"}")" 200
+v=$(curl -s "${API}/rest/v1/group_transfer_proposals?select=state,cancel_reason&proposal_id=eq.${GPROP_2}" "${GA[@]}" | jarr 'a.length===1 && a[0].state==="cancelled" && a[0].cancel_reason==="departure" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "A la ve cancelled con reason departure" || fallo "vista tras la salida: ${v}"
+r20 "A cancela la invalidada" cancel_group_transfer_proposal "${TOK_A}" "$(env_payload "{\"proposal_id\":\"${GPROP_2}\"}")" 409
+[ "$(codigo20)" = "PROPOSAL_CANCELLED" ] && [ "$(razon20)" = "departure" ] && ok "PROPOSAL_CANCELLED · 409 con details.reason = departure" || fallo "codigo: $(codigo20) / $(razon20)"
+r20 "B acepta la invalidada" record_settlement_by_transfer "${TOK_B}" "$(env_payload "{\"client_operation_id\":\"a2000000-0000-4000-8000-000000000023\",\"command_contract_version\":1,\"proposal_id\":\"${GPROP_2}\"}")" 409
+[ "$(codigo20)" = "PROPOSAL_CANCELLED" ] && ok "aceptar tras la salida: PROPOSAL_CANCELLED · 409" || fallo "codigo: $(codigo20)"
+
+# 20.6 · rechazar y cancelar por HTTP, con sus codigos; sin JWT nada.
+r20 "A propone otra en GY" create_group_transfer_proposal "${TOK_A}" "$(env_payload "{\"client_command_id\":\"a2000000-0000-4000-8000-000000000031\",\"command_contract_version\":1,\"group_scope_id\":\"${GY}\",\"receiver_participant_id\":\"${YB}\",\"amount\":\"100\"}")" 200
+GPROP_3=$(campo20 proposal_id)
+r20 "A rechaza la suya" decline_group_transfer_proposal "${TOK_A}" "$(env_payload "{\"proposal_id\":\"${GPROP_3}\"}")" 403
+[ "$(codigo20)" = "NOT_AUTHORIZED" ] && ok "quien propuso no rechaza: NOT_AUTHORIZED" || fallo "codigo: $(codigo20)"
+r20 "B rechaza" decline_group_transfer_proposal "${TOK_B}" "$(env_payload "{\"proposal_id\":\"${GPROP_3}\"}")" 200
+[ "$(campo20 state)" = "declined" ] && ok "declined" || fallo "rechazar: ${ULTIMO_CUERPO}"
+r20 "A cancela la rechazada" cancel_group_transfer_proposal "${TOK_A}" "$(env_payload "{\"proposal_id\":\"${GPROP_3}\"}")" 409
+[ "$(codigo20)" = "PROPOSAL_DECLINED" ] && ok "PROPOSAL_DECLINED · 409" || fallo "codigo: $(codigo20)"
+r20 "A propone y cancela" create_group_transfer_proposal "${TOK_A}" "$(env_payload "{\"client_command_id\":\"a2000000-0000-4000-8000-000000000032\",\"command_contract_version\":1,\"group_scope_id\":\"${GY}\",\"receiver_participant_id\":\"${YB}\",\"amount\":\"200\"}")" 200
+GPROP_4=$(campo20 proposal_id)
+r20 "A cancela" cancel_group_transfer_proposal "${TOK_A}" "$(env_payload "{\"proposal_id\":\"${GPROP_4}\"}")" 200
+[ "$(campo20 state)" = "cancelled" ] && [ "$(campo20 cancel_reason)" = "creator" ] && ok "cancelled · creator" || fallo "cancelar: ${ULTIMO_CUERPO}"
+r20 "B acepta la cancelada" record_settlement_by_transfer "${TOK_B}" "$(env_payload "{\"client_operation_id\":\"a2000000-0000-4000-8000-000000000033\",\"command_contract_version\":1,\"proposal_id\":\"${GPROP_4}\"}")" 409
+[ "$(codigo20)" = "PROPOSAL_CANCELLED" ] && [ "$(razon20)" = "creator" ] && ok "PROPOSAL_CANCELLED · 409 (creator)" || fallo "codigo: $(codigo20) / $(razon20)"
+for vista in group_transfer_proposals group_transfers; do
+  v=$(curl -s -o /dev/null -w '%{http_code}' "${API}/rest/v1/${vista}" -H "apikey: ${KEY}")
+  [ "${v}" != "200" ] && ok "${vista} sin JWT no responde 200 (${v})" || fallo "${vista} respondio 200 sin JWT"
+done
+for fn in create_group_transfer_proposal cancel_group_transfer_proposal decline_group_transfer_proposal; do
+  rr=$(rpc "${fn}" "" '{"payload":{}}')
   ee=$(estado_de "${rr}")
   case "${ee}" in 200|201) fallo "${fn} se acepto SIN JWT (${ee})" ;; *) ok "${fn} sin JWT: ${ee}" ;; esac
 done

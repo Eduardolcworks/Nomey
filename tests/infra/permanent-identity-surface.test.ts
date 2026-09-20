@@ -173,7 +173,8 @@ describe('la evidencia y la decision', () => {
     }
     expect(LINK_CHECK).not.toMatch(/pg_temp\.call\('(unlink|unclaim)_participant'/);
     expect(GUARD).not.toMatch(/unlink|unclaim/);
-    expect(GUARD).toContain('once funciones toman el cerrojo');
+    // eleven after F10; fourteen since F12.B3 added the three group-proposal commands.
+    expect(GUARD).toContain('catorce funciones toman el cerrojo');
     expect(LOCK_RACE).not.toMatch(/unlink|unclaim|rectificar|dejar/);
     expect(LOCK_RACE).toContain('select api.redeem_invitation(');
     expect(HTTP).toContain(
