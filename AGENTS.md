@@ -644,6 +644,26 @@ Transferencia → @username` creates a **directed proposal** (non-accounting
   no `declined`, cancellable by the creator, throttled preview, at most 20
   own pending requests; paying it creates an `internal_transfer` from the
   payer to the requester, and `paid` is forever. No group, no debt.
+  **Implemented in F12.B2 (`20260927120000`, 2026-09-20):**
+  `core.payment_request` (only the sha256 of the token; `paid_by`, `paid_at`,
+  `paid_operation_id` written atomically by the writer) and
+  `core.payment_request_attempt`; `api.create_payment_request` delivers the
+  token ONCE (a replay of the same key returns the same request with
+  `token: null` — the client cancels and creates another) and counts the
+  20-pending cap under a per-creator advisory xact lock (exact);
+  `api.preview_payment_request` returns STATES, never exceptions (`ok | own |
+paid | cancelled | expired | invalid | throttled`), publishes only amount,
+  currency, concept and the creator's current identity, and only `invalid`
+  attempts count (20 / 10 min); `api.cancel_payment_request` is idempotent by
+  state; `api.record_internal_transfer` takes `proposal_id` XOR
+  `payment_request_token` — amount, currency and concept come only from the
+  locked request (no `PAYMENT_REQUEST_AMOUNT_MISMATCH`), `paid_by` =
+  `operation.created_by` = owner of `transfer_part.from_scope_id` = the
+  payer, anonymous is `NOT_AUTHORIZED` (no `GUEST_NOT_ALLOWED`). Read through
+  `api.my_payment_requests` and `api.my_transfers` (`payment_request_id`).
+  The token is the bearer the client (F12.C) will put into the shareable
+  link; the hash never leaves the database. Precisions in
+  `docs/adr/F12/README.md`.
 - **Out of F12:** device contacts, phone, SMS/OTP, e-mail search, real bank
   transfers, Open Banking, cards, shared pots, loans, advances, scheduled
   payments, multi-transfers, requests inside a group, transfers to
@@ -746,8 +766,8 @@ Two artefacts closed Phase 5 and are worth knowing about:
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
 and twelve reproducible probes that measured the decisions behind the schema
-(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **58
-migrations** rebuilt from zero in CI with 38 SQL checks and fourteen real-session
+(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **59
+migrations** rebuilt from zero in CI with 39 SQL checks and fifteen real-session
 race scripts. A pure reference implementation of the financial domain in
 `src/domain/`, with shared test vectors in `tests/vectors/` that the server
 boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 148 files.
