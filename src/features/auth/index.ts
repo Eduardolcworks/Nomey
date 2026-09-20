@@ -69,3 +69,40 @@ export { SignInForm, type SignInFormProps } from './sign-in-form';
 export { GuestSignUp } from './guest-sign-up';
 export { reserveUsername, type ReservationResult } from './username-reservation';
 export { UsernameField, type UsernameFieldProps } from './username-field';
+export {
+  calendarDayOf,
+  canChangeUsername,
+  identityFromRow,
+  IDENTITY_IDLE,
+  IDENTITY_REQUIRED,
+  IDENTITY_UNAVAILABLE,
+  isIdentityPending,
+  canEnterApp,
+  needsUsernameGate,
+  type AccountIdentity,
+  type AccountIdentityRow,
+  type IdentityState,
+} from './identity-state';
+export {
+  changeUsername,
+  chooseUsername,
+  claimUsername,
+  updatePublicName,
+  type IdentityResult,
+  type PublicNameResult,
+} from './identity-service';
+export {
+  AccountIdentityProvider,
+  IDENTITY_WATCHDOG_MS,
+  useAccountIdentity,
+} from './use-account-identity';
+export { UsernameGate } from './username-gate';
+export { UsernameEditor } from './username-editor';
+export { onIdentityWake, wakeIdentity } from './identity-wake';
+export {
+  IDENTITY_CACHE_KEY,
+  parseIdentity,
+  recallIdentity,
+  rememberIdentity,
+  serializeIdentity,
+} from './identity-cache';

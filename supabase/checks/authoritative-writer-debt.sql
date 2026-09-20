@@ -345,6 +345,26 @@ insert into core.participant_user_link (participant_id, scope_id, user_id) value
   ('b0000000-0000-4000-8000-0000000000a7','a0000000-0000-4000-8000-0000000000f7','11111111-1111-4111-8111-111111111111'),
   ('b0000000-0000-4000-8000-0000000000b7','a0000000-0000-4000-8000-0000000000f7','22222222-2222-4222-8222-222222222222');
 
+-- Desde F12.B3 (20260928120000) una liquidacion por transferencia nace de una
+-- PROPUESTA de grupo que el receptor acepta, y las dos partes llevan username
+-- definitivo (F12/ADR-003 §5): las identidades de A, B y D, por las funciones
+-- reales. J vuelve a reservar los mismos handles, que es idempotente.
+do $identidades$
+declare
+  v_u text; v_h text;
+begin
+  for v_u, v_h in select * from (values
+      ('11111111-1111-4111-8111-111111111111', 'deb_a'),
+      ('22222222-2222-4222-8222-222222222222', 'deb_b'),
+      ('44444444-4444-4444-8444-444444444444', 'deb_m')) as t(u, h) loop
+    set local role authenticated;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_u)::text, true);
+    perform * from api.reserve_username(jsonb_build_object('handle', v_h, 'public_name', upper(v_h)));
+    reset role;
+  end loop;
+end
+$identidades$;
+
 -- Periodos de presencia. Z tiene uno CERRADO a proposito.
 insert into core.participant_period (participant_id, valid_from, valid_until) values
   ('b0000000-0000-4000-8000-0000000000a1','2020-01-01',null),
@@ -779,8 +799,11 @@ begin
         'split_method', jsonb_build_object('kind','equal')));
   reset role;
 
-  -- D1 · el ACREEDOR no puede originarla. B no puede registrar «A me ha pagado»
-  -- y provocar una salida en el Modo Personal de A (invariante 14).
+  -- D1 · NADIE origina una salida en el Modo Personal de otro (invariante 14,
+  -- precisado por F12/ADR-003 §2): desde F12.B3 el writer no acepta un deudor,
+  -- un acreedor ni un importe del payload —los campos de F3 son
+  -- PAYLOAD_INVALID— y solo materializa una PROPUESTA de grupo dirigida al
+  -- actor. B no puede registrar «A me ha pagado».
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', B)::text, true);
   begin
@@ -789,23 +812,47 @@ begin
       'command_contract_version',1,'effective_date','2026-04-02',
       'debt_scope_id',G1,'currency_definition_id',EUR,'amount','3000',
       'debtor_participant_id',QA,'creditor_participant_id',QB));
-    fallos := array_append(fallos, 'D1: el acreedor origino una salida en el Modo Personal del deudor');
+    fallos := array_append(fallos, 'D1: el writer acepto el payload de F3 con deudor y acreedor');
+  exception when sqlstate 'PGRST' then
+    if sqlerrm not like '%PAYLOAD_INVALID%' then
+      fallos := array_append(fallos, format('D1b: codigo inesperado: %s', sqlerrm));
+    end if;
+  end;
+  begin
+    perform api.record_settlement_by_transfer(jsonb_build_object(
+      'client_operation_id','62000000-0000-4000-8000-000000000002',
+      'command_contract_version',1,'proposal_id',gen_random_uuid()));
+    fallos := array_append(fallos, 'D1c: se acepto una propuesta inexistente');
   exception when sqlstate 'PGRST' then
     if sqlerrm not like '%NOT_AUTHORIZED%' then
-      fallos := array_append(fallos, format('D1b: codigo inesperado: %s', sqlerrm));
+      fallos := array_append(fallos, format('D1d: codigo inesperado: %s', sqlerrm));
     end if;
   end;
   reset role;
 
-  -- D2 · el DEUDOR si. Tres efectos: dos de saldo y uno de liquidacion, y no se
-  -- fusionan (ADR-002 §3).
+  -- D2 · dos voluntades: A (deudor) PROPONE 30,00 a B dentro de G1 y B acepta.
+  -- Tres efectos: dos de saldo y uno de liquidacion, y no se fusionan
+  -- (ADR-002 §3). Quien propuso no puede aceptar la suya.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
+  r := api.create_group_transfer_proposal(jsonb_build_object(
+        'client_command_id','62000000-0000-4000-8000-000000000003',
+        'command_contract_version',1,
+        'group_scope_id',G1,'receiver_participant_id',QB,'amount','3000'));
+  begin
+    perform api.record_settlement_by_transfer(jsonb_build_object(
+      'client_operation_id','62000000-0000-4000-8000-000000000003',
+      'command_contract_version',1,'proposal_id', r ->> 'proposal_id'));
+    fallos := array_append(fallos, 'D2a: quien propuso materializo su propia propuesta');
+  exception when sqlstate 'PGRST' then
+    if sqlerrm not like '%NOT_AUTHORIZED%' then
+      fallos := array_append(fallos, format('D2a: codigo inesperado: %s', sqlerrm));
+    end if;
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub', B)::text, true);
   r := api.record_settlement_by_transfer(jsonb_build_object(
         'client_operation_id','62000000-0000-4000-8000-000000000003',
-        'command_contract_version',1,'effective_date','2026-04-03',
-        'debt_scope_id',G1,'currency_definition_id',EUR,'amount','3000',
-        'debtor_participant_id',QA,'creditor_participant_id',QB));
+        'command_contract_version',1,'proposal_id', r ->> 'proposal_id'));
   reset role;
 
   select o.current_version_id into v_ver from core.operation o
@@ -845,20 +892,20 @@ begin
     fallos := array_append(fallos, format('D3: el pendiente tras el pago es %s', v_got));
   end if;
 
-  -- D4 · si el ACREEDOR no tiene Modo Personal no hay segundo extremo interno, y
-  -- esta clase no es la que corresponde: ese caso es transferencia EXTERNA mas
-  -- liquidacion, y son dos operaciones (`data-model.md` §4.7).
+  -- D4 · si el receptor no tiene cuenta (Marta, sin vinculo) no hay segundo
+  -- extremo interno: F12/ADR-003 §5 exige un participante VINCULADO, asi que
+  -- la propuesta ni se crea (`data-model.md` §4.7: ese caso es transferencia
+  -- EXTERNA mas liquidacion, y son dos operaciones).
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
   begin
-    perform api.record_settlement_by_transfer(jsonb_build_object(
-      'client_operation_id','62000000-0000-4000-8000-000000000004',
-      'command_contract_version',1,'effective_date','2026-04-04',
-      'debt_scope_id',G1,'currency_definition_id',EUR,'amount','1',
-      'debtor_participant_id',QA,'creditor_participant_id',QE));
-    fallos := array_append(fallos, 'D4: se invento un Modo Personal para un acreedor que no tiene cuenta');
+    perform api.create_group_transfer_proposal(jsonb_build_object(
+      'client_command_id','62000000-0000-4000-8000-000000000004',
+      'command_contract_version',1,
+      'group_scope_id',G1,'receiver_participant_id',QE,'amount','1'));
+    fallos := array_append(fallos, 'D4: se propuso una transferencia a un participante sin cuenta');
   exception when sqlstate 'PGRST' then
-    if sqlerrm not like '%CREDITOR_WITHOUT_PERSONAL_SCOPE%' then
+    if sqlerrm not like '%NOT_AUTHORIZED%' then
       fallos := array_append(fallos, format('D4b: codigo inesperado: %s', sqlerrm));
     end if;
   end;
@@ -867,7 +914,7 @@ begin
   if array_length(fallos, 1) is not null then
     raise exception E'FALLOS DE LA LIQUIDACION POR TRANSFERENCIA:\n  - %', array_to_string(fallos, E'\n  - ');
   end if;
-  raise notice 'OK · D · tres efectos, y solo la origina el deudor';
+  raise notice 'OK · D · tres efectos, y solo nacen de una propuesta de grupo aceptada por su receptor';
 end
 $transferencia$;
 
@@ -1651,6 +1698,16 @@ declare
     'personal-M','a0000000-0000-4000-8000-0000000000d1');
   v_user_map constant jsonb := jsonb_build_object(
     'A', U1::text, 'B', U2::text, 'C', U3::text, 'D', U4::text, 'M', U4::text);
+  -- F12.B1 (20260926120000): una transferencia entre usuarios se PROPONE a un
+  -- @handle y la acepta el receptor; el handle de cada dueno de Personal.
+  v_handle_map constant jsonb := jsonb_build_object(
+    'personal-A', 'deb_a', 'personal-B', 'deb_b', 'personal-M', 'deb_m');
+  v_owner_map constant jsonb := jsonb_build_object(
+    'personal-A', U1::text, 'personal-B', U2::text, 'personal-M', U4::text);
+  -- Sus operaciones llevan la fecha del servidor al aceptar (F12/ADR-002
+  -- §21), no la del vector: se identifican por operation_id, no por fecha.
+  v_transfers uuid[];
+  v_env jsonb;
 
   v_case jsonb; v_op jsonb; v_exp jsonb;
   v_seen int := 0; v_key int := 0;
@@ -1662,6 +1719,15 @@ begin
   if to_regclass('pg_temp.vector_doc') is null then
     raise exception 'FALTA EL PROLOGO DE VECTORES: ejecuta ./scripts/vectors-prelude.sh antes de este check';
   end if;
+
+  -- Identidad publica de los duenos de los tres Personales (F12/ADR-001), por
+  -- las funciones reales: una cuenta normal reserva y reclama en el acto.
+  for v_letter in select key from jsonb_each_text(v_handle_map) loop
+    set local role authenticated;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_owner_map ->> v_letter)::text, true);
+    perform * from api.reserve_username(jsonb_build_object('handle', v_handle_map ->> v_letter, 'public_name', v_letter));
+    reset role;
+  end loop;
 
   for v_case in
     select c from jsonb_array_elements((select doc -> 'cases' from vector_doc where name = 'scenarios')) as c
@@ -1680,6 +1746,7 @@ begin
     v_group := ('a0000000-0000-4000-8000-' || lpad((900000 + v_seen)::text, 12, '0'))::uuid;
     v_expect_error := v_case ->> 'expectError';
     v_err := null;
+    v_transfers := '{}'::uuid[];
 
     -- Letras que el escenario nombra, en cualquier papel.
     select array_agg(distinct l) into v_letters from (
@@ -1780,12 +1847,18 @@ begin
             fallos := array_append(fallos, format(
               'J/%s: los dos extremos llevan importes distintos y 3.C no soporta conversion', v_case ->> 'id'));
           end if;
-          perform api.record_internal_transfer(jsonb_build_object(
-            'client_operation_id', ('70000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
-            'command_contract_version', 1, 'effective_date', v_fecha::text,
-            'from_scope_id', v_scope_map ->> (v_op ->> 'fromScope'),
-            'to_scope_id',   v_scope_map ->> (v_op ->> 'toScope'),
+          -- Dos voluntades (F12/ADR-002): el dueno del ambito de salida propone
+          -- al handle del dueno del de entrada, y este acepta.
+          v_env := api.create_transfer_proposal(jsonb_build_object(
+            'client_command_id', ('70000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
+            'command_contract_version', 1,
+            'handle', v_handle_map ->> (v_op ->> 'toScope'),
             'amount', v_op ->> 'fromAmount', 'currency_definition_id', EUR::text));
+          perform set_config('request.jwt.claims', json_build_object('sub', v_owner_map ->> (v_op ->> 'toScope'))::text, true);
+          v_env := api.record_internal_transfer(jsonb_build_object(
+            'client_operation_id', ('70000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
+            'command_contract_version', 1, 'proposal_id', v_env ->> 'proposal_id'));
+          v_transfers := v_transfers || (v_env ->> 'operation_id')::uuid;
 
         elsif v_kind = 'groupExpense' then
           perform api.record_group_expense(jsonb_build_object(
@@ -1823,17 +1896,22 @@ begin
             fallos := array_append(fallos, format(
               'J/%s: transferido y liquidado difieren, y 3.C no lo representa en una sola version', v_case ->> 'id'));
           end if;
-          perform api.record_settlement_by_transfer(jsonb_build_object(
+          -- Dos voluntades (F12/ADR-003): el deudor propone al participante del
+          -- acreedor y el acreedor acepta. Fecha del servidor: se identifica por
+          -- operation_id, como la internal_transfer.
+          v_env := api.create_group_transfer_proposal(jsonb_build_object(
+            'client_command_id', ('70000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
+            'command_contract_version', 1,
+            'group_scope_id', v_group::text,
+            'receiver_participant_id',
+              ('c0000000-0000-4000-8000-'
+               || lpad((v_seen * 10 + strpos('ABCDM', v_op ->> 'creditor'))::text, 12, '0')),
+            'amount', v_op ->> 'settledAmount'));
+          perform set_config('request.jwt.claims', json_build_object('sub', v_user_map ->> (v_op ->> 'creditor'))::text, true);
+          v_env := api.record_settlement_by_transfer(jsonb_build_object(
             'client_operation_id', ('70000000-0000-4000-8000-' || lpad(v_key::text, 12, '0'))::uuid,
-            'command_contract_version', 1, 'effective_date', v_fecha::text,
-            'debt_scope_id', v_group::text, 'currency_definition_id', EUR::text,
-            'amount', v_op ->> 'settledAmount',
-            'debtor_participant_id',
-              ('c0000000-0000-4000-8000-'
-               || lpad((v_seen * 10 + strpos('ABCDM', v_op ->> 'debtor'))::text, 12, '0')),
-            'creditor_participant_id',
-              ('c0000000-0000-4000-8000-'
-               || lpad((v_seen * 10 + strpos('ABCDM', v_op ->> 'creditor'))::text, 12, '0'))));
+            'command_contract_version', 1, 'proposal_id', v_env ->> 'proposal_id'));
+          v_transfers := v_transfers || (v_env ->> 'operation_id')::uuid;
 
         else
           fallos := array_append(fallos, format('J/%s: kind desconocido %s', v_case ->> 'id', v_kind));
@@ -1872,8 +1950,10 @@ begin
       select coalesce(sum(e.balance_amount), 0) into v_got
         from core.current_effect e
         join core.operation_version ov on ov.id = e.operation_version_id
+        join core.operation o on o.id = ov.operation_id
        where e.scope_id = coalesce((v_scope_map ->> (v_exp ->> 'scope'))::uuid, v_group)
-         and ov.effective_date = v_fecha;
+         and ((ov.effective_date = v_fecha and o.operation_class not in ('internal_transfer', 'settlement_by_transfer'))
+              or ov.operation_id = any(v_transfers));
       if v_got <> v_want then
         fallos := array_append(fallos, format('J/%s: saldo de %s = %s y el vector espera %s',
           v_case ->> 'id', v_exp ->> 'scope', v_got, v_want));
@@ -1885,9 +1965,11 @@ begin
       select coalesce(sum(e.economic_amount), 0) into v_got
         from core.current_effect e
         join core.operation_version ov on ov.id = e.operation_version_id
+        join core.operation o on o.id = ov.operation_id
        where e.scope_id = coalesce((v_scope_map ->> (v_exp ->> 'scope'))::uuid, v_group)
          and e.accounting_class = 'expense' and e.economic_amount is not null
-         and ov.effective_date = v_fecha;
+         and ((ov.effective_date = v_fecha and o.operation_class not in ('internal_transfer', 'settlement_by_transfer'))
+              or ov.operation_id = any(v_transfers));
       if v_got <> v_want then
         fallos := array_append(fallos, format('J/%s: economica de %s = %s y el vector espera %s',
           v_case ->> 'id', v_exp ->> 'scope', v_got, v_want));
@@ -1978,10 +2060,15 @@ begin
     -- grupo y los tres personales del mapa—, que es lo unico sobre lo que puede
     -- afirmar algo. En CI, desde cero, no cambia nada.
     if v_case -> 'expect' ? 'balanceEffectScopes' then
+      -- Las transferencias entre usuarios llevan la fecha del servidor (F12.B1):
+      -- por fecha solo cuentan las demas clases; ellas, por su operation_id.
       select count(distinct e.scope_id) into v_n
         from core.current_effect e
         join core.operation_version ov on ov.id = e.operation_version_id
-       where e.balance_amount is not null and ov.effective_date = v_fecha
+        join core.operation o on o.id = ov.operation_id
+       where e.balance_amount is not null
+         and ((ov.effective_date = v_fecha and o.operation_class not in ('internal_transfer', 'settlement_by_transfer'))
+              or ov.operation_id = any(v_transfers))
          and (e.scope_id = v_group or e.scope_id in (
                select (value)::uuid from jsonb_each_text(v_scope_map)));
       if v_n <> jsonb_array_length(v_case -> 'expect' -> 'balanceEffectScopes') then
@@ -1992,7 +2079,10 @@ begin
         if not exists (
           select 1 from core.current_effect e2
           join core.operation_version ov on ov.id = e2.operation_version_id
-          where e2.balance_amount is not null and ov.effective_date = v_fecha
+          join core.operation o on o.id = ov.operation_id
+          where e2.balance_amount is not null
+            and ((ov.effective_date = v_fecha and o.operation_class not in ('internal_transfer', 'settlement_by_transfer'))
+                 or ov.operation_id = any(v_transfers))
             and e2.scope_id = coalesce((v_scope_map ->> v_letter)::uuid, v_group)) then
           fallos := array_append(fallos, format('J/%s: no hubo movimiento de caja en %s',
             v_case ->> 'id', v_letter));

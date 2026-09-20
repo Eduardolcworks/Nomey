@@ -467,6 +467,8 @@ export const esES = {
     'Solo letras minúsculas, números y _, empezando por letra, de 3 a 20 caracteres.',
   'authError.usernameReserved': 'Ese nombre de usuario está reservado. Elige otro.',
   'authError.usernameTaken': 'Ese nombre de usuario ya está en uso. Elige otro.',
+  'authError.usernameCooldown':
+    'Cambiaste tu nombre de usuario hace poco. Todavía no puedes volver a cambiarlo.',
   'authError.emailRequired': 'Escribe tu email.',
   'authError.passwordRequired': 'Escribe una contraseña.',
   'authError.passwordMismatch': 'Las dos contraseñas no coinciden.',
@@ -583,6 +585,19 @@ export const esES = {
   'profile.photoSoonTitle': 'Foto de perfil',
   'profile.photoSoonBody': 'Todavía no puedes subir una foto. Llegará más adelante.',
   'profile.editName': 'Editar nombre',
+
+  'identity.gateTitle': 'Elige tu nombre de usuario',
+  'identity.gateBody':
+    'Es como te encontrarán los demás en Nomey. Puedes cambiarlo más adelante, cada 30 días.',
+  'identity.gateAction': 'Continuar',
+  'identity.publicName': 'Nombre público',
+  'identity.publicNameHint': 'Lo que verán los demás junto a tu usuario.',
+  'identity.noUsername': 'Sin nombre de usuario',
+  'identity.editUsername': 'Cambiar nombre de usuario',
+  'identity.changeHint': 'El anterior queda guardado 90 días y puedes recuperarlo escribiéndolo.',
+  'identity.cooldownUntil': 'Podrás cambiarlo a partir del {date}.',
+  'identity.nameSyncPending':
+    'Nombre guardado. El saludo de Inicio se pondrá al día en un momento.',
 
   'dev.states': 'Estados comunes',
   'dev.statesHint': 'Solo en desarrollo. Sirve para comprobarlos en el dispositivo.',

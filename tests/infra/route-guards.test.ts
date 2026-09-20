@@ -85,12 +85,44 @@ describe('guardas de ruta del layout raíz', () => {
   });
 
   describe('la rama protegida', () => {
+    /*
+     * Desde F12.A3 la sesión abre DOS bloques excluyentes: el gate de username
+     * (`gate`) y el producto (`!gate`). El producto es el que no lleva el gate
+     * ni `__DEV__`.
+     */
     const productBlock = blocks.find(
-      (block) => block.guard.includes('isSignedIn') && !block.guard.includes('__DEV__'),
+      (block) =>
+        block.guard.includes('isSignedIn') &&
+        !block.guard.includes('__DEV__') &&
+        block.guard.includes('!gate'),
+    );
+    const gateBlock = blocks.find(
+      (block) => block.guard.includes('isSignedIn') && /&& gate\b/.test(block.guard),
     );
 
     it('existe y la decide `isSignedIn`', () => {
       expect(productBlock).toBeDefined();
+    });
+
+    it('el gate de username (F12/ADR-001 §7) es su propio bloque, con sesión y solo esa pantalla', () => {
+      // Cuenta normal sin username definitivo: el gate en lugar de las tabs. Es
+      // navegación, no seguridad; el servidor rehúsa por su cuenta lo que exige
+      // username. Y el producto lleva `!gate`: nunca los dos a la vez.
+      expect(gateBlock).toBeDefined();
+      expect(gateBlock?.screens).toEqual(['username-gate']);
+      expect(gateBlock?.guard).toContain('!recovering');
+      expect(productBlock?.guard).toContain('!gate');
+    });
+
+    it('sin red NO hay rama bloqueante: la sesion abre solo dos ramas, tabs y gate (offline first)', () => {
+      // F07/ADR-001: un fallo de transporte al resolver la identidad entra a
+      // las tabs; solo USERNAME_REQUIRED del servidor abre el gate.
+      const sessionBlocks = blocks.filter(
+        (block) => block.guard.includes('isSignedIn') && !block.guard.includes('__DEV__'),
+      );
+      expect(sessionBlocks).toHaveLength(2);
+      expect(blocks.some((block) => /unavailable/.test(block.guard))).toBe(false);
+      expect(registered).not.toContain('identity-unavailable');
     });
 
     it('contiene las tabs y todas las rutas de producto', () => {
@@ -167,6 +199,12 @@ describe('guardas de ruta del layout raíz', () => {
       // Las dos guardas en false dejarían un Stack sin pantallas disponibles.
       // La regla de producto es más fuerte que eso: ninguna rama se monta.
       expect(LAYOUT).toMatch(/if\s*\(!resolved\)\s*\{\s*return/);
+    });
+
+    it('resuelto incluye la identidad: una cuenta normal no monta nada hasta saber si hay username', () => {
+      // F12.A3: ni las tabs ni el gate mientras el ciclo pregunta al servidor;
+      // un invitado no espera nada (isIdentityPending es falso para él).
+      expect(LAYOUT).toContain('const resolved = isResolved(state) && !identityPending;');
     });
 
     it('y el splash se suelta con CUALQUIER resolución, no solo con la buena', () => {

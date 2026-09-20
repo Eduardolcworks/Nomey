@@ -551,26 +551,48 @@ ADRs of phases F00–F12 are accepted** (F00/ADR-001 is still Proposed; see
 `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a real local
 Supabase stack.
 
-**Phase 12 is OPEN (2026-09-17) and only F12.A0 is closed: four accepted ADRs
-and no implementation at all.** The original scope was reconciled against the
-repository — `shares`/`exact_amounts`, eligibility on correction, departed
-participants and residual access were already done or closed by F9/F10 — and
-what remains is one product idea with four contracts, none of which exists in
-the code yet ([`docs/adr/F12/`](docs/adr/F12/README.md); roadmap, Fase 12):
+**Phase 12 is OPEN (2026-09-17). F12.A0, F12.A and F12.B are CLOSED (F12.A
+on 2026-09-19, F12.B on 2026-09-20); the next block is F12.C.** The original scope was reconciled
+against the repository — `shares`/`exact_amounts`, eligibility on correction,
+departed participants and residual access were already done or closed by
+F9/F10 — and what remains is one product idea with four contracts: the first
+(username) is **implemented end to end** and the other three have their
+backend (B1, B2, B3) and no screen yet ([`docs/adr/F12/`](docs/adr/F12/README.md); roadmap, Fase 12):
 
-- **Username** ([F12/ADR-001](docs/adr/F12/ADR-001-username-public-account-identity.md)):
-  a public, unique, resolvable account attribute in its own `core` relation
-  (never Auth metadata); `^[a-z](_?[a-z0-9])*$`, 3–20, ASCII; 25 exact
-  reserved names and 4 prefixes; **reserved in the same GoTrue transaction as
-  the sign-up** by the `before_user_created` hook (one `SECURITY DEFINER`
-  function in `sec`, the only privilege `supabase_auth_admin` gets — a
-  measured, guarded precision of F03/ADR-003; no RPC for `anon`, no Edge
-  Function, no trigger on `auth.users`); 7-day provisional reservation that
-  expires when `claimed_at` is null **without reading Auth**; claim on the
-  first authenticated cycle; change with a 30-day cooldown and 90-day hold;
-  `public_name` in `core`; exact resolution throttled at 20 lookups / 10 min;
-  and every history row resolves **`uid → current public identity`** — no
-  username is ever persisted in an operation or resolved backwards.
+- **Username — DONE (F12.A, [F12/ADR-001](docs/adr/F12/ADR-001-username-public-account-identity.md)).**
+  A public, unique, resolvable account attribute in its own `core` relations
+  (`20260921120000`: `core.account_identity` 1:1 with `public_name`,
+  `core.account_handle` one row per handle with state derived from marks,
+  insert-only `core.account_handle_event`, `core.reserved_handle`,
+  `core.username_lookup_attempt`); `^[a-z](_?[a-z0-9])*$`, 3–20, ASCII; 25
+  exact reserved names and 4 prefixes shared with `src/domain/username` through
+  `tests/vectors/username.json`. **Reserved in the same GoTrue transaction as
+  the email sign-up** by `sec.before_user_created` (`20260924120000`; owner
+  `nomey_provisioner`, the ONLY `sec` function `supabase_auth_admin` executes —
+  guarded in `username.sql`; enabled in `config.toml` for the local stack, a
+  hosted project must enable it itself); the hook requires
+  `requested_username` + `display_name`, reserves for 7 days and **never
+  claims**; anonymous and non-email providers pass through. A guest reserves
+  through `api.reserve_username` BEFORE `updateUser`. The client lifecycle is
+  ONE RPC per session, `claim_username`: live reservation → definitive,
+  definitive → no write, none/expired → `USERNAME_REQUIRED`, and **only that
+  server verdict opens the username gate** (name + username, no skip) instead
+  of the tabs; a guest never asks and never sees it. Profile shows the public
+  identity from `core`, writes `set_public_name` BEFORE the Auth metadata copy,
+  changes the handle with `change_username` (30-day cooldown shown from
+  `can_change_at`, 90-day hold, recovering counts as a change). **Offline
+  first:** a transport failure is NOT `USERNAME_REQUIRED` — the account enters,
+  the last server-confirmed definitive identity is cached per actor in the F7
+  offline store (never an authority: the server always overrides it, and it
+  never opens the gate), a 10 s watchdog lets a cold start continue without an
+  answer, and the lifecycle re-asks on the next foreground through the ONE
+  `AppState` seam the queue already uses (no polling). Exact resolution
+  (`resolve_username`) throttled at 20 lookups / 10 min publishes only state,
+  handle and name; every history row resolves **`uid → current public identity`**
+  (`sec.public_identity`) — no username is ever persisted in an operation or
+  resolved backwards. _Pending a device validation with an installed build:_
+  a fully offline cold start on iPhone (Expo Go + Metro over a hotspot cannot
+  isolate that scenario); not a blocker.
 - **Transfers between users need two wills** ([F12/ADR-002](docs/adr/F12/ADR-002-two-will-user-transfers.md)):
   Nomey moves no real money, and the username makes reach global, so nobody
   may write into another Personal without its owner. `Personal → + →
@@ -584,8 +606,27 @@ Transferencia → @username` creates a **directed proposal** (non-accounting
   from `created_by`; the `created_by = actor` policies are not relaxed.
   Invariant 14 is precised: "originate" = authorise one's own outflow by
   proposal. 3 pending per pair, 10 proposals/hour per sender. This supersedes
-  the F3 contract of `record_internal_transfer` (measured: it still allows a
-  unilateral correction and nobody can annul it).
+  the F3 contract of `record_internal_transfer`. **Implemented in F12.B1
+  (`20260926120000`, 2026-09-19):** `core.transfer_proposal` +
+  `core.transfer_part`; `api.create_transfer_proposal` takes a `handle` and
+  resolves it ONCE on the server (`sec.handle_owner`, provisioner only; the
+  client never sends or receives a uid), shares the resolver's 20 / 10 min
+  throttle (`RECIPIENT_LOOKUP_THROTTLED · 429`), and answers "nobody has that
+  username" as the STATE `not_found` (200), not as an error — measured: an
+  exception rolls back the throttle attempt, and probing would be free (same
+  reason `sec.resolve_invitation` returns `invalid`); `cancel_` /
+  `decline_transfer_proposal` are idempotent by state; the per-sender budget
+  is counted on persisted proposals under a per-sender advisory xact lock
+  (`sec.lock_proposal_budget`) and is exact (11 simultaneous → 10);
+  `api.record_internal_transfer` was recreated with payload
+  `{client_operation_id, command_contract_version, proposal_id}` — F3 fields
+  are `PAYLOAD_INVALID`, `operation_id`/`expected_version_id` are
+  `TRANSFER_NOT_EDITABLE` before the key —, only the target accepts, effective
+  date/time are the server's, and `sec.persist_version` + `api.annul_operation`
+  refuse any second version of the class. Read through
+  `api.my_transfer_proposals` and `api.my_transfers` (identity via
+  `sec.my_transfer_counterparts()`; `personal_operation` does not list the
+  class yet). Precisions in `docs/adr/F12/README.md`.
 - **Transfer inside a group** ([F12/ADR-003](docs/adr/F12/ADR-003-group-transfers.md)):
   `Grupo → + → Transferencia → participante` (active, linked, same group)
   proposes; acceptance creates a `settlement_by_transfer`: `transfer ∓N` in
@@ -596,13 +637,70 @@ Transferencia → @username` creates a **directed proposal** (non-accounting
   keep their cap. Leaving the group invalidates a **pending** proposal
   (derived from `core.group_departure` inside the window, `leave_group`
   untouched, never a terminal one, never revived by rejoining). Offered only
-  from `+`, never from Pagos sugeridos.
+  from `+`, never from Pagos sugeridos. **Implemented in F12.B3
+  (`20260928120000`, 2026-09-20):** `core.group_transfer_proposal` (target
+  fixed at creation from the participant's link) and `core.transfer_part`
+  extended with `group_scope_id` + both participants (all-or-nothing; B1/B2
+  rows stay NULL); the three commands and the writer are owned by
+  `nomey_writer`. `api.create_group_transfer_proposal` takes
+  `receiver_participant_id` (active, linked, eligible today, same group; no
+  @handle in groups), requires a definitive username on BOTH sides, derives
+  the currency from the group base, caps 3 pending per pair and shares the
+  10 / 60 min budget with the Personal proposals under the SAME advisory
+  lock (`sec.assert_proposal_budget`, now a provisioner definer counting
+  both relations; exact and mixed — measured); `cancel_` /
+  `decline_group_transfer_proposal` are idempotent by state. The departure
+  cancellation is DERIVED (no persisted mark; `created_at < left_at <
+expires_at`; precedence accepted → declined → cancelled·creator →
+  cancelled·departure → expired → pending) and every transition takes the
+  group's range-1 lock — the one `leave_group` takes first — before reading
+  it, so a mark can only be written with no departure in the window;
+  `PROPOSAL_CANCELLED · 409` carries `details.reason`. The state leaves
+  through `sec.group_transfer_proposal_state`, a writer definer with
+  INTERNAL authorization (actor from `sec.request_actor_id()`; a row only
+  for the creator or the target; foreign and nonexistent indistinguishable;
+  only `state` and `cancel_reason`) — and `authenticated` has no USAGE on
+  `sec`, so it is reachable only through `api.group_transfer_proposals`.
+  `api.record_settlement_by_transfer` was recreated with payload
+  `{client_operation_id, command_contract_version, proposal_id}` (F3 fields
+  `PAYLOAD_INVALID`, `operation_id`/`expected_version_id`
+  `TRANSFER_NOT_EDITABLE` before the key), only the target accepts, lock
+  order key → row → range 1 → scopes ascending, three effects for the full
+  amount crossing zero (measured: 78 owed + 80 sent → the creditor owes 2),
+  `created_by` = the receiver, direction from the parts never from
+  `created_by`; `SETTLEMENT_EXCEEDS_DEBT` stops applying ONLY to this
+  class — `group_payment` and `record_debt_settlement` keep their cap
+  (measured), and the delta guard still refuses annulling a later settlement
+  that would reopen a crossed pair negative. Read through
+  `api.group_transfer_proposals`, `api.group_transfers` and
+  `api.my_transfers` (two new columns at the end); `api.group_operation`
+  untouched. Precisions in `docs/adr/F12/README.md`.
 - **Payment requests by link** ([F12/ADR-004](docs/adr/F12/ADR-004-payment-request-links.md)):
   a **bearer capability** (opaque token, hash only, invitation pattern) with
   fixed amount and currency, concept on the request, **single use**, 7 days,
   no `declined`, cancellable by the creator, throttled preview, at most 20
   own pending requests; paying it creates an `internal_transfer` from the
   payer to the requester, and `paid` is forever. No group, no debt.
+  **Implemented in F12.B2 (`20260927120000`, 2026-09-20):**
+  `core.payment_request` (only the sha256 of the token; `paid_by`, `paid_at`,
+  `paid_operation_id` written atomically by the writer) and
+  `core.payment_request_attempt`; `api.create_payment_request` delivers the
+  token ONCE (a replay of the same key returns the same request with
+  `token: null` — the client cancels and creates another) and counts the
+  20-pending cap under a per-creator advisory xact lock (exact);
+  `api.preview_payment_request` returns STATES, never exceptions (`ok | own |
+paid | cancelled | expired | invalid | throttled`), publishes only amount,
+  currency, concept and the creator's current identity, and only `invalid`
+  attempts count (20 / 10 min); `api.cancel_payment_request` is idempotent by
+  state; `api.record_internal_transfer` takes `proposal_id` XOR
+  `payment_request_token` — amount, currency and concept come only from the
+  locked request (no `PAYMENT_REQUEST_AMOUNT_MISMATCH`), `paid_by` =
+  `operation.created_by` = owner of `transfer_part.from_scope_id` = the
+  payer, anonymous is `NOT_AUTHORIZED` (no `GUEST_NOT_ALLOWED`). Read through
+  `api.my_payment_requests` and `api.my_transfers` (`payment_request_id`).
+  The token is the bearer the client (F12.C) will put into the shareable
+  link; the hash never leaves the database. Precisions in
+  `docs/adr/F12/README.md`.
 - **Out of F12:** device contacts, phone, SMS/OTP, e-mail search, real bank
   transfers, Open Banking, cards, shared pots, loans, advances, scheduled
   payments, multi-transfers, requests inside a group, transfers to
@@ -705,11 +803,11 @@ Two artefacts closed Phase 5 and are worth knowing about:
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
 and twelve reproducible probes that measured the decisions behind the schema
-(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **56
-migrations** rebuilt from zero in CI with 37 SQL checks and twelve real-session
+(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **60
+migrations** rebuilt from zero in CI with 40 SQL checks and sixteen real-session
 race scripts. A pure reference implementation of the financial domain in
 `src/domain/`, with shared test vectors in `tests/vectors/` that the server
-boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 145 files.
+boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 148 files.
 Screens with economic function exist for the Modo Personal (F6, F7) and for
 Groups (F9): creating, inviting, shared expenses, balances, declared payments,
 leaving and rejoining.
@@ -973,13 +1071,16 @@ a write boundary must stay under it (E16). Do not unify them.
   conflated them were corrected.
 - **Create and correct share a function**, distinguished by `operation_id` +
   `expected_version_id` in the payload and by `command_type` for idempotency.
-  **Two classes are the exception by decision, not yet by code:** from F12
-  (F12/ADR-002, F12/ADR-003) an `internal_transfer` and a
-  `settlement_by_transfer` have exactly one `record` version, born from an
-  accepted proposal or a paid request, and admit neither correction nor
-  annulment. Until F12.B lands, `record_internal_transfer` and
-  `record_settlement_by_transfer` still carry their F3 contract in the
-  catalogue; do not build on it.
+  **Two classes are the exception:** from F12 (F12/ADR-002, F12/ADR-003) an
+  `internal_transfer` and a `settlement_by_transfer` have exactly one
+  `record` version, born from an accepted proposal or a paid request, and
+  admit neither correction nor annulment. **`internal_transfer` is so by code
+  since F12.B1** (`20260926120000`: `record_internal_transfer` takes a
+  `proposal_id`, and `sec.persist_version` refuses a second version of the
+  class). **`settlement_by_transfer` is so by code since F12.B3**
+  (`20260928120000`: `record_settlement_by_transfer` takes a `proposal_id`
+  of a group proposal, and `sec.persist_version` and `api.annul_operation`
+  refuse both classes). The F3 contract of that function no longer exists.
 - **Claim the idempotency key before the CAS** (F03/ADR-008 §13), and authorize
   after the claim (F03/ADR-007 §5). A replay never re-derives, re-authorizes or
   creates a version.
