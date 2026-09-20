@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGroupNotices, useOpenPendingInvitation } from '@/features/groups';
 import { useIncidents } from '@/features/personal';
 import { isGuest, isSignedIn, useSession } from '@/features/session';
+import { useMyProposals } from '@/features/transfers';
 import {
   AddBackdrop,
   AppTopBar,
@@ -164,6 +165,15 @@ export default function TabsLayout() {
   const incidents = useIncidents(actorId);
   /* Y los avisos de grupo (F09/ADR-003 §7): la campana suma las dos fuentes. */
   const notices = useGroupNotices(actorId);
+  /*
+   * Y una tercera desde F12.C: las propuestas de transferencia ENTRANTES y
+   * PENDIENTES. Ésta no es «no vista» sino «pendiente», y a propósito: no hay
+   * marca de visto para una propuesta en el servidor, y lo que pide algo es
+   * que se conteste, no que se mire. Un invitado no recibe ninguna y no
+   * pregunta.
+   */
+  const proposals = useMyProposals(actorId, isSignedIn(state) && !isGuest(state));
+  const bell = incidents.unseen > 0 || notices.unread > 0 || proposals.incoming.length > 0;
   /* Una invitación llegada por enlace se retoma aquí, ya con sesión (F09/ADR-004). */
   useOpenPendingInvitation(isSignedIn(state));
 
@@ -211,8 +221,9 @@ export default function TabsLayout() {
                * pendiente»: incidencias no vistas en la campana o avisos de
                * grupo sin leer. Entrar en la campana lo apaga; resolver, no
                * hace falta (`incident-seen.ts`, `api.mark_group_notices_seen`).
+               * La excepción es la propuesta entrante: se apaga al responder.
                */}
-              <AppTopBar alerts={incidents.unseen > 0 || notices.unread > 0} />
+              <AppTopBar alerts={bell} />
             </SafeAreaView>
           ) : null}
 

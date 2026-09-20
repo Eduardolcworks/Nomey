@@ -422,25 +422,32 @@ describe('el acabado de la ventana', () => {
 
 describe('la transferencia se ofrece y no se inventa', () => {
   /**
-   * Las dos funciones de `api` que se llaman transferencia no sirven aquí, y
-   * la razón vive en el código: `record_internal_transfer` exige dos ámbitos
-   * distintos y en la Fase 6 hay uno solo; `record_external_transfer` no
-   * admite concepto ni hora.
+   * Desde F12.C la transferencia entre cuentas SÍ tiene ruta, y una sola:
+   * `record_internal_transfer` la llama únicamente el servicio de
+   * `features/transfers`, y sólo como ACEPTACIÓN de una propuesta
+   * (F12/ADR-002 §11). `record_external_transfer` sigue sin llamarse: no
+   * admite concepto ni hora, y ninguna pantalla la ofrece.
    */
-  it('no hay ninguna llamada de transferencia en el cliente', () => {
-    // Sobre el CODIGO, no sobre la prosa: `movement-entry.ts` explica por
-    // extenso por que esas dos funciones no sirven aqui, y la explicacion no
-    // es el defecto.
-    // `types/database.ts` queda fuera: se genera sobre `api` y LISTA las ocho
+  it('la transferencia interna se llama desde un solo sitio, y la externa desde ninguno', () => {
+    // `types/database.ts` queda fuera: se genera sobre `api` y LISTA las
     // funciones existan o no se llamen. Excluirlo no debilita nada — lo que se
-    // vigila es que nadie las invoque.
+    // vigila es que nadie las invoque fuera de su servicio.
     const cliente = FILES.filter((candidate) => candidate.path !== 'types/database.ts');
     expect(cliente.length).toBe(FILES.length - 1);
 
     for (const source of cliente) {
-      expect(code(source.path), source.path).not.toContain('record_internal_transfer');
+      if (source.path !== 'features/transfers/transfer-service.ts') {
+        expect(code(source.path), source.path).not.toContain("rpc('record_internal_transfer'");
+      }
       expect(code(source.path), source.path).not.toContain('record_external_transfer');
     }
+    const service = code('features/transfers/transfer-service.ts');
+    expect(service.match(/rpc\('record_internal_transfer'/g) ?? []).toHaveLength(1);
+    // Sólo `proposal_id`: importe, moneda y partes salen de la propuesta bloqueada.
+    expect(service).toContain('readonly proposal_id: string;');
+    expect(service).toMatch(
+      /export type AcceptPayload = \{\s*readonly client_operation_id: string;\s*readonly command_contract_version: 1;\s*readonly proposal_id: string;\s*\};/,
+    );
   });
 
   it('elegirla bloquea el guardado, esté como esté el formulario', () => {
@@ -1105,7 +1112,7 @@ describe('el dinero no se convierte en número por el camino', () => {
 
   /** El campo y su cero comparten estilo: el cero cae donde caerá el dígito. */
   it('la cifra no lleva ancho mínimo, que es lo que abría el hueco', () => {
-    expect(CAMPO).toContain('style={styles.amount}');
+    expect(CAMPO).toContain('style={[styles.amount, integers]}');
     expect(/amount: \{([^}]*)\}/.exec(CAMPO)?.[1]).not.toContain('minWidth');
   });
 
@@ -1143,24 +1150,37 @@ describe('el dinero no se convierte en número por el camino', () => {
   it('y el texto de la cifra también', () => {
     const estilo = /amount: \{([^}]*)\}/.exec(code('ui/components/amount-field.tsx'))?.[1];
     expect(estilo).toContain("textAlign: 'center'");
-    // El cuerpo de la pasada anterior se conserva: aquí sólo cambió la
-    // alineación, no el tamaño.
-    expect(estilo).toContain('fontSize: 56');
+    // El cuerpo base vive en la regla de tamaño (F12.C1): 56, y desde ahí
+    // sólo baja cuando la cifra no cabe en la ranura medida.
+    expect(estilo).toContain('fontSize: BASE_FONT_SIZE');
+    expect(code('ui/components/amount-figure-size.ts')).toContain(
+      'export const BASE_FONT_SIZE = 56;',
+    );
   });
 
   /** Con el entero al doble que los decimales, que es la jerarquía pedida. */
   it('y el entero dobla en cuerpo a los decimales', () => {
-    const codigo = code('ui/components/amount-field.tsx');
-    const entero = Number(/amount: \{[^}]*fontSize: (\d+)/.exec(codigo)?.[1]);
-    const decimal = Number(/amountDecimals: \{[^}]*fontSize: (\d+)/.exec(codigo)?.[1]);
+    const regla = code('ui/components/amount-figure-size.ts');
+    const entero = Number(/BASE_FONT_SIZE = (\d+)/.exec(regla)?.[1]);
+    const ratio = Number(/DECIMALS_RATIO = ([\d.]+)/.exec(regla)?.[1]);
 
     expect(entero).toBeGreaterThan(48); // más grande que antes
-    expect(decimal / entero).toBeLessThanOrEqual(0.55);
+    expect(ratio).toBeLessThanOrEqual(0.55);
+    // Y la composición usa exactamente esa proporción, a cualquier tamaño.
+    expect(code('ui/components/amount-field.tsx')).toContain('fontSize: fontSize * DECIMALS_RATIO');
   });
 
-  /** Una cifra larga encoge en vez de salirse: no hay sitio infinito. */
-  it('una cantidad larga se ajusta en vez de desbordar', () => {
-    expect(code('ui/components/amount-field.tsx')).toContain('adjustsFontSizeToFit');
+  /**
+   * Una cifra larga encoge en vez de salirse: no hay sitio infinito. Y lo
+   * decide una regla propia, medida contra el ancho de la ranura, no
+   * `adjustsFontSizeToFit`: en el aparato ese ajuste nativo encogía un «2» a
+   * cuerpo minúsculo según la pasada de layout que le tocara (F12.C1).
+   */
+  it('una cantidad larga se ajusta en vez de desbordar, y lo decide la regla, no la plataforma', () => {
+    const campo = code('ui/components/amount-field.tsx');
+    expect(campo).not.toContain('adjustsFontSizeToFit');
+    expect(campo).toContain('const fontSize = amountFontSize(width, {');
+    expect(campo).toContain('onLayout={onLayout}');
   });
 
   it('y la cifra se dibuja sin saber qué moneda es', () => {

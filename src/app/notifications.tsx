@@ -1,11 +1,27 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
+import { currencyDefinition, moneyFromMinorString } from '@/domain';
 import { GroupNoticeCard, useGroupNotices } from '@/features/groups';
-import { IncidentCard, useCategoryNames, useIncidents } from '@/features/personal';
-import { useSession } from '@/features/session';
+import {
+  IncidentCard,
+  readyScope,
+  useCategoryNames,
+  useIncidents,
+  usePersonalScope,
+} from '@/features/personal';
+import { isGuest, useSession } from '@/features/session';
 import { PlaceholderScreen } from '@/features/shell';
+import {
+  FAILURE_KEY,
+  ProposalCard,
+  stateAfterRefusal,
+  type TransferProposal,
+  useMyProposals,
+  useProposalActions,
+} from '@/features/transfers';
+import { useFormat } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n';
 import { EmptyState, ThemedText } from '@/ui/components';
 import { Spacing, Symbols } from '@/ui/theme';
@@ -48,6 +64,82 @@ export default function NotificationsScreen() {
    * de la membresía: sin ella no habría llegado.
    */
   const notices = useGroupNotices(actorId);
+
+  /*
+   * LAS PROPUESTAS DE TRANSFERENCIA QUE PIDEN RESPUESTA (F12/ADR-002 §9).
+   *
+   * Sólo las entrantes y pendientes: son las únicas que la vista devuelve al
+   * receptor y las únicas que exigen hacer algo. No hay «visto» que marcar
+   * —no existe en el servidor— y no se inventa: la tarjeta desaparece cuando
+   * se contesta, y la aceptada reaparece como movimiento en Inicio.
+   */
+  const format = useFormat();
+  const guest = isGuest(session);
+  const scope = usePersonalScope(actorId, guest);
+  const personal = readyScope(scope.state);
+  const currency =
+    personal === null
+      ? null
+      : currencyDefinition({
+          id: personal.currencyDefinitionId,
+          code: personal.currencyCode,
+          scale: personal.currencyScale,
+        });
+  const proposals = useMyProposals(actorId, !guest);
+  const actions = useProposalActions();
+
+  const proposalAmount = (proposal: TransferProposal) =>
+    currency === null
+      ? proposal.amountMinor
+      : format.money(moneyFromMinorString(proposal.amountMinor, currency));
+  const proposalName = (proposal: TransferProposal) =>
+    proposal.counterpartPublicName ??
+    (proposal.counterpartHandle === null
+      ? t('transfer.counterpartUnknown')
+      : `@${proposal.counterpartHandle}`);
+  const explainProposal = (outcome: Awaited<ReturnType<typeof actions.accept>>) => {
+    if (outcome.kind !== 'failed') return;
+    Alert.alert(
+      t(
+        stateAfterRefusal(outcome.failure) === null
+          ? 'transfer.actionFailedTitle'
+          : 'transfer.actionMovedTitle',
+      ),
+      t(FAILURE_KEY[outcome.failure]),
+      [{ text: t('action.understood') }],
+    );
+  };
+  const acceptProposal = (proposal: TransferProposal) => {
+    Alert.alert(
+      t('transfer.acceptTitle'),
+      t('transfer.acceptBody', { amount: proposalAmount(proposal), name: proposalName(proposal) }),
+      [
+        { text: t('action.cancel'), style: 'cancel' },
+        {
+          text: t('transfer.accept'),
+          onPress: () => {
+            void actions.accept(proposal.proposalId).then(explainProposal);
+          },
+        },
+      ],
+    );
+  };
+  const declineProposal = (proposal: TransferProposal) => {
+    Alert.alert(
+      t('transfer.declineTitle'),
+      t('transfer.declineBody', { amount: proposalAmount(proposal), name: proposalName(proposal) }),
+      [
+        { text: t('action.cancel'), style: 'cancel' },
+        {
+          text: t('transfer.decline'),
+          style: 'destructive',
+          onPress: () => {
+            void actions.decline(proposal.proposalId).then(explainProposal);
+          },
+        },
+      ],
+    );
+  };
 
   /*
    * ═══════ ENTRAR EN LA CAMPANA DA POR VISTO LO QUE HABÍA ═══════
@@ -122,7 +214,7 @@ export default function NotificationsScreen() {
 
   return (
     <PlaceholderScreen title="nav.notifications">
-      {incidents.length === 0 && notices.notices.length === 0 ? (
+      {incidents.length === 0 && notices.notices.length === 0 && proposals.incoming.length === 0 ? (
         <EmptyState
           symbol={Symbols.notifications}
           title={t('notifications.empty')}
@@ -152,6 +244,28 @@ export default function NotificationsScreen() {
               onDiscard={() => {
                 void dismiss(incident.clientOperationId);
               }}
+            />
+          ))}
+        </View>
+      )}
+      {proposals.incoming.length === 0 ? null : (
+        <View style={styles.list}>
+          <ThemedText variant="caption" themeColor="textTertiary">
+            {t('notifications.transfers')}
+          </ThemedText>
+          {proposals.incoming.map((proposal) => (
+            <ProposalCard
+              key={proposal.proposalId}
+              proposal={proposal}
+              currency={currency}
+              busy={actions.busy === proposal.proposalId}
+              onAccept={() => {
+                acceptProposal(proposal);
+              }}
+              onDecline={() => {
+                declineProposal(proposal);
+              }}
+              onCancel={() => undefined}
             />
           ))}
         </View>

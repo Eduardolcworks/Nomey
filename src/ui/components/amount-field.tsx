@@ -1,5 +1,12 @@
-import { useEffect, useRef } from 'react';
-import { Keyboard, Platform, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Keyboard,
+  type LayoutChangeEvent,
+  Platform,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import {
@@ -12,6 +19,7 @@ import {
   amountFieldStep,
   amountValue,
 } from './amount-entry';
+import { amountFontSize, BASE_FONT_SIZE, DECIMALS_RATIO } from './amount-figure-size';
 import { ThemedText } from './themed-text';
 import { useFigurePop } from '@/ui/theme/motion-runtime';
 
@@ -212,16 +220,35 @@ function AmountFigure({
   const paint = (tone: 'entered' | 'pending') =>
     muted || tone === 'pending' ? 'textDisabled' : 'text';
 
+  /*
+   * THE SIZE IS DECIDED HERE, from the slot's measured width and the number
+   * of glyphs, and not by `adjustsFontSizeToFit` (`amount-figure-size.ts`
+   * says why). Full size while the figure fits; smaller only when it would
+   * not; the decimals keep their proportion.
+   */
+  const [width, setWidth] = useState(0);
+  const onLayout = (event: LayoutChangeEvent) => {
+    const next = Math.round(event.nativeEvent.layout.width);
+    if (next !== width) setWidth(next);
+  };
+  const fontSize = amountFontSize(width, {
+    whole: whole.length,
+    fraction: fraction.length,
+    separator: fraction !== '',
+  });
+  const ratio = fontSize / BASE_FONT_SIZE;
+  const integers = { fontSize, lineHeight: Math.round(styles.amount.lineHeight * ratio) };
+  const decimals = { fontSize: fontSize * DECIMALS_RATIO };
+
   return (
-    <View style={styles.figure} pointerEvents="none">
+    <View style={styles.figure} pointerEvents="none" onLayout={onLayout}>
       <ThemedText
         themeColor={paint(tones.whole)}
         numberOfLines={1}
-        adjustsFontSizeToFit
-        style={styles.amount}>
+        style={[styles.amount, integers]}>
         {whole}
         {fraction === '' ? null : (
-          <ThemedText style={styles.amountDecimals}>
+          <ThemedText style={[styles.amountDecimals, decimals]}>
             <ThemedText themeColor={paint(tones.separator)}>{separator}</ThemedText>
             <ThemedText themeColor={paint(tones.fraction)}>{fraction}</ThemedText>
           </ThemedText>
@@ -286,7 +313,7 @@ const styles = StyleSheet.create({
    * corrige aquí es la alineación, no el tamaño.
    */
   amount: {
-    fontSize: 56,
+    fontSize: BASE_FONT_SIZE,
     lineHeight: 64,
     fontWeight: '600',
     letterSpacing: -1.5,
@@ -319,7 +346,7 @@ const styles = StyleSheet.create({
    * línea del texto que la contiene es justo lo que la deja sobre la misma base.
    */
   amountDecimals: {
-    fontSize: 28,
+    fontSize: BASE_FONT_SIZE * DECIMALS_RATIO,
     fontWeight: '600',
     letterSpacing: -0.5,
   },

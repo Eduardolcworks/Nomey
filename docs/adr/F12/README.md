@@ -17,8 +17,10 @@ solicitud): **B1** —la propuesta y la `internal_transfer` de dos voluntades,
 `20260926120000`— implementado el 2026-09-19; **B2** —la solicitud de
 pago mediante enlace, `20260927120000`— implementado el 2026-09-20; **B3**
 —la propuesta dentro de un grupo y la `settlement_by_transfer` de dos
-voluntades, `20260928120000`— implementado el 2026-09-20; después F12.C y
-F12.D. El detalle está en [el roadmap](../../product/roadmap.md).
+voluntades, `20260928120000`— implementado el 2026-09-20; **F12.C en
+curso**: **C1** —las transferencias Personal en el cliente— hecha y validada
+en iPhone el 2026-09-20; después C2, C3 y F12.D. El detalle está en
+[el roadmap](../../product/roadmap.md).
 
 **Lo que el alcance original de la fase ya habían cerrado F9 y F10, y no se
 reabre:** `shares` y `exact_amounts` (hechos en F3/F9), las correcciones con
@@ -449,6 +451,45 @@ DECLINED | CANCELLED | EXPIRED · 409` en los demás, `NOT_AUTHORIZED` para
     `leave-and-settle.sql` (F2) y `group-identity-lock.sql` (los tres
     comandos toman el rango 1 antes de localizar la fila). Pendiente para
     F12.C: la pantalla `Grupo → + → Transferencia → participante`.
+
+- **F12/ADR-002 en el cliente — F12.C1, tal como quedó (2026-09-20, validado
+  en iPhone).** Una feature propia, `features/transfers`, compuesta por las
+  rutas en tres costuras con Personal: el segmento «Transferencia» del `+`
+  (slot de `MovementForm`), la actividad de Inicio y el banner y la campana.
+  Precisiones que la implementación fija:
+  - **Búsqueda exacta por `@username`**, una llamada a `resolve_username` por
+    pulsación (nunca por tecla) con los cuatro estados como copy; la regla del
+    handle es la de `domain/username`. Confirmación con la identidad pública
+    antes de proponer; el botón dice «Proponer» y el estado final «pendiente».
+  - **Nada va por la cola de F7 ni se persiste** (§17): clave de comando por
+    intención que sólo sobrevive a un fallo de transporte; sin red, fallo
+    explícito con reintento y el formulario intacto. Un invitado ve el aviso
+    y no llama al servidor.
+  - **`/transfers` no es un histórico**: sólo pendientes, en las dos
+    direcciones; una propuesta resuelta desde el aparato sale de la lista
+    antes de la recarga autoritativa. La campana enciende su punto con las
+    entrantes pendientes (pendiente, no «no visto»: no hay marca de visto en
+    el servidor).
+  - **La dirección y la contraparte salen de `direction` y
+    `counterpart_*` de las vistas, nunca de `created_by`** (§12). En
+    Movimientos, `my_transfers` se intercala con `personal_operation`; el
+    momento de una transferencia se deriva de `operation_created_at` en el
+    reloj del aparato, porque el servidor escribe `localtime` en UTC y un
+    movimiento lleva la hora de pared del teléfono (medido: 15:34 frente a
+    17:25 el mismo día). Precisión pendiente del backend: fijar ese contrato.
+  - **Notificaciones push: diferidas.** No hay `expo-notifications`, token
+    ni tabla de dispositivos. Eventos previstos: `proposal_received` (al
+    receptor), `proposal_accepted` y `proposal_declined` (al creador);
+    `cancelled` y `expired` no notifican; **sin importe ni concepto en el
+    payload** (título fijo y navegación; lo económico se ve con sesión). En
+    iPhone exige Apple Developer, APNs y una build instalada (F8.B); en
+    Android, Firebase/FCM y la build propia. Necesitará migración (dispositivos
+    y outbox), un servicio de envío y su ADR. No bloquea F12.C.
+  - Evidencia: `tests/lib/transfer-proposal.test.ts`,
+    `tests/lib/amount-figure-size.test.ts`,
+    `tests/infra/personal-transfers-surface.test.ts`; validación manual en
+    iPhone con dos cuentas (proponer, aceptar, rechazar, cancelar, self,
+    not_found, offline, foreground).
 
 ## Decisiones de otras fases que esta fase aplica
 

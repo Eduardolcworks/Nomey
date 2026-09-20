@@ -1,4 +1,5 @@
-import { StyleSheet } from 'react-native';
+import type { ReactNode } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { AmountSheet } from './amount-sheet';
 import { EntryKindSelector } from './entry-kind-selector';
@@ -9,6 +10,7 @@ import type { EntryQueue } from './use-entry-queue';
 import { useMovementDraft } from './use-movement-draft';
 import { useTranslation } from '@/lib/i18n';
 import { ThemedText } from '@/ui/components';
+import { Spacing } from '@/ui/theme';
 
 export type MovementFormScope = {
   readonly scopeId: string;
@@ -44,6 +46,14 @@ export type MovementFormScope = {
  * **El importe es el foco y no lleva moneda dentro.** El símbolo vive en su
  * propio cuadro, a la izquierda: hoy es la moneda base del ámbito y sólo se
  * puede mirar.
+ *
+ * **La clase «Transferencia» no es un movimiento y no la registra este
+ * formulario.** Es una PROPUESTA a otra cuenta (F12/ADR-002), que vive en
+ * `features/transfers` —una feature no importa a otra—, así que la ruta la
+ * monta y la pasa por `transfer`: con ese segmento elegido, el selector de
+ * clase se queda y lo que hay debajo es lo que la ruta entregó. Sin nada
+ * entregado se bloquea el guardado con el aviso de siempre, que es lo que
+ * hacía antes de F12.C.
  */
 export function MovementForm({
   scope,
@@ -52,6 +62,7 @@ export function MovementForm({
   initial,
   resolving,
   onSaved,
+  transfer,
 }: {
   scope: MovementFormScope | null;
   categories: EntryCategories;
@@ -68,11 +79,36 @@ export function MovementForm({
   /** La entrada terminal que se resolverá al guardar, en la misma transacción. */
   resolving?: string | null;
   onSaved: () => void;
+  /** Lo que se pinta bajo el selector con «Transferencia» elegida (F12.C). */
+  transfer?: ReactNode;
 }) {
   const { t } = useTranslation();
 
   const scale = scope?.currencyScale ?? 2;
   const draft = useMovementDraft(scale, scope !== null, initial, !categories.unavailable);
+
+  /*
+   * **El ámbito se anuncia al DAR DE ALTA**, porque aquí se está decidiendo
+   * dónde cae el movimiento. Al corregir uno ya existente no se elige, así que
+   * allí no se repite. La misma cabecera en las dos ramas de abajo.
+   */
+  const header = (
+    <>
+      <EntryKindSelector value={draft.kind} onChange={draft.setKind} />
+      <ThemedText variant="label" themeColor="textSecondary" style={styles.scope}>
+        {t('scope.personal')}
+      </ThemedText>
+    </>
+  );
+
+  if (draft.kind === 'transfer' && transfer !== undefined) {
+    return (
+      <View style={styles.transfer}>
+        {header}
+        {transfer}
+      </View>
+    );
+  }
 
   /*
    * Qué se dice cuando no quedó persistida. Sin sesión o con un borrador que la
@@ -89,19 +125,7 @@ export function MovementForm({
 
   return (
     <AmountSheet
-      header={
-        <>
-          <EntryKindSelector value={draft.kind} onChange={draft.setKind} />
-          {/*
-           * **El ámbito se anuncia al DAR DE ALTA**, porque aquí se está
-           * decidiendo dónde cae el movimiento. Al corregir uno ya existente no
-           * se elige, así que allí no se repite.
-           */}
-          <ThemedText variant="label" themeColor="textSecondary" style={styles.scope}>
-            {t('scope.personal')}
-          </ThemedText>
-        </>
-      }
+      header={header}
       fields={<MovementFields draft={draft} categories={categories.rows} kind={draft.kind} />}
       entry={draft.entry}
       onChangeEntry={draft.setEntry}
@@ -127,5 +151,8 @@ export function MovementForm({
 const styles = StyleSheet.create({
   scope: {
     textAlign: 'center',
+  },
+  transfer: {
+    gap: Spacing.md,
   },
 });

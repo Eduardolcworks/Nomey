@@ -71,8 +71,11 @@ describe('el desglose', () => {
     expect(MODEL).toContain('compareOperations(orderKeys(a), orderKeys(b))');
     // La fila de CAJA del compartido queda fuera del desglose…
     expect(code(HOME)).not.toContain("kind === 'expense' || kind === 'shared'");
-    // …y Movimientos recientes no cambia: sigue pintando la proyección entera.
-    expect(HOME).toContain('projected.operations.map((operation) => (');
+    // …y Movimientos recientes sigue pintando la proyección entera, ahora
+    // intercalada con las transferencias de `my_transfers` (F12.C): la
+    // proyección es la primera lista que se le da a la mezcla.
+    expect(HOME).toContain('const activity = interleaveActivity(\n    projected.operations,');
+    expect(HOME).toContain(': renderOperation(entry.operation),');
     expect(HOME).toContain('function ExpenseGroup(');
   });
 
