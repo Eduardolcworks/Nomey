@@ -17,6 +17,7 @@ import {
 } from '@/features/auth';
 import { groupCommandHandlers, sendGroupCreate, useInvitationLink } from '@/features/groups';
 import { personalCommandHandlers, sendPersonalEntry } from '@/features/personal';
+import { wakeTransfers } from '@/features/transfers';
 import { useQueueRuntime, AddBackdropProvider, ScopeProvider } from '@/features/shell';
 import { type CommandHandlers, wakeQueue } from '@/lib/offline';
 import {
@@ -116,11 +117,15 @@ const styles = StyleSheet.create({
  * owns the only `AppState` listener; the offline queue wakes from it, and so
  * does an account identity the server never confirmed (F12.A3, offline
  * first): back in the foreground is when connectivity is most likely back.
- * Neither knows about the other; the composition root fans the signal out.
+ * The transfers of F12.C ask the server again for the same reason: the
+ * other party may have answered while the app was away, and there is no
+ * push to say so. Neither knows about the others; the composition root fans
+ * the signal out.
  */
 function wakeOnForeground(): void {
   wakeQueue();
   wakeIdentity();
+  wakeTransfers();
 }
 
 /**
@@ -539,6 +544,8 @@ function RootNavigator() {
               }}
             />
             <Stack.Screen name="notifications" />
+            {/* Las propuestas de transferencia (F12/ADR-002 §9): una pantalla plana, como la campana. */}
+            <Stack.Screen name="transfers" />
             <Stack.Screen name="profile" />
             <Stack.Screen name="account" />
           </Stack.Protected>

@@ -11,8 +11,9 @@ import {
   todayInDeviceCalendar,
   usePersonalScope,
 } from '@/features/personal';
-import { useSession } from '@/features/session';
+import { isGuest, useSession } from '@/features/session';
 import { useAddBackdrop } from '@/features/shell';
+import { TransferForm } from '@/features/transfers';
 import { useTranslation } from '@/lib/i18n';
 import type { CalendarDate } from '@/lib/format';
 import { SheetWindow } from '@/ui/components';
@@ -31,6 +32,14 @@ import { SheetWindow } from '@/ui/components';
  * estado, así que llamarla desde la ventana no duplica nada y evita inventar un
  * estado global para pasar cuatro campos. Mientras resuelve, la ventana ya está
  * dibujada y `Guardar` espera.
+ *
+ * **El segmento «Transferencia» lo compone esta ruta** (F12.C): la propuesta
+ * vive en `features/transfers`, que `features/personal` no puede importar, y
+ * la única capa que ve a las dos es ésta. `MovementForm` conserva su selector
+ * y pinta debajo lo que se le entrega; el formulario de la propuesta recibe
+ * del mismo ámbito la moneda —la base del Personal, que es la única que una
+ * propuesta puede llevar (F12/ADR-002 §20)— y de la sesión si es un invitado,
+ * que no propone nada y ve por qué (F05/ADR-003).
  */
 export default function AddScreen() {
   const { t } = useTranslation();
@@ -120,6 +129,20 @@ export default function AddScreen() {
           initial={resolving === null ? undefined : prefill(params)}
           resolving={resolving}
           onSaved={close}
+          transfer={
+            <TransferForm
+              scope={scope}
+              guest={isGuest(session)}
+              onProposed={close}
+              onOpenProposals={() => {
+                router.replace('/transfers');
+              }}
+              onCreateAccount={() => {
+                // Inicio es «Crea tu cuenta» para un invitado (F10.A3).
+                router.dismissTo('/');
+              }}
+            />
+          }
         />
       )}
     </SheetWindow>

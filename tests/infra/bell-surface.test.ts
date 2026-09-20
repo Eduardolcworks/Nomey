@@ -25,7 +25,13 @@ import MIGRATION from '../../supabase/migrations/20260912100000_group_notices_se
 
 describe('el indicador', () => {
   it('se enciende por lo NO VISTO, no por lo no resuelto', () => {
-    expect(TABS).toContain('alerts={incidents.unseen > 0 || notices.unread > 0}');
+    // Desde F12.C una tercera fuente, y ésta sí es «pendiente»: una propuesta
+    // de transferencia entrante no tiene marca de visto en el servidor, y lo
+    // que pide es respuesta. Se apaga al contestarla.
+    expect(TABS).toContain(
+      'const bell = incidents.unseen > 0 || notices.unread > 0 || proposals.incoming.length > 0;',
+    );
+    expect(TABS).toContain('<AppTopBar alerts={bell} />');
     expect(TABS).not.toContain('incidents.unresolved > 0');
     // Visto y resuelto son dos cosas: la incidencia sigue con sus botones.
     expect(INCIDENTS).toContain('readonly unseen: number;');

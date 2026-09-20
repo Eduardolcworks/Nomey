@@ -40,6 +40,16 @@ import {
 } from '@/features/groups';
 import { GuestSignUp } from '@/features/auth';
 import { isGuest, useSession } from '@/features/session';
+import {
+  interleaveActivity,
+  PendingTransfersBanner,
+  subscribeTransfersChanged,
+  type TransferMovement,
+  transferMoment,
+  TransferRow,
+  useMyProposals,
+  useMyTransfers,
+} from '@/features/transfers';
 import { DOCK_HEIGHT, HomeGreeting, useAddBackdrop, useScope } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -189,6 +199,29 @@ export default function HomeScreen() {
    * presentada como actual.
    */
   useRefreshOnReturn(groups.refresh);
+
+  /*
+   * LAS TRANSFERENCIAS ENTRE CUENTAS (F12/ADR-002, F12.C), por su propia
+   * superficie: `personal_operation` no lista la clase, así que las filas
+   * llegan de `my_transfers` para el mismo intervalo y se intercalan en la
+   * actividad con el orden que el servidor ya usa. Y las propuestas, sólo
+   * para el banner: nunca son movimientos ni suman en nada (§9). Un
+   * invitado no tiene ninguna de las dos cosas y no pregunta.
+   */
+  const transfers = useMyTransfers(
+    actorId,
+    ready !== null && personal && !startPending && !guest,
+    range,
+  );
+  const proposals = useMyProposals(actorId, !guest);
+  useRefreshOnReturn(transfers.refresh);
+  useRefreshOnReturn(proposals.refresh);
+  /*
+   * Aceptar una propuesta desde esta cuenta mueve el Disponible en el servidor
+   * y no pasa por la cola: la única forma honesta de enseñarlo es releerlo.
+   */
+  const refreshHome = home.refresh;
+  useEffect(() => subscribeTransfersChanged(refreshHome), [refreshHome]);
 
   const greetingName = state.status === 'signed-in' ? state.identity.displayName : null;
 
@@ -366,6 +399,30 @@ export default function HomeScreen() {
     });
   };
 
+  /*
+   * La actividad, con las transferencias dentro. Mientras queden páginas por
+   * cargar sólo entran las transferencias no más antiguas que la última fila
+   * cargada; las demás esperan a su página, para que el orden no salte.
+   */
+  const activity = interleaveActivity(
+    projected.operations,
+    transfers.transfers,
+    (operation) => ({
+      effectiveDate: operation.effective_date,
+      effectiveTime: operation.effective_time,
+      createdAt: operation.operation_created_at,
+      id: operation.operation_id,
+    }),
+    (transfer: TransferMovement) => ({
+      // The transfer's moment is its acceptance instant, read in the device's
+      // clock: the server wrote it in UTC and a movement carries device time.
+      ...transferMoment(transfer),
+      createdAt: transfer.operationCreatedAt,
+      id: transfer.operationId,
+    }),
+    projected.operations.length < projected.total,
+  );
+
   const slices =
     projected.statistics === null
       ? []
@@ -483,6 +540,48 @@ export default function HomeScreen() {
    * descripción en vez de cuatro que puedan separarse. En ejecución sólo se
    * monta una, porque las ramas son excluyentes.
    */
+  const renderTransfer = (transfer: TransferMovement) => (
+    <TransferRow
+      key={transfer.operationId}
+      transfer={transfer}
+      currencyCode={ready?.currencyCode ?? ''}
+      currencyScale={ready?.currencyScale ?? 2}
+      expanded={openMovement === transfer.operationId}
+      onToggle={() => toggleMovement(transfer.operationId)}
+    />
+  );
+
+  const renderOperation = (operation: ProjectedOperation) => (
+    <MovementRow
+      /*
+       * La clave de render es la de la proyección: una fila local se pinta con
+       * su clave de cliente y la del servidor que la sustituye la hereda, así
+       * que la confirmación no remonta nada (F07/ADR-001 §9).
+       */
+      key={operation.render_key}
+      operation={operation}
+      previous={versionOf(operation, home)}
+      categories={home.categories}
+      /*
+       * THE ROW'S CURRENCY, not the scope's. They coincide except when the
+       * base moved underneath an already captured entry (F02/ADR-001 §7,
+       * F07/ADR-001 §14): that row keeps its amount and its currency, and
+       * painting it with the new scale would reinterpret the amount.
+       */
+      currencyCode={operation.currency_code}
+      currencyScale={operation.currency_scale}
+      expanded={openMovement === operation.render_key}
+      onToggle={() => toggleMovement(operation.render_key)}
+      onEdit={() => {
+        editMovement(operation);
+      }}
+      onDelete={() => {
+        deleteMovement(operation);
+      }}
+      deleting={annulling.pending === operation.operation_id}
+    />
+  );
+
   const greeting = <HomeGreeting name={greetingName} />;
 
   return (
@@ -616,6 +715,15 @@ export default function HomeScreen() {
                 onAdjust={editBalance}
               />
 
+              {/* Sólo mientras una propuesta espere: pide respuesta o la espera (F12.C). */}
+              <PendingTransfersBanner
+                incoming={proposals.incoming.length}
+                outgoing={proposals.sent.length}
+                onOpen={() => {
+                  router.push('/transfers');
+                }}
+              />
+
               <IntervalSelector value={interval} onChange={setIntervalKind} onCalendar={premium} />
 
               {/*
@@ -677,7 +785,7 @@ export default function HomeScreen() {
                   />
 
                   <Section title={t('home.activity')}>
-                    {projected.operations.length === 0 ? (
+                    {activity.length === 0 ? (
                       /*
                        * «Todavía no hay movimientos» es una AFIRMACIÓN, y sólo
                        * se puede hacer con una base del servidor delante. Sin
@@ -694,38 +802,11 @@ export default function HomeScreen() {
                       )
                     ) : (
                       <View>
-                        {projected.operations.map((operation) => (
-                          <MovementRow
-                            /*
-                             * La clave de render es la de la proyección: una
-                             * fila local se pinta con su clave de cliente y la
-                             * del servidor que la sustituye la hereda, así que
-                             * la confirmación no remonta nada (F07/ADR-001 §9).
-                             */
-                            key={operation.render_key}
-                            operation={operation}
-                            previous={versionOf(operation, home)}
-                            categories={home.categories}
-                            /*
-                             * THE ROW'S CURRENCY, not the scope's. They coincide
-                             * except when the base moved underneath an already
-                             * captured entry (F02/ADR-001 §7, F07/ADR-001 §14): that row
-                             * keeps its amount and its currency, and painting it
-                             * with the new scale would reinterpret the amount.
-                             */
-                            currencyCode={operation.currency_code}
-                            currencyScale={operation.currency_scale}
-                            expanded={openMovement === operation.render_key}
-                            onToggle={() => toggleMovement(operation.render_key)}
-                            onEdit={() => {
-                              editMovement(operation);
-                            }}
-                            onDelete={() => {
-                              deleteMovement(operation);
-                            }}
-                            deleting={annulling.pending === operation.operation_id}
-                          />
-                        ))}
+                        {activity.map((entry) =>
+                          entry.kind === 'transfer'
+                            ? renderTransfer(entry.transfer)
+                            : renderOperation(entry.operation),
+                        )}
 
                         {projected.operations.length < projected.total ? (
                           <MoreRow

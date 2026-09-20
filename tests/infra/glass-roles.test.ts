@@ -107,6 +107,13 @@ const CONTROLES: readonly (readonly [string, number, string])[] = [
   /* El campo de concepto de un gasto compartido, hermano del de Personal. */
   ['features/groups/shared-expense-fields.tsx', 1, 'la superficie del concepto'],
   /*
+   * F12.C: el campo del @username del destinatario, y el del concepto de la
+   * propuesta. Los dos son hermanos del concepto de Personal: un pozo que se
+   * escribe, no una superficie que contiene.
+   */
+  ['features/transfers/recipient-field.tsx', 2, 'el campo del @username, buscando y ya resuelto'],
+  ['features/transfers/transfer-form.tsx', 1, 'el concepto de la propuesta'],
+  /*
    * Lo que cada participante DECLARA cuando el método lo pide: sus partes o su
    * importe. Es un campo, escrito una vez y pintado tantas veces como personas
    * participen. La tarjeta que lo contiene NO renuncia: eso es estructura.

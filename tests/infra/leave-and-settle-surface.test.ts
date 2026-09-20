@@ -183,7 +183,9 @@ describe('Personal y los avisos', () => {
 
   it('la campana suma incidencias y avisos, y un aviso abre el grupo y se marca leído', () => {
     // Desde la tanda de la campana el punto lee lo NO VISTO (bell-surface).
-    expect(TABS).toContain('alerts={incidents.unseen > 0 || notices.unread > 0}');
+    expect(TABS).toContain(
+      'const bell = incidents.unseen > 0 || notices.unread > 0 || proposals.incoming.length > 0;',
+    );
     expect(BELL).toContain('<GroupNoticeCard');
     expect(BELL).toContain('void notices.markRead(id);');
     expect(NOTICE).not.toMatch(/amount|money\(/);

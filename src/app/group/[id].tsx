@@ -39,6 +39,7 @@ import {
   useAssociateParticipant,
 } from '@/features/groups';
 import { useEntryCategories, useIncidents } from '@/features/personal';
+import { useMyProposals } from '@/features/transfers';
 import { useSession } from '@/features/session';
 import { AddBackdrop, AppTopBar, BlurTarget, DOCK, useAddBackdrop } from '@/features/shell';
 import { indexCategories, sharedCategories } from '@/lib/categories';
@@ -139,6 +140,12 @@ export default function GroupScreen() {
   const incidents = useIncidents(actorId);
   /* Los avisos de grupo sin leer: el mismo hook y el mismo estado que la barra de las pestañas. */
   const notices = useGroupNotices(actorId);
+  // La misma campana que en las pestañas: las propuestas entrantes también la encienden (F12.C).
+  const proposals = useMyProposals(
+    actorId,
+    session.status === 'signed-in' && !session.identity.isAnonymous,
+  );
+  const bell = incidents.unseen > 0 || notices.unread > 0 || proposals.incoming.length > 0;
   const group = groups.find((one) => one.scopeId === id);
 
   /*
@@ -660,7 +667,7 @@ export default function GroupScreen() {
                * avisos de grupo sin leer—, leído por el mismo hook. Entrar o
                * salir de un grupo no lo apaga: lo apaga la campana.
                */}
-              <AppTopBar alerts={incidents.unseen > 0 || notices.unread > 0} />
+              <AppTopBar alerts={bell} />
 
               {group === undefined ? (
                 /*

@@ -38,6 +38,12 @@ export {
   backspaceAmount,
   EMPTY_AMOUNT,
 } from './amount-entry';
+export {
+  amountFontSize,
+  BASE_FONT_SIZE as AMOUNT_BASE_FONT_SIZE,
+  figureWidthAt,
+  MIN_FONT_SIZE as AMOUNT_MIN_FONT_SIZE,
+} from './amount-figure-size';
 export { AmountField } from './amount-field';
 export { AmountPlate, type AmountPlateProps } from './amount-plate';
 export { AmountSheet, type AmountSheetProps, SaveButton } from './amount-sheet';
@@ -47,3 +53,4 @@ export { ThemedView, type ThemedViewProps } from './themed-view';
 export { LongPressMenu } from './long-press-menu';
 export { ActionMenu } from './action-menu';
 export type { LongPressMenuAction, LongPressMenuProps } from './long-press-menu-props';
+export { IdentityLine, type IdentityLineProps } from './identity-line';
