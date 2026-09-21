@@ -10,12 +10,21 @@ import {
   incomingPending,
   isActionable,
   isCancellable,
+  isRecentDecline,
   newestFirst,
+  outgoingDeclined,
   outgoingPending,
   parseProposalRow,
   parseTransferRow,
   stillRelevant,
+  type TransferProposal as TransferProposalRow,
 } from '../../src/features/transfers/proposal';
+import {
+  parseSeenDeclines,
+  seenDeclinesAfterVisit,
+  serializeSeenDeclines,
+  unseenDeclines,
+} from '../../src/features/transfers/declined-seen';
 import {
   handleToResolve,
   RECIPIENT_IDLE,
@@ -85,7 +94,13 @@ describe('la propuesta, tal como la publica api.my_transfer_proposals', () => {
     expect(incomingPending([incoming, accepted, sent, sentDone])).toEqual([incoming]);
     // La pantalla no es un histórico: de lo enviado sólo queda lo pendiente.
     expect(outgoingPending([incoming, accepted, sent, sentDone])).toEqual([sent]);
-    expect(stillRelevant([incoming, accepted, sent, sentDone])).toEqual([incoming, sent]);
+    const now = '2026-09-21T10:00:00Z';
+    // Y el rechazo reciente de una propia sigue vivo: es la novedad que se enseña.
+    expect(stillRelevant([incoming, accepted, sent, sentDone], now)).toEqual([
+      incoming,
+      sent,
+      sentDone,
+    ]);
   });
 
   it('se ordena de la más nueva a la más vieja, con el id como desempate', () => {
@@ -381,5 +396,131 @@ describe('el momento de una transferencia, en el reloj del aparato', () => {
     const b = { effectiveDate: '2026-09-20', effectiveTime: '17:25:00', createdAt: 'a', id: '1' };
     // Igual hora → decide la creación: `a` es más nuevo.
     expect(compareActivity(a, b)).toBeLessThan(0);
+  });
+});
+
+describe('la campana y las propuestas: sólo una ENTRANTE pendiente la enciende', () => {
+  const incomingOf = (id: string) =>
+    parseProposalRow(proposalRow({ proposal_id: id, direction: 'incoming', state: 'pending' }))!;
+  const hasPending = (rows: readonly TransferProposalRow[], settled: ReadonlySet<string>) =>
+    incomingPending(rows.filter((one) => !settled.has(one.proposalId))).length > 0;
+
+  it('sin pendientes no hay punto; una entrante pendiente lo enciende; abrir Notificaciones no lo toca', () => {
+    expect(hasPending([], new Set())).toBe(false);
+    const one = [incomingOf('a')];
+    expect(hasPending(one, new Set())).toBe(true);
+    // Nothing in the model represents "opened": the same list gives the same answer.
+    expect(hasPending(one, new Set())).toBe(true);
+  });
+
+  it('con tres pendientes sigue encendido hasta resolver la última, sea aceptando o rechazando', () => {
+    const three = [incomingOf('a'), incomingOf('b'), incomingOf('c')];
+    expect(hasPending(three, new Set(['a']))).toBe(true);
+    expect(hasPending(three, new Set(['a', 'b']))).toBe(true);
+    expect(hasPending(three, new Set(['a', 'b', 'c']))).toBe(false);
+    // And the authoritative reload agrees: terminal rows are not pending.
+    const reloaded = [
+      parseProposalRow(proposalRow({ proposal_id: 'a', state: 'accepted' }))!,
+      parseProposalRow(proposalRow({ proposal_id: 'b', state: 'declined' }))!,
+    ];
+    expect(hasPending(reloaded, new Set())).toBe(false);
+  });
+
+  it('una propuesta SALIENTE pendiente no enciende el punto', () => {
+    const sent = [parseProposalRow(proposalRow({ proposal_id: 's', direction: 'outgoing' }))!];
+    expect(hasPending(sent, new Set())).toBe(false);
+    expect(outgoingPending(sent)).toHaveLength(1);
+  });
+});
+
+describe('el rechazo de una propuesta propia: la única terminal que se cuenta', () => {
+  const NOW = '2026-09-21T10:00:00Z';
+  const declined = (extra: Record<string, unknown> = {}) =>
+    parseProposalRow(proposalRow({ direction: 'outgoing', state: 'declined', ...extra }))!;
+
+  it('A propone, B rechaza: para B desaparece; para A es un aviso reciente, sin acción', () => {
+    // B's side: the view does not publish a declined incoming row at all; and
+    // even if it did, it is neither actionable nor relevant.
+    const forB = parseProposalRow(proposalRow({ direction: 'incoming', state: 'declined' }))!;
+    expect(isActionable(forB)).toBe(false);
+    expect(stillRelevant([forB], NOW)).toEqual([]);
+    expect(isRecentDecline(forB, NOW)).toBe(false);
+    // A's side: outgoing + declined, within the window → news; no button.
+    const forA = declined({ proposal_id: 'd-1' });
+    expect(isRecentDecline(forA, NOW)).toBe(true);
+    expect(stillRelevant([forA], NOW)).toEqual([forA]);
+    expect(outgoingDeclined([forA], NOW)).toEqual([forA]);
+    expect(isActionable(forA)).toBe(false);
+    expect(isCancellable(forA)).toBe(false);
+    expect(incomingPending([forA])).toEqual([]);
+    expect(outgoingPending([forA])).toEqual([]);
+  });
+
+  it('se acota con expires_at: pasada la ventana es historia, no novedad', () => {
+    const old = declined({ expires_at: '2026-09-21T09:59:59Z' });
+    expect(isRecentDecline(old, NOW)).toBe(false);
+    expect(stillRelevant([old], NOW)).toEqual([]);
+    // Nothing else terminal is news: accepted, cancelled, expired.
+    for (const state of ['accepted', 'cancelled', 'expired']) {
+      const other = parseProposalRow(proposalRow({ direction: 'outgoing', state }))!;
+      expect(isRecentDecline(other, NOW)).toBe(false);
+    }
+  });
+
+  it('las entrantes pendientes conservan su semántica: pendiente, no «no visto»', () => {
+    const pending = parseProposalRow(proposalRow({ proposal_id: 'in-1' }))!;
+    // Marking declines seen never touches an incoming pending proposal: the
+    // seen-set only knows ids of declined rows, and pending ones are not in it.
+    const seen = seenDeclinesAfterVisit(
+      new Set(),
+      [declined({ proposal_id: 'd-1' })],
+      ['d-1', 'in-1'],
+    );
+    expect([...seen]).toEqual(['d-1']);
+    expect(incomingPending([pending])).toEqual([pending]);
+    expect(isActionable(pending)).toBe(true);
+  });
+
+  it('abrir Notificaciones marca como vista sólo la novedad, y la campana combina las fuentes', () => {
+    const d1 = declined({ proposal_id: 'd-1' });
+    const d2 = declined({ proposal_id: 'd-2' });
+    const incoming = parseProposalRow(proposalRow({ proposal_id: 'in-1' }))!;
+
+    // Before the visit: two unseen declines light the informative dot.
+    let seen = parseSeenDeclines(null);
+    expect(unseenDeclines([d1, d2], seen)).toEqual([d1, d2]);
+    const bell = (incidents: number, notices: number) =>
+      incidents > 0 ||
+      notices > 0 ||
+      incomingPending([incoming]).length > 0 ||
+      unseenDeclines([d1, d2], seen).length > 0;
+    expect(bell(0, 0)).toBe(true);
+
+    // The visit marks exactly what was shown; the dot for declines goes out.
+    seen = seenDeclinesAfterVisit(seen, [d1, d2], ['d-1', 'd-2']);
+    expect(unseenDeclines([d1, d2], seen)).toEqual([]);
+    // …but the incoming pending one still lights the bell: it was not marked, it cannot be.
+    expect(bell(0, 0)).toBe(true);
+    expect(incomingPending([incoming])).toHaveLength(1);
+    // With nothing pending and nothing new, only incidents/notices remain.
+    const quiet = () => unseenDeclines([d1, d2], seen).length > 0 || incomingPending([]).length > 0;
+    expect(quiet()).toBe(false);
+
+    // A decline that arrives later is new again.
+    const d3 = declined({ proposal_id: 'd-3' });
+    expect(unseenDeclines([d1, d2, d3], seen)).toEqual([d3]);
+  });
+
+  it('la marca se guarda como ids ordenados, se poda a lo que sigue publicado y sobrevive a un documento roto', () => {
+    const seen = seenDeclinesAfterVisit(
+      new Set(['gone', 'd-2']),
+      [declined({ proposal_id: 'd-2' }), declined({ proposal_id: 'd-1' })],
+      ['d-1'],
+    );
+    expect(serializeSeenDeclines(seen)).toBe('["d-1","d-2"]');
+    expect([...parseSeenDeclines('["d-1","d-2"]')]).toEqual(['d-1', 'd-2']);
+    expect(parseSeenDeclines('{')).toEqual(new Set());
+    expect(parseSeenDeclines('[1, "x"]')).toEqual(new Set(['x']));
+    expect(parseSeenDeclines(null).size).toBe(0);
   });
 });

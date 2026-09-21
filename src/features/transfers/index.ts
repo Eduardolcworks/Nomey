@@ -5,8 +5,9 @@
  * only the receiver's acceptance turns into an `internal_transfer`. It
  * touches the Personal feature at exactly three seams, all composed by the
  * routes: the «Transferencia» segment of the add sheet, the activity list
- * of Inicio, and the banner and bell that point here. Nothing in here goes
- * through the F7 queue (ADR-002 §17), and nothing in here is persisted.
+ * of Inicio, and the pending centre of Notifications with its bell. Nothing
+ * in here goes through the F7 queue (ADR-002 §17), and nothing in here is
+ * persisted.
  */
 export {
   type ActivityEntry,
@@ -18,12 +19,27 @@ export {
   transferMoment,
   type WallClock,
 } from './activity';
-export { PendingTransfersBanner } from './pending-banner';
+export {
+  DECLINED_SEEN_KEY,
+  NO_SEEN_DECLINES,
+  parseSeenDeclines,
+  publishDeclinesSeen,
+  readSeenDeclines,
+  resetDeclinesSeenListeners,
+  type SeenDeclines,
+  seenDeclinesAfterVisit,
+  serializeSeenDeclines,
+  subscribeDeclinesSeen,
+  unseenDeclines,
+  writeSeenDeclines,
+} from './declined-seen';
 export {
   incomingPending,
   isActionable,
   isCancellable,
+  isRecentDecline,
   newestFirst,
+  outgoingDeclined,
   outgoingPending,
   parseProposalRow,
   parseTransferRow,
@@ -66,6 +82,7 @@ export {
   type CreateProposalOutcome,
   useCreateProposal,
 } from './use-create-proposal';
+export { type DeclinedNotices, useDeclinedNotices } from './use-declined-notices';
 export { type MyProposals, useMyProposals } from './use-my-proposals';
 export { type MyTransfers, useMyTransfers } from './use-my-transfers';
 export {

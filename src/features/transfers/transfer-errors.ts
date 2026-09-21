@@ -3,10 +3,11 @@ import type { MessageKey } from '@/lib/i18n';
 /**
  * BACKEND CODE → WHAT THE PERSON SEES. Never the code itself.
  *
- * Every refusal of F12.B1 (`20260926120000`) is listed, plus the transport
- * class. A code this map does not know is `rejected`: a generic line and the
- * code goes to the log by id, never to the screen. The map is exhaustive by
- * type so a new failure cannot ship without a message.
+ * Every refusal of F12.B1 (`20260926120000`) is listed, plus the two
+ * idempotency answers any command can give and the transport class. A code
+ * this map does not know is `rejected`: a generic line and the code goes to
+ * the log by id, never to the screen. The map is exhaustive by type so a
+ * new failure cannot ship without a message.
  */
 export type TransferFailure =
   | 'offline'
@@ -21,6 +22,8 @@ export type TransferFailure =
   | 'recipientNotReady'
   | 'notAuthorized'
   | 'currency'
+  | 'keyReused'
+  | 'inFlight'
   | 'rejected';
 
 const BY_CODE: Readonly<Record<string, TransferFailure>> = {
@@ -35,6 +38,8 @@ const BY_CODE: Readonly<Record<string, TransferFailure>> = {
   RECIPIENT_WITHOUT_PERSONAL_SCOPE: 'recipientNotReady',
   NOT_AUTHORIZED: 'notAuthorized',
   CURRENCY_CONVERSION_UNSUPPORTED: 'currency',
+  IDEMPOTENCY_KEY_REUSED: 'keyReused',
+  COMMAND_IN_FLIGHT: 'inFlight',
 };
 
 /**
@@ -62,6 +67,8 @@ export const FAILURE_KEY: Readonly<Record<TransferFailure, MessageKey>> = {
   recipientNotReady: 'transfer.errorRecipientNotReady',
   notAuthorized: 'transfer.errorNotAuthorized',
   currency: 'transfer.errorCurrency',
+  keyReused: 'transfer.errorRejected',
+  inFlight: 'transfer.errorInFlight',
   rejected: 'transfer.errorRejected',
 };
 

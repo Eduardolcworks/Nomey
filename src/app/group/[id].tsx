@@ -39,7 +39,7 @@ import {
   useAssociateParticipant,
 } from '@/features/groups';
 import { useEntryCategories, useIncidents } from '@/features/personal';
-import { useMyProposals } from '@/features/transfers';
+import { useDeclinedNotices, useMyProposals } from '@/features/transfers';
 import { useSession } from '@/features/session';
 import { AddBackdrop, AppTopBar, BlurTarget, DOCK, useAddBackdrop } from '@/features/shell';
 import { indexCategories, sharedCategories } from '@/lib/categories';
@@ -145,7 +145,17 @@ export default function GroupScreen() {
     actorId,
     session.status === 'signed-in' && !session.identity.isAnonymous,
   );
-  const bell = incidents.unseen > 0 || notices.unread > 0 || proposals.incoming.length > 0;
+  // Y los rechazos propios sin ver (novedad, no acción): la misma suma que las pestañas.
+  const declined = useDeclinedNotices(
+    actorId,
+    proposals.declined,
+    session.status === 'signed-in' && !session.identity.isAnonymous,
+  );
+  const bell =
+    incidents.unseen > 0 ||
+    notices.unread > 0 ||
+    proposals.incoming.length > 0 ||
+    declined.unseen.length > 0;
   const group = groups.find((one) => one.scopeId === id);
 
   /*

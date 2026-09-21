@@ -27,9 +27,10 @@ describe('el indicador', () => {
   it('se enciende por lo NO VISTO, no por lo no resuelto', () => {
     // Desde F12.C una tercera fuente, y ésta sí es «pendiente»: una propuesta
     // de transferencia entrante no tiene marca de visto en el servidor, y lo
-    // que pide es respuesta. Se apaga al contestarla.
+    // que pide es respuesta. Se apaga al contestarla. Y una cuarta, de la
+    // clase de las dos primeras: un rechazo propio NO VISTO, que entrar apaga.
     expect(TABS).toContain(
-      'const bell = incidents.unseen > 0 || notices.unread > 0 || proposals.incoming.length > 0;',
+      'const bell =\n    incidents.unseen > 0 ||\n    notices.unread > 0 ||\n    proposals.incoming.length > 0 ||\n    declined.unseen.length > 0;',
     );
     expect(TABS).toContain('<AppTopBar alerts={bell} />');
     expect(TABS).not.toContain('incidents.unresolved > 0');
@@ -42,7 +43,9 @@ describe('el indicador', () => {
 
 describe('entrar en la campana', () => {
   it('marca una vez por fuente, y sólo cuando la fuente se mostró bien', () => {
-    expect(BELL).toContain('const marked = useRef({ notices: false, incidents: false });');
+    expect(BELL).toContain(
+      'const marked = useRef({ notices: false, incidents: false, declines: false });',
+    );
     expect(BELL).toContain('if (fresh === null && !notices.loading && !notices.failed) {');
     expect(BELL).toContain('if (fresh === null || marked.current.notices) return;');
     expect(BELL).toContain('if (marked.current.incidents || !ready) return;');

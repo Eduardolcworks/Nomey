@@ -118,6 +118,19 @@ export function AmountField({
 
   const input = useRef<TextInput | null>(null);
   const pendingCaret = useRef(false);
+  /*
+   * Y AL RECUPERAR EL FOCO, LO MISMO — y nada más que eso.
+   *
+   * La persona escribió `25`, tocó el concepto y vuelve a tocar la cifra: iOS
+   * deja el cursor donde cayó el toque, y una tecla en medio de `25` no
+   * «empieza por lo que había» — el reductor releía `245`. El foco no cambia
+   * el VALOR: `25` sigue siendo `25`, borrar quita un dígito (`2`, luego `0`)
+   * y escribir añade al final, que es donde la misma regla de arriba coloca
+   * el cursor. Sólo se pide un render para que el efecto lo aplique después,
+   * como tras sustituir una precargada. Cambiar de segmento no enfoca nada y
+   * no pasa por aquí.
+   */
+  const [, refocused] = useState(0);
   useEffect(() => {
     if (!pendingCaret.current) return;
     pendingCaret.current = false;
@@ -160,6 +173,10 @@ export function AmountField({
           }
         }}
         ref={input}
+        onFocus={() => {
+          pendingCaret.current = true;
+          refocused((n) => n + 1);
+        }}
         onPressIn={pop.onPressIn}
         keyboardType="decimal-pad"
         caretHidden

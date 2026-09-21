@@ -18,6 +18,7 @@ import {
   ProposalCard,
   stateAfterRefusal,
   type TransferProposal,
+  useDeclinedNotices,
   useMyProposals,
   useProposalActions,
 } from '@/features/transfers';
@@ -66,12 +67,23 @@ export default function NotificationsScreen() {
   const notices = useGroupNotices(actorId);
 
   /*
-   * LAS PROPUESTAS DE TRANSFERENCIA QUE PIDEN RESPUESTA (F12/ADR-002 §9).
+   * ═══════ EL CENTRO DE PENDIENTES DE LAS TRANSFERENCIAS (F12/ADR-002 §9) ═══════
    *
-   * Sólo las entrantes y pendientes: son las únicas que la vista devuelve al
-   * receptor y las únicas que exigen hacer algo. No hay «visto» que marcar
-   * —no existe en el servidor— y no se inventa: la tarjeta desaparece cuando
-   * se contesta, y la aceptada reaparece como movimiento en Inicio.
+   * Sólo lo pendiente, en las dos direcciones, en una misma sección: las
+   * ENTRANTES piden respuesta —Aceptar o Rechazar— y las SALIENTES esperan la
+   * del otro y se pueden cancelar. Nada terminal se lista aquí: la aceptada
+   * ya es un movimiento en Inicio, y la rechazada, cancelada o caducada no
+   * es nada. No hay «visto» que marcar para lo PENDIENTE —no existe en el
+   * servidor— y no se inventa: entrar aquí no apaga esa parte de la campana;
+   * contestar la última entrante, sí. Las salientes nunca la encienden.
+   *
+   * Y una NOVEDAD, la única terminal que se cuenta: «Aitor rechazó tu
+   * propuesta de 25,00 €». Sin botones y sin nada económico. Ésta sí se da por
+   * vista al entrar —es información, no una tarea— con el mismo criterio que
+   * los avisos de grupo: lo que estaba sin ver al entrar se marca una vez, se
+   * sigue enseñando durante la visita (`freshDeclines`) y a la siguiente ya
+   * no está. Lo que se guarda es el id de la propuesta, por actor, nunca su
+   * importe (`declined-seen.ts`).
    */
   const format = useFormat();
   const guest = isGuest(session);
@@ -86,6 +98,7 @@ export default function NotificationsScreen() {
           scale: personal.currencyScale,
         });
   const proposals = useMyProposals(actorId, !guest);
+  const declines = useDeclinedNotices(actorId, proposals.declined, !guest);
   const actions = useProposalActions();
 
   const proposalAmount = (proposal: TransferProposal) =>
@@ -124,6 +137,22 @@ export default function NotificationsScreen() {
       ],
     );
   };
+  const cancelProposal = (proposal: TransferProposal) => {
+    Alert.alert(
+      t('transfer.cancelTitle'),
+      t('transfer.cancelBody', { amount: proposalAmount(proposal), name: proposalName(proposal) }),
+      [
+        { text: t('action.close'), style: 'cancel' },
+        {
+          text: t('transfer.cancel'),
+          style: 'destructive',
+          onPress: () => {
+            void actions.cancel(proposal.proposalId).then(explainProposal);
+          },
+        },
+      ],
+    );
+  };
   const declineProposal = (proposal: TransferProposal) => {
     Alert.alert(
       t('transfer.declineTitle'),
@@ -157,7 +186,7 @@ export default function NotificationsScreen() {
    * era nuevo al entrar SE SIGUE VIENDO como nuevo durante la visita
    * (`fresh`): la marca no desaparece delante de la persona.
    */
-  const marked = useRef({ notices: false, incidents: false });
+  const marked = useRef({ notices: false, incidents: false, declines: false });
   // Lo que estaba sin leer al entrar, fijado en el primer render con la lista
   // cargada —estado derivado durante el render, no en un efecto— y nunca más.
   const [fresh, setFresh] = useState<ReadonlySet<string> | null>(null);
@@ -177,6 +206,24 @@ export default function NotificationsScreen() {
     marked.current.incidents = true;
     void markSeen(incidents.map((one) => one.clientOperationId));
   }, [ready, incidents, markSeen]);
+
+  /*
+   * Los rechazos sin ver al entrar, fijados igual que los avisos: en el primer
+   * render con la lista y la marca cargadas, y nunca más. Sólo ELLOS se marcan;
+   * las propuestas pendientes no tienen marca que poner.
+   */
+  const [freshDeclines, setFreshDeclines] = useState<ReadonlySet<string> | null>(null);
+  if (freshDeclines === null && !proposals.loading && !proposals.failed && declines.ready) {
+    setFreshDeclines(new Set(declines.unseen.map((one) => one.proposalId)));
+  }
+  const { markSeen: markDeclinesSeen } = declines;
+  useEffect(() => {
+    if (freshDeclines === null || marked.current.declines) return;
+    marked.current.declines = true;
+    if (freshDeclines.size > 0) void markDeclinesSeen([...freshDeclines]);
+  }, [freshDeclines, markDeclinesSeen]);
+  // Lo que se enseña de rechazos: lo que era nuevo al entrar, mientras dure la visita.
+  const shownDeclines = proposals.declined.filter((one) => freshDeclines?.has(one.proposalId));
 
   const open = (id: string, scopeId: string) => {
     // Ya visto al entrar; si aquello falló, abrirlo lo intenta por su cuenta.
@@ -214,7 +261,11 @@ export default function NotificationsScreen() {
 
   return (
     <PlaceholderScreen title="nav.notifications">
-      {incidents.length === 0 && notices.notices.length === 0 && proposals.incoming.length === 0 ? (
+      {incidents.length === 0 &&
+      notices.notices.length === 0 &&
+      proposals.incoming.length === 0 &&
+      proposals.sent.length === 0 &&
+      shownDeclines.length === 0 ? (
         <EmptyState
           symbol={Symbols.notifications}
           title={t('notifications.empty')}
@@ -248,12 +299,15 @@ export default function NotificationsScreen() {
           ))}
         </View>
       )}
-      {proposals.incoming.length === 0 ? null : (
+      {proposals.incoming.length === 0 &&
+      proposals.sent.length === 0 &&
+      shownDeclines.length === 0 ? null : (
         <View style={styles.list}>
           <ThemedText variant="caption" themeColor="textTertiary">
             {t('notifications.transfers')}
           </ThemedText>
-          {proposals.incoming.map((proposal) => (
+          {/* Las que piden respuesta primero; debajo, las que la esperan; al final, las rechazadas. */}
+          {[...proposals.incoming, ...proposals.sent, ...shownDeclines].map((proposal) => (
             <ProposalCard
               key={proposal.proposalId}
               proposal={proposal}
@@ -265,7 +319,9 @@ export default function NotificationsScreen() {
               onDecline={() => {
                 declineProposal(proposal);
               }}
-              onCancel={() => undefined}
+              onCancel={() => {
+                cancelProposal(proposal);
+              }}
             />
           ))}
         </View>

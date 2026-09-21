@@ -34,12 +34,14 @@ import { SheetWindow } from '@/ui/components';
  * dibujada y `Guardar` espera.
  *
  * **El segmento «Transferencia» lo compone esta ruta** (F12.C): la propuesta
- * vive en `features/transfers`, que `features/personal` no puede importar, y
- * la única capa que ve a las dos es ésta. `MovementForm` conserva su selector
- * y pinta debajo lo que se le entrega; el formulario de la propuesta recibe
- * del mismo ámbito la moneda —la base del Personal, que es la única que una
- * propuesta puede llevar (F12/ADR-002 §20)— y de la sesión si es un invitado,
- * que no propone nada y ve por qué (F05/ADR-003).
+ * a un usuario vive en `features/transfers`, que `features/personal` no
+ * puede importar, y la única capa que ve a las dos es ésta. `MovementForm`
+ * conserva su selector y pinta debajo lo que se le entrega — con el importe
+ * y el concepto de su propio borrador, para que cambiar de segmento no los
+ * pierda —; el formulario de la propuesta recibe del mismo ámbito la moneda
+ * —la base del Personal, que es la única que una propuesta puede llevar
+ * (F12/ADR-002 §20)— y de la sesión si es un invitado, que no propone nada y
+ * ve por qué (F05/ADR-003).
  */
 export default function AddScreen() {
   const { t } = useTranslation();
@@ -129,20 +131,25 @@ export default function AddScreen() {
           initial={resolving === null ? undefined : prefill(params)}
           resolving={resolving}
           onSaved={close}
-          transfer={
+          transfer={(shared) => (
             <TransferForm
               scope={scope}
               guest={isGuest(session)}
-              onProposed={close}
+              entry={shared.entry}
+              onChangeEntry={shared.setEntry}
+              concept={shared.concept}
+              onChangeConcept={shared.setConcept}
+              onDone={close}
               onOpenProposals={() => {
-                router.replace('/transfers');
+                // La propuesta espera en Notificaciones, el centro de pendientes.
+                router.replace('/notifications');
               }}
               onCreateAccount={() => {
                 // Inicio es «Crea tu cuenta» para un invitado (F10.A3).
                 router.dismissTo('/');
               }}
             />
-          }
+          )}
         />
       )}
     </SheetWindow>

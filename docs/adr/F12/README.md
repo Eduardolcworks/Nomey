@@ -19,7 +19,9 @@ pago mediante enlace, `20260927120000`— implementado el 2026-09-20; **B3**
 —la propuesta dentro de un grupo y la `settlement_by_transfer` de dos
 voluntades, `20260928120000`— implementado el 2026-09-20; **F12.C en
 curso**: **C1** —las transferencias Personal en el cliente— hecha y validada
-en iPhone el 2026-09-20; después C2, C3 y F12.D. El detalle está en
+en iPhone el 2026-09-20; **C2 —la solicitud de pago en el cliente— rechazada
+por decisión de producto el 2026-09-20** (ver abajo: el backend B2 queda, la
+UI no); después C3 y F12.D. El detalle está en
 [el roadmap](../../product/roadmap.md).
 
 **Lo que el alcance original de la fase ya habían cerrado F9 y F10, y no se
@@ -267,9 +269,10 @@ DEFINER` de `nomey_provisioner` —no de `postgres` como decía §11— bajo una
     **replay** de la misma `client_command_id` devuelve la misma solicitud
     con `token: null` y `already_processed: true`. Un cliente que perdió la
     primera respuesta cancela esa solicitud y crea otra con otra clave. Nada
-    se guarda en claro ni cifrado. **El token es el bearer que el cliente
-    (F12.C) incorporará al enlace compartible**: la solicitud existe para
-    compartirse; lo que nunca sale de la base es el hash.
+    se guarda en claro ni cifrado. **El token es el bearer que un cliente
+    incorporaría al enlace compartible**: la solicitud existe para
+    compartirse; lo que nunca sale de la base es el hash. **Ningún cliente
+    lo hace hoy** (decisión de producto del 2026-09-20, abajo).
   - **Anónimo → `NOT_AUTHORIZED · 403`** al crear, previsualizar y pagar (no
     existe `GUEST_NOT_ALLOWED`, como en F12.A y B1). Sin handle definitivo →
     `USERNAME_REQUIRED · 409` al crear y al pagar; previsualizar sólo exige
@@ -328,8 +331,9 @@ DEFINER` de `nomey_provisioner` —no de `postgres` como decía §11— bajo una
     `paid_by`.
   - Evidencia: `supabase/checks/payment-requests.sql` (A–H),
     `scripts/payment-request-race-evidence.sh` (7 carreras), frontera HTTP
-    §19. Pendiente para F12.C: el enlace compartible y su retención sin
-    sesión (evidencia 17 del ADR).
+    §19. **Sin cliente por decisión de producto (2026-09-20):** el enlace
+    compartible y su retención sin sesión (evidencia 17 del ADR) no se
+    construyen; ver «Solicitudes de pago: sin pantalla», abajo.
 
 - **F12/ADR-003 — la propuesta dentro de un grupo y la
   `settlement_by_transfer` de dos voluntades, tal como quedaron (F12.B3,
@@ -453,10 +457,15 @@ DECLINED | CANCELLED | EXPIRED · 409` en los demás, `NOT_AUTHORIZED` para
     F12.C: la pantalla `Grupo → + → Transferencia → participante`.
 
 - **F12/ADR-002 en el cliente — F12.C1, tal como quedó (2026-09-20, validado
-  en iPhone).** Una feature propia, `features/transfers`, compuesta por las
-  rutas en tres costuras con Personal: el segmento «Transferencia» del `+`
-  (slot de `MovementForm`), la actividad de Inicio y el banner y la campana.
-  Precisiones que la implementación fija:
+  en iPhone; revisado el mismo día al retirar C2).** Una feature propia,
+  `features/transfers`, compuesta por las rutas en tres costuras con
+  Personal: el segmento «Transferencia» del `+` (slot de `MovementForm`,
+  que le entrega el importe y el concepto de su propio borrador: cambiar de
+  Gasto a Transferencia y volver no pierde nada), la actividad de Inicio y
+  el centro de pendientes de Notificaciones con su campana. El segmento es
+  exactamente importe → concepto → `@username` → «Proponer»: **el único
+  destinatario posible es una cuenta por su username.** Precisiones que la
+  implementación fija:
   - **Búsqueda exacta por `@username`**, una llamada a `resolve_username` por
     pulsación (nunca por tecla) con los cuatro estados como copy; la regla del
     handle es la de `domain/username`. Confirmación con la identidad pública
@@ -465,11 +474,26 @@ DECLINED | CANCELLED | EXPIRED · 409` en los demás, `NOT_AUTHORIZED` para
     intención que sólo sobrevive a un fallo de transporte; sin red, fallo
     explícito con reintento y el formulario intacto. Un invitado ve el aviso
     y no llama al servidor.
-  - **`/transfers` no es un histórico**: sólo pendientes, en las dos
-    direcciones; una propuesta resuelta desde el aparato sale de la lista
-    antes de la recarga autoritativa. La campana enciende su punto con las
-    entrantes pendientes (pendiente, no «no visto»: no hay marca de visto en
-    el servidor).
+  - **Notificaciones es el único centro de pendientes, y no es un
+    histórico**: sólo pendientes, en las dos direcciones — las entrantes con
+    Aceptar y Rechazar, las salientes («Le propusiste enviar 25,00 € a
+    Aitor», «Aitor · @aitor») con Cancelar —; lo terminal desaparece (la
+    aceptada es un movimiento en Inicio). Una propuesta resuelta desde el
+    aparato sale de la lista antes de la recarga autoritativa. La campana
+    enciende su punto **sólo con entrantes pendientes** (pendiente, no «no
+    visto»: no hay marca de visto en el servidor y abrir Notificaciones no la
+    apaga; las salientes nunca la encienden). No hay pantalla `/transfers`
+    ni banner en Inicio: los hubo en la primera entrega de C1 y se retiraron
+    con C2.
+  - **El rechazo es la única terminal que se cuenta al emisor**, como novedad
+    informativa: «Aitor rechazó tu propuesta de 25,00 €», sin botones y sin
+    nada económico. La fuente es la propia vista (`direction = outgoing`,
+    `state = declined`), acotada por `expires_at` porque no publica
+    `declined_at`; no hay tabla de avisos nueva. Es la OTRA clase de punto de
+    la campana: «no visto», que entrar en Notificaciones apaga, marcando por
+    actor sólo los ids de propuesta en el documento opaco de `catalogue_cache`
+    (`transfer.declined.seen`, el patrón de `incident.seen`), nunca un
+    importe. Lo pendiente no tiene marca y no se apaga por entrar.
   - **La dirección y la contraparte salen de `direction` y
     `counterpart_*` de las vistas, nunca de `created_by`** (§12). En
     Movimientos, `my_transfers` se intercala con `personal_operation`; el
@@ -490,6 +514,28 @@ DECLINED | CANCELLED | EXPIRED · 409` en los demás, `NOT_AUTHORIZED` para
     `tests/infra/personal-transfers-surface.test.ts`; validación manual en
     iPhone con dos cuentas (proponer, aceptar, rechazar, cancelar, self,
     not_found, offline, foreground).
+
+- **Solicitudes de pago por enlace: sin pantalla (decisión de producto,
+  2026-09-20).** F12.C2 se implementó completa en el cliente — crear desde
+  el `+`, compartir con la hoja nativa, enlace `pay?t=`, bearer en el
+  llavero, previsualizar y pagar, «Mis solicitudes», pegar y escanear — y se
+  **rechazó** antes de integrarse: el producto no expone hoy ninguna UI de
+  solicitud de pago. Lo que queda:
+  - **El backend B2 se conserva íntegro** (`core.payment_request`,
+    `create_` / `preview_` / `cancel_payment_request`, la rama
+    `payment_request_token` de `record_internal_transfer`,
+    `api.my_payment_requests`, la columna `payment_request_id` de
+    `api.my_transfers`, sus checks y carreras). F12/ADR-004 sigue aceptado
+    y no se reabre: la decisión es de superficie, no de modelo.
+  - **El cliente sólo expone transferencias por `@username`**
+    (F12/ADR-002). No hay enlace, QR, bearer, `SecureStore` ni
+    `Share.share` de solicitudes en `features/transfers`; el parser de
+    `my_transfers` lee `payment_request_id` a la defensiva y ninguna fila
+    lo enseña (ningún cliente crea esas filas). Los tipos generados sobre
+    `api` conservan las funciones de B2 porque existen en el servidor.
+  - **Push de transferencias: sigue diferido** (arriba). Reabrir la UI de
+    solicitudes exige una decisión de producto nueva, no un ADR: el contrato
+    técnico ya está.
 
 ## Decisiones de otras fases que esta fase aplica
 
