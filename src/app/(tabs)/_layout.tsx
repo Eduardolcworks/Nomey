@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGroupNotices, useOpenPendingInvitation } from '@/features/groups';
 import { useIncidents } from '@/features/personal';
 import { isGuest, isSignedIn, useSession } from '@/features/session';
-import { useMyProposals } from '@/features/transfers';
+import { useDeclinedNotices, useMyProposals } from '@/features/transfers';
 import {
   AddBackdrop,
   AppTopBar,
@@ -173,7 +173,22 @@ export default function TabsLayout() {
    * pregunta.
    */
   const proposals = useMyProposals(actorId, isSignedIn(state) && !isGuest(state));
-  const bell = incidents.unseen > 0 || notices.unread > 0 || proposals.incoming.length > 0;
+  /*
+   * Y una cuarta, de OTRA clase: un rechazo reciente de una propuesta propia
+   * que aún no se ha enseñado. Esto sí es «no visto» —es una novedad, no
+   * una acción—, y entrar en Notificaciones lo apaga; lo pendiente de arriba
+   * no se apaga por entrar. Las dos se suman y no se confunden.
+   */
+  const declined = useDeclinedNotices(
+    actorId,
+    proposals.declined,
+    isSignedIn(state) && !isGuest(state),
+  );
+  const bell =
+    incidents.unseen > 0 ||
+    notices.unread > 0 ||
+    proposals.incoming.length > 0 ||
+    declined.unseen.length > 0;
   /* Una invitación llegada por enlace se retoma aquí, ya con sesión (F09/ADR-004). */
   useOpenPendingInvitation(isSignedIn(state));
 

@@ -19,6 +19,13 @@ export type MyProposals = {
   readonly incoming: readonly TransferProposal[];
   /** Outgoing AND pending: what the actor proposed and can still cancel. */
   readonly sent: readonly TransferProposal[];
+  /**
+   * Outgoing AND declined, recently: the receiver said no and the creator
+   * has something to be told (`isRecentDecline`). Informative only — no
+   * action, no accounting — and whether it was SEEN is not this hook's
+   * business (`use-declined-notices.ts`).
+   */
+  readonly declined: readonly TransferProposal[];
   readonly loading: boolean;
   /** The last load failed; whatever was loaded before stays on screen. */
   readonly failed: boolean;
@@ -43,7 +50,9 @@ export type MyProposals = {
  *
  * THE SCREEN IS NOT A HISTORY. The view does publish the creator's terminal
  * proposals (accepted, declined, cancelled, expired), and this hook drops
- * them: only what is still pending is relevant, in either direction. A
+ * them: what is still pending is relevant, in either direction, and so is a
+ * RECENT decline of one's own — the one terminal state the creator is told
+ * about, bounded by the row's own `expires_at` (`isRecentDecline`). A
  * proposal settled from this device leaves the list at once
  * (`proposalSettled`), before the authoritative reload; it stays out because
  * the reload brings it back terminal, and terminal rows are filtered — so
@@ -74,7 +83,10 @@ export function useMyProposals(actorId: string, enabled: boolean): MyProposals {
       try {
         const loaded = await fetchMyProposals();
         if (live) {
-          setHeld({ actorId, rows: newestFirst(stillRelevant(loaded)) });
+          setHeld({
+            actorId,
+            rows: newestFirst(stillRelevant(loaded, new Date().toISOString())),
+          });
           setFailed(false);
           // The reload is the authority: whatever it lists is pending there.
           setSettled(new Set());
@@ -125,6 +137,9 @@ export function useMyProposals(actorId: string, enabled: boolean): MyProposals {
   return {
     incoming: incomingPending(rows),
     sent: outgoingPending(rows),
+    // Bounded at load time; a row that crossed `expires_at` since simply
+    // goes with the next reload.
+    declined: rows.filter((one) => one.direction === 'outgoing' && one.state === 'declined'),
     loading: active && loading,
     failed: active && failed,
     refresh,

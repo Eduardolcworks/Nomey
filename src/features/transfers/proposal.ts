@@ -141,6 +141,32 @@ export function isCancellable(proposal: TransferProposal): boolean {
   return proposal.direction === 'outgoing' && proposal.state === 'pending';
 }
 
+/**
+ * THE ONE TERMINAL STATE THE CREATOR IS TOLD ABOUT: the other side said no.
+ *
+ * `api.my_transfer_proposals` publishes every outgoing proposal with its
+ * state and no `declined_at`, so "recent" is bounded by the only clock the
+ * row carries: a decline can only have happened before `expires_at` (seven
+ * days after creation), and past that instant the row is history, never a
+ * novelty — a reinstall does not light the bell for last month's refusals.
+ * Accepted ones are movements, cancelled ones were the actor's own doing,
+ * expired ones are not turned into a notice here (not asked for).
+ */
+export function isRecentDecline(proposal: TransferProposal, nowIso: string): boolean {
+  return (
+    proposal.direction === 'outgoing' &&
+    proposal.state === 'declined' &&
+    proposal.expiresAt > nowIso
+  );
+}
+
+export function outgoingDeclined(
+  proposals: readonly TransferProposal[],
+  nowIso: string,
+): readonly TransferProposal[] {
+  return proposals.filter((one) => isRecentDecline(one, nowIso));
+}
+
 export function incomingPending(
   proposals: readonly TransferProposal[],
 ): readonly TransferProposal[] {
@@ -158,9 +184,16 @@ export function outgoingPending(
   return proposals.filter(isCancellable);
 }
 
-/** Everything still relevant: pending, in either direction. */
-export function stillRelevant(proposals: readonly TransferProposal[]): readonly TransferProposal[] {
-  return proposals.filter((one) => one.state === 'pending');
+/**
+ * Everything still relevant: pending, in either direction, plus a recent
+ * decline of one's own (`isRecentDecline`), which is the one piece of news
+ * the creator has yet to be shown. Nothing else terminal survives the load.
+ */
+export function stillRelevant(
+  proposals: readonly TransferProposal[],
+  nowIso: string,
+): readonly TransferProposal[] {
+  return proposals.filter((one) => one.state === 'pending' || isRecentDecline(one, nowIso));
 }
 
 /**

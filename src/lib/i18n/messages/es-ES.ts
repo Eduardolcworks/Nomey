@@ -779,7 +779,6 @@ export const esES = {
   // ── Transferencias entre cuentas (F12/ADR-002, F12.C) ──────────────────
   // Nada de esto mueve dinero: se PROPONE, y sólo aceptar materializa. Los
   // códigos de la frontera nunca se enseñan; cada uno tiene su frase.
-  'nav.transfers': 'Transferencias',
   'notifications.transfers': 'Transferencias',
   'transfer.recipientLabel': 'Nombre de usuario del destinatario',
   'transfer.recipientPlaceholder': 'nombre_de_usuario',
@@ -805,7 +804,7 @@ export const esES = {
   'transfer.proposedTitle': 'Propuesta de {amount} enviada',
   'transfer.proposedBody':
     'Pendiente de que {name} (@{handle}) la acepte. Puedes cancelarla mientras tanto',
-  'transfer.seeProposals': 'Ver propuestas',
+  'transfer.seeProposals': 'Ver pendientes',
   'transfer.guestTitle': 'Las transferencias necesitan una cuenta',
   'transfer.guestBody': 'Crea tu cuenta y elige un nombre de usuario para enviar y recibir dinero',
   'transfer.guestAction': 'Crear cuenta',
@@ -815,7 +814,8 @@ export const esES = {
   'transfer.stateCancelled': 'Cancelada',
   'transfer.stateExpired': 'Caducada',
   'transfer.cardIncoming': '{name} te propone enviarte {amount}',
-  'transfer.cardOutgoing': 'Le propusiste enviar {amount}',
+  'transfer.cardOutgoing': 'Le propusiste enviar {amount} a {name}',
+  'transfer.cardDeclined': '{name} rechazó tu propuesta de {amount}',
   'transfer.cardExpires': 'caduca el {date}',
   'transfer.counterpartUnknown': 'Alguien',
   'transfer.accept': 'Aceptar',
@@ -843,19 +843,7 @@ export const esES = {
   'transfer.errorCurrency':
     'Las transferencias entre monedas distintas no están disponibles todavía',
   'transfer.errorRejected': 'No se pudo completar. Inténtalo otra vez',
-  'transfer.sectionIncoming': 'Por responder',
-  'transfer.sectionSent': 'Enviadas, pendientes de aceptar',
-  'transfer.loading': 'Cargando propuestas…',
-  'transfer.loadFailedTitle': 'No se pudieron cargar las propuestas',
-  'transfer.loadFailedBody': 'Comprueba la conexión e inténtalo otra vez',
-  'transfer.empty': 'Sin propuestas pendientes',
-  'transfer.emptyHint':
-    'Desde el + de Inicio puedes proponer una transferencia a otra cuenta por su nombre de usuario',
-  'transfer.bannerIncomingOne': '{count} propuesta de transferencia por responder',
-  'transfer.bannerIncomingOther': '{count} propuestas de transferencia por responder',
-  'transfer.bannerOutgoingOne': '{count} propuesta tuya pendiente de aceptar',
-  'transfer.bannerOutgoingOther': '{count} propuestas tuyas pendientes de aceptar',
-  'transfer.bannerOpen': 'Ver transferencias',
+  'transfer.errorInFlight': 'Esa operación sigue en curso. Espera un momento',
   'transfer.rowIncoming': 'Recibiste {amount} de {name}',
   'transfer.rowOutgoing': 'Le enviaste {amount} a {name}',
   'transfer.rowGroup': 'Transferencia de grupo',

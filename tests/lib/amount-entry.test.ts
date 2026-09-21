@@ -614,3 +614,41 @@ describe('el campo en iOS: texto, cursor y sustitución de la precargada', () =>
     expect(amountValue(phone.state.entry)).toBe('42');
   });
 });
+
+describe('volver a entrar en la cifra: el foco no toca el valor', () => {
+  /*
+   * Lo que el campo hace al recuperar el foco es pedir el cursor al final
+   * (`amountFieldSelection` con `pinToEnd`) y NADA sobre la cantidad: no
+   * existe ninguna regla de foco en el reductor, así que el estado tras el
+   * foco es el mismo objeto que antes.
+   */
+  const refocus = (state: AmountFieldState): AmountFieldState => ({ ...state, pinToEnd: true });
+
+  it('1 · 25 → blur → focus → sigue 25', () => {
+    const before: AmountFieldState = { entry: escribir(EMPTY_AMOUNT, '25'), pinToEnd: false };
+    const after = refocus(before);
+    expect(after.entry).toBe(before.entry);
+    expect(visto(after.entry)).toBe('25,00');
+    expect(amountValue(after.entry)).toBe('25');
+    // The caret goes to the end; the amount is untouched.
+    expect(amountFieldSelection(after)).toEqual({ start: 2, end: 2 });
+  });
+
+  it('2 · 25 → focus → backspace → 2, y 3 · 2 → backspace → 0', () => {
+    const veinticinco = refocus({ entry: escribir(EMPTY_AMOUNT, '25'), pinToEnd: false });
+    const dos = amountFieldStep(veinticinco, '2', EUR);
+    expect(visto(dos.entry)).toBe('2,00');
+    const cero = amountFieldStep(dos, '', EUR);
+    expect(visto(cero.entry)).toBe('0,00');
+    expect(amountTouched(cero.entry)).toBe(false);
+    // Wherever iOS left the caret, a shorter text is one backspace of the LAST digit:
+    // 2|5 → «5» → 2 as well. Nothing blocks it and nothing restores 25.
+    const desdeElMedio = amountFieldStep(veinticinco, '5', EUR);
+    expect(visto(desdeElMedio.entry)).toBe('2,00');
+  });
+
+  it('y escribir después del foco añade al final: 25 → «4» → 254, no 0 ni 4', () => {
+    const veinticinco = refocus({ entry: escribir(EMPTY_AMOUNT, '25'), pinToEnd: false });
+    expect(visto(amountFieldStep(veinticinco, '254', EUR).entry)).toBe('254,00');
+  });
+});

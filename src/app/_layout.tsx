@@ -544,8 +544,6 @@ function RootNavigator() {
               }}
             />
             <Stack.Screen name="notifications" />
-            {/* Las propuestas de transferencia (F12/ADR-002 §9): una pantalla plana, como la campana. */}
-            <Stack.Screen name="transfers" />
             <Stack.Screen name="profile" />
             <Stack.Screen name="account" />
           </Stack.Protected>

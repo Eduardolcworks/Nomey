@@ -148,9 +148,6 @@ describe('guardas de ruta del layout raíz', () => {
         // sus participantes y su divisa sólo existen para una cuenta con sesión.
         'group-expense',
         'notifications',
-        // Las propuestas de transferencia (F12/ADR-002 §9, F12.C): una
-        // pantalla plana de producto, como la campana.
-        'transfers',
         'profile',
         'account',
       ]);

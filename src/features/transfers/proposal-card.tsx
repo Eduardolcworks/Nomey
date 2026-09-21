@@ -27,7 +27,9 @@ const STATE_KEY: Readonly<Record<ProposalState, MessageKey>> = {
  * from who created the row (F12/ADR-002 §12).
  *
  * Incoming and pending: Aceptar and Rechazar. Outgoing and pending:
- * Cancelar. Anything else the list does not show (see `useMyProposals`),
+ * Cancelar. Outgoing and declined: «Aitor rechazó tu propuesta de 25,00 €»,
+ * with no button at all — it is news, not a task, and nothing economic
+ * happened. Anything else the list does not show (see `useMyProposals`),
  * but the state is still a word here, not only a colour (design direction
  * §8), in case a row is painted on its way out.
  */
@@ -61,10 +63,15 @@ export function ProposalCard({
     (proposal.counterpartHandle === null
       ? t('transfer.counterpartUnknown')
       : `@${proposal.counterpartHandle}`);
-  const headline = t(incoming ? 'transfer.cardIncoming' : 'transfer.cardOutgoing', {
-    amount,
-    name,
-  });
+  const declined = !incoming && proposal.state === 'declined';
+  const headline = t(
+    incoming
+      ? 'transfer.cardIncoming'
+      : declined
+        ? 'transfer.cardDeclined'
+        : 'transfer.cardOutgoing',
+    { amount, name },
+  );
   const identity =
     proposal.counterpartHandle === null
       ? null

@@ -42,12 +42,10 @@ import { GuestSignUp } from '@/features/auth';
 import { isGuest, useSession } from '@/features/session';
 import {
   interleaveActivity,
-  PendingTransfersBanner,
   subscribeTransfersChanged,
   type TransferMovement,
   transferMoment,
   TransferRow,
-  useMyProposals,
   useMyTransfers,
 } from '@/features/transfers';
 import { DOCK_HEIGHT, HomeGreeting, useAddBackdrop, useScope } from '@/features/shell';
@@ -204,18 +202,16 @@ export default function HomeScreen() {
    * LAS TRANSFERENCIAS ENTRE CUENTAS (F12/ADR-002, F12.C), por su propia
    * superficie: `personal_operation` no lista la clase, así que las filas
    * llegan de `my_transfers` para el mismo intervalo y se intercalan en la
-   * actividad con el orden que el servidor ya usa. Y las propuestas, sólo
-   * para el banner: nunca son movimientos ni suman en nada (§9). Un
-   * invitado no tiene ninguna de las dos cosas y no pregunta.
+   * actividad con el orden que el servidor ya usa. Las propuestas no
+   * entran aquí: nunca son movimientos ni suman en nada (§9), y esperan en
+   * Notificaciones. Un invitado no tiene transferencias y no pregunta.
    */
   const transfers = useMyTransfers(
     actorId,
     ready !== null && personal && !startPending && !guest,
     range,
   );
-  const proposals = useMyProposals(actorId, !guest);
   useRefreshOnReturn(transfers.refresh);
-  useRefreshOnReturn(proposals.refresh);
   /*
    * Aceptar una propuesta desde esta cuenta mueve el Disponible en el servidor
    * y no pasa por la cola: la única forma honesta de enseñarlo es releerlo.
@@ -713,15 +709,6 @@ export default function HomeScreen() {
                 currencyScale={ready.currencyScale}
                 debt={homeDebt(debtSnapshot(groups.groups, groups.reopened, groups.loading, ready))}
                 onAdjust={editBalance}
-              />
-
-              {/* Sólo mientras una propuesta espere: pide respuesta o la espera (F12.C). */}
-              <PendingTransfersBanner
-                incoming={proposals.incoming.length}
-                outgoing={proposals.sent.length}
-                onOpen={() => {
-                  router.push('/transfers');
-                }}
               />
 
               <IntervalSelector value={interval} onChange={setIntervalKind} onCalendar={premium} />

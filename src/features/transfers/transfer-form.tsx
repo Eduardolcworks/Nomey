@@ -9,7 +9,6 @@ import {
   type AmountEntry,
   AmountSheet,
   amountValue,
-  EMPTY_AMOUNT,
   EmptyState,
   GlassSurface,
   IdentityLine,
@@ -52,11 +51,25 @@ const BLOCKER_KEY: Readonly<Record<Blocker, MessageKey>> = {
  * «pendiente»: the transfer exists only when the receiver accepts, and then
  * it appears among the movements of both (F12/ADR-002 §9, §11).
  *
- * Three phases, all inside the same sheet: edit (recipient, amount,
- * concept), confirm (the identity the server resolved, the amount, the
- * concept — the window for not getting it wrong, §17) and proposed. A
- * refusal or a transport failure keeps the phase and everything typed; the
- * person retries from where they were, with the same command key.
+ * ONE form, in this order: amount, concept, the `@username` of the person
+ * who will receive, and «Proponer». The only recipient is an account found
+ * by its username — there is no other way of addressing a transfer from
+ * the client (payment requests by link, F12/ADR-004, have their backend and
+ * no screen, by product decision).
+ *
+ * THE AMOUNT AND THE CONCEPT ARE NOT THIS FORM'S. They come from the add
+ * sheet's own draft (`MovementForm` hands them in), so switching Gasto ↔
+ * Ingreso ↔ Transferencia in any direction keeps what was typed: one source
+ * of truth, no copies to keep in step and no effect syncing them. What this
+ * form owns is only what a transfer has: the recipient lookup and the
+ * proposal.
+ *
+ * Three phases, all inside the same sheet: edit, confirm (the identity the
+ * server resolved, the amount, the concept — the window for not getting it
+ * wrong, §17) and proposed. A refusal or a transport failure keeps the
+ * phase and everything typed; the person retries from where they were,
+ * with the same command key. Clearing the recipient (the X) clears only
+ * the recipient.
  *
  * A guest never reaches the server from here: they see why and where to
  * create the account (F05/ADR-003; the backend would refuse with
@@ -65,14 +78,25 @@ const BLOCKER_KEY: Readonly<Record<Blocker, MessageKey>> = {
 export function TransferForm({
   scope,
   guest,
-  onProposed,
+  entry,
+  onChangeEntry,
+  concept,
+  onChangeConcept,
+  onDone,
   onOpenProposals,
   onCreateAccount,
 }: {
   readonly scope: TransferScope | null;
   readonly guest: boolean;
-  /** «Listo» after a proposal: the sheet closes. */
-  readonly onProposed: () => void;
+  /** The add sheet's amount, shared with Gasto and Ingreso. */
+  readonly entry: AmountEntry;
+  readonly onChangeEntry: (next: AmountEntry) => void;
+  /** The add sheet's concept, shared likewise. */
+  readonly concept: string;
+  readonly onChangeConcept: (next: string) => void;
+  /** «Listo» after proposing: the sheet closes. */
+  readonly onDone: () => void;
+  /** «Ver pendientes»: the pending centre, where the proposal now waits. */
   readonly onOpenProposals: () => void;
   readonly onCreateAccount: () => void;
 }) {
@@ -82,13 +106,11 @@ export function TransferForm({
 
   const lookup = useResolveRecipient();
   const creation = useCreateProposal();
-  const [entry, setEntry] = useState<AmountEntry>(EMPTY_AMOUNT);
-  const [concept, setConcept] = useState('');
   const [phase, setPhase] = useState<Phase>({ kind: 'edit' });
 
   if (guest) {
     return (
-      <View style={styles.guest}>
+      <View style={styles.block}>
         <EmptyState
           symbol={Symbols.transfer}
           title={t('transfer.guestTitle')}
@@ -102,13 +124,14 @@ export function TransferForm({
   const scale = scope?.currencyScale ?? 2;
   const recipient = lookup.state.kind === 'found' ? lookup.state : null;
   const minor = scope === null ? null : toMinorUnits(amountValue(entry), scope.currencyScale);
+  // The amount is asked for first, in the order of the screen.
   const blocker: Blocker | null =
-    recipient === null
-      ? 'recipient'
-      : amountValue(entry).trim() === ''
-        ? 'amountMissing'
-        : minor === null || minor <= 0n
-          ? 'amountInvalid'
+    amountValue(entry).trim() === ''
+      ? 'amountMissing'
+      : minor === null || minor <= 0n
+        ? 'amountInvalid'
+        : recipient === null
+          ? 'recipient'
           : null;
 
   const definition =
@@ -121,13 +144,14 @@ export function TransferForm({
         });
   const amountText =
     definition === null || minor === null ? '' : format.money(money(minor, definition));
+  const trimmedConcept = concept.trim();
 
   const zero = format.number(0, { minimumFractionDigits: scale, maximumFractionDigits: scale });
   const cut = zero.search(/[^0-9]/);
 
   if (phase.kind === 'proposed') {
     return (
-      <View style={styles.done} accessibilityLiveRegion="polite">
+      <View style={styles.block} accessibilityLiveRegion="polite">
         <EmptyState
           symbol={Symbols.send}
           title={t('transfer.proposedTitle', { amount: amountText })}
@@ -143,7 +167,7 @@ export function TransferForm({
             material="control"
             onPress={onOpenProposals}
           />
-          <ActionButton label={t('action.done')} tone="brand" onPress={onProposed} />
+          <ActionButton label={t('action.done')} tone="brand" onPress={onDone} />
         </View>
       </View>
     );
@@ -152,7 +176,7 @@ export function TransferForm({
   if (phase.kind === 'confirm' && recipient !== null && minor !== null && scope !== null) {
     const failure = creation.failure;
     return (
-      <View style={styles.confirm}>
+      <View style={styles.block}>
         <ThemedText variant="label" themeColor="textSecondary" style={styles.centred}>
           {t('transfer.confirmTitle')}
         </ThemedText>
@@ -171,9 +195,9 @@ export function TransferForm({
           <ThemedText variant="display" style={styles.centred}>
             {amountText}
           </ThemedText>
-          {concept.trim() === '' ? null : (
+          {trimmedConcept === '' ? null : (
             <ThemedText variant="body" themeColor="textSecondary" style={styles.centred}>
-              {concept.trim()}
+              {trimmedConcept}
             </ThemedText>
           )}
           <ThemedText variant="caption" themeColor="textTertiary" style={styles.centred}>
@@ -185,7 +209,7 @@ export function TransferForm({
             {t(FAILURE_KEY[failure])}
           </ThemedText>
         )}
-        <View style={styles.confirmActions}>
+        <View style={styles.doneActions}>
           <ActionButton
             label={t('action.back')}
             tone="secondary"
@@ -227,37 +251,39 @@ export function TransferForm({
     );
   }
 
+  // edit: amount, concept, @username, «Proponer».
   return (
     <AmountSheet
-      header={
-        <RecipientField
-          lookup={lookup}
-          onChange={() => {
-            lookup.reset();
-          }}
-        />
-      }
       fields={
-        <GlassSurface
-          material="control"
-          level="regular"
-          depth="well"
-          rim="soft"
-          radius={Radius.full}
-          nativeEffect={false}
-          style={styles.conceptBox}>
-          <TextInput
-            value={concept}
-            onChangeText={setConcept}
-            placeholder={t('transfer.conceptPlaceholder')}
-            placeholderTextColor={theme.textDisabled}
-            accessibilityLabel={t('transfer.conceptLabel')}
-            style={[styles.conceptInput, { color: theme.text }]}
+        <View style={styles.fields}>
+          <GlassSurface
+            material="control"
+            level="regular"
+            depth="well"
+            rim="soft"
+            radius={Radius.full}
+            nativeEffect={false}
+            style={styles.conceptBox}>
+            <TextInput
+              value={concept}
+              onChangeText={onChangeConcept}
+              placeholder={t('transfer.conceptPlaceholder')}
+              placeholderTextColor={theme.textDisabled}
+              accessibilityLabel={t('transfer.conceptLabel')}
+              style={[styles.conceptInput, { color: theme.text }]}
+            />
+          </GlassSurface>
+
+          <RecipientField
+            lookup={lookup}
+            onChange={() => {
+              lookup.reset();
+            }}
           />
-        </GlassSurface>
+        </View>
       }
       entry={entry}
-      onChangeEntry={setEntry}
+      onChangeEntry={onChangeEntry}
       amountLabel={t('entry.amountLabel')}
       currency={scope === null ? null : { code: scope.currencyCode, scale: scope.currencyScale }}
       currencySymbol={
@@ -282,24 +308,14 @@ export function TransferForm({
 }
 
 const styles = StyleSheet.create({
-  guest: {
+  block: {
     gap: Spacing.md,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
-  done: {
-    gap: Spacing.md,
-    paddingVertical: Spacing.md,
+  fields: {
+    gap: Spacing.sm,
   },
   doneActions: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-  },
-  confirm: {
-    gap: Spacing.md,
-  },
-  confirmActions: {
     flexDirection: 'row',
     gap: Spacing.sm,
     justifyContent: 'center',

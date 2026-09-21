@@ -73,7 +73,7 @@ export {
 } from './movement-entry';
 export { type MovementEdit, MovementEditor } from './movement-editor';
 export { CIRCLE, MovementFields } from './movement-fields';
-export { MovementForm, type MovementFormScope } from './movement-form';
+export { MovementForm, type MovementFormScope, type TransferSlot } from './movement-form';
 export { type MovementDraft, useMovementDraft } from './use-movement-draft';
 export { MovementRow } from './movement-row';
 export { useAdjustBalance } from './use-adjust-balance';

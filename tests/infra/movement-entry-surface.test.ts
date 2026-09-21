@@ -234,7 +234,9 @@ describe('la ventana se presenta sobre Inicio, no en lugar de Inicio', () => {
 
 describe('el selector de clase', () => {
   it('ofrece las tres, y abre en gasto', () => {
+    // Las solicitudes de pago (F12/ADR-004) no tienen pantalla: el selector no crece.
     expect(ENTRY).toContain("['expense', 'income', 'transfer']");
+    expect(ENTRY).not.toContain("'request'");
     expect(ENTRY).toContain("INITIAL_ENTRY_KIND: EntryKind = 'expense'");
   });
 
@@ -442,7 +444,10 @@ describe('la transferencia se ofrece y no se inventa', () => {
       expect(code(source.path), source.path).not.toContain('record_external_transfer');
     }
     const service = code('features/transfers/transfer-service.ts');
+    // Un solo origen desde el cliente: aceptar una propuesta. Pagar una
+    // solicitud (F12/ADR-004 §12) tiene writer y no tiene pantalla.
     expect(service.match(/rpc\('record_internal_transfer'/g) ?? []).toHaveLength(1);
+    expect(service).not.toContain('payment_request_token');
     // Sólo `proposal_id`: importe, moneda y partes salen de la propuesta bloqueada.
     expect(service).toContain('readonly proposal_id: string;');
     expect(service).toMatch(
@@ -1775,5 +1780,43 @@ describe('el toque sobre la cifra se acusa con una escala breve, y nada más', (
     expect(RUNTIME).toContain('...timing(130),');
     expect(RUNTIME).toContain('easing: Easing.out(Easing.quad),');
     expect(RUNTIME).toContain('reduceMotion: ReduceMotion.System');
+  });
+});
+
+describe('volver a tocar la cifra: cursor al final, valor intacto', () => {
+  const CAMPO_CODE = code('ui/components/amount-field.tsx');
+  const REGLA = code('ui/components/amount-entry.ts');
+  const DRAFT = code('features/personal/use-movement-draft.ts');
+  const FORM = code('features/personal/movement-form.tsx');
+
+  it('5 · onFocus sólo pide el cursor al final por el camino ya medido; ningún reset', () => {
+    expect(CAMPO_CODE).toMatch(
+      /onFocus=\{\(\) => \{\s*pendingCaret\.current = true;\s*refocused\(\(n\) => n \+ 1\);\s*\}\}/,
+    );
+    // No value change on focus: neither a call to onChange nor a focus rule anywhere.
+    expect(CAMPO_CODE).not.toMatch(/onFocus=\{[^}]*onChange\(/);
+    expect(CAMPO_CODE).not.toMatch(/onChange\(EMPTY_AMOUNT\)/);
+    expect(REGLA).not.toMatch(/OnFocus|onFocus/);
+    expect(CAMPO_CODE).not.toContain('onBlur');
+    // The imperative selection stays the one path (measured: a controlled
+    // `selection` prop broke the Save button).
+    expect(CAMPO_CODE).toContain('input.current?.setSelection(target.start, target.end);');
+    expect(CAMPO_CODE).not.toMatch(/\sselection=\{/);
+  });
+
+  it('6 · la fuente compartida del importe sigue intacta: el borrador de la hoja, y cambiar de clase no la toca', () => {
+    expect(DRAFT).toContain(
+      'const [entry, setEntry] = useState<AmountEntry>(initial?.amount ?? EMPTY_AMOUNT);',
+    );
+    // setKind changes the kind (and drops the category); the amount is not in it.
+    const setKind = DRAFT.slice(
+      DRAFT.indexOf('const setKind = (next: EntryKind) => {'),
+      DRAFT.indexOf('const draft: EntryDraft = {'),
+    );
+    expect(setKind).not.toMatch(/setEntry|EMPTY_AMOUNT|setConcept/);
+    // The form hands the same draft to every segment, Transferencia included.
+    expect(FORM).toContain('entry: draft.entry,\n          setEntry: draft.setEntry,');
+    expect(FORM).toContain('onChangeEntry={draft.setEntry}');
+    expect(FORM).not.toMatch(/setEntry\(EMPTY_AMOUNT\)/);
   });
 });

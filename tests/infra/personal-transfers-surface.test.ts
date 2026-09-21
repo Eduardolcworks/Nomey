@@ -5,12 +5,14 @@ import TABS from '../../src/app/(tabs)/_layout.tsx?raw';
 import HOME from '../../src/app/(tabs)/index.tsx?raw';
 import ADD from '../../src/app/add.tsx?raw';
 import BELL from '../../src/app/notifications.tsx?raw';
-import SCREEN from '../../src/app/transfers.tsx?raw';
+import GROUP from '../../src/app/group/[id].tsx?raw';
+import SELECTOR from '../../src/features/personal/interval-selector.tsx?raw';
 import FORM from '../../src/features/personal/movement-form.tsx?raw';
 import INDEX from '../../src/features/transfers/index.ts?raw';
-import BANNER from '../../src/features/transfers/pending-banner.tsx?raw';
+import DECLINED_SEEN from '../../src/features/transfers/declined-seen.ts?raw';
 import CARD from '../../src/features/transfers/proposal-card.tsx?raw';
 import FIELD from '../../src/features/transfers/recipient-field.tsx?raw';
+import ERRORS from '../../src/features/transfers/transfer-errors.ts?raw';
 import EVENTS from '../../src/features/transfers/transfer-events.ts?raw';
 import TRANSFER_FORM from '../../src/features/transfers/transfer-form.tsx?raw';
 import ROW from '../../src/features/transfers/transfer-row.tsx?raw';
@@ -18,6 +20,7 @@ import SERVICE from '../../src/features/transfers/transfer-service.ts?raw';
 import CREATE from '../../src/features/transfers/use-create-proposal.ts?raw';
 import PROPOSALS from '../../src/features/transfers/use-my-proposals.ts?raw';
 import TRANSFERS from '../../src/features/transfers/use-my-transfers.ts?raw';
+import DECLINES from '../../src/features/transfers/use-declined-notices.ts?raw';
 import ACTIONS from '../../src/features/transfers/use-proposal-actions.ts?raw';
 import RESOLVE from '../../src/features/transfers/use-resolve-recipient.ts?raw';
 
@@ -30,6 +33,11 @@ import RESOLVE from '../../src/features/transfers/use-resolve-recipient.ts?raw';
  * receiver's list is exactly what the view publishes, that the recipient is
  * resolved once and on demand, and that the composition happens in the
  * routes and not across features.
+ *
+ * And what the client does NOT have, by product decision: the payment
+ * requests by link of F12/ADR-004 have their backend (F12.B2) and no screen;
+ * the only pending centre is Notifications, and the only way of addressing
+ * a transfer is an `@username`.
  */
 
 function code(source: string): string {
@@ -51,7 +59,6 @@ describe('la feature y sus costuras', () => {
       FIELD,
       CARD,
       ROW,
-      BANNER,
     ]) {
       expect(code(source)).not.toMatch(/from '@\/features\/(personal|groups|auth|session|shell)/);
     }
@@ -77,11 +84,40 @@ describe('la feature y sus costuras', () => {
   });
 
   it('el segmento Transferencia del formulario de Personal lo compone la ruta, por un slot', () => {
-    expect(FORM).toContain('transfer?: ReactNode;');
+    expect(FORM).toContain('transfer?: (shared: TransferSlot) => ReactNode;');
     expect(FORM).toContain("if (draft.kind === 'transfer' && transfer !== undefined) {");
     expect(ADD).toContain("import { TransferForm } from '@/features/transfers';");
-    expect(ADD).toContain('transfer={');
+    expect(ADD).toContain('transfer={(shared) => (');
     expect(ADD).toContain('guest={isGuest(session)}');
+  });
+});
+
+describe('la hoja del +: Gasto | Ingreso | Transferencia, y el importe es uno', () => {
+  it('el selector tiene tres segmentos y ninguno es una solicitud', () => {
+    expect(FORM).not.toContain("'request'");
+    expect(code(ADD)).not.toMatch(/mode|TransferMode|Enlace|link/);
+  });
+
+  it('el importe y el concepto son del borrador del +: una sola fuente, sin copias ni efectos', () => {
+    expect(FORM).toContain('entry: draft.entry,\n          setEntry: draft.setEntry,');
+    expect(FORM).toContain('concept: draft.concept,\n          setConcept: draft.setConcept,');
+    expect(ADD).toContain('entry={shared.entry}');
+    expect(ADD).toContain('onChangeEntry={shared.setEntry}');
+    expect(ADD).toContain('concept={shared.concept}');
+    expect(ADD).toContain('onChangeConcept={shared.setConcept}');
+    // The transfer form owns no amount and no concept, and syncs nothing.
+    expect(code(TRANSFER_FORM)).not.toMatch(/useState<AmountEntry>|EMPTY_AMOUNT|useEffect/);
+    expect(TRANSFER_FORM).toContain('readonly entry: AmountEntry;');
+    expect(TRANSFER_FORM).toContain('onChangeText={onChangeConcept}');
+  });
+
+  it('Transferencia es importe, concepto, @username y Proponer: sin Usuario | Enlace', () => {
+    // The concept well comes before the recipient field, both under the amount.
+    expect(TRANSFER_FORM.indexOf('onChangeText={onChangeConcept}')).toBeLessThan(
+      TRANSFER_FORM.indexOf('<RecipientField'),
+    );
+    expect(TRANSFER_FORM).toContain("saveLabel={t('transfer.proposeAction')}");
+    expect(code(TRANSFER_FORM)).not.toMatch(/OptionPills|TransferMode|mode ===|modeLink|modeUser/);
   });
 });
 
@@ -106,6 +142,13 @@ describe('el destinatario', () => {
     expect(FIELD).toContain('<IdentityLine');
     expect(FIELD).toContain('name={state.publicName}');
     expect(FIELD).toContain('handle={state.handle}');
+  });
+
+  it('la X limpia sólo el destinatario: el importe y el concepto no son de este formulario', () => {
+    expect(TRANSFER_FORM).toContain(
+      'onChange={() => {\n              lookup.reset();\n            }}',
+    );
+    expect(code(TRANSFER_FORM)).not.toMatch(/onChangeEntry\(EMPTY|onChangeConcept\(''\)/);
   });
 });
 
@@ -133,6 +176,11 @@ describe('proponer', () => {
     );
     expect(TRANSFER_FORM).toContain("t('transfer.guestAction')");
   });
+
+  it('«Ver pendientes» lleva a Notificaciones: el único centro de pendientes', () => {
+    expect(ADD).toContain("router.replace('/notifications');");
+    expect(TRANSFER_FORM).toContain("t('transfer.seeProposals')");
+  });
 });
 
 describe('aceptar, rechazar, cancelar', () => {
@@ -147,36 +195,38 @@ describe('aceptar, rechazar, cancelar', () => {
   it('rechazar y cancelar mandan sólo el id, y una transición ajena repinta en vez de fallar', () => {
     expect(SERVICE).toContain('payload: { proposal_id: proposalId } as never,');
     expect(ACTIONS).toContain("if (reason !== 'offline') publishTransfersChanged();");
-    expect(SCREEN).toContain('stateAfterRefusal(failure)');
     expect(BELL).toContain('stateAfterRefusal(outcome.failure)');
   });
 
-  it('cada acción pide confirmación antes de llamar', () => {
+  it('cada acción pide confirmación antes de llamar, en Notificaciones', () => {
     for (const key of ['transfer.acceptTitle', 'transfer.declineTitle', 'transfer.cancelTitle']) {
-      expect(SCREEN).toContain(`t('${key}')`);
+      expect(BELL).toContain(`t('${key}')`);
     }
-    expect(BELL).toContain("t('transfer.acceptTitle')");
-    expect(BELL).toContain("t('transfer.declineTitle')");
+    expect(BELL).toContain('void actions.accept(proposal.proposalId).then(explainProposal);');
+    expect(BELL).toContain('void actions.decline(proposal.proposalId).then(explainProposal);');
+    expect(BELL).toContain('void actions.cancel(proposal.proposalId).then(explainProposal);');
   });
 });
 
-describe('lo que se enseña, y de dónde', () => {
-  it('la dirección y la contraparte vienen de la vista; created_by no existe en el cliente', () => {
-    for (const source of [CARD, ROW, PROPOSALS, TRANSFERS, SERVICE, SCREEN, HOME, BELL]) {
-      expect(code(source)).not.toContain('created_by');
-      expect(code(source)).not.toContain('createdBy');
-    }
-    expect(CARD).toContain("const incoming = proposal.direction === 'incoming';");
-    expect(ROW).toContain("const incoming = transfer.direction === 'incoming';");
+describe('Notificaciones, el centro de pendientes', () => {
+  it('lista las entrantes pendientes con Aceptar y Rechazar, y las salientes pendientes con Cancelar', () => {
+    expect(BELL).toContain(
+      '{[...proposals.incoming, ...proposals.sent, ...shownDeclines].map((proposal) => (',
+    );
+    expect(BELL).toContain('onCancel={() => {\n                cancelProposal(proposal);');
+    // The card decides by direction and state: incoming → accept/decline, outgoing → cancel.
+    expect(CARD).toContain('{isActionable(proposal) ? (');
+    expect(CARD).toContain(') : isCancellable(proposal) ? (');
+    expect(CARD).toContain("label={t('transfer.cancel')}");
+    expect(CARD).toContain("? 'transfer.cardIncoming'");
+    expect(CARD).toContain(": 'transfer.cardOutgoing',");
+    expect(CARD).toContain('`${proposal.counterpartPublicName} · @${proposal.counterpartHandle}`');
   });
 
-  it('las recibidas son las que devuelve la vista, y no se inventa histórico', () => {
+  it('sólo lo pendiente: lo terminal desaparece, y lo aceptado es un movimiento en Inicio', () => {
     expect(PROPOSALS).toContain('incoming: incomingPending(rows),');
-    // Y de lo enviado, sólo lo pendiente: la pantalla no es un histórico.
     expect(PROPOSALS).toContain('sent: outgoingPending(rows),');
-    expect(PROPOSALS).toContain('newestFirst(stillRelevant(loaded))');
-    // Lo que se acaba de resolver desde este aparato sale de la lista antes
-    // de que vuelva la recarga, y ésta no lo trae de vuelta como pendiente.
+    expect(PROPOSALS).toContain('newestFirst(stillRelevant(loaded, new Date().toISOString()))');
     expect(PROPOSALS).toContain('subscribeProposalSettled((proposalId) => {');
     expect(PROPOSALS).toContain('(one) => !settled.has(one.proposalId),');
     expect(ACTIONS).toContain('publishProposalSettled(proposalId);');
@@ -184,34 +234,134 @@ describe('lo que se enseña, y de dónde', () => {
     expect(code(TRANSFERS)).not.toMatch(/AsyncStorage|SecureStore|catalogue|sqlite/i);
   });
 
-  it('la campana enseña sólo las entrantes pendientes, y el punto se enciende con ellas', () => {
-    expect(BELL).toContain('proposals.incoming.map((proposal) => (');
-    expect(BELL).not.toContain('proposals.sent');
-    expect(TABS).toContain(
-      'const bell = incidents.unseen > 0 || notices.unread > 0 || proposals.incoming.length > 0;',
+  it('la campana: acción pendiente (entrantes) O novedad no vista (rechazos), y abrir Notificaciones sólo apaga la segunda', () => {
+    for (const source of [TABS, GROUP]) {
+      expect(source).toContain(
+        'const bell =\n    incidents.unseen > 0 ||\n    notices.unread > 0 ||\n    proposals.incoming.length > 0 ||\n    declined.unseen.length > 0;',
+      );
+      expect(code(source)).not.toMatch(/proposals\.sent|proposals\.declined\.length/);
+    }
+    // No seen/read mark for PENDING proposals anywhere: that dot is a fact about the list.
+    for (const source of [PROPOSALS, ACTIONS, CARD]) {
+      expect(code(source)).not.toMatch(/markSeen|markRead|unread|seenAt|readAt/i);
+    }
+    const bellCode = code(BELL);
+    expect(bellCode).not.toMatch(/proposals\.(markSeen|markRead)/);
+    // The only mark Notifications writes for transfers is the declines', once,
+    // for exactly what was unseen on entry.
+    expect(BELL).toContain(
+      'if (freshDeclines.size > 0) void markDeclinesSeen([...freshDeclines]);',
+    );
+    expect(BELL).toContain(
+      'setFreshDeclines(new Set(declines.unseen.map((one) => one.proposalId)));',
+    );
+    expect(bellCode).not.toMatch(/markDeclinesSeen\([^)]*(incoming|sent)/);
+  });
+
+  it('el rechazo propio es una novedad sin acción: copy, sin botones, y sólo mientras sea reciente', () => {
+    // The list keeps pending rows and RECENT declines of one's own, nothing else terminal.
+    expect(PROPOSALS).toContain('newestFirst(stillRelevant(loaded, new Date().toISOString()))');
+    expect(PROPOSALS).toContain(
+      "declined: rows.filter((one) => one.direction === 'outgoing' && one.state === 'declined'),",
+    );
+    // The card says who said no, and offers nothing to do about it.
+    expect(CARD).toContain("? 'transfer.cardDeclined'");
+    expect(CARD).toContain("const declined = !incoming && proposal.state === 'declined';");
+    expect(CARD).toContain('{isActionable(proposal) ? (');
+    expect(CARD).toContain(') : isCancellable(proposal) ? (');
+    // Shown after the pending ones, during the visit that marked them seen.
+    expect(BELL).toContain(
+      '{[...proposals.incoming, ...proposals.sent, ...shownDeclines].map((proposal) => (',
+    );
+    expect(BELL).toContain(
+      'const shownDeclines = proposals.declined.filter((one) => freshDeclines?.has(one.proposalId));',
     );
   });
 
-  it('la fila de transferencia no se edita ni se borra', () => {
+  it('la marca de visto guarda ids por actor en el documento opaco, nunca un importe', () => {
+    expect(DECLINED_SEEN).toContain("export const DECLINED_SEEN_KEY = 'transfer.declined.seen';");
+    expect(DECLINED_SEEN).toContain('return JSON.stringify([...seen].sort());');
+    expect(code(DECLINED_SEEN)).not.toMatch(/amount|currency|balance|counterpart/i);
+    expect(DECLINES).toContain("import { offlineCatalogueCache } from '@/lib/offline';");
+    expect(code(DECLINES)).not.toMatch(/amount|AsyncStorage|SecureStore|supabase/i);
+    // The server list stays a server list: no cache of proposals anywhere.
+    expect(code(PROPOSALS)).not.toMatch(/AsyncStorage|SecureStore|catalogue|sqlite/i);
+  });
+
+  it('no hay pantalla /transfers, ni banner, ni botón ⇄ en Inicio', () => {
+    expect(LAYOUT).not.toContain('name="transfers"');
+    expect(code(LAYOUT)).not.toMatch(/name="pay"|name="share-request"/);
+    for (const source of [HOME, ADD, BELL, TABS, LAYOUT, TRANSFER_FORM]) {
+      expect(code(source)).not.toMatch(/'\/transfers'|'\/pay'|'\/share-request'/);
+    }
+    expect(HOME).not.toContain('PendingTransfersBanner');
+    expect(code(HOME)).not.toMatch(/useMyProposals|transfers=\{\{/);
+    expect(code(SELECTOR)).not.toMatch(/transfers|Symbols\.transfer|dot/);
+    expect(code(INDEX)).not.toMatch(/pending-banner|PendingTransfersBanner/);
+  });
+});
+
+describe('lo que el cliente no tiene: solicitudes de pago por enlace (F12/ADR-004)', () => {
+  it('ninguna llamada a los comandos de B2, ningún bearer, ningún enlace de pago', () => {
+    for (const source of [
+      INDEX,
+      SERVICE,
+      ERRORS,
+      TRANSFER_FORM,
+      CARD,
+      ROW,
+      ADD,
+      BELL,
+      HOME,
+      LAYOUT,
+      TABS,
+    ]) {
+      const clean = code(source);
+      expect(clean).not.toMatch(
+        /create_payment_request|preview_payment_request|cancel_payment_request|payment_request_token/,
+      );
+      expect(clean).not.toMatch(
+        /expo-secure-store|Share\.share|Clipboard|QrCode|paymentRequestLink/,
+      );
+      // Push stays deferred: the inbox is internal, nothing registers a device.
+      expect(clean).not.toMatch(/expo-notifications|PushToken|apns|fcm/i);
+    }
+    expect(ERRORS).not.toContain('PAYMENT_REQUEST');
+    expect(ERRORS).not.toContain("'paid'");
+  });
+
+  it('my_transfers sigue leyéndose entera: la columna de B2 se parsea y no se enseña', () => {
+    // The view's contract (F12.B2) carries `payment_request_id`; the parser
+    // keeps it defensively and no row reads it.
+    expect(SERVICE).toContain('payment_request_id');
+    expect(code(ROW)).not.toContain('paymentRequestId');
+  });
+});
+
+describe('lo que se enseña, y de dónde', () => {
+  it('la dirección y la contraparte vienen de la vista; created_by no existe en el cliente', () => {
+    for (const source of [CARD, ROW, PROPOSALS, TRANSFERS, SERVICE, HOME, BELL]) {
+      expect(code(source)).not.toContain('created_by');
+      expect(code(source)).not.toContain('createdBy');
+    }
+    expect(CARD).toContain("const incoming = proposal.direction === 'incoming';");
+    expect(ROW).toContain("const incoming = transfer.direction === 'incoming';");
+  });
+
+  it('la fila de transferencia dice quién y cuánto, y no se edita ni se borra', () => {
+    expect(ROW).toContain("t(incoming ? 'transfer.rowIncoming' : 'transfer.rowOutgoing', {");
     expect(code(ROW)).not.toMatch(/SwipeToDelete|onEdit|onDelete|Symbols\.edit|Symbols\.delete/);
     expect(ROW).toContain("t('transfer.rowFinal')");
   });
 
-  it('Inicio intercala my_transfers en la actividad y relee el Disponible al cambiar algo', () => {
+  it('Inicio intercala my_transfers en la actividad, por su instante, y relee el Disponible al cambiar algo', () => {
     expect(HOME).toContain('const transfers = useMyTransfers(');
     expect(HOME).toContain('const activity = interleaveActivity(');
+    expect(HOME).toContain('...transferMoment(transfer),');
     expect(HOME).toContain('projected.operations.length < projected.total,');
     expect(HOME).toContain(
       'useEffect(() => subscribeTransfersChanged(refreshHome), [refreshHome]);',
     );
-    expect(HOME).toContain('<PendingTransfersBanner');
-  });
-
-  it('la pantalla de propuestas está en la rama protegida y no se persiste nada de ella', () => {
-    expect(LAYOUT).toContain('<Stack.Screen name="transfers" />');
-    expect(SCREEN).toContain('<PlaceholderScreen title="nav.transfers">');
-    expect(SCREEN).toContain("t('transfer.sectionIncoming')");
-    expect(SCREEN).toContain("t('transfer.sectionSent')");
   });
 });
 
@@ -223,7 +373,6 @@ describe('refrescar sin sondear', () => {
     expect(code(EVENTS)).not.toMatch(/AppState|setInterval/);
     expect(PROPOSALS).toContain('onTransfersWake(() => {');
     expect(TRANSFERS).toContain('onTransfersWake(() => {');
-    expect(SCREEN).toContain('useRefreshOnReturn(proposals.refresh);');
     expect(HOME).toContain('useRefreshOnReturn(transfers.refresh);');
     for (const source of [PROPOSALS, TRANSFERS, EVENTS, RESOLVE]) {
       expect(code(source)).not.toContain('setInterval');
