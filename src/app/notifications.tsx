@@ -3,6 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
 import { currencyDefinition, moneyFromMinorString } from '@/domain';
+import {
+  type FriendRequest,
+  FRIEND_FAILURE_KEY,
+  FriendRequestRow,
+  settledAfterRefusal as friendRequestSettled,
+  useFriendActions,
+  useMyFriendRequests,
+} from '@/features/friends';
 import { GroupNoticeCard, useGroupNotices } from '@/features/groups';
 import {
   IncidentCard,
@@ -100,6 +108,55 @@ export default function NotificationsScreen() {
   const proposals = useMyProposals(actorId, !guest);
   const declines = useDeclinedNotices(actorId, proposals.declined, !guest);
   const actions = useProposalActions();
+
+  /*
+   * ═══════ LAS SOLICITUDES DE AMISTAD, SÓLO LAS ENTRANTES (F12.E.B) ═══════
+   *
+   * Aquí vive lo que pide una respuesta AHORA: «Eduardo quiere añadirte como
+   * amigo», con Aceptar y Rechazar. Las SALIENTES no se listan: esperan la
+   * respuesta del otro y no son una novedad para quien las envió; su sitio
+   * es Perfil → Amigos, donde además se pueden cancelar. Es el mismo
+   * criterio que separa una incidencia de un aviso.
+   *
+   * Y no hay «visto» que marcar: una solicitud pendiente no tiene marca en
+   * el servidor y no se inventa una, así que entrar aquí NO apaga esa parte
+   * de la campana — contestar la última entrante, sí. Rechazar tampoco crea
+   * ningún aviso para quien la envió: no está especificado para la amistad,
+   * y el emisor simplemente deja de ver su solicitud al refrescar.
+   */
+  const friendRequests = useMyFriendRequests(actorId, !guest);
+  const friendActions = useFriendActions();
+  const friendName = (request: FriendRequest) =>
+    request.counterpartPublicName ??
+    (request.counterpartHandle === null ? t('friends.unknown') : `@${request.counterpartHandle}`);
+  const explainFriend = (outcome: Awaited<ReturnType<typeof friendActions.accept>>) => {
+    if (outcome.kind !== 'failed') return;
+    Alert.alert(
+      t(
+        friendRequestSettled(outcome.failure)
+          ? 'friends.actionMovedTitle'
+          : 'friends.actionFailedTitle',
+      ),
+      t(FRIEND_FAILURE_KEY[outcome.failure]),
+      [{ text: t('action.understood') }],
+    );
+  };
+  const declineFriend = (request: FriendRequest) => {
+    Alert.alert(
+      t('friends.declineTitle'),
+      t('friends.declineBody', { name: friendName(request) }),
+      [
+        { text: t('action.cancel'), style: 'cancel' },
+        {
+          text: t('friends.decline'),
+          style: 'destructive',
+          onPress: () => {
+            void friendActions.decline(request.requestId).then(explainFriend);
+          },
+        },
+      ],
+    );
+  };
 
   const proposalAmount = (proposal: TransferProposal) =>
     currency === null
@@ -265,7 +322,8 @@ export default function NotificationsScreen() {
       notices.notices.length === 0 &&
       proposals.incoming.length === 0 &&
       proposals.sent.length === 0 &&
-      shownDeclines.length === 0 ? (
+      shownDeclines.length === 0 &&
+      friendRequests.incoming.length === 0 ? (
         <EmptyState
           symbol={Symbols.notifications}
           title={t('notifications.empty')}
@@ -321,6 +379,30 @@ export default function NotificationsScreen() {
               }}
               onCancel={() => {
                 cancelProposal(proposal);
+              }}
+            />
+          ))}
+        </View>
+      )}
+      {friendRequests.incoming.length === 0 ? null : (
+        <View style={styles.list}>
+          <ThemedText variant="caption" themeColor="textTertiary">
+            {t('notifications.friends')}
+          </ThemedText>
+          {friendRequests.incoming.map((request) => (
+            <FriendRequestRow
+              key={request.requestId}
+              request={request}
+              headline={t('friends.wantsToAdd', { name: friendName(request) })}
+              busy={friendActions.busy === request.requestId}
+              onAccept={() => {
+                void friendActions.accept(request.requestId).then(explainFriend);
+              }}
+              onDecline={() => {
+                declineFriend(request);
+              }}
+              onCancel={() => {
+                /* Una saliente no se lista aquí: no hay nada que cancelar. */
               }}
             />
           ))}

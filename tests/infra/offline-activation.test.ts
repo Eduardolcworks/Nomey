@@ -97,8 +97,9 @@ describe('un worker, en la raíz, con el listener de AppState que ya existía', 
     // cuenta se despiertan del MISMO listener; sigue sin haber un segundo.
     expect(LAYOUT).toContain('<SessionProvider onForeground={wakeOnForeground}>');
     expect(LAYOUT).toMatch(
-      // F12.C añade la tercera salida del mismo seam: las transferencias.
-      /function wakeOnForeground\(\): void \{\s*wakeQueue\(\);\s*wakeIdentity\(\);\s*wakeTransfers\(\);\s*\}/,
+      // F12.C añade la tercera salida del mismo seam —las transferencias— y
+      // F12.E la cuarta: las amistades. Sigue habiendo UN solo listener.
+      /function wakeOnForeground\(\): void \{\s*wakeQueue\(\);\s*wakeIdentity\(\);\s*wakeTransfers\(\);\s*wakeFriends\(\);\s*\}/,
     );
     expect(LAYOUT).not.toMatch(/AppState\.addEventListener/);
     expect(LAYOUT).toContain('useQueueRuntime(');

@@ -107,7 +107,20 @@ describe('la sesion de invitado es un estado real, reconocido por lo que dice Su
     expect(LAYOUT).toContain(
       "isAnonymous={state.status === 'signed-in' && state.identity.isAnonymous}",
     );
-    expect(LAYOUT).not.toMatch(/name="register"|name="recover"|isGuest/);
+    expect(LAYOUT).not.toMatch(/name="register"|name="recover"/);
+    /*
+     * Y el invitado NO tiene una rama propia. Desde F12.E.B hay exactamente
+     * UN `isGuest` en el layout —la puerta de Amigos—, y es una exclusión
+     * puntual, no un modo: una amistad exige una cuenta normal con username
+     * definitivo en las DOS partes, y `sec.assert_friend_actor` rehúsa una
+     * sesión anónima con `NOT_AUTHORIZED`. Enseñar esa pantalla a un invitado
+     * sería ofrecerle algo que el servidor le va a negar entero. Todo lo
+     * demás del producto —tabs, ventanas, Perfil, Cuenta— lo alcanza igual.
+     */
+    expect(strip(LAYOUT).match(/isGuest\(state\)/g) ?? []).toHaveLength(1);
+    expect(LAYOUT).toContain(
+      'guard={isSignedIn(state) && !recovering && !gate && !isGuest(state)}',
+    );
     expect(SESSION_STATE).not.toMatch(/guestMode|GUEST_BIT|simulad/i);
   });
 

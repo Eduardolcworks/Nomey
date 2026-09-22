@@ -237,7 +237,7 @@ describe('Notificaciones, el centro de pendientes', () => {
   it('la campana: acción pendiente (entrantes) O novedad no vista (rechazos), y abrir Notificaciones sólo apaga la segunda', () => {
     for (const source of [TABS, GROUP]) {
       expect(source).toContain(
-        'const bell =\n    incidents.unseen > 0 ||\n    notices.unread > 0 ||\n    proposals.incoming.length > 0 ||\n    declined.unseen.length > 0;',
+        'const bell =\n    incidents.unseen > 0 ||\n    notices.unread > 0 ||\n    proposals.incoming.length > 0 ||\n    declined.unseen.length > 0 ||\n    friends.incoming.length > 0;',
       );
       expect(code(source)).not.toMatch(/proposals\.sent|proposals\.declined\.length/);
     }

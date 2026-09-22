@@ -22,8 +22,9 @@ curso**: **C1** —las transferencias Personal en el cliente— hecha y validada
 en iPhone el 2026-09-20; **C2 —la solicitud de pago en el cliente— rechazada
 por decisión de producto el 2026-09-20** (ver abajo: el backend B2 queda, la
 UI no); **F12.E (Amigos) abierto el 2026-09-22** con dos ADR propuestos
-(ADR-005, ADR-006) y su backend en curso (E.A, `20260930120000`); después
-C3, el resto de E (E.B–E.E) y F12.D, que sigue siendo el cierre de la fase
+(ADR-005, ADR-006), su backend integrado (E.A, `20260930120000`) y su
+interfaz base **implementada y validada a mano, pendiente de mergear** (E.B);
+después C3, el resto de E (E.C–E.E) y F12.D, que sigue siendo el cierre de la fase
 aunque E se ejecute antes. El detalle está en
 [el roadmap](../../product/roadmap.md).
 
@@ -557,7 +558,7 @@ DECLINED | CANCELLED | EXPIRED · 409` en los demás, `NOT_AUTHORIZED` para
     técnico ya está.
 
 - **F12/ADR-005 y ADR-006 — Amigos, backend (F12.E.A, `20260930120000`,
-  2026-09-22; pendiente de merge).** Precisiones que la implementación fija:
+  2026-09-22; integrado en `main`).** Precisiones que la implementación fija:
   - **La caducidad responde el ESTADO `expired`**, no una excepción, en
     aceptar / rechazar / cancelar: el comando acaba de terminalizar la
     pendiente vencida bajo el cerrojo y una excepción revertiría esa marca
@@ -581,7 +582,74 @@ DECLINED | CANCELLED | EXPIRED · 409` en los demás, `NOT_AUTHORIZED` para
     el suyo.
   - Evidencia: `supabase/checks/friends.sql` (A–L),
     `scripts/friend-request-race-evidence.sh` (A–I), frontera HTTP §21.
-    Sin cliente todavía (E.B–E.E).
+
+- **F12.E.B — Amigos, interfaz base (rama
+  `feat/phase-12-eb-friends-ui`, 2026-09-22; **validada a mano en iPhone**
+  —Perfil → Amigos, solicitudes, búsqueda por `@username`, aceptar,
+  rechazar, cancelar, eliminar, Notificaciones y campana—, **pendiente de
+  mergear**).** No añade ni cambia ninguna decisión: consume el contrato de
+  E.A tal cual. Lo que fija la implementación del cliente:
+  - **Perfil → Amigos**, con `/friends` y `/friends/add` tras una puerta
+    más estrecha que el resto del producto —cuenta normal, username
+    definitivo y **nunca un invitado**—, porque `sec.assert_friend_actor`
+    rehúsa una sesión anónima entera. Es navegación; la autoridad sigue
+    siendo el comando.
+  - **UNA llamada por búsqueda**: `api.lookup_friend_candidate` y nunca
+    `api.resolve_username` junto a ella. Los ocho estados se pintan tal
+    cual, y `cooldown` con copy neutro —no dice qué pasó ni quién lo
+    decidió—.
+  - **La cruzada se aplica literal**: `create_friend_request` que responde
+    `incoming_pending` no pinta «solicitud enviada», sino Aceptar /
+    Rechazar sobre la solicitud del otro.
+  - **Nada optimista**: ninguna acción se da por hecha sin confirmación del
+    servidor, y un fallo de transporte no publica ni el asentamiento ni la
+    relectura. La clave de `create` se conserva sólo en ese caso, para que
+    el reintento sea un replay.
+  - **La campana suma las ENTRANTES pendientes** —clase «pide respuesta»,
+    como las propuestas de transferencia—, entrar en Notificaciones no la
+    apaga, y las salientes no la encienden. Rechazar **no** crea aviso para
+    quien la envió: no está especificado para la amistad.
+  - Sin enlace, sin QR, sin `Share`, sin llegada por enlace, sin grupos y
+    sin selector de destinatario: E.C, E.D y E.E siguen sin empezar. Las
+    cuatro funciones del enlace existen en la base y **nadie las llama**.
+  - Evidencia de cliente: `tests/lib/friends.test.ts` y
+    `tests/infra/friends-surface.test.ts`.
+
+## Decisiones tomadas y todavía SIN implementar
+
+- **F12.E.E — el selector de Amigos en Transferencias (decidido el
+  2026-09-22; NO implementado).** Rama y PR propias, después de mergear
+  E.B. Se documenta aquí para que la decisión no viva sólo en una
+  conversación; no habilita nada todavía.
+
+  Junto a la lupa que ya existe en el campo de destinatario aparece un
+  **segundo botón, con el icono de dos personas**, que abre una hoja de
+  selección de Amigos:
+
+  - arriba, un campo con lupa, «Buscar amigo», que **no** consulta al
+    servidor: **filtra en local** la lista de amigos ya cargada, por
+    `public_name` y por `@username`. Sin texto, se ven **todos**;
+  - cada fila enseña el `public_name` como texto principal y el
+    `@username` debajo, más pequeño y más apagado —la misma jerarquía que
+    `IdentityLine` ya usa—;
+  - orden por defecto: `public_name` alfabético;
+  - tocar una fila selecciona a esa persona como destinataria, cierra la
+    hoja y deja Transferencia **exactamente** como cuando el destinatario
+    se encuentra con la lupa. El importe y el concepto **no** se tocan.
+
+  **La lupa se conserva y no cambia de significado**: buscar a cualquier
+  cuenta por `@username` exacto. El botón de dos personas es un atajo
+  sobre los amigos, no una restricción — **ser amigo NO es requisito para
+  transferir**, y `api.create_transfer_proposal` no cambia: sigue
+  resolviendo el handle en el servidor una sola vez.
+
+  Fuera de alcance por decisión, no por falta de tiempo: **sin recientes,
+  sin favoritos, sin búsqueda global dentro de la hoja y sin ningún cambio
+  de backend.**
+
+  Esto no exige un ADR nuevo: no toca el modelo de F12/ADR-005 ni el
+  contrato de F12/ADR-002. Es una decisión de producto sobre una pantalla,
+  y su sitio es éste.
 
 ## Decisiones de otras fases que esta fase aplica
 

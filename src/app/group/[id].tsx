@@ -4,6 +4,7 @@ import { Alert, LayoutAnimation, Pressable, ScrollView, StyleSheet, View } from 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { currencyDefinition, money } from '@/domain';
+import { useMyFriendRequests } from '@/features/friends';
 import {
   allOf,
   fetchPendingPairs,
@@ -151,11 +152,19 @@ export default function GroupScreen() {
     proposals.declined,
     session.status === 'signed-in' && !session.identity.isAnonymous,
   );
+  // Y las solicitudes de amistad entrantes (F12.E): la misma suma, otra vez.
+  // La amistad no toca los grupos; lo que se comparte es la EXPRESIÓN de la
+  // campana, que tiene que ser la misma esté donde esté la barra.
+  const friends = useMyFriendRequests(
+    actorId,
+    session.status === 'signed-in' && !session.identity.isAnonymous,
+  );
   const bell =
     incidents.unseen > 0 ||
     notices.unread > 0 ||
     proposals.incoming.length > 0 ||
-    declined.unseen.length > 0;
+    declined.unseen.length > 0 ||
+    friends.incoming.length > 0;
   const group = groups.find((one) => one.scopeId === id);
 
   /*

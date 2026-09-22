@@ -29,8 +29,12 @@ describe('el indicador', () => {
     // de transferencia entrante no tiene marca de visto en el servidor, y lo
     // que pide es respuesta. Se apaga al contestarla. Y una cuarta, de la
     // clase de las dos primeras: un rechazo propio NO VISTO, que entrar apaga.
+    // Desde F12.E una quinta, de la clase de la tercera: una solicitud de
+    // amistad ENTRANTE y pendiente. Tampoco tiene marca de visto y tampoco se
+    // inventa: entrar no la apaga; aceptarla, rechazarla o que la otra parte
+    // la cancele, sí. Las SALIENTES no encienden nada, y una amistad tampoco.
     expect(TABS).toContain(
-      'const bell =\n    incidents.unseen > 0 ||\n    notices.unread > 0 ||\n    proposals.incoming.length > 0 ||\n    declined.unseen.length > 0;',
+      'const bell =\n    incidents.unseen > 0 ||\n    notices.unread > 0 ||\n    proposals.incoming.length > 0 ||\n    declined.unseen.length > 0 ||\n    friends.incoming.length > 0;',
     );
     expect(TABS).toContain('<AppTopBar alerts={bell} />');
     expect(TABS).not.toContain('incidents.unresolved > 0');

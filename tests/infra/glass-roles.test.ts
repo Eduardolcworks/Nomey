@@ -114,6 +114,14 @@ const CONTROLES: readonly (readonly [string, number, string])[] = [
   ['features/transfers/recipient-field.tsx', 2, 'el campo del @username, buscando y ya resuelto'],
   ['features/transfers/transfer-form.tsx', 1, 'el concepto de la propuesta'],
   /*
+   * F12.E.B: el campo del @username de «Añadir amigo». El mismo pozo que el
+   * del destinatario de una transferencia y por el mismo motivo —se escribe en
+   * él—, pero UNA sola renuncia y no dos: aquí el hallazgo no se pinta dentro
+   * del campo, sino en su propia tarjeta (`candidate-result.tsx`), porque la
+   * misma identidad ofrece cinco cosas distintas según la relación.
+   */
+  ['features/friends/candidate-field.tsx', 1, 'el campo del @username de Amigos'],
+  /*
    * Lo que cada participante DECLARA cuando el método lo pide: sus partes o su
    * importe. Es un campo, escrito una vez y pintado tantas veces como personas
    * participen. La tarjeta que lo contiene NO renuncia: eso es estructura.
