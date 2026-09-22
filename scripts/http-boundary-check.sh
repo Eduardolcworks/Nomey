@@ -259,6 +259,13 @@ delete from core.payment_request_attempt where user_id in (${ACTORES});
 delete from core.payment_request where created_by in (${ACTORES}) or paid_by in (${ACTORES});
 -- F12/ADR-003 (20260928120000): las propuestas de grupo de estos actores.
 delete from core.group_transfer_proposal where created_by in (${ACTORES}) or target_user_id in (${ACTORES});
+-- F12/ADR-005 y ADR-006 (20260930120000): amistades, solicitudes, enlaces y
+-- apuntes de estos actores (seccion 21).
+delete from core.friendship where user_low in (${ACTORES}) or user_high in (${ACTORES});
+delete from core.friend_request where requester_user_id in (${ACTORES}) or target_user_id in (${ACTORES});
+delete from core.friend_link_rotation where user_id in (${ACTORES});
+delete from core.friend_link_attempt where user_id in (${ACTORES});
+delete from core.friend_link where user_id in (${ACTORES});
 -- F10/ADR-001 (20260915120000): linea base y sujetos de las instancias creadas por
 -- estos actores, antes que sus versiones y participantes.
 delete from core.link_baseline b using core.operation o where o.id = b.operation_id and o.created_by in (${ACTORES});
@@ -2298,6 +2305,153 @@ for fn in create_group_transfer_proposal cancel_group_transfer_proposal decline_
   case "${ee}" in 200|201) fallo "${fn} se acepto SIN JWT (${ee})" ;; *) ok "${fn} sin JWT: ${ee}" ;; esac
 done
 
+# ============================================================================
+echo ""
+echo "== 21 · amigos por HTTP: solicitud, aceptacion, enlace y vistas (F12/ADR-005, F12/ADR-006, F12.E.A) =="
+# Lo que solo la ruta real demuestra: que los estados viajan con 200 y los
+# codigos con su estado; que buscar y crear consumen el freno del resolver
+# por HTTP; que un anonimo y una cuenta sin handle no previsualizan un enlace;
+# que la amistad no abre ningun Personal ajeno por la Data API; y que las
+# vistas publican la identidad actual sin uid. A es http_ana2, B http_bea,
+# C sin handle, G3 anonimo real.
+r21() { # $1 nombre, $2 fn, $3 tok, $4 body, $5 estado esperado
+  local rr ee cc
+  rr=$(rpc "$2" "$3" "$4"); ee=$(estado_de "${rr}"); cc=$(cuerpo_de "${rr}")
+  ULTIMO_CUERPO="${cc}"
+  [ "${ee}" = "$5" ] && ok "$1: ${ee}" || fallo "$1 devolvio ${ee} y se esperaba $5: ${cc}"
+}
+GC=(-H "apikey: ${KEY}" -H "Authorization: Bearer ${TOK_C}")
+codigo21() { printf '%s' "${ULTIMO_CUERPO}" | jget code; }
+campo21()  { printf '%s' "${ULTIMO_CUERPO}" | jget "$1"; }
+fila21()   { printf '%s' "${ULTIMO_CUERPO}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);const o=Array.isArray(a)?a[0]:a;console.log(o[process.argv[1]]??"")})' "$1"; }
+claves21() { printf '%s' "${ULTIMO_CUERPO}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);const o=Array.isArray(a)?a[0]:a;console.log(Object.keys(o).sort().join(","))})'; }
+
+# 21.1 · buscar: una llamada, un apunte; sin handle y anonimo rehusados.
+apuntes_antes=$("${DBQ[@]}" -c "select count(*) from core.username_lookup_attempt where user_id = '${UID_A}';" | tr -d '[:space:]')
+r21 "A busca a B" lookup_friend_candidate "${TOK_A}" '{"p_handle":"@Http_Bea"}' 200
+[ "$(fila21 state)" = "none" ] && [ "$(fila21 handle)" = "http_bea" ] && [ -n "$(fila21 public_name)" ] && ok "none · @http_bea · nombre publico" || fallo "buscar: ${ULTIMO_CUERPO}"
+[ "$(claves21)" = "handle,public_name,request_id,state" ] && ok "exactamente handle, public_name, request_id y state: ni uid ni correo" || fallo "claves: $(claves21)"
+apuntes_despues=$("${DBQ[@]}" -c "select count(*) from core.username_lookup_attempt where user_id = '${UID_A}';" | tr -d '[:space:]')
+[ "${apuntes_despues}" = "$((apuntes_antes + 1))" ] && ok "un apunte del freno compartido" || fallo "apuntes: ${apuntes_antes} → ${apuntes_despues}"
+r21 "A se busca" lookup_friend_candidate "${TOK_A}" '{"p_handle":"http_ana2"}' 200
+[ "$(fila21 state)" = "self" ] && ok "self" || fallo "self: ${ULTIMO_CUERPO}"
+r21 "A busca a nadie" lookup_friend_candidate "${TOK_A}" '{"p_handle":"nadie_http"}' 200
+[ "$(fila21 state)" = "not_found" ] && ok "not_found" || fallo "not_found: ${ULTIMO_CUERPO}"
+r21 "C sin handle busca" lookup_friend_candidate "${TOK_C}" '{"p_handle":"http_bea"}' 409
+[ "$(codigo21)" = "USERNAME_REQUIRED" ] && ok "USERNAME_REQUIRED · 409" || fallo "codigo: $(codigo21)"
+if [ -n "${TOK_G3:-}" ]; then
+  r21 "el invitado busca" lookup_friend_candidate "${TOK_G3}" '{"p_handle":"http_bea"}' 403
+  [ "$(codigo21)" = "NOT_AUTHORIZED" ] && ok "anonimo: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo21)"
+fi
+
+# 21.2 · crear, replay, cruzada, aceptar: sin operacion, sin uid.
+r21 "A pide amistad a B" create_friend_request "${TOK_A}" "$(env_payload '{"client_command_id":"a2100000-0000-4000-8000-000000000001","command_contract_version":1,"handle":"http_bea"}')" 200
+FREQ_1=$(campo21 request_id)
+[ "$(campo21 state)" = "pending" ] && [ -n "${FREQ_1}" ] && [ "$(campo21 already_processed)" = "false" ] && ok "pending · ${FREQ_1:0:8}…" || fallo "crear: ${ULTIMO_CUERPO}"
+[ "$(claves21)" = "already_processed,expires_at,request_id,state" ] && ok "exactamente already_processed, expires_at, request_id y state" || fallo "claves: $(claves21)"
+r21 "A repite la clave (replay)" create_friend_request "${TOK_A}" "$(env_payload '{"client_command_id":"a2100000-0000-4000-8000-000000000001","command_contract_version":1,"handle":"http_bea"}')" 200
+[ "$(campo21 request_id)" = "${FREQ_1}" ] && [ "$(campo21 already_processed)" = "true" ] && ok "replay: la misma solicitud" || fallo "replay: ${ULTIMO_CUERPO}"
+r21 "B pide a A (cruzada)" create_friend_request "${TOK_B}" "$(env_payload '{"client_command_id":"a2100000-0000-4000-8000-000000000002","command_contract_version":1,"handle":"http_ana2"}')" 200
+[ "$(campo21 state)" = "incoming_pending" ] && [ "$(campo21 request_id)" = "${FREQ_1}" ] && ok "incoming_pending con la solicitud de A: ninguna segunda fila" || fallo "cruzada: ${ULTIMO_CUERPO}"
+r21 "A se pide a si mismo" create_friend_request "${TOK_A}" "$(env_payload '{"client_command_id":"a2100000-0000-4000-8000-000000000003","command_contract_version":1,"handle":"http_ana2"}')" 400
+[ "$(codigo21)" = "PAYLOAD_INVALID" ] && ok "PAYLOAD_INVALID · 400" || fallo "codigo: $(codigo21)"
+v=$(curl -s "${API}/rest/v1/my_friend_requests?select=*" "${GB[@]}" | jarr 'a.length===1 && a[0].direction==="incoming" && a[0].counterpart_handle==="http_ana2" && a[0].counterpart_public_name==="Ana HTTP" && Object.keys(a[0]).sort().join(",")==="counterpart_handle,counterpart_public_name,created_at,direction,expires_at,request_id" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "my_friend_requests de B: una entrante de @http_ana2, columnas exactas sin uid" || fallo "vista de B: ${v}"
+v=$(curl -s "${API}/rest/v1/my_friend_requests?select=direction,counterpart_handle" "${GA[@]}" | jarr 'a.length===1 && a[0].direction==="outgoing" && a[0].counterpart_handle==="http_bea" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "my_friend_requests de A: una saliente a @http_bea" || fallo "vista de A: ${v}"
+r21 "A acepta la suya" accept_friend_request "${TOK_A}" "$(env_payload "{\"request_id\":\"${FREQ_1}\"}")" 403
+[ "$(codigo21)" = "NOT_AUTHORIZED" ] && ok "el emisor no acepta: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo21)"
+r21 "C acepta la ajena" accept_friend_request "${TOK_C}" "$(env_payload "{\"request_id\":\"${FREQ_1}\"}")" 409
+[ "$(codigo21)" = "USERNAME_REQUIRED" ] && ok "C sin handle: USERNAME_REQUIRED antes de mirar la solicitud" || fallo "codigo: $(codigo21)"
+r21 "B acepta" accept_friend_request "${TOK_B}" "$(env_payload "{\"request_id\":\"${FREQ_1}\"}")" 200
+FRI_1=$(campo21 friendship_id)
+[ "$(campo21 state)" = "accepted" ] && [ -n "${FRI_1}" ] && ok "accepted · amistad ${FRI_1:0:8}…" || fallo "aceptar: ${ULTIMO_CUERPO}"
+r21 "B acepta otra vez" accept_friend_request "${TOK_B}" "$(env_payload "{\"request_id\":\"${FREQ_1}\"}")" 200
+[ "$(campo21 already_processed)" = "true" ] && [ "$(campo21 friendship_id)" = "${FRI_1}" ] && ok "idempotente: la misma amistad" || fallo "repetir: ${ULTIMO_CUERPO}"
+r21 "A cancela la aceptada" cancel_friend_request "${TOK_A}" "$(env_payload "{\"request_id\":\"${FREQ_1}\"}")" 409
+[ "$(codigo21)" = "FRIEND_REQUEST_ACCEPTED" ] && ok "FRIEND_REQUEST_ACCEPTED · 409" || fallo "codigo: $(codigo21)"
+v=$(curl -s "${API}/rest/v1/my_friends?select=*" "${GA[@]}" | jarr 'a.length===1 && a[0].friendship_id==="'"${FRI_1}"'" && a[0].counterpart_handle==="http_bea" && typeof a[0].counterpart_public_name==="string" && Object.keys(a[0]).sort().join(",")==="counterpart_handle,counterpart_public_name,friendship_id,since" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "my_friends de A: @http_bea con nombre, columnas exactas sin uid" || fallo "my_friends de A: ${v}"
+v=$(curl -s "${API}/rest/v1/my_friends?select=counterpart_handle" "${GB[@]}" | jarr 'a.length===1 && a[0].counterpart_handle==="http_ana2" ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "my_friends de B: @http_ana2" || fallo "my_friends de B: ${v}"
+v=$(curl -s "${API}/rest/v1/my_friends?select=friendship_id" "${GC[@]}" | jarr 'a.length===0 ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "my_friends de C: nada" || fallo "my_friends de C: ${v}"
+# la amistad no abre nada: A sigue sin ver el Personal de B por la Data API
+v=$(curl -s "${API}/rest/v1/personal_balance?select=scope_id&scope_id=eq.${PB}" "${GA[@]}" | jarr 'a.length===0 ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "A, amigo de B, no ve el Personal de B" || fallo "Personal ajeno visible: ${v}"
+
+# 21.3 · rechazar con cooldown, cancelar sin el, eliminar.
+r21 "B elimina a A" remove_friend "${TOK_B}" "$(env_payload "{\"friendship_id\":\"${FRI_1}\"}")" 200
+[ "$(campo21 state)" = "ended" ] && ok "ended" || fallo "eliminar: ${ULTIMO_CUERPO}"
+r21 "C elimina la ajena" remove_friend "${TOK_C}" "$(env_payload "{\"friendship_id\":\"${FRI_1}\"}")" 409
+[ "$(codigo21)" = "USERNAME_REQUIRED" ] && ok "C: USERNAME_REQUIRED" || fallo "codigo: $(codigo21)"
+r21 "B pide a A tras eliminar" create_friend_request "${TOK_B}" "$(env_payload '{"client_command_id":"a2100000-0000-4000-8000-000000000004","command_contract_version":1,"handle":"http_ana2"}')" 200
+FREQ_2=$(campo21 request_id)
+[ "$(campo21 state)" = "pending" ] && ok "pending: eliminar no deja cooldown" || fallo "crear tras eliminar: ${ULTIMO_CUERPO}"
+r21 "A rechaza" decline_friend_request "${TOK_A}" "$(env_payload "{\"request_id\":\"${FREQ_2}\"}")" 200
+[ "$(campo21 state)" = "declined" ] && ok "declined" || fallo "rechazar: ${ULTIMO_CUERPO}"
+r21 "B vuelve a pedir (cooldown)" create_friend_request "${TOK_B}" "$(env_payload '{"client_command_id":"a2100000-0000-4000-8000-000000000005","command_contract_version":1,"handle":"http_ana2"}')" 200
+[ "$(campo21 state)" = "cooldown" ] && [ "$(claves21)" = "already_processed,state" ] && ok "cooldown, sin detalle" || fallo "cooldown: ${ULTIMO_CUERPO}"
+r21 "A pide a B (el otro sentido)" create_friend_request "${TOK_A}" "$(env_payload '{"client_command_id":"a2100000-0000-4000-8000-000000000006","command_contract_version":1,"handle":"http_bea"}')" 200
+FREQ_3=$(campo21 request_id)
+[ "$(campo21 state)" = "pending" ] && ok "pending: el cooldown es direccional" || fallo "otro sentido: ${ULTIMO_CUERPO}"
+r21 "A cancela" cancel_friend_request "${TOK_A}" "$(env_payload "{\"request_id\":\"${FREQ_3}\"}")" 200
+[ "$(campo21 state)" = "cancelled" ] && ok "cancelled" || fallo "cancelar: ${ULTIMO_CUERPO}"
+r21 "B acepta la cancelada" accept_friend_request "${TOK_B}" "$(env_payload "{\"request_id\":\"${FREQ_3}\"}")" 409
+[ "$(codigo21)" = "FRIEND_REQUEST_CANCELLED" ] && ok "FRIEND_REQUEST_CANCELLED · 409" || fallo "codigo: $(codigo21)"
+v=$(curl -s "${API}/rest/v1/my_friend_requests?select=request_id" "${GA[@]}" | jarr 'a.length===0 ? "ok" : JSON.stringify(a)')
+[ "${v}" = "ok" ] && ok "las terminales no se listan" || fallo "vista de A: ${v}"
+
+# 21.4 · el enlace: solo el dueno lo obtiene; preview y respuesta solo para elegibles; rotar invalida.
+r21 "A obtiene su enlace" my_friend_link "${TOK_A}" '{}' 200
+FTOK_1=$(campo21 token)
+[ "${#FTOK_1}" = "43" ] && [ "$(campo21 version)" = "1" ] && ok "token de 43 chars, version 1" || fallo "enlace: ${ULTIMO_CUERPO}"
+r21 "A lo pide otra vez" my_friend_link "${TOK_A}" '{}' 200
+[ "$(campo21 token)" = "${FTOK_1}" ] && ok "estable" || fallo "segundo: ${ULTIMO_CUERPO}"
+r21 "C sin handle pide enlace" my_friend_link "${TOK_C}" '{}' 409
+[ "$(codigo21)" = "USERNAME_REQUIRED" ] && ok "USERNAME_REQUIRED · 409" || fallo "codigo: $(codigo21)"
+r21 "C sin handle previsualiza" preview_friend_link "${TOK_C}" "{\"p_token\":\"${FTOK_1}\"}" 409
+[ "$(codigo21)" = "USERNAME_REQUIRED" ] && ok "sin handle no resuelve el enlace: USERNAME_REQUIRED" || fallo "codigo: $(codigo21)"
+if [ -n "${TOK_G3:-}" ]; then
+  r21 "el invitado previsualiza" preview_friend_link "${TOK_G3}" "{\"p_token\":\"${FTOK_1}\"}" 403
+  [ "$(codigo21)" = "NOT_AUTHORIZED" ] && ok "anonimo no resuelve el enlace: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo21)"
+  r21 "el invitado responde" respond_friend_link "${TOK_G3}" "$(env_payload "{\"token\":\"${FTOK_1}\",\"action\":\"accept\"}")" 403
+  [ "$(codigo21)" = "NOT_AUTHORIZED" ] && ok "anonimo no responde: NOT_AUTHORIZED · 403" || fallo "codigo: $(codigo21)"
+fi
+r21 "B previsualiza el de A" preview_friend_link "${TOK_B}" "{\"p_token\":\"${FTOK_1}\"}" 200
+[ "$(fila21 state)" = "ok" ] && [ "$(fila21 handle)" = "http_ana2" ] && [ "$(fila21 public_name)" = "Ana HTTP" ] && ok "ok · @http_ana2 · Ana HTTP" || fallo "preview: ${ULTIMO_CUERPO}"
+[ "$(claves21)" = "handle,public_name,request_id,state" ] && ok "exactamente handle, public_name, request_id y state" || fallo "claves: $(claves21)"
+r21 "A previsualiza el propio" preview_friend_link "${TOK_A}" "{\"p_token\":\"${FTOK_1}\"}" 200
+[ "$(fila21 state)" = "own" ] && ok "own" || fallo "own: ${ULTIMO_CUERPO}"
+r21 "B previsualiza uno inventado" preview_friend_link "${TOK_B}" '{"p_token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}' 200
+[ "$(fila21 state)" = "invalid" ] && ok "invalid, con 200" || fallo "invalid: ${ULTIMO_CUERPO}"
+v=$("${DBQ[@]}" -c "select count(*) from core.friend_link_attempt where user_id = '${UID_B}';" | tr -d '[:space:]')
+[ "${v}" = "1" ] && ok "solo el invalid apunto (B: 1)" || fallo "apuntes de B: ${v}"
+r21 "A rota" rotate_friend_link "${TOK_A}" '{}' 200
+FTOK_2=$(campo21 token)
+[ "$(campo21 version)" = "2" ] && [ "${FTOK_2}" != "${FTOK_1}" ] && ok "version 2, token distinto" || fallo "rotar: ${ULTIMO_CUERPO}"
+r21 "B responde con el viejo" respond_friend_link "${TOK_B}" "$(env_payload "{\"token\":\"${FTOK_1}\",\"action\":\"accept\"}")" 200
+[ "$(campo21 state)" = "invalid" ] && ok "el viejo: invalid" || fallo "viejo: ${ULTIMO_CUERPO}"
+r21 "B responde con el nuevo" respond_friend_link "${TOK_B}" "$(env_payload "{\"token\":\"${FTOK_2}\",\"action\":\"accept\"}")" 200
+FRI_2=$(campo21 friendship_id)
+[ "$(campo21 state)" = "friends" ] && [ -n "${FRI_2}" ] && ok "friends · ${FRI_2:0:8}… (origen link)" || fallo "responder: ${ULTIMO_CUERPO}"
+v=$("${DBQ[@]}" -c "select origin || ':' || (origin_request_id is null)::text || ':' || (created_by = '${UID_B}')::text from core.friendship where id = '${FRI_2}';" | tr -d '[:space:]')
+[ "${v}" = "link:true:true" ] && ok "origen link, sin solicitud, creada por B" || fallo "origen: ${v}"
+r21 "B previsualiza ya amigos" preview_friend_link "${TOK_B}" "{\"p_token\":\"${FTOK_2}\"}" 200
+[ "$(fila21 state)" = "friends" ] && ok "friends" || fallo "preview amigos: ${ULTIMO_CUERPO}"
+v=$("${DBQ[@]}" -c "select count(*) from core.friend_link where token in ('${FTOK_1}','${FTOK_2}');" | tr -d '[:space:]')
+[ "${v}" = "1" ] && ok "en la base solo existe el token vigente" || fallo "tokens: ${v}"
+for vista in my_friends my_friend_requests; do
+  v=$(curl -s -o /dev/null -w '%{http_code}' "${API}/rest/v1/${vista}" -H "apikey: ${KEY}")
+  [ "${v}" != "200" ] && ok "${vista} sin JWT no responde 200 (${v})" || fallo "${vista} respondio 200 sin JWT"
+done
+for fn in lookup_friend_candidate create_friend_request accept_friend_request decline_friend_request cancel_friend_request remove_friend my_friend_link rotate_friend_link preview_friend_link respond_friend_link; do
+  rr=$(rpc "${fn}" "" '{}')
+  ee=$(estado_de "${rr}")
+  case "${ee}" in 200|201) fallo "${fn} se acepto SIN JWT (${ee})" ;; *) ok "${fn} sin JWT: ${ee}" ;; esac
+done
+
+
 echo "== retirada =="
 retirar
 borrar_usuarios
@@ -2328,7 +2482,9 @@ select (select count(*) from core.operation o
          where created_by in (select id from auth.users where email like 'nomey-http-%'))
      + (select count(*) from auth.users where email like 'nomey-http-%')
      + (select count(*) from core.account_handle where handle like 'http\_%')
-     + (select count(*) from core.account_handle_event where handle like 'http\_%');
+     + (select count(*) from core.account_handle_event where handle like 'http\_%')
+     + (select count(*) from core.friend_link l where not exists (select 1 from auth.users u where u.id = l.user_id))
+     + (select count(*) from core.friend_request r where not exists (select 1 from auth.users u where u.id = r.requester_user_id));
 SQL
 )
 resto=$(tr -d '[:space:]' <<<"${resto}")

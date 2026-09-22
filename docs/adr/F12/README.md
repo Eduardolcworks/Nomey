@@ -21,7 +21,10 @@ voluntades, `20260928120000`— implementado el 2026-09-20; **F12.C en
 curso**: **C1** —las transferencias Personal en el cliente— hecha y validada
 en iPhone el 2026-09-20; **C2 —la solicitud de pago en el cliente— rechazada
 por decisión de producto el 2026-09-20** (ver abajo: el backend B2 queda, la
-UI no); después C3 y F12.D. El detalle está en
+UI no); **F12.E (Amigos) abierto el 2026-09-22** con dos ADR propuestos
+(ADR-005, ADR-006) y su backend en curso (E.A, `20260930120000`); después
+C3, el resto de E (E.B–E.E) y F12.D, que sigue siendo el cierre de la fase
+aunque E se ejecute antes. El detalle está en
 [el roadmap](../../product/roadmap.md).
 
 **Lo que el alcance original de la fase ya habían cerrado F9 y F10, y no se
@@ -47,12 +50,14 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 
 ## ADR de esta fase
 
-| ADR                                                        | Título                                                                                                                                                                                                        | Estado   | Fecha      | Bloque                                                         |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- | -------------------------------------------------------------- |
-| [F12/ADR-001](ADR-001-username-public-account-identity.md) | Username: la identidad pública de una cuenta (precisa F03/ADR-003 en el rol `supabase_auth_admin`). **Implementado en F12.A (A1 `20260921120000`, A2 `20260924120000`, A3 cliente; 2026-09-19)**              | Aceptado | 2026-09-17 | F12.A0                                                         |
-| [F12/ADR-002](ADR-002-two-will-user-transfers.md)          | Transferencias entre usuarios con dos voluntades (precisa F01/ADR-001 §10 e invariante 14; supera el contrato de F3 de `record_internal_transfer`). **Implementado en F12.B1 (`20260926120000`, 2026-09-19)** | Aceptado | 2026-09-17 | F12.A0                                                         |
-| [F12/ADR-003](ADR-003-group-transfers.md)                  | Transferencias dentro de un Grupo: propuesta + aceptación → `settlement_by_transfer`, deuda algebraica (supera de forma acotada `data-model.md` §3 y el contrato de F3 de `record_settlement_by_transfer`)    | Aceptado | 2026-09-17 | F12.A0 · implementado en F12.B3 (`20260928120000`, 2026-09-20) |
-| [F12/ADR-004](ADR-004-payment-request-links.md)            | Solicitudes de pago mediante enlace: capability al portador, un solo uso, 7 días → `internal_transfer` del pagador al solicitante. **Implementado en F12.B2 (`20260927120000`, 2026-09-20)**                  | Aceptado | 2026-09-17 | F12.A0                                                         |
+| ADR                                                        | Título                                                                                                                                                                                                                                                                        | Estado    | Fecha      | Bloque                                                         |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------- | -------------------------------------------------------------- |
+| [F12/ADR-001](ADR-001-username-public-account-identity.md) | Username: la identidad pública de una cuenta (precisa F03/ADR-003 en el rol `supabase_auth_admin`). **Implementado en F12.A (A1 `20260921120000`, A2 `20260924120000`, A3 cliente; 2026-09-19)**                                                                              | Aceptado  | 2026-09-17 | F12.A0                                                         |
+| [F12/ADR-002](ADR-002-two-will-user-transfers.md)          | Transferencias entre usuarios con dos voluntades (precisa F01/ADR-001 §10 e invariante 14; supera el contrato de F3 de `record_internal_transfer`). **Implementado en F12.B1 (`20260926120000`, 2026-09-19)**                                                                 | Aceptado  | 2026-09-17 | F12.A0                                                         |
+| [F12/ADR-003](ADR-003-group-transfers.md)                  | Transferencias dentro de un Grupo: propuesta + aceptación → `settlement_by_transfer`, deuda algebraica (supera de forma acotada `data-model.md` §3 y el contrato de F3 de `record_settlement_by_transfer`)                                                                    | Aceptado  | 2026-09-17 | F12.A0 · implementado en F12.B3 (`20260928120000`, 2026-09-20) |
+| [F12/ADR-004](ADR-004-payment-request-links.md)            | Solicitudes de pago mediante enlace: capability al portador, un solo uso, 7 días → `internal_transfer` del pagador al solicitante. **Implementado en F12.B2 (`20260927120000`, 2026-09-20)**                                                                                  | Aceptado  | 2026-09-17 | F12.A0                                                         |
+| [F12/ADR-005](ADR-005-friendship-model.md)                 | Amigos: amistad simétrica con dos voluntades (relación canónica `(user_low, user_high)`, solicitud con terminales persistidas, cruzadas sin duplicado, cooldown direccional tras rechazo, topes exactos, sin acceso financiero). **Backend en F12.E.A (`20260930120000`)**    | Propuesto | 2026-09-22 | F12.E                                                          |
+| [F12/ADR-006](ADR-006-friend-link.md)                      | El enlace personal de amistad: un código público, opaco y revocable por cuenta (no una credencial), preview sólo para cuentas elegibles, respuesta que reutiliza la solicitud pendiente y `accepted_via_link` en el caso recíproco. **Backend en F12.E.A (`20260930120000`)** | Propuesto | 2026-09-22 | F12.E                                                          |
 
 Qué contrato cubre cada uno, en una línea:
 
@@ -82,8 +87,22 @@ Qué contrato cubre cada uno, en una línea:
   solicitud, un solo uso, 7 días, sin `declined`, cancelable por el creador,
   previsualización frenada, máximo 20 pendientes propias; pagarla materializa
   una `internal_transfer` del pagador al solicitante, y `paid` es para siempre.
+- **ADR-005** — la amistad como relación simétrica y canónica entre dos
+  cuentas normales con username definitivo, nacida de dos voluntades:
+  solicitud dirigida con terminales persistidas (la caducidad incluida,
+  terminalizada bajo el cerrojo de la pareja por el primer comando que la
+  toca), una pendiente por pareja en cualquier dirección, cruzadas sin
+  duplicado ni amistad automática, cooldown de 7 días sólo tras rechazo y
+  sólo de ese emisor hacia ese destinatario, topes exactos, `ended_at` en
+  vez de borrado, y ningún acceso financiero.
+- **ADR-006** — el enlace personal de amistad: un solo código público,
+  opaco y revocable por cuenta (en claro, porque no es una credencial),
+  cuyo QR es el mismo enlace; sólo una cuenta normal con username lo
+  previsualiza; responderlo reutiliza la solicitud pendiente si la hay y
+  resuelve la recíproca como `accepted_via_link`.
 
-Los cuatro son los previstos por la apertura de la fase; ninguno más está
+Los cuatro primeros son los previstos por la apertura de la fase; ADR-005 y
+ADR-006 nacen del bloque F12.E (Amigos, 2026-09-22). Ninguno más está
 previsto ni reservado. Un ADR nuevo toma el siguiente número libre al
 redactarse.
 
@@ -536,6 +555,33 @@ DECLINED | CANCELLED | EXPIRED · 409` en los demás, `NOT_AUTHORIZED` para
   - **Push de transferencias: sigue diferido** (arriba). Reabrir la UI de
     solicitudes exige una decisión de producto nueva, no un ADR: el contrato
     técnico ya está.
+
+- **F12/ADR-005 y ADR-006 — Amigos, backend (F12.E.A, `20260930120000`,
+  2026-09-22; pendiente de merge).** Precisiones que la implementación fija:
+  - **La caducidad responde el ESTADO `expired`**, no una excepción, en
+    aceptar / rechazar / cancelar: el comando acaba de terminalizar la
+    pendiente vencida bajo el cerrojo y una excepción revertiría esa marca
+    (medido). Las otras terminales ajenas a la transición sí son 409
+    (`FRIEND_REQUEST_ACCEPTED | _DECLINED | _CANCELLED`).
+  - **La idempotencia de `create_friend_request` vive en la propia
+    relación** (`unique (requester_user_id, client_command_id)`), no en
+    `core.provisioning_command`, que exige un `result_scope_id` y aquí no
+    hay ámbito. Un replay recupera lo persistido sin apuntar; un resultado
+    que no persistió (`not_found`, `friends`, `incoming_pending`,
+    `cooldown`) se reevalúa con el mismo estado y otro apunte.
+  - **Orden global de cerrojos: pareja → cuenta.** `respond_friend_link`
+    reverifica el token bajo el cerrojo por cuenta del dueño (el de
+    `rotate`), no con `for share`: un `for share` filtrado por la policy
+    de UPDATE del provisioner devuelve cero filas sin error (E20).
+  - **`core.friend_link_rotation`** (insert-only) existe para que el tope
+    de 5 rotaciones / 24 h sea exacto y quede el rastro; es la quinta
+    relación, además de las cuatro del contrato.
+  - **`resolve_username` no cambia**: `lookup_friend_candidate` replica su
+    resolución y su apunte, y añade la relación. Transferencias sigue con
+    el suyo.
+  - Evidencia: `supabase/checks/friends.sql` (A–L),
+    `scripts/friend-request-race-evidence.sh` (A–I), frontera HTTP §21.
+    Sin cliente todavía (E.B–E.E).
 
 ## Decisiones de otras fases que esta fase aplica
 

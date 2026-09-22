@@ -701,6 +701,38 @@ paid | cancelled | expired | invalid | throttled`), publishes only amount,
   The token is the bearer the client (F12.C) will put into the shareable
   link; the hash never leaves the database. Precisions in
   `docs/adr/F12/README.md`.
+- **Friends — F12.E, OPEN (2026-09-22; [F12/ADR-005](docs/adr/F12/ADR-005-friendship-model.md),
+  [F12/ADR-006](docs/adr/F12/ADR-006-friend-link.md), both Proposed).** A
+  friendship is a SYMMETRIC, canonical relation `(user_low, user_high)`
+  between two normal accounts with a definitive username, born from two
+  wills: a directed request accepted by its target, or the owner's personal
+  link accepted by whoever opens it. It is not accounting (no operation,
+  effect or scope), grants no financial access, touches no group, and does
+  not depend on the username (identity resolves `uid → current` on read).
+  **Backend in F12.E.A (`20260930120000`, pending merge):**
+  `core.friend_request` with ALL terminals persisted — including
+  `expired_at`, written under the pair lock by the first command that
+  touches the pair, so the partial unique index «one pending per pair, any
+  direction» never depends on `now()` —, `core.friendship` (one active per
+  pair; ending is `ended_at`/`ended_by`, never delete; re-adding is a new
+  instance), `core.friend_link` (ONE stable, rotatable token per account,
+  stored in clear because it is a public opaque revocable friendship code,
+  not a credential; only its owner reads it), `friend_link_rotation` and
+  `friend_link_attempt`. Crossed requests never insert a second row
+  (`incoming_pending`, accept stays explicit); a decline opens a 7-day
+  cooldown of THAT requester towards THAT target only (never after cancel,
+  expiry or removal); caps 10 sends / h, 30 pending, 5 rotations / 24 h,
+  20 invalid tokens / 10 min, lookups share the resolver's 20 / 10 min
+  budget with ONE attempt per `lookup_friend_candidate`. Lock order is
+  pair → account everywhere. Every command requires a normal account with a
+  definitive handle (`NOT_AUTHORIZED` / `USERNAME_REQUIRED`); an expired
+  request answers the STATE `expired` (an exception would revert the
+  persisted expiry — measured). `authenticated` has no grant on any
+  `core.friend*` relation: it reads only `api.my_friends` and
+  `api.my_friend_requests` (no uid, no email, no terminals). No client
+  yet: E.B (Profile, lists, Notifications, bell), E.C (link + QR + Share),
+  E.D (from a group participant, without publishing the handle), E.E
+  (recipient picker in Transfers) follow; F12.D remains the phase closure.
 - **Out of F12:** device contacts, phone, SMS/OTP, e-mail search, real bank
   transfers, Open Banking, cards, shared pots, loans, advances, scheduled
   payments, multi-transfers, requests inside a group, transfers to
@@ -805,8 +837,8 @@ Two artefacts closed Phase 5 and are worth knowing about:
 
 **What exists now.** A reproducible local Supabase stack (`supabase/config.toml`)
 and twelve reproducible probes that measured the decisions behind the schema
-(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **60
-migrations** rebuilt from zero in CI with 40 SQL checks and sixteen real-session
+(`supabase/e11/` … `supabase/e22/`, **none of them a migration**); **62
+migrations** rebuilt from zero in CI with 41 SQL checks and seventeen real-session
 race scripts. A pure reference implementation of the financial domain in
 `src/domain/`, with shared test vectors in `tests/vectors/` that the server
 boundary reproduces exactly (F01/ADR-001 §7), and a Vitest suite of 148 files.

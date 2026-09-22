@@ -416,6 +416,20 @@ jobs:
       - name: Payment request checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/payment-requests.sql
 
+      # Friends (F12/ADR-005, F12/ADR-006, F12.E.A, 20260930120000): the five
+      # relations with RLS and no client grant, everything owned by the
+      # provisioner, the pending-per-pair index with the persisted expiry,
+      # lookup + relation in one call and one resolver attempt, create with its
+      # states (not_found, friends, incoming_pending, cooldown) and its exact
+      # caps, crossed requests, accept/decline/cancel with their codes and
+      # audit, persisted expiry, directional 7-day cooldown after decline only,
+      # remove as ended_at and re-add as a new instance, the personal link
+      # (stable, opaque, rotation cap, preview only for eligible accounts,
+      # invalid counted), respond with the reciprocal case as accepted_via_link,
+      # both views without uid, and friendship opening no scope.
+      - name: Friends checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/friends.sql
+
       # Group transfer proposals and the two-will settlement_by_transfer
       # (F12/ADR-003, F12.B3, 20260928120000): structure and owners (the three
       # commands and the accounting under the writer, the shared budget under
@@ -592,6 +606,17 @@ jobs:
       # 20-pending cap exact under two simultaneous creations. Fixture only.
       - name: Payment request races (real sessions)
         run: bash scripts/payment-request-race-evidence.sh
+
+      # Friends as real sessions (F12/ADR-005 §4, F12/ADR-006 §4, §6; F12.E.A):
+      # crossed create, accept vs cancel in both orders, double accept, remove
+      # vs re-request in both orders (accept vs remove is not constructible: the
+      # friendship_id remove takes does not exist until accept commits), the
+      # 10/hour cap
+      # exact under two simultaneous creations, rotate vs respond in both
+      # orders, and the reciprocal request resolved through the link while the
+      # owner accepts it. Fixture only.
+      - name: Friend request races (real sessions)
+        run: bash scripts/friend-request-race-evidence.sh
 
       # Group transfer proposals as real sessions (F12/ADR-003 §9, §13;
       # F12.B3): accept vs leave_group in both orders (range 1 serializes
