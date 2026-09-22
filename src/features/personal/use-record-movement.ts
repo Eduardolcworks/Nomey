@@ -37,6 +37,7 @@ export function useRecordMovement(
     scopeId: string;
     currencyDefinitionId: string;
     currencyScale: number;
+    baseCurrencyDefinitionId?: string;
   } | null,
 ) {
   const [status, setStatus] = useState<RecordStatus>('idle');

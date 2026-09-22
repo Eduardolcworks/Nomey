@@ -6,6 +6,7 @@ import { useFormatLocale } from '../i18n';
 import { type DateStyle, formatDate } from './date';
 import { formatMoney, type MoneyFormatOptions } from './money';
 import { formatNumber, formatPercent } from './number';
+import { formatRate } from './rate';
 
 /**
  * The formatters, bound to the active locale.
@@ -27,6 +28,8 @@ export function useFormat() {
       percent: (ratio: number, fractionDigits?: number) =>
         formatPercent(ratio, locale, fractionDigits),
       date: (value: string, style?: DateStyle) => formatDate(value, locale, style),
+      /** An exact rate from its coefficient and scale; `null` if malformed. */
+      rate: (coefficient: string, scale: number) => formatRate(coefficient, scale, locale),
     }),
     [locale],
   );

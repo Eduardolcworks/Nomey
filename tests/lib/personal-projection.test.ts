@@ -100,6 +100,7 @@ function serverOp(over: Partial<PersonalOperation> = {}): PersonalOperation {
     currency_definition_id: CURRENCY,
     balance_amount: '-2000',
     original_amount: '2000',
+    original_currency_definition_id: over.currency_definition_id ?? CURRENCY,
     effective_date: TODAY,
     effective_time: '20:00:00',
     concept: 'Súper',

@@ -32,6 +32,12 @@ export type MovementFormScope = {
   readonly currencyDefinitionId: string;
   readonly currencyCode: string;
   readonly currencyScale: number;
+  /**
+   * La base del ámbito, SÓLO cuando la moneda del formulario no lo es: al
+   * corregir una operación en moneda extranjera (F11.C). Un alta nunca la
+   * lleva, porque F11.C no permite crearlas desde la interfaz.
+   */
+  readonly baseCurrencyDefinitionId?: string;
 };
 
 /**

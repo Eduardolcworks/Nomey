@@ -111,6 +111,7 @@ function server(startingBalance: bigint) {
           currency_definition_id: CURRENCY,
           balance_amount: String(kind === 'expense' ? -minor : minor),
           original_amount: String(minor),
+          original_currency_definition_id: CURRENCY,
           effective_date: TODAY,
           effective_time: '21:40:00',
           concept: 'Cena',

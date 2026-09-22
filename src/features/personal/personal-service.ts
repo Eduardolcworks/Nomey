@@ -3,7 +3,12 @@ import { supabase } from '@/lib/supabase';
 
 import type { DateRange } from './interval';
 import type { EntryPayload } from './movement-entry';
-import type { BalanceObservation, PersonalOperation, PersonalOperationVersion } from './movement';
+import type {
+  BalanceObservation,
+  PersonalOperation,
+  PersonalOperationConversion,
+  PersonalOperationVersion,
+} from './movement';
 import { OPERATION_ORDER } from './movement';
 import type { EnsureScopeResult } from './personal-scope';
 import type { ExpenseShare } from './expense-share';
@@ -175,7 +180,12 @@ const OPERATION_COLUMNS =
    */
   'group_scope_id,group_display_name,your_share,' +
   /* Y la contraparte de un pago registrado (F09/ADR-007). `null` en el resto. */
-  'payment_counterpart';
+  'payment_counterpart,' +
+  /*
+   * La moneda DECLARADA (F11.C). Sin ella `original_amount` es una cifra sin
+   * moneda: desde B5 puede no ser la base.
+   */
+  'original_currency_definition_id';
 
 /**
  * Una página de operaciones del intervalo, en el orden canónico.
@@ -255,6 +265,54 @@ export async function fetchObservations(
   if (error !== null) throw error;
 
   return (data ?? []) as unknown as BalanceObservation[];
+}
+
+/**
+ * Las conversiones congeladas de una página, en UNA llamada (F11.C).
+ *
+ * Sólo de las operaciones que convirtieron: las demás no tienen conversión que
+ * pedir, así que una página sin moneda extranjera no hace esta petición.
+ *
+ * **Sale de la función lectora y de ninguna otra parte.** El cliente no tiene
+ * ni debe tener acceso a `core.frozen_conversion`; la función autoriza en su
+ * cuerpo por propiedad del ámbito. Y **nunca se resuelve un tipo para leer**:
+ * lo que llega es lo que quedó congelado al registrar.
+ */
+export async function fetchConversions(
+  operationIds: readonly string[],
+): Promise<PersonalOperationConversion[]> {
+  if (operationIds.length === 0) return [];
+
+  const { data, error } = await supabase.rpc('personal_operation_conversion', {
+    p_operation_ids: operationIds as string[],
+  });
+  if (error !== null) throw error;
+
+  return (data ?? []) as unknown as PersonalOperationConversion[];
+}
+
+/** Lo mínimo de una definición monetaria para formatear un importe con ella. */
+export type CurrencyInfo = { readonly code: string; readonly scale: number };
+
+/**
+ * El catálogo monetario, para formatear la moneda DECLARADA de una operación.
+ *
+ * Desde F11 un importe original puede no estar en la base, y su código y su
+ * escala no los trae la fila. Son las veinte definiciones de
+ * `api.currency_definition`, así que se traen enteras. **La escala es de la
+ * definición** —JPY 0, EUR 2— y nunca se supone.
+ */
+export async function fetchCurrencyCatalogue(): Promise<Map<string, CurrencyInfo>> {
+  const { data, error } = await supabase.from('currency_definition').select('id,code,scale');
+  if (error !== null) throw error;
+
+  const catalogue = new Map<string, CurrencyInfo>();
+  for (const row of data ?? []) {
+    if (row.id !== null && row.code !== null && row.scale !== null) {
+      catalogue.set(row.id, { code: row.code, scale: row.scale });
+    }
+  }
+  return catalogue;
 }
 
 /** El catálogo visible del actor, para resolver el nombre de una categoría. */

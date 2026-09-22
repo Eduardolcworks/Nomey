@@ -549,3 +549,103 @@ describe('el reintento manual', () => {
     db.close();
   });
 });
+
+/**
+ * EL DÍA TODAVÍA NO ESTÁ FIJADO (F11.C).
+ *
+ * El servidor contesta 503 `FX_RATE_NOT_YET_AVAILABLE` y la respuesta sólo
+ * puede cambiar cuando llegue una fijación. La entrada no se da por buena, no
+ * se quema su clave, no se duplica: sólo se aplaza, y con el plazo de una
+ * fijación en vez del backoff de un transporte que se cae.
+ */
+describe('el día todavía no está fijado', () => {
+  const FX: TransportOutcome = { kind: 'http', status: 503, code: 'FX_RATE_NOT_YET_AVAILABLE' };
+  const HORA = 3_600_000;
+
+  it('queda retryable, con su clave y su payload, a una hora exacta', async () => {
+    const db = await openStore();
+    const server = fakeServer([FX]);
+    const { store, worker, state } = harness({ db, transport: server.transport, random: 0.999999 });
+    const entry = expense(ACTOR_A);
+    await store.enqueue(entry);
+
+    await worker.runOnce();
+
+    const after = await store.byId(ACTOR_A, entry.clientOperationId);
+    expect(after?.state).toBe('retryable');
+    expect(after?.attempts).toBe(1);
+    expect(after?.clientOperationId).toBe(entry.clientOperationId);
+    expect(after?.payload).toEqual(entry.payload);
+    expect(after?.lastErrorClass).toBe('fxPending');
+    expect(after?.lastErrorCode).toBe('FX_RATE_NOT_YET_AVAILABLE');
+    // Plano: ni el azar al máximo lo mueve de la hora.
+    expect(after?.nextAttemptAt).toBe(new Date(state.now + HORA).toISOString());
+    db.close();
+  });
+
+  it('NO reintenta con el backoff de transporte: a los cinco minutos, nada', async () => {
+    const db = await openStore();
+    const server = fakeServer([FX, OK()]);
+    const { store, worker, state } = harness({ db, transport: server.transport });
+    await store.enqueue(expense(ACTOR_A));
+
+    await worker.runOnce();
+    state.now += 300_000; // el techo del backoff general
+    expect((await worker.runOnce()).kind).toBe('idle');
+    state.now += HORA - 300_001;
+    expect((await worker.runOnce()).kind).toBe('idle');
+    expect(server.calls).toBe(1);
+    db.close();
+  });
+
+  it('pasada la hora reintenta CON LA MISMA CLAVE y confirma una sola operación', async () => {
+    const db = await openStore();
+    const server = fakeServer([FX, OK('op-fx')]);
+    const { store, worker, state } = harness({ db, transport: server.transport });
+    const entry = expense(ACTOR_A);
+    await store.enqueue(entry);
+
+    await worker.runOnce();
+    state.now += HORA;
+    expect((await worker.runOnce()).kind).toBe('attempted');
+
+    const after = await store.byId(ACTOR_A, entry.clientOperationId);
+    expect(after?.state).toBe('confirmed');
+    expect(after?.resultOperationId).toBe('op-fx');
+    expect(server.seen).toEqual([entry.clientOperationId, entry.clientOperationId]);
+    expect(server.written.size).toBe(1);
+    db.close();
+  });
+
+  it('el plazo no crece con los intentos: sigue siendo una hora', async () => {
+    const db = await openStore();
+    const server = fakeServer([FX, FX, FX]);
+    const { store, worker, state } = harness({ db, transport: server.transport });
+    const entry = expense(ACTOR_A);
+    await store.enqueue(entry);
+
+    for (let i = 0; i < 3; i += 1) {
+      await worker.runOnce();
+      const after = await store.byId(ACTOR_A, entry.clientOperationId);
+      expect(after?.attempts).toBe(i + 1);
+      expect(after?.nextAttemptAt).toBe(new Date(state.now + HORA).toISOString());
+      state.now += HORA;
+    }
+    db.close();
+  });
+
+  it('un 503 sin ese código sigue con el backoff general, dentro de su techo', async () => {
+    const db = await openStore();
+    const server = fakeServer([{ kind: 'http', status: 503, code: null }]);
+    const { store, worker, state } = harness({ db, transport: server.transport, random: 0.999999 });
+    const entry = expense(ACTOR_A);
+    await store.enqueue(entry);
+
+    await worker.runOnce();
+
+    const after = await store.byId(ACTOR_A, entry.clientOperationId);
+    expect(after?.lastErrorClass).toBe('transport');
+    expect(Date.parse(after?.nextAttemptAt ?? '') - state.now).toBeLessThanOrEqual(300_000);
+    db.close();
+  });
+});

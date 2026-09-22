@@ -677,6 +677,15 @@ export const en: Record<MessageKey, string> = {
   'home.detailGroup': 'Group',
   'home.detailPaid': 'You paid',
   'home.detailYourShare': 'Your share',
+  // F11.C: an operation declared in another currency. The converted amount
+  // is the booked one and the rate the frozen one: neither is computed on read.
+  'home.convertedAmount': '≈ {amount}',
+  'home.detailConverted': 'Amount in {code}',
+  'home.detailRate': 'Exchange rate',
+  'home.rateValue': '1 {from} = {rate} {to}',
+  'home.detailRateSource': 'Source',
+  'home.rateSourceEcb': 'European Central Bank, reference of {date}',
+  'home.rateSourceOther': 'Reference of {date}',
   'home.detailConcept': 'Concept',
   'home.detailPaidBy': 'Paid by',
   'home.detailTotal': 'Total amount',

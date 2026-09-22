@@ -439,3 +439,81 @@ describe('corregir el importe rompe el no-op', () => {
     expect(sameEntry(vuelta, original, scale)).toBe(true);
   });
 });
+
+/**
+ * CORREGIR UNA OPERACIÓN EN MONEDA EXTRANJERA (F11.C).
+ *
+ * El defecto que esto cierra no fallaba: el editor mandaba el importe original
+ * con la moneda y la escala de la BASE, el servidor veía moneda igual a base y
+ * no convertía, y 150.000 yenes quedaban guardados como 1.500,00 €.
+ */
+describe('corregir en la moneda declarada', () => {
+  const TARGET = { operationId: 'op-fx', expectedVersionId: 'v-1' };
+  // El formulario de una operación en JPY: la moneda y la escala son las suyas.
+  const JPY = {
+    scopeId: 's-1',
+    currencyDefinitionId: 'jpy-1',
+    currencyScale: 0,
+    baseCurrencyDefinitionId: 'eur-1',
+  };
+
+  it('manda la moneda DECLARADA y la base asumida, nunca la base como moneda', () => {
+    const payload = buildPayload(draft({ amount: '150000' }), JPY, 'k-fx', TARGET);
+
+    expect(payload?.currency_definition_id).toBe('jpy-1');
+    expect(payload?.expected_base_currency_definition_id).toBe('eur-1');
+    expect(payload?.operation_id).toBe('op-fx');
+  });
+
+  it('el importe se escala con la escala DECLARADA: 150000 yenes son 150000, no 15000000', () => {
+    const payload = buildPayload(draft({ amount: '150000' }), JPY, 'k-fx', TARGET);
+    expect(payload?.amount).toBe('150000');
+  });
+
+  it('con la escala de la base, la misma cifra sería otra: por eso viaja la suya', () => {
+    const conLaBase = buildPayload(draft({ amount: '150000' }), SCOPE, 'k-fx', TARGET);
+    expect(conLaBase?.amount).toBe('15000000');
+    expect(conLaBase?.currency_definition_id).toBe('eur-1');
+  });
+
+  /*
+   * SIN CONVERSIÓN, EL PAYLOAD ES EXACTAMENTE EL DE SIEMPRE. Es lo que conserva
+   * la intención canónica —y con ella la idempotencia— de todo lo ya enviado.
+   */
+  it('en la base no lleva base asumida, ni al dar de alta ni al corregir', () => {
+    expect(buildPayload(draft(), SCOPE, 'k-1')).not.toHaveProperty(
+      'expected_base_currency_definition_id',
+    );
+    expect(buildPayload(draft(), SCOPE, 'k-1', TARGET)).not.toHaveProperty(
+      'expected_base_currency_definition_id',
+    );
+  });
+
+  it('una base igual a la moneda no añade nada: no es moneda extranjera', () => {
+    const payload = buildPayload(
+      draft(),
+      { ...SCOPE, baseCurrencyDefinitionId: 'eur-1' },
+      'k-1',
+      TARGET,
+    );
+    expect(payload).toEqual(buildPayload(draft(), SCOPE, 'k-1', TARGET));
+  });
+
+  /*
+   * El cliente NO decide si se hereda el tipo o se resuelve otro: manda la
+   * fecha y la moneda, y eso lo decide el servidor (B5). Aquí sólo se comprueba
+   * que la fecha nueva viaja tal cual y que no se añade ningún campo de tipo.
+   */
+  it('cambiar la fecha la manda tal cual, sin ningún campo de tipo ni de fuente', () => {
+    const payload = buildPayload(
+      draft({ amount: '150000', date: '2026-09-02' as CalendarDate }),
+      JPY,
+      'k-fx',
+      TARGET,
+    );
+    expect(payload?.effective_date).toBe('2026-09-02');
+    for (const campo of ['rate', 'rate_coefficient', 'rate_scale', 'source', 'source_id']) {
+      expect(payload).not.toHaveProperty(campo);
+    }
+  });
+});

@@ -58,7 +58,13 @@ export type ResponseClass =
   | 'payloadInvalid'
   | 'domainRejection'
   | 'idempotencyConflict'
-  | 'currencyConflict';
+  | 'currencyConflict'
+  /**
+   * La octava, de F11.C: el día de la operación todavía no está fijado. Es un
+   * 503 y se reintenta, pero NO es un fallo de transporte y no lleva su
+   * backoff; ver `FX_PENDING_DELAY_MS`.
+   */
+  | 'fxPending';
 
 export type Classification = {
   readonly responseClass: ResponseClass;
@@ -118,6 +124,19 @@ export function classifyResponse(
     // Con sesión válida y fresca, un 403 es una denegación real de autorización
     // —medido: `NOT_AUTHORIZED`— y reintentarlo sólo sería un bucle.
     return classified('authorizationPermanent', 'rejected', code);
+  }
+
+  /*
+   * ANTES DEL 5xx GENÉRICO, y por eso va aquí: llega CON un 503, así que la
+   * regla de abajo se lo tragaría como si fuese un servidor caído.
+   *
+   * No lo es. El servidor contestó bien: el tipo del día de esa operación aún
+   * no está fijado (F11/ADR-001 §3.4). Se reintenta igual —misma entrada,
+   * misma clave, ningún efecto que demostrar— pero con el plazo de una
+   * fijación y no con el de una red que se cae. Lo único que cambia es CUÁNDO.
+   */
+  if (code === 'FX_RATE_NOT_YET_AVAILABLE') {
+    return classified('fxPending', 'retryable', code);
   }
 
   if (status === 408 || status === 429 || status >= 500) {

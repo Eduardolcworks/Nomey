@@ -16,7 +16,7 @@
  * - no toca el payload congelado.
  */
 
-import { isDue, nextAttemptAt } from './backoff';
+import { fxPendingAttemptAt, isDue, nextAttemptAt } from './backoff';
 import {
   describeFailure,
   type InfrastructureFailure,
@@ -239,8 +239,14 @@ export function createSyncWorker(ports: WorkerPorts): SyncWorker {
          * suelo.
          *
          * La MISMA entrada y la MISMA clave. Sólo se mueve cuándo se reintenta.
+         *
+         * Salvo si lo que falta es la fijación del día (F11.C): ahí el plazo es
+         * el de una fijación, plano, y no el backoff de un transporte caído.
          */
-        nextAttemptAt: nextAttemptAt(entry.attempts, ports.clock, ports.random),
+        nextAttemptAt:
+          classification.responseClass === 'fxPending'
+            ? fxPendingAttemptAt(ports.clock)
+            : nextAttemptAt(entry.attempts, ports.clock, ports.random),
         lastErrorClass: classification.responseClass,
         lastErrorCode: classification.code,
       });

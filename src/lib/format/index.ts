@@ -9,4 +9,5 @@ export {
 export { type IntlCheck, intlReport, type IntlStatus } from './intl-report';
 export { currencySymbol, formatMoney, type MoneyFormatOptions } from './money';
 export { formatNumber, formatPercent } from './number';
+export { formatRate } from './rate';
 export { useFormat } from './use-format';

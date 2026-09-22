@@ -150,3 +150,47 @@ describe('lo indemostrable va a revisión, nunca a rechazo', () => {
     }
   });
 });
+
+/**
+ * EL DÍA TODAVÍA NO ESTÁ FIJADO (F11.C, F11/ADR-001 §3.4).
+ *
+ * Llega con un 503, así que la regla general del 5xx se lo tragaría como un
+ * servidor caído. No lo es: el servidor contestó bien. Se reintenta igual,
+ * pero con su propia clase, para que el plazo sea el de una fijación.
+ */
+describe('FX_RATE_NOT_YET_AVAILABLE', () => {
+  const FX: TransportOutcome = { kind: 'http', status: 503, code: 'FX_RATE_NOT_YET_AVAILABLE' };
+
+  it('es retryable, con su propia clase y su código', () => {
+    const c = clasificar(FX);
+    expect(c.state).toBe('retryable');
+    expect(c.responseClass).toBe('fxPending');
+    expect(c.code).toBe('FX_RATE_NOT_YET_AVAILABLE');
+  });
+
+  it('NUNCA confirma ni rechaza: no hay ninguna operación que dar por hecha', () => {
+    const c = clasificar(FX);
+    expect(c.state).not.toBe('confirmed');
+    expect(c.state).not.toBe('rejected');
+    expect(c.state).not.toBe('review');
+  });
+
+  it('un 503 sin ese código sigue siendo transporte', () => {
+    const c = clasificar({ kind: 'http', status: 503, code: null });
+    expect(c.responseClass).toBe('transport');
+    expect(c.state).toBe('retryable');
+  });
+
+  it('la sesión sigue mandando antes: sin sesión es de sesión, diga lo que diga el código', () => {
+    const c = clasificar(FX, 'signed-out');
+    expect(c.state).toBe('blocked_session');
+  });
+
+  it('los otros resultados de FX no se tratan como espera: son rechazos de dominio', () => {
+    for (const code of ['FX_CURRENCY_NOT_COVERED', 'FX_CONVERSION_OUT_OF_RANGE']) {
+      const c = clasificar({ kind: 'http', status: 422, code });
+      expect(c.responseClass).not.toBe('fxPending');
+      expect(c.state).not.toBe('retryable');
+    }
+  });
+});

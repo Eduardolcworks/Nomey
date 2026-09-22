@@ -5,17 +5,25 @@ import type { CategoryRow } from './category';
 import { indexCategories } from './category';
 import type { ExpenseShare } from './expense-share';
 import { type DateRange, rangeKey } from './interval';
-import type { BalanceObservation, PersonalOperation, PersonalOperationVersion } from './movement';
-import { indexObservations, indexVersions, previousVersionIds } from './movement';
+import type {
+  BalanceObservation,
+  PersonalOperation,
+  PersonalOperationConversion,
+  PersonalOperationVersion,
+} from './movement';
+import { indexObservations, indexVersions, isConverted, previousVersionIds } from './movement';
 import {
   fetchBalance,
   fetchCategories,
+  fetchConversions,
+  fetchCurrencyCatalogue,
   fetchObservations,
   fetchExpenseShares,
   fetchOperations,
   fetchStatistics,
   fetchVersions,
   PAGE_SIZE,
+  type CurrencyInfo,
 } from './personal-service';
 import { isProjecting, readBarrier, offlineCatalogueCache } from '@/lib/offline';
 import { inQuietWindow, type QuietWindowPorts } from './snapshot-window';
@@ -33,6 +41,10 @@ import type { PersonalStatistics } from './statistics';
  *   4  operaciones    `api.personal_operation`      por intervalo, paginada
  *   5  versiones      `…_version?…in.(…)`           sólo si hay «Editado»
  *   6  observaciones  `api.observed_balance([…])`   sólo al desplegar, una vez
+ *   7  conversiones   `api.personal_operation_conversion([…])`
+ *                                                 sólo si la página trae alguna
+ *                                                 operación en moneda extranjera
+ *   8  monedas        `api.currency_definition`     con el bloque del intervalo
  *
  * Lo que NO ocurre, y son las tres cosas que F6.D se diseñó para evitar: no hay
  * una llamada por movimiento, no hay una llamada por observación, y **el saldo
@@ -76,6 +88,13 @@ export type PersonalHome = {
   readonly categories: ReadonlyMap<string, CategoryRow>;
   readonly versions: ReadonlyMap<string, PersonalOperationVersion>;
   readonly observations: ReadonlyMap<string, BalanceObservation>;
+  /**
+   * La conversión congelada de cada operación en moneda extranjera de lo
+   * cargado, por `operation_id` (F11.C). Vacía si ninguna convirtió.
+   */
+  readonly conversions: ReadonlyMap<string, PersonalOperationConversion>;
+  /** Código y escala de cada definición monetaria, para la moneda declarada. */
+  readonly currencies: ReadonlyMap<string, CurrencyInfo>;
   readonly loadingMore: boolean;
   readonly loadMore: () => void;
   /** Pide las observaciones de la página. Idempotente y perezosa. */
@@ -104,6 +123,8 @@ type Loaded = {
   readonly total: number;
   readonly shares: readonly ExpenseShare[];
   readonly versions: Map<string, PersonalOperationVersion>;
+  readonly conversions: Map<string, PersonalOperationConversion>;
+  readonly currencies: ReadonlyMap<string, CurrencyInfo>;
   readonly seq: number | null;
 };
 
@@ -131,6 +152,21 @@ function windowPorts(actorId: string): QuietWindowPorts {
 
 const EMPTY_VERSIONS: ReadonlyMap<string, PersonalOperationVersion> = new Map();
 const EMPTY_OBSERVATIONS: ReadonlyMap<string, BalanceObservation> = new Map();
+const EMPTY_CONVERSIONS: ReadonlyMap<string, PersonalOperationConversion> = new Map();
+const EMPTY_CURRENCIES: ReadonlyMap<string, CurrencyInfo> = new Map();
+
+/**
+ * Las conversiones de una página, en UNA llamada y sólo si hace falta.
+ *
+ * Una página sin moneda extranjera no hace esta petición: `fetchConversions`
+ * devuelve vacío sin salir a la red cuando no hay ningún identificador.
+ */
+async function conversionsOf(
+  rows: readonly PersonalOperation[],
+): Promise<Map<string, PersonalOperationConversion>> {
+  const rowsFx = await fetchConversions(rows.filter(isConverted).map((row) => row.operation_id));
+  return new Map(rowsFx.map((row) => [row.operation_id, row]));
+}
 const EMPTY_OPERATIONS: readonly PersonalOperation[] = [];
 const EMPTY_SHARES: readonly ExpenseShare[] = [];
 
@@ -294,22 +330,27 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
            * la lista no depende de las estadísticas. Encadenarlas duplicaría la
            * latencia sin ganar nada.
            */
-          const [statistics, page, shares] = await Promise.all([
+          const [statistics, page, shares, currencies] = await Promise.all([
             fetchStatistics(range),
             fetchOperations(range, 0, PAGE_SIZE),
             fetchExpenseShares(range),
+            fetchCurrencyCatalogue(),
           ]);
           // Las versiones anteriores SÓLO si alguna fila las tiene, y en UNA
           // consulta para toda la página. Nunca una por fila.
-          const versions = indexVersions(await fetchVersions(previousVersionIds(page.rows)));
-          return { statistics, page, shares, versions };
+          const [versionRows, conversions] = await Promise.all([
+            fetchVersions(previousVersionIds(page.rows)),
+            conversionsOf(page.rows),
+          ]);
+          const versions = indexVersions(versionRows);
+          return { statistics, page, shares, versions, conversions, currencies };
         });
         if (cancelled) return;
         if (window.kind !== 'base') {
           supersede(attempt);
           return;
         }
-        const { statistics, page, shares, versions } = window.value;
+        const { statistics, page, shares, versions, conversions, currencies } = window.value;
 
         // Un refresco parcial o cancelado no llega aquí: sólo el completo fija
         // el snapshot y su `seq`, que es lo único que puede retirar proyecciones.
@@ -320,6 +361,8 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
           total: page.total,
           shares,
           versions,
+          conversions,
+          currencies,
           seq: window.seq,
         });
       } catch {
@@ -359,11 +402,14 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
          */
         const window = await inQuietWindow(windowPorts(actorRef.current), async () => {
           const page = await fetchOperations(range, current.operations.length, PAGE_SIZE);
-          const versions = indexVersions(await fetchVersions(previousVersionIds(page.rows)));
-          return { page, versions };
+          const [versionRows, conversions] = await Promise.all([
+            fetchVersions(previousVersionIds(page.rows)),
+            conversionsOf(page.rows),
+          ]);
+          return { page, versions: indexVersions(versionRows), conversions };
         });
         if (window.kind !== 'base' || window.seq !== current.seq) return;
-        const { page, versions } = window.value;
+        const { page, versions, conversions } = window.value;
 
         setLoaded((previous) =>
           previous === null || previous.key !== key
@@ -373,6 +419,7 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
                 operations: [...previous.operations, ...page.rows],
                 total: page.total,
                 versions: new Map([...previous.versions, ...versions]),
+                conversions: new Map([...previous.conversions, ...conversions]),
               },
         );
         // La página nueva invalida lo pedido de observaciones: la próxima
@@ -430,6 +477,8 @@ export function usePersonalHome(ready: boolean, range: DateRange, actorId: strin
       categories,
       versions: current?.versions ?? EMPTY_VERSIONS,
       observations: observations?.token === pageToken ? observations.map : EMPTY_OBSERVATIONS,
+      conversions: current?.conversions ?? EMPTY_CONVERSIONS,
+      currencies: current?.currencies ?? EMPTY_CURRENCIES,
       loadingMore,
       loadMore,
       ensureObservations,

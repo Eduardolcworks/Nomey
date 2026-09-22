@@ -330,6 +330,27 @@ export default function HomeScreen() {
       rowBlocked();
       return;
     }
+    /*
+     * LA MONEDA DECLARADA VIAJA CON EL IMPORTE (F11.C). Una operación en otra
+     * moneda se corrige EN ESA MONEDA: mandar su importe con la escala y la
+     * moneda de la base convertía 150.000 yenes en 1.500,00 € al guardar, y el
+     * servidor lo habría aceptado —moneda igual a la base, nada que
+     * convertir—. Quien decide si el tipo se hereda o se resuelve de nuevo es
+     * el servidor (B5), con la fecha y la moneda que lleguen.
+     *
+     * Sin su código y su escala no se abre el editor: corregir con otra escala
+     * reinterpretaría la cifra.
+     */
+    const declared =
+      operation.original_currency_definition_id === operation.currency_definition_id
+        ? ready === null
+          ? undefined
+          : { code: ready.currencyCode, scale: ready.currencyScale }
+        : home.currencies.get(operation.original_currency_definition_id);
+    if (declared === undefined) {
+      rowBlocked();
+      return;
+    }
     backdrop.show();
     router.push({
       pathname: '/edit-movement',
@@ -338,11 +359,12 @@ export default function HomeScreen() {
         versionId: operation.current_version_id,
         kind: operation.operation_class === 'personal_income' ? 'income' : 'expense',
         amount: operation.original_amount,
+        currencyId: operation.original_currency_definition_id,
+        currencyCode: declared.code,
         // LA ESCALA VIAJA CON EL IMPORTE. Unas unidades minimas sin su escala no
-        // son una cifra: 4280 es 42,80 con escala 2 y 4.280 con escala 0. Aqui
-        // se conoce ya —el lapiz solo existe con el ambito resuelto—, asi que la
-        // ventana no tiene que esperar a resolverlo otra vez para dibujarla.
-        scale: String(ready?.currencyScale ?? 2),
+        // son una cifra: 4280 es 42,80 con escala 2 y 4.280 con escala 0. Es la
+        // de la moneda DECLARADA, que desde F11 puede no ser la de la base.
+        scale: String(declared.scale),
         concept: operation.concept ?? '',
         categoryId: operation.category_id ?? '',
         date: operation.effective_date,
@@ -558,6 +580,8 @@ export default function HomeScreen() {
       operation={operation}
       previous={versionOf(operation, home)}
       categories={home.categories}
+      currencies={home.currencies}
+      conversion={home.conversions.get(operation.operation_id)}
       /*
        * THE ROW'S CURRENCY, not the scope's. They coincide except when the
        * base moved underneath an already captured entry (F02/ADR-001 §7,
@@ -860,6 +884,8 @@ function MovementGroup({
           operation={operation}
           previous={versionOf(operation, home)}
           categories={home.categories}
+          currencies={home.currencies}
+          conversion={home.conversions.get(operation.operation_id)}
           currencyCode={operation.currency_code}
           currencyScale={operation.currency_scale}
           expanded={openMovement === operation.render_key}
@@ -924,6 +950,8 @@ function ExpenseGroup({
           operation={operation}
           previous={versionOf(operation, home)}
           categories={home.categories}
+          currencies={home.currencies}
+          conversion={home.conversions.get(operation.operation_id)}
           currencyCode={operation.currency_code}
           currencyScale={operation.currency_scale}
           expanded={openMovement === operation.render_key}

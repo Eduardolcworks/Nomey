@@ -702,6 +702,15 @@ export const esES = {
   'home.detailGroup': 'Grupo',
   'home.detailPaid': 'Pagaste',
   'home.detailYourShare': 'Tu parte',
+  // F11.C: una operación declarada en otra moneda. El importe convertido es
+  // el asentado y el tipo, el congelado: ninguno se calcula al leer.
+  'home.convertedAmount': '≈ {amount}',
+  'home.detailConverted': 'Importe en {code}',
+  'home.detailRate': 'Tipo de cambio',
+  'home.rateValue': '1 {from} = {rate} {to}',
+  'home.detailRateSource': 'Fuente',
+  'home.rateSourceEcb': 'Banco Central Europeo, referencia del {date}',
+  'home.rateSourceOther': 'Referencia del {date}',
   'home.sharedGroupUnknown': 'Gasto compartido',
   /* Mi cuota, desplegada en Gastos: concepto, quién pagó, cuánto en total. */
   'home.detailConcept': 'Concepto',

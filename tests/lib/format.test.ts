@@ -5,6 +5,7 @@ import { currencyDefinition, money, moneyFromMinorString } from '../../src/domai
 import { formatDate, monthNames } from '../../src/lib/format/date';
 import { currencySymbol, formatMoney } from '../../src/lib/format/money';
 import { formatNumber, formatPercent } from '../../src/lib/format/number';
+import { formatRate } from '../../src/lib/format/rate';
 
 /**
  * Formateo localizado.
@@ -220,4 +221,44 @@ describe('fidelidad frente a ICU', () => {
       });
     }
   }
+});
+
+/**
+ * EL TIPO DE CAMBIO CONGELADO (F11.C).
+ *
+ * Llega como `(coeficiente, escala)` y en texto, con hasta doce decimales. Un
+ * `number` de JavaScript no representa `0.005600358423` exactamente, así que el
+ * formateador coloca dígitos y no calcula: los casos de abajo son los tipos
+ * reales que el check de F11.C congela en su escenario.
+ */
+describe('formatRate', () => {
+  it('coloca los doce decimales sin redondear ni perder uno', () => {
+    expect(formatRate('5600358423', 12, ES)).toBe('0,005600358423');
+    expect(formatRate('862663906142', 12, ES)).toBe('0,862663906142');
+    expect(formatRate('862663906142', 12, EN)).toBe('0.862663906142');
+  });
+
+  it('quita los ceros finales, que no cambian el valor', () => {
+    expect(formatRate('12', 1, ES)).toBe('1,2');
+    expect(formatRate('1200000000000', 12, ES)).toBe('1,2');
+    expect(formatRate('1000000000000', 12, ES)).toBe('1');
+  });
+
+  it('agrupa la parte entera como el locale', () => {
+    expect(formatRate('36445', 2, EN)).toBe('364.45');
+    expect(formatRate('1784500', 2, EN)).toBe('17,845');
+  });
+
+  it('un tipo que no es un entero en texto no se enseña: nada antes que una cifra falsa', () => {
+    expect(formatRate('-1', 2, ES)).toBeNull();
+    expect(formatRate('1.5', 2, ES)).toBeNull();
+    expect(formatRate('', 2, ES)).toBeNull();
+    expect(formatRate('12', -1, ES)).toBeNull();
+    expect(formatRate('12', 1.5, ES)).toBeNull();
+  });
+
+  it('coeficiente y escala enormes siguen siendo exactos: nunca pasan por un número', () => {
+    // 2^63 − 1, el mayor bigint que cabe en la columna, a escala 12.
+    expect(formatRate('9223372036854775807', 12, EN)).toBe('9,223,372.036854775807');
+  });
 });

@@ -189,6 +189,21 @@ export type EntryPayload = {
    */
   readonly operation_id?: string;
   readonly expected_version_id?: string;
+  /**
+   * LA BASE QUE SE ASUMIÓ AL CAPTURAR (F11/ADR-001 §10), y sólo cuando la
+   * moneda del movimiento NO es la base.
+   *
+   * Corregir una operación en moneda extranjera la manda en su moneda
+   * declarada; sin este campo el servidor tomaría esa moneda como base
+   * asumida y la rechazaría con `CURRENCY_CONVERSION_UNSUPPORTED`. Con él,
+   * el servidor compara bajo el cerrojo contra la base vigente y decide él
+   * si hereda el tipo o lo resuelve de nuevo.
+   *
+   * **Ausente en todo lo demás**, a propósito: un payload en la base es
+   * exactamente el de siempre, así que su intención canónica —y con ella su
+   * idempotencia— no cambia.
+   */
+  readonly expected_base_currency_definition_id?: string;
 };
 
 /** La versión que se está corrigiendo. Ausente en un alta. */
@@ -199,7 +214,14 @@ export type EntryTarget = {
 
 export function buildPayload(
   draft: EntryDraft,
-  scope: { scopeId: string; currencyDefinitionId: string; currencyScale: number },
+  scope: {
+    scopeId: string;
+    /** La moneda del movimiento: la declarada, que desde F11 puede no ser la base. */
+    currencyDefinitionId: string;
+    currencyScale: number;
+    /** La base del ámbito, cuando la moneda del movimiento no lo es. */
+    baseCurrencyDefinitionId?: string;
+  },
   clientOperationId: string,
   target?: EntryTarget,
 ): EntryPayload | null {
@@ -224,15 +246,22 @@ export function buildPayload(
       ? { ...base, category_id: draft.categoryId }
       : base;
 
+  const foreign =
+    scope.baseCurrencyDefinitionId !== undefined &&
+    scope.baseCurrencyDefinitionId !== scope.currencyDefinitionId;
+  const withBase = foreign
+    ? { ...withCategory, expected_base_currency_definition_id: scope.baseCurrencyDefinitionId }
+    : withCategory;
+
   /*
    * La corrección se declara AÑADIENDO dos campos, no cambiando de función.
    * Lo demás del payload es idéntico al de un alta, así que no hay dos formas
    * de describir el mismo movimiento que puedan separarse.
    */
   return target === undefined
-    ? withCategory
+    ? withBase
     : {
-        ...withCategory,
+        ...withBase,
         operation_id: target.operationId,
         expected_version_id: target.expectedVersionId,
       };

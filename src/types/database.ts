@@ -967,6 +967,7 @@ export type Database = {
           operation_created_at: string | null;
           operation_id: string | null;
           original_amount: string | null;
+          original_currency_definition_id: string | null;
           payment_counterpart: string | null;
           previous_version_id: string | null;
           scope_id: string | null;
@@ -1008,6 +1009,13 @@ export type Database = {
             columns: ['category_id'];
             isOneToOne: false;
             referencedRelation: 'category';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'operation_version_original_currency_definition_id_fkey';
+            columns: ['original_currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'currency_definition';
             referencedColumns: ['id'];
           },
         ];
@@ -1193,6 +1201,22 @@ export type Database = {
           scope_id: string;
           share_amount: string;
           total_amount: string;
+        }[];
+      };
+      personal_operation_conversion: {
+        Args: { p_operation_ids?: string[] };
+        Returns: {
+          operation_id: string;
+          operation_version_id: string;
+          origin_reference_date: string;
+          rate_coefficient: string;
+          rate_scale: number;
+          resolved_for_date: string;
+          scope_id: string;
+          source_currency_definition_id: string;
+          source_id: string;
+          target_currency_definition_id: string;
+          target_reference_date: string;
         }[];
       };
       personal_statistics: {

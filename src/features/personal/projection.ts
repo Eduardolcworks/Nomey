@@ -292,6 +292,13 @@ export function projectHome(input: ProjectionInput): ProjectedHome {
         currency_definition_id: entry.currency.definitionId,
         balance_amount: moneyToMinorString(balance),
         original_amount: String(movimiento.amount),
+        /*
+         * La MISMA que la del efecto: la cola sólo da de alta en la moneda que la
+         * entrada declaró, y sus efectos se derivan con ella. Proyectar una
+         * operación en moneda extranjera exigiría el tipo, que sólo resuelve el
+         * servidor (F11/ADR-001 §12), y la cola no las crea.
+         */
+        original_currency_definition_id: entry.currency.definitionId,
         effective_date: date,
         // El servidor publica `time` como HH:MM:SS; el payload lleva HH:MM.
         effective_time: time === null ? null : `${time}:00`,
