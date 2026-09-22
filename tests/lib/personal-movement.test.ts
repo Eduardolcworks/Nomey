@@ -11,6 +11,7 @@ import {
   displayMinor,
   indexObservations,
   indexVersions,
+  isConverted,
   isEdited,
   movementKind,
   OPERATION_ORDER,
@@ -29,6 +30,7 @@ function operation(overrides: Partial<PersonalOperation> = {}): PersonalOperatio
     currency_definition_id: 'eur',
     balance_amount: '-2500',
     original_amount: '2500',
+    original_currency_definition_id: overrides.currency_definition_id ?? 'eur',
     effective_date: '2026-08-29',
     effective_time: '19:30',
     concept: 'Compra',
@@ -535,5 +537,24 @@ describe('el orden cronológico mixto', () => {
     const otro = [y, x].sort(compareOperations).map((one) => one.operation_id);
     expect(uno).toEqual(otro);
     expect(uno).toEqual(['y', 'x']);
+  });
+});
+
+/**
+ * SI UNA OPERACIÓN CONVIRTIÓ (F11.C): la moneda declarada no es la del efecto.
+ * Es lo que decide si la fila enseña el original como principal y pide la
+ * conversión congelada, así que se prueba en los dos sentidos.
+ */
+describe('isConverted', () => {
+  it('en la base no convirtió', () => {
+    expect(isConverted(operation())).toBe(false);
+  });
+
+  it('con otra moneda declarada, sí', () => {
+    expect(isConverted(operation({ original_currency_definition_id: 'jpy' }))).toBe(true);
+  });
+
+  it('lo decide la moneda, nunca el importe: cifras distintas en la base no son conversión', () => {
+    expect(isConverted(operation({ balance_amount: '-1', original_amount: '999' }))).toBe(false);
   });
 });

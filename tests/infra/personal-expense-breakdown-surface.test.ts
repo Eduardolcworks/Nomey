@@ -58,7 +58,8 @@ describe('la lectura', () => {
     expect(SERVICE).toContain('if (page.length < PAGE_SIZE) return rows;');
     expect(SERVICE).toContain(".order('effective_time', { ascending: false, nullsFirst: false })");
     // Y en la misma ventana quieta que las estadísticas y la lista.
-    expect(HOOK).toContain('const [statistics, page, shares] = await Promise.all([');
+    // (F11.C añadió el catálogo monetario al mismo bloque; las cuotas siguen en él.)
+    expect(HOOK).toContain('const [statistics, page, shares, currencies] = await Promise.all([');
     expect(HOOK).toContain('fetchExpenseShares(range),');
     expect(HOOK).toContain('shares: current?.shares ?? EMPTY_SHARES,');
   });

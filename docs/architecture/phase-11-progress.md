@@ -11,12 +11,12 @@
 
 ## Estado
 
-| Bloque    | Estado                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **F11.A** | **Cerrado**: contrato de fuente y resolución en F11/ADR-001. Sin implementación                                                                                                                                                                                                                                                                                                                                                                     |
-| **F11.B** | En curso sobre F11/ADR-002: **B1** (dominio y vectores), **B2** (catálogo y cobertura curada) y **B3** (ingesta y fijación diaria) cerrados e integrados (PR #70); **B4** (resolver y conversión en SQL, PR #72) y **B5** (writers personales con `core.frozen_conversion` y su procedencia, `20260929120000`) cerrados también. Convierten `personal_expense` y `personal_income`, y ninguna otra clase. **No se despliega sin F11.C** (ver abajo) |
-| **F11.C** | Pendiente: lecturas, estadísticas, cola sin conexión y presentación                                                                                                                                                                                                                                                                                                                                                                                 |
-| **F11.D** | Pendiente: integración del gasto de grupo y cierre de los criterios de la fase                                                                                                                                                                                                                                                                                                                                                                      |
+| Bloque    | Estado                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **F11.A** | **Cerrado**: contrato de fuente y resolución en F11/ADR-001. Sin implementación                                                                                                                                                                                                                                                                                                                                                                           |
+| **F11.B** | En curso sobre F11/ADR-002: **B1** (dominio y vectores), **B2** (catálogo y cobertura curada) y **B3** (ingesta y fijación diaria) cerrados e integrados (PR #70); **B4** (resolver y conversión en SQL, PR #72) y **B5** (writers personales con `core.frozen_conversion` y su procedencia, `20260929120000`) cerrados también. Convierten `personal_expense` y `personal_income`, y ninguna otra clase. **No se despliega sin F11.C** (ver abajo)       |
+| **F11.C** | Integrado (`20261001120000`): `api.personal_operation` publica la moneda original junto al importe original; el tipo congelado y la atribución al BCE salen de `api.personal_operation_conversion`, lectora `SECURITY DEFINER` que autoriza por propiedad del ámbito; el desglose de estadísticas suma la magnitud convertida; la edición corrige en la moneda declarada; la cola espera una fijación con plazo propio. Sin selector de moneda para crear |     |
+| **F11.D** | Pendiente: integración del gasto de grupo y cierre de los criterios de la fase                                                                                                                                                                                                                                                                                                                                                                            |
 
 ### Decisiones de implementación de F11.B (2026-09-15)
 
@@ -221,10 +221,10 @@ rama no toca ni SQL ni cliente.
   migración de F9 lo deja como «punto abierto». La deuda de Inicio
   (`src/features/groups/group-projection.ts`) sí se niega a sumar monedas
   distintas.
-- **Dónde se resuelve: F11.C**, que es el bloque de estadísticas y superficies
-  de lectura (F11/ADR-001 §12). Excluir, convertir o mostrar aparte esas cuotas
-  es una decisión de producto pendiente para ese bloque. **No se corrige en
-  F11.A.**
+- **Dónde se resuelve: F11.D.** F11.C (`20261001120000`) corrigió el desglose
+  de las operaciones personales en moneda extranjera y, por decisión explícita,
+  dejó esta cuota exactamente como estaba. Excluir, convertir o mostrar aparte
+  esas cuotas es de F11.D, junto al gasto de grupo en moneda extranjera.
 
 ## Decisiones abiertas
 

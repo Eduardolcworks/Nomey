@@ -388,6 +388,7 @@ describe('9 · 10 · transitorios y vuelta de la red', () => {
               currency_definition_id: CURRENCY,
               balance_amount: '-1200',
               original_amount: '1200',
+              original_currency_definition_id: CURRENCY,
               effective_date: TODAY,
               effective_time: '21:40:00',
               concept: 'Cena',

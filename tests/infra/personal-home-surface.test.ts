@@ -2088,7 +2088,14 @@ describe('corregir un movimiento no toca el Disponible', () => {
       HOME_CODE.indexOf('const editBalance'),
     );
     expect(corregir).toContain('amount: operation.original_amount');
-    expect(corregir).toContain('scale: String(ready?.currencyScale ?? 2)');
+    /*
+     * La escala es la de la moneda DECLARADA (F11.C), que viaja con ella: una
+     * operación en JPY se corrige con escala 0 aunque la base sea EUR. Y la
+     * base NUNCA sustituye a la moneda declarada.
+     */
+    expect(corregir).toContain('scale: String(declared.scale)');
+    expect(corregir).toContain('currencyId: operation.original_currency_definition_id');
+    expect(corregir).not.toContain('scale: String(ready?.currencyScale');
 
     // Y la ruta reconstruye con ELLA, no con la del ámbito.
     expect(RUTA_MOVIMIENTO).toContain('amountEntryFromMinor(params.amount');

@@ -14,19 +14,34 @@ import {
   canAnnul,
   canEdit,
   displayMinor,
+  isConverted,
   isEdited,
   movementKind,
   type PersonalOperation,
+  type PersonalOperationConversion,
   type PersonalOperationVersion,
 } from './movement';
+import type { CurrencyInfo } from './personal-service';
 import { toMinor } from './statistics';
 
 export type MovementRowProps = {
   readonly operation: PersonalOperation;
   readonly previous: PersonalOperationVersion | undefined;
   readonly categories: ReadonlyMap<string, CategoryRow>;
+  /** Código y escala de la moneda BASE del ámbito: la de `balance_amount`. */
   readonly currencyCode: string;
   readonly currencyScale: number;
+  /**
+   * **Obligatorias, y a propósito.** Desde F11 `original_amount` puede no ir
+   * en la base, y una superficie que montase esta fila sin ellas volvería a
+   * etiquetar 150.000 yenes como 1.500,00 € sin que nada fallara. Siendo
+   * obligatorias, olvidarlas no compila.
+   *
+   * `currencies` da código y escala de la moneda DECLARADA; `conversion`, el
+   * tipo congelado y su fuente, o `undefined` si la operación no convirtió.
+   */
+  readonly currencies: ReadonlyMap<string, CurrencyInfo>;
+  readonly conversion: PersonalOperationConversion | undefined;
   readonly expanded: boolean;
   readonly onToggle: () => void;
   /**
@@ -82,6 +97,8 @@ export function MovementRow({
   categories,
   currencyCode,
   currencyScale,
+  currencies,
+  conversion,
   expanded,
   onToggle,
   onEdit,
@@ -112,6 +129,39 @@ export function MovementRow({
   });
 
   const amount = money(toMinor(operation.balance_amount), definition);
+
+  /*
+   * ═══════════ LA MONEDA DECLARADA, CUANDO NO ES LA BASE (F11.C) ═══════════
+   *
+   * **El original es la cifra principal y el convertido la secundaria**: es lo
+   * que la persona pagó, y lo que reconoce. El convertido es `balance_amount`
+   * tal cual —el que el servidor asentó con su único redondeo— y aquí no se
+   * rehace ninguna cuenta.
+   *
+   * **Si la moneda declarada no se puede resolver, no se enseña.** Queda sólo
+   * el convertido, que es correcto y está en la base; formatear el original
+   * con otra escala sería exactamente el defecto que esto cierra.
+   */
+  const originalInfo = isConverted(operation)
+    ? currencies.get(operation.original_currency_definition_id)
+    : undefined;
+  const original =
+    originalInfo === undefined || kind === null
+      ? null
+      : money(
+          displayMinor(kind, operation.original_amount),
+          currencyDefinition({
+            id: operation.original_currency_definition_id,
+            code: originalInfo.code,
+            scale: originalInfo.scale,
+          }),
+        );
+  const principal = original ?? amount;
+  const rate =
+    conversion === undefined
+      ? null
+      : format.rate(conversion.rate_coefficient, conversion.rate_scale);
+
   const form = adjustmentForm(operation);
   /*
    * **El saldo que había antes de ESTE ajuste.** Sale de la propia operación
@@ -236,10 +286,29 @@ export function MovementRow({
       ? categoryColour(category.id)
       : null;
 
+  /*
+   * **El importe anterior, con la moneda de SU versión.** El historial publica
+   * la moneda declarada de cada una, y una corrección puede haberla cambiado:
+   * compararlo con la base lo convertiría en otra cifra. Sin su moneda
+   * resuelta no se enseña, por la misma razón que el original.
+   */
+  const previousInfo =
+    previous === undefined
+      ? undefined
+      : previous.currency_definition_id === operation.currency_definition_id
+        ? { code: currencyCode, scale: currencyScale }
+        : currencies.get(previous.currency_definition_id);
   const previousShown =
-    previous === undefined || kind === null
+    previous === undefined || kind === null || previousInfo === undefined
       ? null
-      : money(displayMinor(kind, previous.original_amount), definition);
+      : money(
+          displayMinor(kind, previous.original_amount),
+          currencyDefinition({
+            id: previous.currency_definition_id,
+            code: previousInfo.code,
+            scale: previousInfo.scale,
+          }),
+        );
 
   return (
     <SwipeToDelete
@@ -251,7 +320,16 @@ export function MovementRow({
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ expanded, disabled: deleting === true }}
-          accessibilityLabel={`${title}. ${format.money(amount, { sign: 'always' })}`}
+          accessibilityLabel={
+            original === null
+              ? `${title}. ${format.money(amount, { sign: 'always' })}`
+              : `${title}. ${format.money(original, { sign: 'always' })}. ${t(
+                  'home.convertedAmount',
+                  {
+                    amount: format.money(amount, { sign: 'always' }),
+                  },
+                )}`
+          }
           accessibilityHint={t(expanded ? 'home.movementCollapse' : 'home.movementExpand')}
           /*
            * **LA VÍA ACCESIBLE, y no es un extra.** Un deslizamiento no existe
@@ -331,8 +409,19 @@ export function MovementRow({
              * robaba el sitio donde se busca la cifra.
              */}
             <ThemedText variant="amountRow" themeColor={amountTone(operation)} numberOfLines={1}>
-              {format.money(amount, { sign: 'always' })}
+              {format.money(principal, { sign: 'always' })}
             </ThemedText>
+
+            {/*
+             * EL CONVERTIDO, secundario y en la base: es lo que movió el
+             * Disponible. «≈» porque es la magnitud en otra moneda, no porque
+             * sea aproximado: la cifra es exacta, la asentada.
+             */}
+            {original === null ? null : (
+              <ThemedText variant="caption" themeColor="textTertiary" numberOfLines={1}>
+                {t('home.convertedAmount', { amount: format.money(amount, { sign: 'always' }) })}
+              </ThemedText>
+            )}
 
             {/*
              * LA LÍNEA DE ABAJO: lo anterior tachado y «Editado», juntos porque
@@ -380,6 +469,45 @@ export function MovementRow({
             />
             {operation.effective_time === null ? null : (
               <Detail label={t('home.detailTime')} value={operation.effective_time.slice(0, 5)} />
+            )}
+
+            {/*
+             * ═════════ LA CONVERSIÓN, EXPLICADA DESDE LO CONGELADO (F11.C) ═════════
+             *
+             * Tres datos y ninguno calculado aquí: el importe en la base es el
+             * asentado, y el tipo y su fuente son los de la conversión congelada
+             * que devolvió el servidor. **No se vuelve a resolver nada para
+             * leer**: si el tipo de hoy fuera otro, esta fila seguiría diciendo el
+             * que se usó, que es el único que explica su importe.
+             */}
+            {original === null ? null : (
+              <>
+                <Detail
+                  label={t('home.detailConverted', { code: currencyCode })}
+                  value={format.money(amount, { sign: 'always' })}
+                />
+                {rate === null || originalInfo === undefined ? null : (
+                  <Detail
+                    label={t('home.detailRate')}
+                    value={t('home.rateValue', {
+                      from: originalInfo.code,
+                      rate,
+                      to: currencyCode,
+                    })}
+                  />
+                )}
+                {conversion === undefined ? null : (
+                  <Detail
+                    label={t('home.detailRateSource')}
+                    value={t(
+                      conversion.source_id === 'ecb'
+                        ? 'home.rateSourceEcb'
+                        : 'home.rateSourceOther',
+                      { date: format.date(conversion.origin_reference_date, 'long') },
+                    )}
+                  />
+                )}
+              </>
             )}
 
             {/*

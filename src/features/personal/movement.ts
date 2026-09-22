@@ -4,18 +4,28 @@ import { toMinor } from './statistics';
  * Una operación tal como la entrega `api.personal_operation`.
  *
  * Los dos importes NO son el mismo dato, y confundirlos es el error que la
- * obligación de F6.D avisa expresamente:
+ * obligación de F6.D avisa expresamente. **Y desde F11 tampoco van
+ * necesariamente en la misma moneda**:
  *
- *   `balance_amount`   FIRMADO. Lo que la operación mueve en el saldo
- *   `original_amount`  El importe DECLARADO de la versión (F03/ADR-010 §3)
+ *   `balance_amount`   FIRMADO y YA CONVERTIDO, en `currency_definition_id`,
+ *                      que es la moneda base del ámbito
+ *   `original_amount`  El importe DECLARADO de la versión (F03/ADR-010 §3), en
+ *                      `original_currency_definition_id`
+ *
+ * Sin conversión las dos monedas coinciden. Con ella, formatear
+ * `original_amount` con la moneda base convierte 150.000 yenes en 1.500,00 €
+ * sin que nada falle: cada importe se formatea con SU moneda.
  */
 export type PersonalOperation = {
   readonly operation_id: string;
   readonly operation_class: string;
   readonly scope_id: string;
+  /** La moneda del EFECTO: la base del ámbito. La de `balance_amount`. */
   readonly currency_definition_id: string;
   readonly balance_amount: string;
   readonly original_amount: string;
+  /** La moneda DECLARADA: la de `original_amount` (F11.C). */
+  readonly original_currency_definition_id: string;
   readonly effective_date: string;
   readonly effective_time: string | null;
   readonly concept: string | null;
@@ -68,6 +78,36 @@ export type PersonalOperationVersion = {
   readonly category_id: string | null;
   readonly target_balance: string | null;
 };
+
+/**
+ * La conversión congelada de una operación, de `api.personal_operation_conversion`.
+ *
+ * **Es la autoridad de lo ya convertido y no se recalcula nada a partir de
+ * ella.** El importe convertido que se enseña es `balance_amount`, el que el
+ * servidor dejó asentado con su único redondeo; esto sólo explica de dónde
+ * salió: el tipo, el día y la fuente. Rehacer la cuenta aquí sería un segundo
+ * punto de redondeo, y en `number` además.
+ *
+ * El coeficiente llega como TEXTO por lo mismo que un importe: a doce decimales
+ * de escala, un `number` de JavaScript no lo representa (F03/ADR-012).
+ */
+export type PersonalOperationConversion = {
+  readonly operation_id: string;
+  readonly operation_version_id: string;
+  readonly source_currency_definition_id: string;
+  readonly target_currency_definition_id: string;
+  readonly rate_coefficient: string;
+  readonly rate_scale: number;
+  readonly resolved_for_date: string;
+  readonly source_id: string;
+  readonly origin_reference_date: string;
+  readonly target_reference_date: string;
+};
+
+/** Si la operación se declaró en una moneda distinta de la base de su ámbito. */
+export function isConverted(operation: PersonalOperation): boolean {
+  return operation.original_currency_definition_id !== operation.currency_definition_id;
+}
 
 /** Una observación, de `api.observed_balance`. */
 export type BalanceObservation = {

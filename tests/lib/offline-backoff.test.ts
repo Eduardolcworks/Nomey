@@ -4,6 +4,8 @@ import {
   BACKOFF_CEILING_MS,
   BACKOFF_MINIMUM_MS,
   backoffDelayMs,
+  FX_PENDING_DELAY_MS,
+  fxPendingAttemptAt,
   isDue,
   nextAttemptAt,
 } from '../../src/lib/offline/backoff';
@@ -73,5 +75,26 @@ describe('cuándo toca el siguiente intento', () => {
   it('UNA FECHA ILEGIBLE NO BLOQUEA LA ENTRADA PARA SIEMPRE', () => {
     // Preferimos intentar de más a dejar dinero declarado sin salir nunca.
     expect(isDue('no es una fecha', clock)).toBe(true);
+  });
+});
+
+/**
+ * EL PLAZO DE UNA FIJACIÓN (F11.C). Plano, sin exponencial ni jitter: no es una
+ * penalización por fallar, es cuánto tarda en poder cambiar la respuesta.
+ */
+describe('fxPendingAttemptAt', () => {
+  const reloj = { now: () => Date.parse('2026-09-22T06:00:00.000Z') };
+
+  it('es una hora exacta desde ahora', () => {
+    expect(fxPendingAttemptAt(reloj)).toBe('2026-09-22T07:00:00.000Z');
+    expect(FX_PENDING_DELAY_MS).toBe(3_600_000);
+  });
+
+  it('es mucho más que el techo del backoff de transporte', () => {
+    expect(FX_PENDING_DELAY_MS).toBeGreaterThan(BACKOFF_CEILING_MS);
+  });
+
+  it('no pasa por el azar: el mismo reloj da siempre el mismo plazo', () => {
+    expect(fxPendingAttemptAt(reloj)).toBe(fxPendingAttemptAt(reloj));
   });
 });

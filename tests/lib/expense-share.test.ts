@@ -24,6 +24,7 @@ function operation(overrides: Partial<PersonalOperation> = {}): PersonalOperatio
     currency_definition_id: 'eur',
     balance_amount: '-2500',
     original_amount: '2500',
+    original_currency_definition_id: overrides.currency_definition_id ?? 'eur',
     effective_date: '2026-09-11',
     effective_time: '09:00',
     concept: 'Personal',

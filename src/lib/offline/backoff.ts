@@ -28,6 +28,29 @@ export const BACKOFF_MINIMUM_MS = 1_000;
 export const BACKOFF_CEILING_MS = 300_000;
 
 /**
+ * LO QUE SE ESPERA CUANDO EL DÍA TODAVÍA NO ESTÁ FIJADO.
+ *
+ * `FX_RATE_NOT_YET_AVAILABLE` no es un servidor caído: es una respuesta
+ * correcta que dice que el tipo del día de esa operación aún no existe
+ * (F11/ADR-001 §3.4). Y ahí **esperar no cambia qué tipo se obtendrá, sólo
+ * cuándo**: el mismo día se fija una sola vez, con la publicación disponible al
+ * empezar en Fráncfort, así que la respuesta sólo puede cambiar cuando llega
+ * una fijación nueva.
+ *
+ * El backoff general está pensado para fallos de transporte y tiene su techo en
+ * cinco minutos. Aplicado aquí gastaría batería y datos en cientos de intentos
+ * —una operación capturada de madrugada en un huso por delante de Fráncfort
+ * puede esperar medio día— para recibir exactamente el mismo 503.
+ *
+ * Una hora, plana y sin exponencial. La fuente se observa al menos una vez al
+ * comenzar cada día natural en Fráncfort, así que una hora acota la espera
+ * inútil a unos pocos intentos y sigue recuperando pronto si la ingesta llegó
+ * tarde. **No se toca nada más**: la entrada sigue siendo `retryable`, con su
+ * misma clave, así que ni se da por buena ni se duplica la operación.
+ */
+export const FX_PENDING_DELAY_MS = 3_600_000;
+
+/**
  * Cuánto esperar antes del intento número `attempts + 1`.
  *
  * `attempts` es cuántos han fallado ya: con 0 el techo es la base, así que el
@@ -44,6 +67,16 @@ export function backoffDelayMs(attempts: number, random: Random): number {
 /** Cuándo toca el siguiente intento, en ISO 8601. */
 export function nextAttemptAt(attempts: number, clock: Clock, random: Random): string {
   return new Date(clock.now() + backoffDelayMs(attempts, random)).toISOString();
+}
+
+/**
+ * Cuándo reintentar una entrada que espera una fijación.
+ *
+ * No depende de los intentos: el plazo no es una penalización creciente, es
+ * cuánto tarda en poder cambiar la respuesta.
+ */
+export function fxPendingAttemptAt(clock: Clock): string {
+  return new Date(clock.now() + FX_PENDING_DELAY_MS).toISOString();
 }
 
 /** Si ya venció el plazo de una entrada. Sin `next_attempt_at`, se puede ya. */

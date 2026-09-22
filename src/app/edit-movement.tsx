@@ -59,17 +59,9 @@ export default function EditMovementScreen() {
     date?: string;
     time?: string;
     scale?: string;
+    currencyId?: string;
+    currencyCode?: string;
   }>();
-
-  const scope: MovementFormScope | null =
-    state.status === 'ready'
-      ? {
-          scopeId: state.scopeId,
-          currencyDefinitionId: state.currencyDefinitionId,
-          currencyCode: state.currencyCode,
-          currencyScale: state.currencyScale,
-        }
-      : null;
 
   /*
    * **La escala llega por parámetro, y por eso el contenido NO espera al
@@ -89,6 +81,47 @@ export default function EditMovementScreen() {
    */
   const declaredScale = Number.parseInt(params.scale ?? '', 10);
   const scale = Number.isInteger(declaredScale) && declaredScale >= 0 ? declaredScale : 2;
+
+  /*
+   * **SE CORRIGE EN LA MONEDA DECLARADA, no en la base (F11.C).** Si la
+   * operación se registró en otra moneda, el formulario trabaja en esa —su
+   * código y su escala— y el comando la manda tal cual, con la base del ámbito
+   * como base asumida. Sustituirla por la base convertía el importe original en
+   * otra cifra y el servidor lo habría aceptado: moneda igual a la base, nada
+   * que convertir. Si hereda el tipo o lo resuelve de nuevo lo decide el
+   * servidor (B5) con la fecha y la moneda que le lleguen; aquí no se calcula.
+   *
+   * Sin moneda declarada en los parámetros es una operación en la base, y el
+   * formulario queda exactamente como antes.
+   */
+  const declared =
+    state.status === 'ready' &&
+    params.currencyId !== undefined &&
+    params.currencyId !== '' &&
+    params.currencyId !== state.currencyDefinitionId &&
+    params.currencyCode !== undefined &&
+    params.currencyCode !== ''
+      ? { id: params.currencyId, code: params.currencyCode }
+      : null;
+
+  const scope: MovementFormScope | null =
+    state.status !== 'ready'
+      ? null
+      : declared === null
+        ? {
+            scopeId: state.scopeId,
+            currencyDefinitionId: state.currencyDefinitionId,
+            currencyCode: state.currencyCode,
+            currencyScale: state.currencyScale,
+          }
+        : {
+            scopeId: state.scopeId,
+            currencyDefinitionId: declared.id,
+            currencyCode: declared.code,
+            // La escala de la moneda declarada, que llega con el importe.
+            currencyScale: scale,
+            baseCurrencyDefinitionId: state.currencyDefinitionId,
+          };
 
   const edit: MovementEdit | null =
     params.operationId === undefined || params.versionId === undefined

@@ -1368,6 +1368,41 @@ else
   fallo "un identificador ajeno devolvio ${e} con ${n} filas"
 fi
 
+# 11.10b · LA MONEDA DECLARADA Y LA CONVERSION CONGELADA (F11.C). Solo lo que
+# esta ruta puede demostrar, y sin sembrar ningun dia en `ecb`: el camino con
+# conversion real lo cubre fx-personal-reads.sql.
+#
+#   · la lista publica `original_currency_definition_id`, y para un gasto en la
+#     base coincide con la moneda del efecto;
+#   · la lectora responde 200 con lista VACIA para una operacion sin conversion,
+#     tanto a su duenno como a B: ni inventa un tipo 1 ni sirve de oraculo;
+#   · y sin JWT no llega a ejecutarse.
+oc=$(curl -s "${API}/rest/v1/personal_operation?select=currency_definition_id,original_currency_definition_id&operation_id=eq.${OP_ED}" "${GA[@]}" \
+  | jarr 'a.length===1&&typeof a[0].original_currency_definition_id==="string"&&a[0].original_currency_definition_id===a[0].currency_definition_id?"ok":JSON.stringify(a)')
+if [ "${oc}" = "ok" ]; then
+  ok "personal_operation publica la moneda declarada, igual a la del efecto sin conversion"
+else
+  fallo "la moneda declarada de una operacion en la base: ${oc}"
+fi
+
+for quien in A B; do
+  tok="${TOK_A}"; [ "${quien}" = "B" ] && tok="${TOK_B}"
+  r=$(rpc personal_operation_conversion "${tok}" "{\"p_operation_ids\":[\"${OP_ED}\"]}")
+  e=$(estado_de "${r}"); n=$(printf '%s' "$(cuerpo_de "${r}")" | jarr 'a.length')
+  if [ "${e}" = "200" ] && [ "${n}" = "0" ]; then
+    ok "la lectora de conversiones responde 200 y vacia a ${quien} para una operacion sin conversion"
+  else
+    fallo "la lectora de conversiones devolvio ${e} con ${n} filas a ${quien}"
+  fi
+done
+
+r=$(rpc personal_operation_conversion "" "{\"p_operation_ids\":[\"${OP_ED}\"]}")
+e=$(estado_de "${r}")
+case "${e}" in
+  200) fallo "sin JWT la lectora de conversiones responde 200" ;;
+  *)   ok "sin JWT la lectora de conversiones no responde (${e})" ;;
+esac
+
 # 11.11 · Y SIN JWT NO SE LLEGA A NADA. Medido: con la clave publicable sola,
 # PostgREST resuelve al rol `anon`, que no tiene ni USAGE sobre `api`, y
 # responde `401` con `42501`. No es una lista vacia: es la puerta cerrada antes

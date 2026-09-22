@@ -514,6 +514,17 @@ jobs:
       - name: FX in the personal writers
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/fx-personal-writers.sql
 
+      # The personal reads with a foreign currency (F11/ADR-001 §12; migration
+      # 20261001120000): `api.personal_operation` publishing the original amount
+      # with its own currency and the booked one with the base, the frozen rate
+      # and the ECB attribution through a definer reader that authorizes by
+      # ownership in its body, and the category breakdown on the converted
+      # magnitude so that `sum(categories) = expense_total` holds again. The
+      # scenario creates real foreign-currency operations —JPY at scale 0
+      # included— so the invariant cannot pass on an empty set.
+      - name: FX in the personal reads
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/fx-personal-reads.sql
+
       # Real concurrency. A single psql session has none, so the debt
       # serialization protocol of F03/ADR-010 §11 cannot be proven by a check: this
       # opens simultaneous sessions, the way E15-C did. It runs LAST because it
