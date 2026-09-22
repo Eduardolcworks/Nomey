@@ -12,9 +12,10 @@ import {
   useAuthSubmit,
   UsernameEditor,
 } from '@/features/auth';
+import { useMyFriendRequests } from '@/features/friends';
 import { isGuest, useSession } from '@/features/session';
 import { PlaceholderScreen } from '@/features/shell';
-import { useTranslation } from '@/lib/i18n';
+import { pluralCategory, useTranslation } from '@/lib/i18n';
 import {
   ActionButton,
   GlassSurface,
@@ -53,7 +54,7 @@ type Option = {
 };
 
 export default function ProfileScreen() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
   const { state } = useSession();
 
@@ -85,6 +86,22 @@ export default function ProfileScreen() {
     setNameNotice(result.metadataStale ? t('identity.nameSyncPending') : undefined);
     return { ok: true } as const;
   };
+
+  /*
+   * AMIGOS (F12.E.B): una entrada de Perfil, no una pestaña. La amistad no es
+   * dinero ni un grupo —no mueve nada y no da acceso a nada—, así que vive
+   * junto a la identidad de la cuenta y no en la navegación principal.
+   *
+   * El contador es DISCRETO y dice una sola cosa: cuántas solicitudes
+   * ENTRANTES hay esperando respuesta. Las salientes no cuentan aquí, igual
+   * que no cuentan en la campana. Un invitado nunca ve esta fila: la rama de
+   * arriba vuelve antes, y la ruta está cerrada.
+   */
+  const friendRequests = useMyFriendRequests(
+    state.status === 'signed-in' ? state.identity.userId : '',
+    state.status === 'signed-in' && !isGuest(state),
+  );
+  const pendingFriends = friendRequests.incoming.length;
 
   const general: readonly Option[] = [
     { icon: Symbols.language, label: t('profile.languageCurrency') },
@@ -196,6 +213,26 @@ export default function ProfileScreen() {
         </OptionGroup>
       </Section>
 
+      <Section title={t('profile.social')}>
+        <OptionGroup>
+          <OptionRow
+            icon={Symbols.friends}
+            label={t('friends.title')}
+            badge={pendingFriends}
+            badgeLabel={t(
+              pluralCategory(locale, pendingFriends) === 'one'
+                ? 'friends.pendingOne'
+                : 'friends.pendingOther',
+              { count: pendingFriends },
+            )}
+            first
+            onPress={() => {
+              router.push('/friends');
+            }}
+          />
+        </OptionGroup>
+      </Section>
+
       <Section title={t('profile.plans')}>
         <PlansCard />
       </Section>
@@ -300,6 +337,8 @@ function OptionRow({
   label,
   first = false,
   soon = false,
+  badge = 0,
+  badgeLabel,
   onPress,
 }: {
   icon: IconProps['name'];
@@ -307,6 +346,14 @@ function OptionRow({
   /** Suppresses the divider, which belongs to the row below it. */
   first?: boolean;
   soon?: boolean;
+  /**
+   * Cuántas cosas esperan detrás de esta fila. Cero no pinta nada: una
+   * píldora con un 0 es ruido, no información. El número no viaja solo al
+   * lector de pantalla —`badgeLabel` dice de qué es— porque una cifra suelta
+   * después de un nombre no significa nada en voz alta.
+   */
+  badge?: number;
+  badgeLabel?: string;
   onPress?: () => void;
 }) {
   const theme = useTheme();
@@ -315,7 +362,7 @@ function OptionRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={badge > 0 && badgeLabel !== undefined ? `${label}. ${badgeLabel}` : label}
       accessibilityState={{ disabled: !interactive }}
       disabled={!interactive}
       onPress={onPress}
@@ -340,8 +387,36 @@ function OptionRow({
        * Two non-colour signals for "not yet": the chevron is absent AND a pill
        * is present. Either one alone would be a guess.
        */}
+      {badge > 0 ? <CountPill count={badge} /> : null}
       {soon ? <SoonPill /> : <Icon name={Symbols.forward} size={14} colour={theme.textTertiary} />}
     </Pressable>
+  );
+}
+
+/**
+ * Cuántas cosas esperan, en la misma píldora que «Próximamente».
+ *
+ * **Sin el amarillo de marca, y eso es una regla de esta pantalla**: el acento
+ * es del botón flotante, y Perfil entero se pinta sin él. Un contador es un
+ * dato, no una llamada a la acción, así que va en el mismo material neutro que
+ * «Próximamente» y se distingue por llevar una cifra.
+ *
+ * Silenciosa para el lector de pantalla —la fila ya lo anuncia dentro de su
+ * nombre, con la palabra que le da sentido; una cifra suelta detrás de
+ * «Amigos» no significaría nada en voz alta.
+ */
+function CountPill({ count }: { count: number }) {
+  const theme = useTheme();
+
+  return (
+    <View
+      importantForAccessibility="no-hide-descendants"
+      accessibilityElementsHidden
+      style={[styles.pill, { borderColor: theme.border, backgroundColor: theme.surfaceSunken }]}>
+      <ThemedText variant="caption" themeColor="text">
+        {String(count)}
+      </ThemedText>
+    </View>
   );
 }
 

@@ -114,13 +114,25 @@ describe('guardas de ruta del layout raíz', () => {
       expect(productBlock?.guard).toContain('!gate');
     });
 
-    it('sin red NO hay rama bloqueante: la sesion abre solo dos ramas, tabs y gate (offline first)', () => {
+    it('sin red NO hay rama bloqueante: nada retiene la sesión, y el gate es la única bifurcación (offline first)', () => {
       // F07/ADR-001: un fallo de transporte al resolver la identidad entra a
       // las tabs; solo USERNAME_REQUIRED del servidor abre el gate.
+      //
+      // Tres bloques con sesión, y los tres se distinguen por lo que exigen,
+      // no por lo que retienen: el producto (`!gate`), el gate (`gate`) y, desde
+      // F12.E.B, Amigos —el producto MÁS «no eres un invitado»—. Ninguno es una
+      // rama bloqueante: un invitado sigue entrando en las tabs, y lo único que
+      // no alcanza es una pantalla que el servidor le negaría entera.
       const sessionBlocks = blocks.filter(
         (block) => block.guard.includes('isSignedIn') && !block.guard.includes('__DEV__'),
       );
-      expect(sessionBlocks).toHaveLength(2);
+      expect(sessionBlocks).toHaveLength(3);
+      const friendsBlock = sessionBlocks.find((block) => block.guard.includes('!isGuest(state)'));
+      expect(friendsBlock?.screens).toEqual(['friends/index', 'friends/add']);
+      expect(friendsBlock?.guard).toContain('!gate');
+      expect(friendsBlock?.guard).toContain('!recovering');
+      // Y no hay ruta del enlace de amistad todavía: eso es F12.E.C.
+      expect(registered.some((name) => /friend-link/.test(name))).toBe(false);
       expect(blocks.some((block) => /unavailable/.test(block.guard))).toBe(false);
       expect(registered).not.toContain('identity-unavailable');
     });

@@ -95,6 +95,14 @@ export const Symbols = {
   empty: { ios: 'tray', android: 'inbox' },
   warning: { ios: 'exclamationmark.triangle', android: 'warning' },
 
+  // Amigos (F12.E). Material no tiene el `person.2` de Apple: tiene `group`,
+  // y `person_add` / `person_remove` para las dos acciones. Ninguno es la
+  // traducción literal del otro, que es exactamente por lo que este fichero
+  // existe.
+  friends: { ios: 'person.2.fill', android: 'group' },
+  addFriend: { ios: 'person.badge.plus', android: 'person_add' },
+  removeFriend: { ios: 'person.badge.minus', android: 'person_remove' },
+
   // Perfil y ajustes
   premium: { ios: 'sparkles', android: 'auto_awesome' },
   language: { ios: 'globe', android: 'language' },

@@ -15,6 +15,7 @@ import {
   useRecoveryLink,
   wakeIdentity,
 } from '@/features/auth';
+import { wakeFriends } from '@/features/friends';
 import { groupCommandHandlers, sendGroupCreate, useInvitationLink } from '@/features/groups';
 import { personalCommandHandlers, sendPersonalEntry } from '@/features/personal';
 import { wakeTransfers } from '@/features/transfers';
@@ -22,6 +23,7 @@ import { useQueueRuntime, AddBackdropProvider, ScopeProvider } from '@/features/
 import { type CommandHandlers, wakeQueue } from '@/lib/offline';
 import {
   identityKey,
+  isGuest,
   isPublic,
   isResolved,
   isSignedIn,
@@ -121,11 +123,17 @@ const styles = StyleSheet.create({
  * other party may have answered while the app was away, and there is no
  * push to say so. Neither knows about the others; the composition root fans
  * the signal out.
+ *
+ * F12.E adds the friendships for exactly the same reason and with the same
+ * shape: a request can be answered — or withdrawn — while the app is away,
+ * and there is no push and no realtime channel to say so. Coming back to the
+ * foreground is when it is worth asking again. No polling anywhere.
  */
 function wakeOnForeground(): void {
   wakeQueue();
   wakeIdentity();
   wakeTransfers();
+  wakeFriends();
 }
 
 /**
@@ -546,6 +554,27 @@ function RootNavigator() {
             <Stack.Screen name="notifications" />
             <Stack.Screen name="profile" />
             <Stack.Screen name="account" />
+          </Stack.Protected>
+
+          {/*
+           * AMIGOS (F12.E.B), tras una puerta MÁS ESTRECHA que el resto del
+           * producto: cuenta normal, con username definitivo, y nunca un
+           * invitado.
+           *
+           * Las dos condiciones de arriba —sesión, sin recuperación, sin
+           * gate— siguen valiendo; lo que se añade es `!isGuest(state)`,
+           * porque una amistad exige una cuenta con handle definitivo en las
+           * DOS partes y `sec.assert_friend_actor` rehúsa a una sesión anónima
+           * con `NOT_AUTHORIZED`. Enseñar la pantalla a un invitado sería
+           * ofrecerle algo que el servidor le va a negar entero.
+           *
+           * Sigue siendo NAVEGACIÓN y no seguridad: quien manda es la RLS y
+           * el propio comando. Y no hay ruta de enlace de amistad todavía —
+           * eso es F12.E.C.
+           */}
+          <Stack.Protected guard={isSignedIn(state) && !recovering && !gate && !isGuest(state)}>
+            <Stack.Screen name="friends/index" />
+            <Stack.Screen name="friends/add" />
           </Stack.Protected>
 
           {/*

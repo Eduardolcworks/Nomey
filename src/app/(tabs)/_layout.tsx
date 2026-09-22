@@ -5,6 +5,7 @@ import { Easing, StyleSheet, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useMyFriendRequests } from '@/features/friends';
 import { useGroupNotices, useOpenPendingInvitation } from '@/features/groups';
 import { useIncidents } from '@/features/personal';
 import { isGuest, isSignedIn, useSession } from '@/features/session';
@@ -184,11 +185,23 @@ export default function TabsLayout() {
     proposals.declined,
     isSignedIn(state) && !isGuest(state),
   );
+  /*
+   * Y una quinta desde F12.E: las solicitudes de amistad ENTRANTES y
+   * PENDIENTES. De la clase de las propuestas y no de la de los avisos:
+   * tampoco hay marca de visto en el servidor, y lo que piden es respuesta,
+   * no que se miren — abrir Notificaciones NO las apaga; aceptarlas o
+   * rechazarlas, sí, y también que la otra parte cancele (la vista deja de
+   * publicarlas). Las SALIENTES no encienden nada: esperan, no piden. Y una
+   * amistad corriente tampoco: no es una novedad, es un estado. Un invitado
+   * no tiene ninguna y no pregunta.
+   */
+  const friends = useMyFriendRequests(actorId, isSignedIn(state) && !isGuest(state));
   const bell =
     incidents.unseen > 0 ||
     notices.unread > 0 ||
     proposals.incoming.length > 0 ||
-    declined.unseen.length > 0;
+    declined.unseen.length > 0 ||
+    friends.incoming.length > 0;
   /* Una invitación llegada por enlace se retoma aquí, ya con sesión (F09/ADR-004). */
   useOpenPendingInvitation(isSignedIn(state));
 
