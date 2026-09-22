@@ -19,7 +19,8 @@ de pago mediante enlace, B3 propuestas de grupo y `settlement_by_transfer`;
 las tres clases de F12 tienen escritor; **F12.C en curso**: C1, las
 transferencias Personal en el cliente, hecha el 2026-09-20; C2, la solicitud
 de pago en el cliente, **rechazada por producto** el 2026-09-20 —el backend
-B2 queda, sin pantalla—; sigue C3).
+B2 queda, sin pantalla—; sigue C3. **F12.E (Amigos) abierto el 2026-09-22**:
+F12/ADR-005 y ADR-006 propuestos, backend E.A en curso).
 La **Fase 10** cerró el
 2026-09-16 y la **Fase 9** el 2026-09-14. **F11.A** está cerrada (decisiones
 de multimoneda, F11/ADR-001) y de **F11.B** están integrados el dominio, el
@@ -183,7 +184,11 @@ hay que saber antes de tocar identidad:
 CERRADOS (F12.A el 2026-09-19, F12.B el 2026-09-20); F12.C está EN CURSO
 (C1 hecha el 2026-09-20; C2 rechazada por decisión de producto el
 2026-09-20 — sin UI de solicitudes de pago, el backend B2 se conserva —;
-falta C3).** La identidad pública existe de
+falta C3). F12.E (Amigos) está ABIERTO desde el 2026-09-22: amistad
+simétrica con dos voluntades y enlace personal (F12/ADR-005, ADR-006,
+propuestos); E.A (backend, `20260930120000`) en curso; E.B–E.E (Perfil,
+enlace/QR, grupos, Transferencias) sin empezar. F12.D sigue siendo el
+cierre.** La identidad pública existe de
 extremo a extremo —backend (A1), alta y Auth (A2) y cliente (A3)—; las tres
 clases de transferencia tienen su backend (B1, B2, B3) y la transferencia
 Personal tiene ya su pantalla (C1: `features/transfers`, sin cola F7, sin

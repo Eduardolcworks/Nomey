@@ -665,6 +665,26 @@ export type Database = {
         };
         Relationships: [];
       };
+      my_friend_requests: {
+        Row: {
+          counterpart_handle: string | null;
+          counterpart_public_name: string | null;
+          created_at: string | null;
+          direction: string | null;
+          expires_at: string | null;
+          request_id: string | null;
+        };
+        Relationships: [];
+      };
+      my_friends: {
+        Row: {
+          counterpart_handle: string | null;
+          counterpart_public_name: string | null;
+          friendship_id: string | null;
+          since: string | null;
+        };
+        Relationships: [];
+      };
       my_payment_requests: {
         Row: {
           amount: string | null;
@@ -1048,8 +1068,10 @@ export type Database = {
       };
     };
     Functions: {
+      accept_friend_request: { Args: { payload: Json }; Returns: Json };
       annul_operation: { Args: { payload: Json }; Returns: Json };
       associate_participant: { Args: { payload: Json }; Returns: Json };
+      cancel_friend_request: { Args: { payload: Json }; Returns: Json };
       cancel_group_transfer_proposal: { Args: { payload: Json }; Returns: Json };
       cancel_payment_request: { Args: { payload: Json }; Returns: Json };
       cancel_transfer_proposal: { Args: { payload: Json }; Returns: Json };
@@ -1084,11 +1106,13 @@ export type Database = {
         }[];
       };
       create_custom_category: { Args: { payload: Json }; Returns: Json };
+      create_friend_request: { Args: { payload: Json }; Returns: Json };
       create_group: { Args: { payload: Json }; Returns: Json };
       create_group_invitation: { Args: { payload: Json }; Returns: Json };
       create_group_transfer_proposal: { Args: { payload: Json }; Returns: Json };
       create_payment_request: { Args: { payload: Json }; Returns: Json };
       create_transfer_proposal: { Args: { payload: Json }; Returns: Json };
+      decline_friend_request: { Args: { payload: Json }; Returns: Json };
       decline_group_transfer_proposal: {
         Args: { payload: Json };
         Returns: Json;
@@ -1104,8 +1128,18 @@ export type Database = {
         }[];
       };
       leave_group: { Args: { payload: Json }; Returns: Json };
+      lookup_friend_candidate: {
+        Args: { p_handle: string };
+        Returns: {
+          handle: string;
+          public_name: string;
+          request_id: string;
+          state: string;
+        }[];
+      };
       mark_group_notice_read: { Args: { p_id: string }; Returns: undefined };
       mark_group_notices_seen: { Args: { p_newest: string }; Returns: number };
+      my_friend_link: { Args: never; Returns: Json };
       my_group_payment: {
         Args: never;
         Returns: {
@@ -1165,6 +1199,15 @@ export type Database = {
         Args: { p_from?: string; p_to?: string };
         Returns: Json;
       };
+      preview_friend_link: {
+        Args: { p_token: string };
+        Returns: {
+          handle: string;
+          public_name: string;
+          request_id: string;
+          state: string;
+        }[];
+      };
       preview_invitation: { Args: { p_token: string }; Returns: Json };
       preview_payment_request: { Args: { p_token: string }; Returns: Json };
       record_adjustment: { Args: { payload: Json }; Returns: Json };
@@ -1177,6 +1220,7 @@ export type Database = {
       record_personal_income: { Args: { payload: Json }; Returns: Json };
       record_settlement_by_transfer: { Args: { payload: Json }; Returns: Json };
       redeem_invitation: { Args: { payload: Json }; Returns: Json };
+      remove_friend: { Args: { payload: Json }; Returns: Json };
       rename_custom_category: { Args: { payload: Json }; Returns: Json };
       reserve_username: {
         Args: { payload: Json };
@@ -1196,8 +1240,10 @@ export type Database = {
           state: string;
         }[];
       };
+      respond_friend_link: { Args: { payload: Json }; Returns: Json };
       retire_participant: { Args: { payload: Json }; Returns: Json };
       revoke_group_invitation: { Args: { payload: Json }; Returns: Json };
+      rotate_friend_link: { Args: never; Returns: Json };
       set_custom_category_active: { Args: { payload: Json }; Returns: Json };
       set_personal_base_currency: { Args: { payload: Json }; Returns: Json };
       set_public_name: {
