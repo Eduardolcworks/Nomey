@@ -12,10 +12,27 @@ import {
   usesCategory,
 } from './movement-entry';
 import type { MovementFormScope } from './movement-form';
+import { scopeInCurrency } from './movement-entry';
 import { useMovementDraft } from './use-movement-draft';
 import { useRecordMovement } from './use-record-movement';
+import { useCurrencies } from '@/lib/currency';
 import type { CalendarDate } from '@/lib/format';
-import { useTranslation } from '@/lib/i18n';
+import { type MessageKey, useTranslation } from '@/lib/i18n';
+import { useState } from 'react';
+
+/**
+ * Qué dice cada rechazo de la frontera que ESTA pantalla puede provocar.
+ * Cualquier otro cae en el mensaje genérico, que no inventa una causa.
+ *
+ * **`FX_RATE_NOT_YET_AVAILABLE` no está**, y no es un olvido: una corrección
+ * no pasa por la cola (F07/ADR-001 §4), así que aquí no hay nada que espere a
+ * que se publique el tipo. Se dice que aún no está y que se intente después.
+ */
+const REJECTION_KEY: Readonly<Record<string, MessageKey>> = {
+  FX_CURRENCY_NOT_COVERED: 'entry.fxNotCovered',
+  FX_CONVERSION_OUT_OF_RANGE: 'entry.fxOutOfRange',
+  FX_RATE_NOT_YET_AVAILABLE: 'entry.fxPending',
+};
 
 /**
  * La versión VIGENTE de la operación que se está corrigiendo.
@@ -87,14 +104,34 @@ export function MovementEditor({
 }) {
   const { t } = useTranslation();
 
-  const scale = scope?.currencyScale ?? 2;
+  /*
+   * ═══════ CORREGIR PUEDE CAMBIAR LA MONEDA, Y EL SERVIDOR LO SABE ═══════
+   *
+   * El ámbito llega en la moneda DECLARADA de la operación, así que sin elegir
+   * nada la corrección la conserva —`scopeInCurrency` devuelve lo que recibe— y
+   * el servidor hereda el tipo congelado si además la fecha no cambia
+   * (`sec.fx_personal_rate`).
+   *
+   * **Elegir otra moneda rompe esa herencia en el servidor, no aquí.** La
+   * condición para heredar es «misma fecha efectiva Y misma moneda original»:
+   * con otra moneda no se cumple y el tipo se resuelve de nuevo para la fecha
+   * efectiva. El cliente no decide nada de eso; sólo manda la moneda elegida y
+   * la base asumida.
+   */
+  const catalogue = useCurrencies(scope !== null);
+  const [chosenId, setChosenId] = useState<string | null>(null);
+  const options = catalogue.status === 'ready' ? catalogue.options : null;
+  const chosenCurrency = options?.find((one) => one.id === chosenId) ?? null;
+
+  const effective = scope === null ? null : scopeInCurrency(scope, chosenCurrency);
+  const scale = effective?.currencyScale ?? 2;
   /*
    * **Arranca en la versión VIGENTE**, no en la original: si la operación ya se
    * corrigió antes, lo que se abre es lo que dice v2, no lo que decía v1. Es lo
    * que la fila tenía en la mano, así que no cuesta ninguna consulta.
    */
   const draft = useMovementDraft(scale, scope !== null, edit);
-  const { status, save } = useRecordMovement(scope);
+  const { status, code, save } = useRecordMovement(effective);
 
   /*
    * **SIN CAMBIOS NO SE ESCRIBE.** Abrir, mirar y cerrar no debe dejar una
@@ -105,18 +142,31 @@ export function MovementEditor({
    * concepto recortado— así que escribir 5,00 donde ponía 5 no cuenta como
    * cambio: el payload sería el mismo.
    */
-  const untouched = sameEntry(
-    draft.draft,
-    {
-      kind: edit.kind,
-      amount: amountValue(edit.amount),
-      concept: edit.concept,
-      categoryId: edit.categoryId,
-      date: edit.date,
-      time: edit.time,
-    },
-    scale,
-  );
+  /*
+   * **Cambiar de moneda ES un cambio**, aunque la cifra no se mueva: 20 EUR y
+   * 20 USD son dos movimientos distintos, y el servidor resolverá un tipo
+   * nuevo. Sin esto el CTA se quedaba apagado justo cuando había algo que
+   * corregir.
+   */
+  const currencyChanged =
+    scope !== null &&
+    effective !== null &&
+    effective.currencyDefinitionId !== scope.currencyDefinitionId;
+
+  const untouched =
+    !currencyChanged &&
+    sameEntry(
+      draft.draft,
+      {
+        kind: edit.kind,
+        amount: amountValue(edit.amount),
+        concept: edit.concept,
+        categoryId: edit.categoryId,
+        date: edit.date,
+        time: edit.time,
+      },
+      scale,
+    );
 
   /*
    * La categoría elegida ahora mismo, resuelta contra el catálogo exactamente
@@ -131,9 +181,16 @@ export function MovementEditor({
       entry={draft.entry}
       onChangeEntry={draft.setEntry}
       amountLabel={t('entry.amountLabel')}
-      currency={scope === null ? null : { code: scope.currencyCode, scale: scope.currencyScale }}
+      currency={
+        effective === null ? null : { code: effective.currencyCode, scale: effective.currencyScale }
+      }
+      currencyOptions={options}
+      currencySelectedId={effective?.currencyDefinitionId ?? null}
+      onSelectCurrency={(option) => {
+        setChosenId(option.id);
+      }}
       hint={draft.blocker === null ? null : t(BLOCKER_HINT[draft.blocker])}
-      error={status === 'failed' ? t('entry.editFailed') : null}
+      error={status === 'failed' ? t(REJECTION_KEY[code ?? ''] ?? 'entry.editFailed') : null}
       saveLabel={t('action.saveChanges')}
       saveDisabled={draft.blocker !== null || untouched}
       saving={status === 'saving'}

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { BackHandler } from 'react-native';
 
-import { currencyDefinition } from '@/domain';
+import { type CurrencyDefinition, currencyDefinition } from '@/domain';
 import { type CategoryCatalogue, sharedCategories } from '@/lib/categories';
 import type { CalendarDate } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n';
@@ -35,6 +35,7 @@ export function SharedExpenseWindow({
   onClosed,
   onRecorded,
   initial,
+  declaredCurrency,
   correction,
 }: {
   readonly group: ProjectedGroup;
@@ -57,6 +58,11 @@ export function SharedExpenseWindow({
   readonly onRecorded: () => void;
   /** Los valores vigentes, cuando lo que se abre es una corrección. */
   readonly initial?: SharedExpenseDraft;
+  /**
+   * La moneda en la que está escrito ese borrador, cuando NO es la del grupo
+   * (F11/ADR-003). La resuelve la ruta contra el catálogo.
+   */
+  readonly declaredCurrency?: CurrencyDefinition;
   readonly correction?: { readonly operationId: string; readonly expectedVersionId: string };
 }) {
   const { t } = useTranslation();
@@ -104,6 +110,7 @@ export function SharedExpenseWindow({
             scopeId={group.scopeId}
             currencyDefinitionId={group.currencyDefinitionId}
             initial={initial}
+            declaredCurrency={declaredCurrency}
             correction={correction}
             onRecorded={() => {
               onRecorded();

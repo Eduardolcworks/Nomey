@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AmountSheet } from './amount-sheet';
@@ -7,8 +8,14 @@ import { BLOCKER_HINT } from './movement-blocker';
 import { MovementFields } from './movement-fields';
 import type { EntryCategories } from './use-entry-categories';
 import type { EntryQueue } from './use-entry-queue';
-import { type AmountEntry } from './movement-entry';
+import {
+  type AmountEntry,
+  EMPTY_AMOUNT,
+  type PayloadScope,
+  scopeInCurrency,
+} from './movement-entry';
 import { useMovementDraft } from './use-movement-draft';
+import { useCurrencies } from '@/lib/currency';
 import { useTranslation } from '@/lib/i18n';
 import { ThemedText } from '@/ui/components';
 import { Spacing } from '@/ui/theme';
@@ -27,18 +34,15 @@ export type TransferSlot = {
   readonly setConcept: (next: string) => void;
 };
 
-export type MovementFormScope = {
-  readonly scopeId: string;
-  readonly currencyDefinitionId: string;
-  readonly currencyCode: string;
-  readonly currencyScale: number;
-  /**
-   * La base del ámbito, SÓLO cuando la moneda del formulario no lo es: al
-   * corregir una operación en moneda extranjera (F11.C). Un alta nunca la
-   * lleva, porque F11.C no permite crearlas desde la interfaz.
-   */
-  readonly baseCurrencyDefinitionId?: string;
-};
+/**
+ * El ámbito del formulario: dónde cae el movimiento y en qué moneda se escribe.
+ *
+ * **Es `PayloadScope`**, la forma que interpreta `buildPayload`, y no una copia:
+ * el tipo vive en `movement-entry.ts` junto a las dos funciones que lo leen,
+ * donde no hay React y se puede probar. Aquí conserva su nombre porque es el
+ * que usan las tres rutas.
+ */
+export type MovementFormScope = PayloadScope;
 
 /**
  * Registrar un movimiento personal. **Sólo el alta, y siempre por la cola.**
@@ -109,7 +113,25 @@ export function MovementForm({
 }) {
   const { t } = useTranslation();
 
-  const scale = scope?.currencyScale ?? 2;
+  /*
+   * ═══════════ LA MONEDA DE ESTE MOVIMIENTO (F11) ═══════════
+   *
+   * **Vive aquí y no en la ruta**, y ésa es la diferencia que importa: el
+   * ámbito que la ruta entrega es y sigue siendo el del Personal con su moneda
+   * BASE, que es lo que una propuesta de transferencia puede llevar
+   * (F12/ADR-002 §20). Si la elección subiera a la ruta, elegir yenes aquí se
+   * los habría pasado también a la transferencia, que no los admite.
+   *
+   * `null` es «la base», no «ninguna»: el control arranca en la moneda del
+   * ámbito y el catálogo sólo hace falta para cambiarla.
+   */
+  const catalogue = useCurrencies(scope !== null);
+  const [chosenId, setChosenId] = useState<string | null>(null);
+  const options = catalogue.status === 'ready' ? catalogue.options : null;
+  const chosen = options?.find((one) => one.id === chosenId) ?? null;
+
+  const effective = scope === null ? null : scopeInCurrency(scope, chosen);
+  const scale = effective?.currencyScale ?? 2;
   const draft = useMovementDraft(scale, scope !== null, initial, !categories.unavailable);
 
   /*
@@ -119,7 +141,25 @@ export function MovementForm({
    */
   const header = (
     <>
-      <EntryKindSelector value={draft.kind} onChange={draft.setKind} />
+      <EntryKindSelector
+        value={draft.kind}
+        onChange={(next) => {
+          /*
+           * **UNA TRANSFERENCIA VA SIEMPRE EN LA BASE** (F12/ADR-002 §20), y el
+           * importe escrito pertenece a la moneda que estaba elegida. Cambiar
+           * de segmento con yenes escritos habría propuesto esa misma cifra en
+           * euros sin que nadie hubiera convertido nada — exactamente lo que
+           * F07/ADR-001 §14 prohíbe hacer con una entrada en conflicto. Así que
+           * se vuelve a la base y la cifra se VACÍA: que se vea, en vez de
+           * reinterpretarla en silencio.
+           */
+          if (next === 'transfer' && chosen !== null) {
+            setChosenId(null);
+            draft.setEntry(EMPTY_AMOUNT);
+          }
+          draft.setKind(next);
+        }}
+      />
       <ThemedText variant="label" themeColor="textSecondary" style={styles.scope}>
         {t('scope.personal')}
       </ThemedText>
@@ -160,16 +200,29 @@ export function MovementForm({
       entry={draft.entry}
       onChangeEntry={draft.setEntry}
       amountLabel={t('entry.amountLabel')}
-      currency={scope === null ? null : { code: scope.currencyCode, scale: scope.currencyScale }}
+      currency={
+        effective === null ? null : { code: effective.currencyCode, scale: effective.currencyScale }
+      }
+      /*
+       * El catálogo ENTERO, con cobertura de cambio o sin ella: qué monedas se
+       * pueden convertir un día dado lo decide la frontera, no esta pantalla
+       * (F11/ADR-001 §6). Sin catálogo no hay nada que elegir y el control
+       * vuelve a ser el rótulo de siempre.
+       */
+      currencyOptions={options}
+      currencySelectedId={effective?.currencyDefinitionId ?? null}
+      onSelectCurrency={(option) => {
+        setChosenId(option.id);
+      }}
       hint={draft.blocker === null ? null : t(BLOCKER_HINT[draft.blocker])}
       error={error}
       saveLabel={t('action.save')}
       saveDisabled={draft.blocker !== null}
       saving={queue.saving}
       onSave={() => {
-        if (scope === null) return;
+        if (effective === null) return;
         // 3 → 5: se cierra SÓLO cuando la entrada quedó en disco.
-        void queue.enqueue(draft.draft, scope, resolving).then((ok) => {
+        void queue.enqueue(draft.draft, effective, resolving).then((ok) => {
           if (ok) onSaved();
         });
       }}

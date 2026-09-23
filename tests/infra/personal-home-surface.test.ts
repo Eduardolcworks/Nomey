@@ -1576,7 +1576,14 @@ describe('editar el Disponible', () => {
   /** La moneda se enseña y no se cambia: dice que no cambia, no lo finge. */
   it('la moneda no es editable', () => {
     expect(ADAPTADOR).toContain('currencySymbol(');
-    expect(ADAPTADOR).toContain("t('entry.currencyFixed')");
+    /*
+     * La nota de «aquí la moneda no se cambia» sigue siendo la de siempre en
+     * las pantallas que NO ofrecen elegir, que es este editor: sin
+     * `currencyOptions` el control de `AmountSheet` no abre nada. La otra nota
+     * —la del catálogo que no llegó— sólo aparece donde sí se ofrecía.
+     */
+    expect(ADAPTADOR).toContain("'entry.currencyUnavailable' : 'entry.currencyFixed'");
+    expect(EDITOR).not.toContain('currencyOptions');
     // El símbolo sale del ámbito, no de un estado: no hay nada que cambiar.
     expect(EDITOR).toContain('scope.currencyCode');
     expect(EDITOR).not.toContain('setCurrencyCode');
@@ -2231,7 +2238,15 @@ describe('corregir un movimiento no toca el Disponible', () => {
 
   /** El fallo conserva la ventana y no filtra tecnicismos. */
   it('el fallo conserva la ventana y el borrador', () => {
-    expect(EDICION).toContain("t('entry.editFailed')");
+    /*
+     * El genérico sigue siendo el repliegue —un código que esta pantalla
+     * no conoce no inventa una causa—, y desde F11 los tres rechazos de
+     * cambio SÍ se dicen por su motivo: sin cobertura y fuera de rango
+     * piden cosas distintas, y «no se pudo guardar» dejaba reintentando
+     * lo mismo.
+     */
+    expect(EDICION).toContain("REJECTION_KEY[code ?? ''] ?? 'entry.editFailed'");
+    expect(EDICION).toContain("FX_CURRENCY_NOT_COVERED: 'entry.fxNotCovered'");
     expect(EDICION).toContain('if (ok) onSaved();');
     for (const codigo of ['PAYLOAD_INVALID', 'VERSION_CONFLICT', 'PGRST', 'rpc(']) {
       expect(EDICION, codigo).not.toContain(codigo);

@@ -632,6 +632,8 @@ export default function HomeScreen() {
        */
       currencyCode={operation.currency_code}
       currencyScale={operation.currency_scale}
+      /* F11: declarada en otra moneda y todavía sin convertir por el servidor. */
+      conversionPending={operation.conversion_pending}
       expanded={openMovement === operation.render_key}
       onToggle={() => toggleMovement(operation.render_key)}
       onEdit={() => {
@@ -991,6 +993,7 @@ function ExpenseGroup({
           conversion={home.conversions.get(operation.operation_id)}
           currencyCode={operation.currency_code}
           currencyScale={operation.currency_scale}
+          conversionPending={operation.conversion_pending}
           expanded={openMovement === operation.render_key}
           onToggle={() => onToggleMovement(operation.render_key)}
           onEdit={() => {

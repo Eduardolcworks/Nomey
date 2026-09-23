@@ -3,6 +3,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 
 import { AmountField } from './amount-field';
 import type { AmountEntry } from './amount-entry';
+import { CurrencyList, type CurrencyListOption } from './currency-list';
 import { GlassPressable } from './glass-pressable';
 import { ThemedText } from './themed-text';
 import { Radius, Spacing, useTheme } from '@/ui/theme';
@@ -125,8 +126,32 @@ export type AmountSheetProps = {
   readonly decimalSeparator: string;
   /** Lo que anuncia el control de moneda, ya traducido. */
   readonly currencyLabel: string;
-  /** Lo que dice al tocarlo: que aquí la moneda no se cambia. Ya traducido. */
+  /**
+   * Lo que dice al tocarlo CUANDO NO HAY NADA QUE ELEGIR. Ya traducido.
+   *
+   * Con `currencyOptions` el control deja de ser un rótulo y abre la lista, así
+   * que esta nota no se enseña: decir «aquí la moneda no se cambia» encima de
+   * un desplegable sería mentir sobre lo que acaba de abrirse.
+   */
   readonly currencyNote: string;
+
+  /**
+   * ═══════════ LA MONEDA DE LA OPERACIÓN, CUANDO SE PUEDE ELEGIR ═══════════
+   *
+   * El catálogo que ofrece el control de moneda, o `null`/ausente para que se
+   * comporte como siempre —un rótulo con su nota—. **Es la moneda de la
+   * OPERACIÓN y no la base del ámbito** (F11): elegir yenes en un Personal en
+   * euros declara el gasto en yenes y el servidor lo convierte; la base del
+   * ámbito no se toca desde aquí ni desde ninguna otra parte de esta ventana.
+   *
+   * Lista vacía y `null` significan lo mismo para este componente: no hay nada
+   * que elegir. Quien la monta decide si eso es «cargando» o «sin catálogo» y
+   * lo dice con `currencyNote`.
+   */
+  readonly currencyOptions?: readonly CurrencyListOption[] | null;
+  /** Cuál está elegida, para marcarla en la lista. */
+  readonly currencySelectedId?: string | null;
+  readonly onSelectCurrency?: (option: CurrencyListOption) => void;
 
   /** Por qué todavía no se puede guardar. Se lee en gris. */
   readonly hint?: string | null;
@@ -161,6 +186,9 @@ export function AmountSheet({
   decimalSeparator,
   currencyLabel,
   currencyNote,
+  currencyOptions,
+  currencySelectedId,
+  onSelectCurrency,
   hint,
   error,
   saveLabel,
@@ -169,7 +197,20 @@ export function AmountSheet({
   onSave,
 }: AmountSheetProps) {
   const [noteShown, setNoteShown] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const scale = currency?.scale ?? 2;
+
+  /*
+   * **Elegir o mirar, nunca las dos cosas.** Sin catálogo el control conserva
+   * exactamente el comportamiento que tenía —enseña la nota— y con catálogo
+   * abre la lista. No hay un tercer estado intermedio que pueda quedarse a
+   * medias.
+   */
+  const selectable =
+    currencyOptions !== null &&
+    currencyOptions !== undefined &&
+    currencyOptions.length > 0 &&
+    onSelectCurrency !== undefined;
 
   return (
     <View style={styles.sheet}>
@@ -200,6 +241,7 @@ export function AmountSheet({
 
         <GlassPressable
           label={currencyLabel}
+          expanded={selectable ? pickerOpen : undefined}
           /*
            * LA MISMA PROFUNDIDAD QUE LOS OBLONGOS de esta ventana, que es
            * `well` y no `raised`. Los dos tokens no son variantes del mismo
@@ -215,7 +257,8 @@ export function AmountSheet({
           rim="soft"
           radius={Radius.lg}
           onPress={() => {
-            setNoteShown(true);
+            if (selectable) setPickerOpen((open) => !open);
+            else setNoteShown(true);
           }}>
           <View style={styles.currency}>
             <ThemedText variant="title">{currencySymbol}</ThemedText>
@@ -225,10 +268,21 @@ export function AmountSheet({
         {aside === undefined ? null : <View style={styles.aside}>{aside}</View>}
       </View>
 
-      {noteShown ? (
+      {noteShown && !selectable ? (
         <ThemedText variant="caption" themeColor="textTertiary" style={styles.note}>
           {currencyNote}
         </ThemedText>
+      ) : null}
+
+      {selectable && pickerOpen ? (
+        <CurrencyList
+          options={currencyOptions}
+          selectedId={currencySelectedId ?? null}
+          onSelect={(option) => {
+            onSelectCurrency(option);
+            setPickerOpen(false);
+          }}
+        />
       ) : null}
 
       {fields}

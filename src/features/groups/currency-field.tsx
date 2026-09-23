@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import type { CurrenciesState, CurrencyOption } from '@/lib/currency';
 import { useTranslation } from '@/lib/i18n';
-import { GlassSurface, Icon, ThemedText } from '@/ui/components';
+import { CurrencyList, GlassSurface, Icon, ThemedText } from '@/ui/components';
 import { Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
-
-import type { CurrencyOption } from './group-service';
-import type { CurrenciesState } from './use-currencies';
 
 /**
  * LA DIVISA DEL GRUPO. **No había ningún selector que reutilizar.**
@@ -147,34 +145,25 @@ export function CurrencyField({ selected, state, onSelect, locked = false }: Cur
         </ThemedText>
       ) : null}
 
+      {/*
+       * LA MISMA LISTA QUE EL CONTROL DE MONEDA DE `AmountSheet`, que es por
+       * donde F11 elige la moneda de una operación. Bajó a `ui/` para que
+       * fuese una y no dos; este campo no perdió nada al hacerlo.
+       */}
       {open && state.status === 'ready' ? (
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          nestedScrollEnabled
-          style={[styles.list, { borderColor: theme.border }]}
-          contentContainerStyle={styles.listBody}>
-          {state.options.map((option) => (
-            <Pressable
-              key={option.id}
-              accessibilityRole="button"
-              accessibilityState={{ selected: option.id === selected.id }}
-              accessibilityLabel={option.code}
-              onPress={() => {
-                onSelect(option);
-                setOpen(false);
-              }}
-              style={styles.option}>
-              <ThemedText
-                variant="body"
-                themeColor={option.id === selected.id ? 'text' : 'textSecondary'}>
-                {option.code}
-              </ThemedText>
-              {option.id === selected.id ? (
-                <Icon name={Symbols.confirm} size={16} colour={theme.accent} shape="circle" />
-              ) : null}
-            </Pressable>
-          ))}
-        </ScrollView>
+        <CurrencyList
+          options={state.options}
+          selectedId={selected.id}
+          onSelect={(option) => {
+            /*
+             * La escala viene del catálogo, no de la lista: `CurrencyList` no
+             * la conoce, y crear un grupo la necesita (F02/ADR-001 §3).
+             */
+            const full = state.options.find((one) => one.id === option.id);
+            if (full !== undefined) onSelect(full);
+            setOpen(false);
+          }}
+        />
       ) : null}
     </View>
   );
@@ -191,23 +180,7 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: Spacing.lg,
   },
-  /** Acotada: veinte divisas dentro de una ventana con alto máximo. */
-  list: {
-    maxHeight: 168,
-    borderRadius: Radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  listBody: {
-    paddingVertical: Spacing.xs,
-  },
   note: {
     paddingHorizontal: Spacing.lg,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
   },
 });

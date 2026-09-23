@@ -119,10 +119,31 @@ export type ProjectedOperation = PersonalOperation & {
   /**
    * Whether this row enters the Disponible, the totals and the breakdown.
    *
-   * `false` only in the case above: the entry is painted, but there is no
-   * common definition to sum it under (F07/ADR-001 §14 — "produces no effect").
+   * `false` in the case above, and also while an FX entry waits for the server
+   * to convert it (F11): neither has a figure in the aggregates' currency.
    */
   readonly counted: boolean;
+  /**
+   * ESTA ENTRADA ESPERA UNA CONVERSIÓN QUE TODAVÍA NO EXISTE (F11).
+   *
+   * Es lo que distingue los DOS motivos por los que una fila local puede no
+   * sumar, que se veían iguales y no lo son:
+   *
+   * - la moneda base se movió bajo una entrada ya capturada (F07/ADR-001 §14):
+   *   la frontera la rechazará y hay que revisarla;
+   * - la persona declaró el movimiento en OTRA moneda a propósito (F11): la
+   *   frontera la aceptará y la convertirá con el tipo del día.
+   *
+   * Se distinguen por la base ASUMIDA que la entrada congeló en su payload: si
+   * es la base vigente del ámbito, la intención era declarar en otra moneda.
+   *
+   * **Mientras tanto no se enseña ningún importe convertido**, porque no lo
+   * hay: el tipo sólo lo resuelve el servidor (F11/ADR-001 §7, §12), y pintar
+   * una cifra «aproximada» calculada aquí sería exactamente lo que ese ADR
+   * prohíbe. `false` en todo lo demás, incluidas las filas del servidor, que ya
+   * vienen convertidas.
+   */
+  readonly conversion_pending: boolean;
 };
 
 /**
@@ -239,6 +260,21 @@ function contributes(entry: QueueEntry, scope: EntryScope): boolean {
   return entry.currency.definitionId === scope.currencyDefinitionId;
 }
 
+/**
+ * Si esta entrada está esperando a que el servidor la convierta (F11).
+ *
+ * **La base asumida es la que lo dice**, no la moneda a secas: una entrada que
+ * declaró ESTA base como la que asumía al capturar es una operación en moneda
+ * extranjera legítima, y la frontera la aceptará convirtiéndola. Una cuya base
+ * asumida no coincide —o que no lleva ninguna— es el conflicto de F07/ADR-001
+ * §14, que la frontera rechaza y que se resuelve revisando.
+ */
+function awaitsConversion(entry: QueueEntry, scope: EntryScope): boolean {
+  if (entry.currency.definitionId === scope.currencyDefinitionId) return false;
+  const assumed = (entry.payload as PersonalEntryPayload).expected_base_currency_definition_id;
+  return assumed === scope.currencyDefinitionId;
+}
+
 export function projectHome(input: ProjectionInput): ProjectedHome {
   const { scope, range, snapshot } = input;
   const currency = currencyDefinition({
@@ -326,6 +362,7 @@ export function projectHome(input: ProjectionInput): ProjectedHome {
         currency_code: entry.currency.code,
         currency_scale: entry.currency.scale,
         counted: contributes(entry, scope),
+        conversion_pending: awaitsConversion(entry, scope),
       };
 
       return { entry, effects, row, inRange: inRange(date, range) };
@@ -391,6 +428,8 @@ export function projectHome(input: ProjectionInput): ProjectedHome {
     currency_code: scope.currencyCode,
     currency_scale: scope.currencyScale,
     counted: true,
+    /* Una fila del servidor ya está convertida: no espera nada. */
+    conversion_pending: false,
   }));
   const operations = [...serverRows, ...inList.map((local) => local.row)].sort(compareOperations);
   const total = (snapshot.interval?.total ?? 0) + inList.length;

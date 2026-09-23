@@ -550,6 +550,16 @@ jobs:
       - name: FX in the group expense
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/fx-group-expense.sql
 
+      # The frozen conversion of a group expense, READ (20261004120000). The
+      # additive reader that lets a group row show the rate and its ECB source,
+      # built like `api.personal_operation_conversion`: a `SECURITY DEFINER`
+      # owned by `postgres` that authorizes in its own body by current
+      # membership, publishes ONLY the group scope's conversion, and gives the
+      # client no direct access to `core.frozen_conversion`. Falsified: removing
+      # either guard changes the result.
+      - name: FX group conversion, read
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/fx-group-conversion-read.sql
+
       # Real concurrency. A single psql session has none, so the debt
       # serialization protocol of F03/ADR-010 §11 cannot be proven by a check: this
       # opens simultaneous sessions, the way E15-C did. It runs LAST because it

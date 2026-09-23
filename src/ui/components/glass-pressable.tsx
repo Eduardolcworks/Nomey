@@ -17,6 +17,15 @@ export type GlassPressableProps = {
   busy?: boolean;
   /** Marca el control como elegido, para un segmento o un conmutador. */
   selected?: boolean;
+  /**
+   * Si el control despliega algo debajo y está abierto.
+   *
+   * Se anuncia porque un control que abre una lista y no lo dice se lee como
+   * un botón cualquiera: quien navega con lector de pantalla no sabe que hay
+   * algo desplegado ni que volver a tocarlo lo cierra. Ausente cuando el
+   * control no despliega nada, que es el caso de casi todos.
+   */
+  expanded?: boolean;
   /** Cuánto brilla el borde superior. Ver `GlassRim`. */
   rim?: GlassRim;
   /**
@@ -73,6 +82,7 @@ export function GlassPressable({
   disabled = false,
   busy = false,
   selected = false,
+  expanded,
   rim = 'catch',
   edge,
   radius = Radius.full,
@@ -91,7 +101,7 @@ export function GlassPressable({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled, busy, selected }}
+      accessibilityState={{ disabled, busy, selected, expanded }}
       disabled={disabled || busy}
       onPressIn={() => {
         setPressed(true);

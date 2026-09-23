@@ -339,6 +339,14 @@ export const en: Record<MessageKey, string> = {
   'group.expenseCategoryUnusable': 'That category cannot be used. Choose another one.',
   'group.expenseCurrency':
     'That expense would need a currency conversion, which is not possible yet.',
+  'group.expenseFxNotCovered':
+    'There is no published exchange rate for that currency on that date.',
+  'group.expenseFxOutOfRange': 'The converted amount falls outside the accepted range.',
+  'group.expenseFxPending': "That day's exchange rate is not published yet. Try again later.",
+  'group.expenseCurrencyPicked': 'Expense currency: {code}',
+  'group.expenseConverted': 'It will be converted to {code} when saved',
+  'group.expenseCurrencyUnavailable':
+    'Currencies could not be loaded. This expense will use the group currency.',
   'group.expensePayerUnknown': 'Choose who paid.',
   'group.expenseAmountMissing': 'Enter the amount.',
   'group.expenseAmountInvalid': 'That amount is not valid.',
@@ -687,6 +695,9 @@ export const en: Record<MessageKey, string> = {
   'home.detailRateSource': 'Source',
   'home.rateSourceEcb': 'European Central Bank, reference of {date}',
   'home.rateSourceOther': 'Reference of {date}',
+  'home.conversionPending': 'Conversion pending',
+  'home.conversionPendingHint':
+    "That day's rate is not published yet. It will be converted as soon as it is.",
   'home.detailConcept': 'Concept',
   'home.detailPaidBy': 'Paid by',
   'home.detailTotal': 'Total amount',
@@ -736,6 +747,12 @@ export const en: Record<MessageKey, string> = {
   'entry.amountInvalid': 'That amount is not valid for this currency',
   'entry.currencyLabel': 'Currency: {code}',
   'entry.currencyFixed': 'For now this uses your Personal mode currency',
+  'entry.currencyUnavailable':
+    'Currencies could not be loaded. This movement will use your Personal mode currency.',
+  'entry.fxNotCovered': 'There is no published exchange rate for that currency on that date',
+  'entry.fxOutOfRange': 'The converted amount falls outside the accepted range',
+  'entry.fxPending':
+    "That day's exchange rate is not published yet. It will be saved as soon as it is.",
   'entry.conceptLabel': 'Concept',
   'entry.conceptPlaceholder': 'Concept',
   'entry.conceptHint': 'Enter a concept',

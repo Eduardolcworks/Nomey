@@ -11,12 +11,12 @@
 
 ## Estado
 
-| Bloque    | Estado                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **F11.A** | **Cerrado**: contrato de fuente y resolución en F11/ADR-001. Sin implementación                                                                                                                                                                                                                                                                                                                                                                           |
-| **F11.B** | En curso sobre F11/ADR-002: **B1** (dominio y vectores), **B2** (catálogo y cobertura curada) y **B3** (ingesta y fijación diaria) cerrados e integrados (PR #70); **B4** (resolver y conversión en SQL, PR #72) y **B5** (writers personales con `core.frozen_conversion` y su procedencia, `20260929120000`) cerrados también. Convierten `personal_expense` y `personal_income`, y ninguna otra clase. **No se despliega sin F11.C** (ver abajo)       |
-| **F11.C** | Integrado (`20261001120000`): `api.personal_operation` publica la moneda original junto al importe original; el tipo congelado y la atribución al BCE salen de `api.personal_operation_conversion`, lectora `SECURITY DEFINER` que autoriza por propiedad del ámbito; el desglose de estadísticas suma la magnitud convertida; la edición corrige en la moneda declarada; la cola espera una fijación con plazo propio. Sin selector de moneda para crear |     |
-| **F11.D** | Integrado (`20261003120000`, F11/ADR-003): el gasto de grupo admite moneda extranjera; el total se convierte una vez a la base del grupo y el reparto ocurre después, cada ámbito alcanzado convierte desde el original, la cuota de cada participante se persiste en la base de su Modo Personal, y sin cobertura de cualquiera de ellas se rechaza el gasto entero. Queda el cierre de los criterios de la fase y el selector de moneda en la interfaz  |     |
+| Bloque    | Estado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **F11.A** | **Cerrado**: contrato de fuente y resolución en F11/ADR-001. Sin implementación                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **F11.B** | En curso sobre F11/ADR-002: **B1** (dominio y vectores), **B2** (catálogo y cobertura curada) y **B3** (ingesta y fijación diaria) cerrados e integrados (PR #70); **B4** (resolver y conversión en SQL, PR #72) y **B5** (writers personales con `core.frozen_conversion` y su procedencia, `20260929120000`) cerrados también. Convierten `personal_expense` y `personal_income`, y ninguna otra clase. **No se despliega sin F11.C** (ver abajo)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **F11.C** | Integrado (`20261001120000`): `api.personal_operation` publica la moneda original junto al importe original; el tipo congelado y la atribución al BCE salen de `api.personal_operation_conversion`, lectora `SECURITY DEFINER` que autoriza por propiedad del ámbito; el desglose de estadísticas suma la magnitud convertida; la edición corrige en la moneda declarada; la cola espera una fijación con plazo propio. Sin selector de moneda para crear                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |     |
+| **F11.D** | Integrado (`20261003120000`, F11/ADR-003): el gasto de grupo admite moneda extranjera; el total se convierte una vez a la base del grupo y el reparto ocurre después, cada ámbito alcanzado convierte desde el original, la cuota de cada participante se persiste en la base de su Modo Personal, y sin cobertura de cualquiera de ellas se rechaza el gasto entero. La **interfaz** llegó después (`20261004120000`): el control de moneda de `AmountSheet` abre el catálogo de `api.currency_definition` al dar de alta y al corregir, tanto un movimiento personal como un gasto de grupo; lo elegido es la moneda de la OPERACIÓN y viaja con `expected_base_currency_definition_id`; la fila del grupo enseña el convertido, el tipo y su fuente por `api.group_operation_conversion`; los tres rechazos de cambio se dicen por su causa; y una entrada encolada en otra moneda se anuncia «Conversión pendiente» y no entra en ningún agregado. Queda el cierre de los cinco criterios de la fase |     |
 
 ### Decisiones de implementación de F11.B (2026-09-15)
 
@@ -295,6 +295,65 @@ Casos que F11/ADR-001 no resuelve y que ninguna decisión de producto cubre.
   reparto y redondeo: no se prejuzga aquí.
 - **Dónde se decide: F11.D**, antes de habilitar moneda extranjera en
   `record_group_expense` (condición de arriba).
+
+## La interfaz multimoneda (dentro de F11.D, 2026-09-23)
+
+> **No normativo.** Aquí no se decide nada: se deja escrito **cómo** se
+> implementó lo que F11/ADR-001, F11/ADR-002 y F11/ADR-003 ya decidieron, y
+> qué se dejó deliberadamente fuera. Ninguna regla nueva.
+
+### Lo que hace
+
+- **El selector es de `CurrencyDefinition`, no de país.** Sale de
+  `api.currency_definition` **entero**: ARS, COP y CLP siguen en la lista
+  aunque hoy no tengan cobertura del BCE, porque qué pares se pueden convertir
+  un día dado lo decide la frontera (`FX_CURRENCY_NOT_COVERED`) y cambia cada
+  día hábil. Filtrarlo en el cliente habría sido fabricar esa regla dos veces.
+- **Una lista, en `ui/`.** `CurrencyList` la comparten el campo de la divisa
+  base de un grupo —que ya existía— y el control de moneda de `AmountSheet`.
+  El catálogo bajó a `lib/currency` por la misma razón que `lib/categories`:
+  lo necesitan dos features y una no puede leer de la otra.
+- **La moneda elegida es la de la OPERACIÓN.** La base del ámbito no se toca
+  desde ninguna pantalla: `api.set_personal_base_currency` sigue sin llamador
+  en el cliente y la divisa de un grupo creado se sigue viendo bloqueada.
+- **El cliente no convierte.** Transporta la moneda declarada, el importe
+  original y la base asumida; el tipo lo resuelve y lo congela el servidor
+  (F11/ADR-001 §7, §12). El coeficiente cruza como texto y sólo se formatea.
+
+### Tres consecuencias que conviene tener presentes
+
+- **Cambiar la moneda al corregir obliga a resolver un tipo nuevo, y eso ya lo
+  hacía el servidor**: `sec.fx_personal_rate` sólo hereda con la misma fecha
+  efectiva **y** la misma moneda original. La interfaz no añade ninguna regla;
+  lo que hacía falta era poder mandar otra moneda. Medido de extremo a extremo
+  en `supabase/checks/fx-group-conversion-read.sql` F.
+- **La moneda entra en la huella de idempotencia de una corrección personal.**
+  Corregir 20 EUR a 20 USD es otro comando aunque la cifra no se mueva: sin
+  ella, un primer intento que llegara a escribirse y cuya respuesta se perdiera
+  habría hecho que el segundo volviera con `IDEMPOTENCY_KEY_REUSED · 409`.
+- **Una entrada encolada en otra moneda se pinta y no suma.** Es la regla que
+  ya existía (`aggregatable = false`), y ahora la fila lo **dice**:
+  «Conversión pendiente», sin ninguna cifra convertida, porque no la hay. Eso
+  distingue dos casos que se veían iguales: la conversión que el servidor va a
+  hacer, y el conflicto de F07/ADR-001 §14 —la base se movió bajo una entrada
+  ya capturada— que la frontera va a rechazar. Se distinguen por la base
+  asumida que la entrada congeló en su payload.
+
+### Lo que NO entra, y por qué
+
+- **Cambiar la moneda base**, de un Personal o de un Grupo, con historia
+  detrás. Sigue sin ADR que lo cubra: ver «Discrepancias documentales» más
+  abajo.
+- **Conversión en ninguna otra clase.** Transferencias, ajustes, liquidaciones
+  y pagos declarados conservan `sec.assert_no_conversion`.
+- **El detalle de conversión de un gasto de grupo en el Modo Personal.** La
+  cuota propia ya viaja en la base del Personal (`personal_amount`, F11.D); el
+  tipo con el que se convirtió esa cuota no se publica.
+- **Una segunda excepción, pequeña y deliberada, a lo compartido del borrador
+  (F12.C2):** ir a «Transferencia» con otra moneda elegida vuelve a la base y
+  **vacía** el importe. Una propuesta va siempre en la base del Personal
+  (F12/ADR-002 §20), y llevarse la cifra tal cual la habría reinterpretado en
+  otra moneda sin que nadie convirtiera nada.
 
 ## Discrepancias documentales anotadas
 

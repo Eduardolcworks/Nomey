@@ -46,7 +46,13 @@ describe('el alta sale por la cola y por ninguna otra puerta', () => {
     const FORM = stripComments(source('src/features/personal/movement-form.tsx'));
     expect(FORM).not.toContain('useRecordMovement');
     expect(FORM).not.toContain('recordPersonal');
-    expect(FORM).toContain('queue.enqueue(draft.draft, scope, resolving)');
+    /*
+     * Encola el ámbito YA EXPRESADO en la moneda elegida (F11): la moneda
+     * de la operación puede no ser la base, y lo que se congela es el
+     * payload construido con ella. Sin selector, `effective` ES `scope`.
+     */
+    expect(FORM).toContain('queue.enqueue(draft.draft, effective, resolving)');
+    expect(FORM).toContain('scopeInCurrency(scope, chosen)');
     // Y se cierra SÓLO si quedó persistida.
     expect(FORM).toMatch(/if \(ok\) onSaved\(\)/);
   });
@@ -151,7 +157,24 @@ describe('la maquinaria no se ve', () => {
     const ROW = stripComments(source('src/features/personal/movement-row.tsx'));
     expect(ROW).not.toContain('client_operation_id');
     expect(ROW).not.toContain('render_key');
-    expect(ROW).not.toMatch(/pending|pendiente|sync|sincroniz/i);
+    /*
+     * ═══ LO QUE LA FILA SIGUE SIN DECIR, Y LO QUE F11 LE AÑADIÓ ═══
+     *
+     * **De la COLA, nada**: ni que está pendiente de enviar, ni un contador,
+     * ni sincronización, ni una acción propia. El invariante 13 de
+     * F07/ADR-001 se conserva entero.
+     *
+     * Lo único que puede decir es que **su conversión todavía no existe**, y
+     * eso no es un estado de la cola sino un hecho de la operación: no hay
+     * ningún importe convertido que enseñar porque el tipo sólo lo resuelve
+     * el servidor (F11/ADR-001 §7, §12). La alternativa era dejar el hueco en
+     * blanco o fabricar una cifra, y las dos son peores.
+     */
+    expect(ROW).not.toMatch(/pending|sync|sincroniz/i);
+    expect(ROW).not.toMatch(/pendiente de env|en cola|sin enviar/i);
+    // Y lo que sí dice, por su nombre: la conversión, nunca el envío.
+    expect(ROW).toContain('conversionPending');
+    expect(ROW).toContain("t('home.conversionPending')");
   });
 
   it('Inicio no pasa a la fila ningún dato de cola', () => {

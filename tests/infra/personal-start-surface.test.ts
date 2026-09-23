@@ -178,7 +178,14 @@ describe('el cliente', () => {
     // y sólo ella; el estado accesible sigue saliendo de `selected`, no del color.
     expect(SCREEN).toContain("edge={choice === option.mode ? 'accent' : undefined}");
     expect(PRESSABLE).toContain('glassEdgeStyle(edge, theme.accent)');
-    expect(PRESSABLE).toContain('accessibilityState={{ disabled, busy, selected }}');
+    /*
+     * `expanded` se sumó en F11 para el control de moneda, que despliega
+     * una lista: un control que abre algo y no lo dice se lee como un
+     * botón cualquiera. Es `undefined` en todos los demás, incluidos
+     * estos dos, así que no cambia lo que se anuncia aquí.
+     */
+    expect(PRESSABLE).toContain('accessibilityState={{ disabled, busy, selected, expanded }}');
+    expect(SCREEN).not.toContain('expanded');
     expect(SCREEN).not.toMatch(/borderColor|borderWidth|#F[0-9A-F]{5}/);
     expect(SCREEN).toContain('tone="brand"');
     expect(SCREEN).toContain('disabled={busy || (!failed && choice === null)}');

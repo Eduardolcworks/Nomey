@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { type CurrencyDefinition, currencyDefinition } from '@/domain';
+import type { CurrencyOption } from '@/lib/currency';
 import type { SessionStatus } from '@/lib/offline';
 
 import { fetchGroupOperations, fetchGroupSplit, type GroupOperation } from './group-service';
@@ -33,6 +35,14 @@ export type ExpenseDraftState = {
   readonly operation: GroupOperation | null;
   /** Su borrador ya reconstruido, listo para el formulario. */
   readonly draft: SharedExpenseDraft | null;
+  /**
+   * LA MONEDA EN LA QUE ESTÁ ESCRITO ESE BORRADOR (F11/ADR-003).
+   *
+   * La del grupo cuando el gasto no se convirtió, y la DECLARADA cuando sí.
+   * Va resuelta —código y escala— porque sin la escala el borrador no se puede
+   * ni leer ni volver a escribir.
+   */
+  readonly declaredCurrency: CurrencyDefinition | null;
   readonly loading: boolean;
   readonly failed: boolean;
 };
@@ -41,15 +51,27 @@ export function useExpenseDraft(
   scopeId: string,
   operationId: string | null,
   status: SessionStatus,
-  scale: number,
+  /** La divisa BASE del grupo, ya resuelta. */
+  base: CurrencyDefinition,
+  /**
+   * El catálogo indexado, o `null` mientras no ha llegado.
+   *
+   * **Sin él no se lee nada**, y no es una precaución de más: un gasto
+   * declarado en yenes se guarda con escala 0, y reconstruir su borrador con
+   * la escala del grupo convertiría 150 000 ¥ en 1 500,00 — un importe
+   * creíble, que al guardarse habría sustituido al de verdad.
+   */
+  currencies: ReadonlyMap<string, CurrencyOption> | null,
 ): ExpenseDraftState {
   const [operation, setOperation] = useState<GroupOperation | null>(null);
   const [draft, setDraft] = useState<SharedExpenseDraft | null>(null);
+  const [declaredCurrency, setDeclaredCurrency] = useState<CurrencyDefinition | null>(null);
   const [loading, setLoading] = useState(operationId !== null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (operationId === null || scopeId === '' || status !== 'signed-in') return;
+    if (currencies === null) return;
     let alive = true;
 
     void (async () => {
@@ -72,8 +94,25 @@ export function useExpenseDraft(
         const split = await fetchGroupSplit(found.versionId);
         if (!alive) return;
 
+        /*
+         * La moneda en la que está escrito lo que se va a corregir. Si el
+         * catálogo no la conoce no se abre nada: es preferible decir que no se
+         * pudo cargar a enseñar una cifra con la escala equivocada.
+         */
+        const declaredId = found.originalCurrencyId ?? base.id;
+        let declared = base;
+        if (declaredId !== base.id) {
+          const option = currencies.get(declaredId);
+          if (option === undefined) {
+            if (alive) setFailed(true);
+            return;
+          }
+          declared = currencyDefinition(option);
+        }
+
         setOperation(found);
-        setDraft(draftOf(found, split, scale));
+        setDeclaredCurrency(declared);
+        setDraft(draftOf(found, split, declared.scale));
         setFailed(false);
       } catch {
         if (alive) setFailed(true);
@@ -85,7 +124,7 @@ export function useExpenseDraft(
     return () => {
       alive = false;
     };
-  }, [scopeId, operationId, status, scale]);
+  }, [scopeId, operationId, status, base, currencies]);
 
-  return { operation, draft, loading, failed };
+  return { operation, draft, declaredCurrency, loading, failed };
 }

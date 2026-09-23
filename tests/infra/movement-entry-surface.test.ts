@@ -1262,7 +1262,14 @@ describe('el dinero no se convierte en número por el camino', () => {
   });
 
   it('la escala viene de la moneda del ámbito, nunca fijada a dos', () => {
-    expect(FORM).toContain('scope?.currencyScale');
+    /*
+     * Desde F11 la moneda del movimiento puede no ser la base, así que la
+     * escala sale del ámbito YA EXPRESADO EN LA ELEGIDA. Sigue sin fijarse a
+     * dos, y `scopeInCurrency` devuelve el ámbito tal cual cuando no se ha
+     * elegido nada: sin selector, esto es exactamente lo de antes.
+     */
+    expect(FORM).toContain('const scale = effective?.currencyScale ?? 2');
+    expect(FORM).toContain('scopeInCurrency(scope, chosen)');
     expect(ADAPTADOR).toContain('currencySymbol(format.locale');
     expect(code('features/personal/movement-form.tsx')).not.toContain("'€'");
   });
@@ -1814,9 +1821,31 @@ describe('volver a tocar la cifra: cursor al final, valor intacto', () => {
       DRAFT.indexOf('const draft: EntryDraft = {'),
     );
     expect(setKind).not.toMatch(/setEntry|EMPTY_AMOUNT|setConcept/);
+
+    /*
+     * ═══ LA ÚNICA EXCEPCIÓN, Y ES DE F11 ═══
+     *
+     * Cambiar de segmento conserva la cifra… salvo al ir a «Transferencia»
+     * con otra moneda elegida. Una propuesta va SIEMPRE en la base del
+     * Personal (F12/ADR-002 §20), así que llevarse 150000 yenes tal cual
+     * habría propuesto 150000 euros sin que nadie convirtiera nada — el
+     * mismo defecto que F07/ADR-001 §14 prohíbe con una entrada en
+     * conflicto. Se vuelve a la base y la cifra se VACÍA: que se vea, en
+     * vez de reinterpretarla en silencio.
+     *
+     * **Sigue estando fuera de `setKind`** —la comprobación de arriba no se
+     * relaja— y es condicional: sin moneda elegida no se toca nada.
+     */
+    const cambio = FORM.slice(
+      FORM.indexOf('onChange={(next) => {'),
+      FORM.indexOf('draft.setKind(next);'),
+    );
+    expect(cambio).toContain("next === 'transfer' && chosen !== null");
+    expect(cambio).toContain('setEntry(EMPTY_AMOUNT)');
+    // Y en ninguna otra parte del formulario se vacía la cifra.
+    expect(FORM.split('setEntry(EMPTY_AMOUNT)')).toHaveLength(2);
     // The form hands the same draft to every segment, Transferencia included.
     expect(FORM).toContain('entry: draft.entry,\n          setEntry: draft.setEntry,');
     expect(FORM).toContain('onChangeEntry={draft.setEntry}');
-    expect(FORM).not.toMatch(/setEntry\(EMPTY_AMOUNT\)/);
   });
 });

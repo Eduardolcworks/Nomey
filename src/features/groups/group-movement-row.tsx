@@ -7,7 +7,7 @@ import { type MessageKey, useTranslation } from '@/lib/i18n';
 import { Icon, IconButton, SwipeToDelete, ThemedText } from '@/ui/components';
 import { categoryColour, categorySymbol, Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
-import type { GroupOperation } from './group-service';
+import type { GroupOperation, GroupOperationConversion } from './group-service';
 import { SPLIT_MODES, type SplitMode } from './shared-expense';
 
 /**
@@ -62,6 +62,16 @@ export type GroupMovementRowProps = {
    * demas.
    */
   readonly declaredCurrency?: CurrencyDefinition | null;
+  /**
+   * LA CONVERSIÓN CONGELADA de este gasto, cuando la hubo (F11/ADR-003).
+   *
+   * Con ella se enseña el total convertido, el tipo y su fuente. **No se
+   * recalcula nada para leer**: si el tipo de hoy fuera otro, esta fila
+   * seguiría diciendo el que se usó, que es el único que explica su importe
+   * (F11/ADR-001 §9). Ausente en un gasto sin convertir, y entonces no se
+   * pinta ninguna sección de cambio.
+   */
+  readonly conversion?: GroupOperationConversion;
   readonly expanded: boolean;
   readonly onToggle: () => void;
   readonly onEdit: () => void;
@@ -96,6 +106,7 @@ export function GroupMovementRow({
   participants,
   currency,
   declaredCurrency,
+  conversion,
   expanded,
   onToggle,
   onEdit,
@@ -125,6 +136,26 @@ export function GroupMovementRow({
   const total = money(BigInt(operation.totalMinor), declaredCurrency ?? currency);
   const share =
     operation.yourShareMinor === null ? null : money(BigInt(operation.yourShareMinor), currency);
+
+  /*
+   * ═══════════ EL TOTAL CONVERTIDO, Y EL TIPO QUE LO EXPLICA ═══════════
+   *
+   * **Sólo con conversión congelada y con la moneda declarada resuelta.** Sin
+   * una de las dos no se pinta ninguna sección de cambio: media explicación
+   * —un importe convertido sin decir desde qué, o un tipo sin sus monedas— es
+   * peor que ninguna.
+   *
+   * La cifra es la que el servidor asentó, con su único redondeo, y el tipo es
+   * el que quedó congelado. Aquí no se multiplica nada.
+   */
+  const converted =
+    conversion === undefined || declaredCurrency === undefined || declaredCurrency === null
+      ? null
+      : money(BigInt(conversion.converted_amount), currency);
+  const rate =
+    conversion === undefined
+      ? null
+      : format.rate(conversion.rate_coefficient, conversion.rate_scale);
 
   /*
    * ═══════════ EL IMPORTE ANTERIOR, Y CUÁNDO SE ENSEÑA ═══════════
@@ -223,6 +254,20 @@ export function GroupMovementRow({
             </ThemedText>
 
             {/*
+             * EL CONVERTIDO, secundario y en la moneda del grupo: es el total
+             * que de verdad se repartió. «≈» porque es la magnitud en otra
+             * moneda, no porque sea aproximado — la cifra es exacta.
+             *
+             * El mismo formato que la fila de Inicio, con la misma clave: no
+             * hay dos maneras de escribir esto.
+             */}
+            {converted === null ? null : (
+              <ThemedText variant="caption" themeColor="textTertiary" numberOfLines={1}>
+                {t('home.convertedAmount', { amount: format.money(converted) })}
+              </ThemedText>
+            )}
+
+            {/*
              * ═══════ LA LÍNEA DE ABAJO: lo anterior tachado y «Editado» ═══════
              *
              * Van juntos porque cuentan lo mismo —que esto cambió— desde dos
@@ -284,6 +329,46 @@ export function GroupMovementRow({
               label={t('group.yourPart')}
               value={share === null ? t('group.notInSplit') : format.money(share)}
             />
+
+            {/*
+             * ═══ EL CAMBIO, CON SU FUENTE, Y SÓLO SI LO HUBO ═══
+             *
+             * Las mismas tres etiquetas que el detalle de un movimiento
+             * personal, porque es el mismo hecho contado igual. **No se vuelve
+             * a resolver nada para leer**: el tipo es el congelado y la fuente,
+             * la que lo publicó.
+             */}
+            {converted === null ||
+            declaredCurrency === null ||
+            declaredCurrency === undefined ? null : (
+              <>
+                <Detail
+                  label={t('home.detailConverted', { code: currency.code })}
+                  value={format.money(converted)}
+                />
+                {rate === null ? null : (
+                  <Detail
+                    label={t('home.detailRate')}
+                    value={t('home.rateValue', {
+                      from: declaredCurrency.code,
+                      rate,
+                      to: currency.code,
+                    })}
+                  />
+                )}
+                {conversion === undefined ? null : (
+                  <Detail
+                    label={t('home.detailRateSource')}
+                    value={t(
+                      conversion.source_id === 'ecb'
+                        ? 'home.rateSourceEcb'
+                        : 'home.rateSourceOther',
+                      { date: format.date(conversion.origin_reference_date, 'long') },
+                    )}
+                  />
+                )}
+              </>
+            )}
 
             <View style={styles.actions}>
               {/*

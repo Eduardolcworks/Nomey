@@ -62,7 +62,16 @@ export function AmountSheet(props: AmountSheetProps) {
       }
       decimalSeparator={cut === -1 ? '' : zero.slice(cut, cut + 1)}
       currencyLabel={t('entry.currencyLabel', { code: props.currency?.code ?? '' })}
-      currencyNote={t('entry.currencyFixed')}
+      /*
+       * DOS NOTAS DISTINTAS, porque son dos situaciones distintas. Sin
+       * `currencyOptions` esta pantalla no ofrece elegir —editar el Disponible—
+       * y la nota es la de siempre. Con `null` sí ofrecía y el catálogo no
+       * llegó: decir «de momento se usa la tuya» sería describir una decisión
+       * de producto donde lo que hay es una consulta que falló.
+       */
+      currencyNote={t(
+        props.currencyOptions === null ? 'entry.currencyUnavailable' : 'entry.currencyFixed',
+      )}
     />
   );
 }
