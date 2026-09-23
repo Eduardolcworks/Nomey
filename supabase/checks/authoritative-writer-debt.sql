@@ -149,7 +149,7 @@ begin
   -- A8 · los helpers internos siguen sin ser alcanzables desde fuera.
   foreach v_fn in array array['sec.lock_scopes(uuid[])',
                               'sec.pending_debt(uuid, uuid, uuid, uuid)',
-                              'sec.resolve_split(bigint, uuid[], uuid, jsonb)',
+                              'sec.resolve_split(bigint, bigint, uuid[], uuid, jsonb)',
                               'sec.allocate_by_largest_remainder(bigint, bigint[], integer[])',
                               'sec.participant_personal_scope(uuid)']
   loop
@@ -1566,7 +1566,12 @@ begin
   select count(*) into v_efs from core.effect;
 
   -- El Grupo esta en USD y el Modo Personal del pagador en EUR: la conversion
-  -- haria falta en el extremo de caja, y no existe.
+  -- hace falta en el extremo de caja. DESDE F11.D (20261002120000) esa
+  -- conversion SI existe, asi que el motivo del rechazo cambia: la moneda de
+  -- este fixture no es del catalogo del BCE y no tiene cobertura, que es
+  -- exactamente lo que F11/ADR-003 §5 manda responder. Lo que NO cambia, y es
+  -- lo que esta seccion vigila, es que el gasto se rechace ENTERO y no deje
+  -- ni un efecto ni una conversion congelada.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', A)::text, true);
   begin
@@ -1578,9 +1583,9 @@ begin
       'participants', jsonb_build_array(QA3,QB3),
       'split_method', jsonb_build_object('kind','equal')));
     fallos := array_append(fallos,
-      'H1: se acepto un gasto cuyo extremo de caja exige conversion, y 3.C no tiene con que resolverla');
+      'H1: se acepto un gasto cuyo extremo de caja exige una conversion sin cobertura');
   exception when sqlstate 'PGRST' then
-    if sqlerrm not like '%CURRENCY_CONVERSION_UNSUPPORTED%' then
+    if sqlerrm not like '%FX_CURRENCY_NOT_COVERED%' then
       fallos := array_append(fallos, format('H1b: codigo inesperado: %s', sqlerrm));
     end if;
   end;
@@ -1591,9 +1596,10 @@ begin
     fallos := array_append(fallos, 'H2: el rechazo por FX escribio efectos');
   end if;
 
-  -- Y ninguna ruta escribe conversiones congeladas, porque no hay ninguna.
+  -- Y el rechazo no dejo ninguna conversion congelada: este escenario no crea
+  -- ninguna valida, asi que la tabla sigue como estaba.
   if (select count(*) from core.frozen_conversion) <> 0 then
-    fallos := array_append(fallos, 'H3: se persistio una conversion congelada y ninguna ruta deberia poder');
+    fallos := array_append(fallos, 'H3: el rechazo por FX persistio una conversion congelada');
   end if;
 
   if array_length(fallos, 1) is not null then
@@ -2149,7 +2155,11 @@ begin
     v_payer := (v_ids ->> (v_case -> 'given' ->> 'payer'))::uuid;
 
     begin
+      -- EL MISMO TOTAL DOS VECES: los vectores describen el reparto SIN
+      -- conversion, donde el declarado y el que se reparte son el mismo
+      -- (F11/ADR-003 §2). Asi la paridad con el dominio se mide donde vale.
       v_got := sec.resolve_split((v_case -> 'given' ->> 'total')::bigint,
+                                 (v_case -> 'given' ->> 'total')::bigint,
                                  v_participants, v_payer, v_case -> 'given' -> 'method');
     exception when sqlstate 'PGRST' then
       v_got := null;

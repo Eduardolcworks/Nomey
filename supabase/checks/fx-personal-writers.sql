@@ -224,15 +224,17 @@ begin
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.proname like 'record\_%'
      and p.prosrc like '%sec.assert_no_conversion%';
+  -- SEIS desde F11.D (20261002120000): el gasto de grupo convierte, asi que
+  -- deja la lista. Las otras seis conservan su negativa (F11/ADR-003 §6).
   if v_t is distinct from 'record_adjustment,record_debt_settlement,record_external_transfer,'
-                          'record_group_expense,record_group_payment,record_internal_transfer,'
+                          'record_group_payment,record_internal_transfer,'
                           'record_settlement_by_transfer' then
     fallos := array_append(fallos, 'A4 clases con negativa de conversion: ' || coalesce(v_t, 'ninguna'));
   end if;
   select string_agg(p.proname, ',' order by p.proname) into v_t
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.prosrc like '%fx\_personal\_rate%';
-  if v_t is distinct from 'record_personal_expense,record_personal_income' then
+  if v_t is distinct from 'record_group_expense,record_personal_expense,record_personal_income' then
     fallos := array_append(fallos, 'A4b writers que convierten: ' || coalesce(v_t, 'ninguno'));
   end if;
 

@@ -99,7 +99,10 @@ describe('la fila de una cuota', () => {
     expect(ROW).toContain('{share.group_emoji ?? ');
     expect(ROW).toContain("share.group_display_name ?? t('home.sharedGroupUnknown')");
     expect(ROW).toContain("categoryName(category, t) ?? t('home.categoryUnknown')");
-    expect(ROW).toContain('money(-BigInt(share.share_amount), currency)');
+    // F11/ADR-003: la cuota que se enseña es la PERSONAL, en la base del Modo
+    // Personal, que es la que suman los totales de esta misma pantalla.
+    expect(ROW).toContain('-BigInt(share.personal_amount),');
+    expect(ROW).toContain('share.personal_currency_definition_id');
     expect(ROW).toContain('id: share.currency_definition_id,');
     // El importe no cede ante un nombre largo.
     expect(ROW).toMatch(/copy: \{[\s\S]*flex: 1,\s*minWidth: 0/);
@@ -111,7 +114,9 @@ describe('la fila de una cuota', () => {
     expect(ROW).toContain("t('home.detailPaidBy')");
     expect(ROW).toContain("t('home.detailTotal')");
     expect(ROW).toContain("t('home.detailDate')");
-    expect(ROW).toContain('money(BigInt(share.total_amount), currency)');
+    // Y el total, en la moneda DECLARADA.
+    expect(ROW).toContain('BigInt(share.total_amount),');
+    expect(ROW).toContain('share.original_currency_definition_id');
     expect(ROW).not.toMatch(
       /IconButton|onEdit|onDelete|SwipeToDelete|Symbols\.delete|Symbols\.edit/,
     );

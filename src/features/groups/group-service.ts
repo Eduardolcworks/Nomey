@@ -283,8 +283,9 @@ export type GroupOperation = {
    * la tienen y no se les inventa. Es lo que ordena junto a la fecha.
    */
   readonly effectiveTime: string | null;
-  /** El gasto ENTERO, en unidades menores. No es la cuota de nadie. */
   readonly totalMinor: string;
+  /** La moneda de `totalMinor`. `null` si la lectura no la trajo. */
+  readonly originalCurrencyId: string | null;
   /**
    * La cuota del actor, o `null` si no participó — que no es cero.
    *
@@ -351,7 +352,14 @@ export async function fetchGroupOperations(
   let query = supabase
     .from('group_operation')
     .select(
-      'operation_id,version_id,concept,category_id,effective_date,effective_time,total_amount,total_order,your_share,payer_participant_id,split_method,previous_amount,version_no,operation_created_at',
+      /*
+       * `original_currency_definition_id` es de F11/ADR-003: el total es el
+       * importe DECLARADO y desde F11.D puede no ir en la moneda del grupo.
+       * Sin esa columna la fila lo etiquetaria con la del grupo, que es el
+       * defecto que F11.D cierra. La lista va en UN literal: PostgREST
+       * infiere el tipo de la fila a partir de el, y partirlo lo pierde.
+       */
+      'operation_id,version_id,concept,category_id,effective_date,effective_time,total_amount,total_order,your_share,payer_participant_id,split_method,previous_amount,version_no,operation_created_at,original_currency_definition_id',
     )
     .eq('scope_id', scopeId);
 
@@ -420,6 +428,7 @@ export async function fetchGroupOperations(
             effectiveDate: row.effective_date,
             effectiveTime: row.effective_time,
             totalMinor: row.total_amount,
+            originalCurrencyId: row.original_currency_definition_id,
             yourShareMinor: row.your_share,
             payerParticipantId: row.payer_participant_id,
             splitMethod: row.split_method,

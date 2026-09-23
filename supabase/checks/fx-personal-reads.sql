@@ -691,13 +691,15 @@ declare
   fallos text[] := '{}';
   v_t text; v_n integer;
 begin
-  -- I1 · `api.group_operation` intacta. El gasto de grupo todavia no admite
-  --      otra moneda, asi que etiquetar su total con la del efecto sigue
-  --      siendo correcto; publicar la original ahi es F11.D.
-  if exists (select 1 from information_schema.columns
-              where table_schema = 'api' and table_name = 'group_operation'
-                and column_name = 'original_currency_definition_id') then
-    fallos := array_append(fallos, 'I1 group_operation gano la moneda original: eso es F11.D');
+  -- I1 · `api.group_operation` publica la moneda original DESDE F11.D
+  --      (20261002120000): cuando este bloque se escribio todavia no lo hacia,
+  --      porque ningun gasto de grupo admitia otra moneda. Su comportamiento
+  --      se mide en fx-group-expense.sql; aqui solo se comprueba que la
+  --      columna sigue estando, para que nadie la retire sin darse cuenta.
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'api' and table_name = 'group_operation'
+                    and column_name = 'original_currency_definition_id') then
+    fallos := array_append(fallos, 'I1 group_operation dejo de publicar la moneda original');
   end if;
 
   -- I2 · las otras lecturas personales, con su lista de columnas de siempre.
@@ -730,7 +732,7 @@ begin
   select string_agg(p.proname, ',' order by p.proname) into v_t
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.prokind = 'f' and pg_get_functiondef(p.oid) ~ 'fx_personal_rate';
-  if v_t is distinct from 'record_personal_expense,record_personal_income' then
+  if v_t is distinct from 'record_group_expense,record_personal_expense,record_personal_income' then
     fallos := array_append(fallos, 'I4 los writers que convierten: ' || coalesce(v_t, 'ninguno'));
   end if;
 

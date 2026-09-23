@@ -153,6 +153,7 @@ export type Database = {
           effective_time: string | null;
           operation_created_at: string | null;
           operation_id: string | null;
+          original_currency_definition_id: string | null;
           payer_participant_id: string | null;
           previous_amount: string | null;
           previous_version_id: string | null;
@@ -198,6 +199,13 @@ export type Database = {
             columns: ['category_id'];
             isOneToOne: false;
             referencedRelation: 'category';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'operation_version_original_currency_definition_id_fkey';
+            columns: ['original_currency_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'currency_definition';
             referencedColumns: ['id'];
           },
         ];
@@ -1197,7 +1205,10 @@ export type Database = {
           group_emoji: string;
           operation_created_at: string;
           operation_id: string;
+          original_currency_definition_id: string;
           payer_display_name: string;
+          personal_amount: string;
+          personal_currency_definition_id: string;
           scope_id: string;
           share_amount: string;
           total_amount: string;

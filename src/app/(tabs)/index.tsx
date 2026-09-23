@@ -972,6 +972,7 @@ function ExpenseGroup({
         key={key}
         share={line.share}
         categories={home.categories}
+        currencies={home.currencies}
         expanded={openMovement === key}
         onToggle={() => onToggleMovement(key)}
       />

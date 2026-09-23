@@ -169,7 +169,11 @@ describe('la lista', () => {
    * la fila cerrada no ponga dos importes a competir.
    */
   it('y la cuota sólo aparece al desplegar, etiquetada', () => {
-    expect(code(ROW)).toContain('money(BigInt(operation.totalMinor), currency)');
+    // F11/ADR-003: el total va en la moneda DECLARADA cuando no es la del
+    // grupo. Sin conversion `declaredCurrency` es null y se usa la del grupo.
+    expect(code(ROW)).toContain(
+      'money(BigInt(operation.totalMinor), declaredCurrency ?? currency)',
+    );
     const cabecera = code(ROW).slice(
       code(ROW).indexOf('<Pressable'),
       code(ROW).indexOf('</Pressable>'),
