@@ -2367,8 +2367,22 @@ describe('el círculo de la fila lleva el color de su categoría', () => {
    * lo delata.
    */
   it('nadie resuelve el color de una fila por su cuenta', () => {
-    // Movimientos recientes, el desplegable de Ingresos y el de Gastos.
-    expect(HOME_CODE.match(/<MovementRow/g)).toHaveLength(3);
+    // DOS montajes, medidos sobre el fuente: `renderOperation` —que comparten
+    // Movimientos recientes y, desde F12.E, el desplegable de Ingresos— y el
+    // de Gastos. El tercero desapareció al pasar Ingresos a `IncomeGroup`,
+    // que no pinta filas: recibe las que la pantalla ya construye.
+    expect(HOME_CODE.match(/<MovementRow/g)).toHaveLength(2);
+    expect(HOME_CODE).toContain('renderOperation={renderOperation}');
+    expect(HOME_CODE).toContain('renderTransfer={renderTransfer}');
+    /*
+     * Y la aserción que de verdad protege ahora: **los dos** montajes llevan
+     * la conversión de F11.C. Contar etiquetas sólo dice cuántos hay; esto
+     * dice que ninguno se quedó sin la lectura FX, que es lo que se perdería
+     * en silencio si alguien añadiera un tercero copiando el de antes.
+     */
+    const veces = (texto: string) => HOME_CODE.split(texto).length - 1;
+    expect(veces('currencies={home.currencies}')).toBe(2);
+    expect(veces('conversion={home.conversions.get(operation.operation_id)}')).toBe(2);
     expect(HOME_CODE).not.toContain('categoryColour(');
   });
 

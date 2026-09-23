@@ -122,6 +122,12 @@ const CONTROLES: readonly (readonly [string, number, string])[] = [
    */
   ['features/friends/candidate-field.tsx', 1, 'el campo del @username de Amigos'],
   /*
+   * F12.E.E: el buscador del selector de Amigos. Se escribe en él, como el
+   * del teclado de emojis. La hoja que lo contiene NO renuncia: eso es
+   * estructura, y por eso sólo hay una renuncia en este fichero.
+   */
+  ['features/friends/friend-picker.tsx', 1, 'el buscador local del selector de Amigos'],
+  /*
    * Lo que cada participante DECLARA cuando el método lo pide: sus partes o su
    * importe. Es un campo, escrito una vez y pintado tantas veces como personas
    * participen. La tarjeta que lo contiene NO renuncia: eso es estructura.

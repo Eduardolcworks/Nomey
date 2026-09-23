@@ -55,6 +55,7 @@ export {
   handleToResolve,
   RECIPIENT_IDLE,
   recipientFromAnswer,
+  recipientFromChoice,
   type RecipientState,
   recipientStale,
   type ResolverAnswer,

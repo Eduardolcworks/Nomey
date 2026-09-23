@@ -794,6 +794,7 @@ export const esES = {
   'transfer.recipientLabel': 'Nombre de usuario del destinatario',
   'transfer.recipientPlaceholder': 'nombre_de_usuario',
   'transfer.recipientSearch': 'Buscar',
+  'transfer.recipientFriends': 'Elegir amigo',
   'transfer.recipientChange': 'Quitar destinatario',
   'transfer.recipientInvalid':
     'Un nombre de usuario tiene entre 3 y 20 letras, números o guiones bajos',
@@ -878,6 +879,11 @@ export const esES = {
   'friends.empty': 'Aún no tienes amigos en Nomey',
   'friends.loadFailed': 'No se ha podido cargar tu lista de amigos',
   'friends.backToList': 'Volver a Amigos',
+  // El selector de Amigos de Transferencia (F12.E.E). Filtra EN LOCAL.
+  'friends.pickerTitle': 'Elegir amigo',
+  'friends.pickerSearch': 'Buscar amigo',
+  'friends.pickerNoMatches': 'Ningún amigo coincide',
+  'friends.seeFriends': 'Ver Amigos',
   'friends.pendingOne': '{count} solicitud pendiente',
   'friends.pendingOther': '{count} solicitudes pendientes',
   'friends.wantsToAdd': '{name} quiere añadirte como amigo',

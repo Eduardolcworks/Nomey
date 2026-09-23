@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { currencyDefinition, money, toMinorUnits } from '@/domain';
@@ -85,6 +85,7 @@ export function TransferForm({
   onDone,
   onOpenProposals,
   onCreateAccount,
+  friendPicker,
 }: {
   readonly scope: TransferScope | null;
   readonly guest: boolean;
@@ -99,6 +100,24 @@ export function TransferForm({
   /** «Ver pendientes»: the pending centre, where the proposal now waits. */
   readonly onOpenProposals: () => void;
   readonly onCreateAccount: () => void;
+  /**
+   * EL SELECTOR DE AMIGOS, ENTREGADO POR LA RUTA (F12.E.E).
+   *
+   * Los amigos viven en `features/friends` y una feature no puede importar a
+   * otra — la misma frontera por la que `add.tsx` compone este formulario
+   * dentro de `MovementForm`. Así que este formulario decide CUÁNDO se
+   * enseña el selector y qué hacer con lo elegido, y la ruta decide QUÉ
+   * selector es. Sin él, la fila del destinatario es exactamente la que
+   * había: campo y lupa.
+   *
+   * Lo que devuelve la elección es un handle y un nombre, nada más: no hay
+   * uid por ningún lado, y lo elegido se convierte en el MISMO `found` que
+   * produce la lupa.
+   */
+  readonly friendPicker?: (props: {
+    readonly onSelect: (chosen: { readonly handle: string; readonly publicName: string }) => void;
+    readonly onClose: () => void;
+  }) => ReactNode;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -107,6 +126,12 @@ export function TransferForm({
   const lookup = useResolveRecipient();
   const creation = useCreateProposal();
   const [phase, setPhase] = useState<Phase>({ kind: 'edit' });
+  /*
+   * Montado sólo mientras está abierto, como el teclado de emojis: así la
+   * búsqueda local empieza vacía cada vez sin que nadie la borre desde un
+   * efecto, y la lista se relee al abrirlo.
+   */
+  const [picking, setPicking] = useState(false);
 
   if (guest) {
     return (
@@ -279,7 +304,31 @@ export function TransferForm({
             onChange={() => {
               lookup.reset();
             }}
+            onPickFriend={
+              friendPicker === undefined
+                ? undefined
+                : () => {
+                    setPicking(true);
+                  }
+            }
           />
+
+          {/*
+           * ELEGIR UN AMIGO NO TOCA NADA MÁS. Fija el destinatario, cierra
+           * la hoja y se acabó: el importe y el concepto son del borrador
+           * del alta y este camino no los mira siquiera.
+           */}
+          {picking && friendPicker !== undefined
+            ? friendPicker({
+                onSelect: (chosen) => {
+                  lookup.choose(chosen.handle, chosen.publicName);
+                  setPicking(false);
+                },
+                onClose: () => {
+                  setPicking(false);
+                },
+              })
+            : null}
         </View>
       }
       entry={entry}
