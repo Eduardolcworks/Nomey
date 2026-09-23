@@ -4,6 +4,7 @@ import {
   handleToResolve,
   RECIPIENT_IDLE,
   recipientFromAnswer,
+  recipientFromChoice,
   type RecipientState,
   recipientStale,
 } from './recipient';
@@ -17,6 +18,13 @@ export type RecipientLookup = {
   readonly canSearch: boolean;
   readonly search: () => void;
   readonly reset: () => void;
+  /**
+   * Alguien elegido en el selector de Amigos (F12.E.E). Deja el MISMO
+   * `found` que deja una búsqueda, sin llamar a nada: el handle ya lo
+   * publicó `api.my_friends`, y volver a resolverlo gastaría una de las
+   * veinte consultas del resolver para confirmar lo que se acaba de leer.
+   */
+  readonly choose: (handle: string, publicName: string) => void;
 };
 
 /**
@@ -76,5 +84,17 @@ export function useResolveRecipient(): RecipientLookup {
     setState(RECIPIENT_IDLE);
   }, []);
 
-  return { text, setText, state, canSearch, search, reset };
+  /*
+   * El contador sube también aquí: una búsqueda que siguiera en vuelo no
+   * puede pisar a quien se acaba de elegir. Y el texto pasa a ser el handle
+   * elegido, para que el estado interno no se contradiga consigo mismo — la
+   * X sigue siendo `reset`, que lo limpia todo.
+   */
+  const choose = useCallback((handle: string, publicName: string) => {
+    request.current += 1;
+    setTextRaw(handle);
+    setState(recipientFromChoice(handle, publicName));
+  }, []);
+
+  return { text, setText, state, canSearch, search, reset, choose };
 }

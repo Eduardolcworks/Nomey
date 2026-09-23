@@ -46,6 +46,24 @@ export type ResolverAnswer =
   | { readonly state: 'throttled' }
   | { readonly state: 'self' };
 
+/**
+ * ALGUIEN ELEGIDO EN VEZ DE BUSCADO, y **el mismo destinatario**.
+ *
+ * Desde F12.E.E hay un segundo camino hasta aquí: el selector de Amigos. No
+ * trae una clase nueva de destinatario ni una bandera «es amigo» — produce
+ * exactamente el mismo `found` que produce el resolver, con el handle que
+ * `api.my_friends` publica como ACTUAL. A partir de este punto Transferencia
+ * no sabe, ni necesita saber, por cuál de los dos caminos se llegó.
+ *
+ * Y no se guarda ningún uid por detrás: `api.create_transfer_proposal`
+ * resuelve el handle en el servidor, una vez, como siempre. Si el handle
+ * quedó viejo entre elegir y proponer, el servidor lo dice y el formulario
+ * vuelve al campo — que es el mismo camino que ya tenía la lupa.
+ */
+export function recipientFromChoice(handle: string, publicName: string): RecipientState {
+  return { kind: 'found', handle, publicName };
+}
+
 export function recipientFromAnswer(handle: string, answer: ResolverAnswer): RecipientState {
   switch (answer.state) {
     case 'found':

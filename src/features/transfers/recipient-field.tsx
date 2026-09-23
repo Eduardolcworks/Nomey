@@ -36,10 +36,20 @@ const STATE_KEY: Readonly<Record<Exclude<RecipientState['kind'], 'found' | 'idle
 export function RecipientField({
   lookup,
   onChange,
+  onPickFriend,
 }: {
   readonly lookup: RecipientLookup;
   /** The person wants to pick someone else after a `found`. */
   readonly onChange: () => void;
+  /**
+   * OPENS THE FRIENDS PICKER (F12.E.E). Absent, the row is exactly what it
+   * was: field plus lens.
+   *
+   * The lens does NOT change meaning — it still finds ANY account by exact
+   * `@username`, friend or not. This is a shortcut over the friends already
+   * loaded, not a restriction on who can receive a transfer.
+   */
+  readonly onPickFriend?: () => void;
 }) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -141,6 +151,28 @@ export function RecipientField({
             />
           </View>
         </GlassPressable>
+
+        {/*
+         * EL SEGUNDO CAMINO, en la misma fila y con el mismo peso visual que
+         * la lupa: mismo `GlassPressable`, mismo círculo de 52, mismo tamaño
+         * de icono. Son dos maneras de llegar al mismo destinatario, así que
+         * ninguna de las dos puede parecer la principal.
+         *
+         * En gris secundario y no en amarillo: el acento de la lupa dice
+         * «hay algo que buscar con lo que has escrito», que es un estado del
+         * campo. Éste no depende de lo escrito y está siempre disponible.
+         */}
+        {onPickFriend === undefined ? null : (
+          <GlassPressable
+            label={t('transfer.recipientFriends')}
+            depth="well"
+            disabled={state.kind === 'searching'}
+            onPress={onPickFriend}>
+            <View style={styles.circle}>
+              <Icon name={Symbols.friends} size={20} colour={theme.textSecondary} shape="circle" />
+            </View>
+          </GlassPressable>
+        )}
       </View>
 
       {line === null ? null : (

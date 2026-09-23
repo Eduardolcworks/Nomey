@@ -19,6 +19,20 @@
  * persisted.
  */
 export { CandidateField } from './candidate-field';
+export { FriendPicker } from './friend-picker';
+export {
+  FRIEND_ROW_HEIGHT,
+  friendListHeight,
+  MAX_VISIBLE_FRIENDS,
+  visibleFriendRows,
+} from './friend-picker-layout';
+export {
+  filterFriendChoices,
+  type FriendChoice,
+  friendChoices,
+  matchesFriendQuery,
+  normalizeFriendQuery,
+} from './friend-search';
 export { CandidateResult } from './candidate-result';
 export {
   byDisplayName,

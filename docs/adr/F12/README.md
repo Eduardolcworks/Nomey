@@ -22,9 +22,10 @@ curso**: **C1** —las transferencias Personal en el cliente— hecha y validada
 en iPhone el 2026-09-20; **C2 —la solicitud de pago en el cliente— rechazada
 por decisión de producto el 2026-09-20** (ver abajo: el backend B2 queda, la
 UI no); **F12.E (Amigos) abierto el 2026-09-22** con dos ADR propuestos
-(ADR-005, ADR-006), su backend integrado (E.A, `20260930120000`) y su
-interfaz base **implementada y validada a mano, pendiente de mergear** (E.B);
-después C3, el resto de E (E.C–E.E) y F12.D, que sigue siendo el cierre de la fase
+(ADR-005, ADR-006), su backend (E.A, `20260930120000`) y su interfaz base
+(E.B) integrados, y el selector de Amigos de Transferencias **implementado,
+validado a mano en iPhone y pendiente de mergear** (E.E);
+después C3, el resto de E (E.C, E.D) y F12.D, que sigue siendo el cierre de la fase
 aunque E se ejecute antes. El detalle está en
 [el roadmap](../../product/roadmap.md).
 
@@ -586,8 +587,8 @@ DECLINED | CANCELLED | EXPIRED · 409` en los demás, `NOT_AUTHORIZED` para
 - **F12.E.B — Amigos, interfaz base (rama
   `feat/phase-12-eb-friends-ui`, 2026-09-22; **validada a mano en iPhone**
   —Perfil → Amigos, solicitudes, búsqueda por `@username`, aceptar,
-  rechazar, cancelar, eliminar, Notificaciones y campana—, **pendiente de
-  mergear**).** No añade ni cambia ninguna decisión: consume el contrato de
+  rechazar, cancelar, eliminar, Notificaciones y campana—, **integrada en
+  `main` el 2026-09-22, PR #81**).** No añade ni cambia ninguna decisión: consume el contrato de
   E.A tal cual. Lo que fija la implementación del cliente:
   - **Perfil → Amigos**, con `/friends` y `/friends/add` tras una puerta
     más estrecha que el resto del producto —cuenta normal, username
@@ -615,41 +616,118 @@ DECLINED | CANCELLED | EXPIRED · 409` en los demás, `NOT_AUTHORIZED` para
   - Evidencia de cliente: `tests/lib/friends.test.ts` y
     `tests/infra/friends-surface.test.ts`.
 
-## Decisiones tomadas y todavía SIN implementar
-
 - **F12.E.E — el selector de Amigos en Transferencias (decidido el
-  2026-09-22; NO implementado).** Rama y PR propias, después de mergear
-  E.B. Se documenta aquí para que la decisión no viva sólo en una
-  conversación; no habilita nada todavía.
+  2026-09-22; rama `feat/phase-12-ee-transfer-friends-picker`,
+  **implementada y VALIDADA a mano en iPhone el 2026-09-22**, pendiente de
+  mergear).** No es un
+  ADR nuevo y no toca ninguno: ni el modelo de F12/ADR-005 ni el contrato de
+  F12/ADR-002. Lo que fija la implementación:
 
-  Junto a la lupa que ya existe en el campo de destinatario aparece un
-  **segundo botón, con el icono de dos personas**, que abre una hoja de
-  selección de Amigos:
+  - junto a la lupa del campo de destinatario hay un **segundo botón, con el
+    icono de dos personas** (`Symbols.friends`, el par que ya existía desde
+    E.B), del mismo primitivo y del mismo tamaño: son dos caminos hasta el
+    mismo sitio y ninguno puede parecer el principal. En gris secundario, no
+    en amarillo — el acento de la lupa es un estado del campo;
+  - abre una hoja con un campo «Buscar amigo» que **no consulta al
+    servidor**: acota en local la lista que `api.my_friends` ya devolvió
+    (`friend-search.ts`, puro y probado). Ni una llamada por tecla, ni
+    `resolve_username`, ni `lookup_friend_candidate`. Sin texto, se ven
+    **todos**; `@aitor13` y `aitor13` encuentran lo mismo;
+  - orden por defecto `public_name` alfabético, `@handle` de desempate,
+    insensible a la locale para que sea el mismo en todos los aparatos;
+  - cada fila es `IdentityLine`: nombre arriba, `@username` debajo, más
+    pequeño y más apagado. Sin avatar, para no cargar la densidad;
+  - **quien no tenga handle definitivo no se lista.** Sin handle no hay
+    forma de nombrar a esa persona en un comando —`create_transfer_proposal`
+    toma un handle, nunca un uid—, así que una fila así sólo podría llevar a
+    una propuesta sin destinatario. Es una precisión que la decisión no
+    cubría;
+  - elegir produce **el mismo `found`** que la lupa
+    (`recipientFromChoice`), no una clase «amigo» de destinatario, y no
+    guarda ningún uid por detrás. El importe y el concepto no se tocan: son
+    del borrador del alta;
+  - **la lupa no cambia de significado** y sigue encontrando a cualquier
+    cuenta por `@username` exacto. **Ser amigo NO es requisito para
+    transferir**, y `api.create_transfer_proposal` sigue resolviendo el
+    handle en el servidor una sola vez. **El backend no cambia.**
 
-  - arriba, un campo con lupa, «Buscar amigo», que **no** consulta al
-    servidor: **filtra en local** la lista de amigos ya cargada, por
-    `public_name` y por `@username`. Sin texto, se ven **todos**;
-  - cada fila enseña el `public_name` como texto principal y el
-    `@username` debajo, más pequeño y más apagado —la misma jerarquía que
-    `IdentityLine` ya usa—;
-  - orden por defecto: `public_name` alfabético;
-  - tocar una fila selecciona a esa persona como destinataria, cierra la
-    hoja y deja Transferencia **exactamente** como cuando el destinatario
-    se encuentra con la lupa. El importe y el concepto **no** se tocan.
+  **Quién compone qué**: el selector vive en `features/friends` y
+  `features/transfers` no puede importarlo, así que `app/add.tsx` se lo
+  entrega al formulario —la misma frontera por la que esa ruta ya componía el
+  segmento «Transferencia» entero—. El formulario decide cuándo enseñarlo.
 
-  **La lupa se conserva y no cambia de significado**: buscar a cualquier
-  cuenta por `@username` exacto. El botón de dos personas es un atajo
-  sobre los amigos, no una restricción — **ser amigo NO es requisito para
-  transferir**, y `api.create_transfer_proposal` no cambia: sigue
-  resolviendo el handle en el servidor una sola vez.
+  **Lee con `useMyFriends`**, el hook de E.B, así que hereda sus tres
+  señales sin un segundo hook: el actor, `friendsChanged` y el despertar al
+  volver al primer plano. Aceptar o eliminar una amistad se ve en el selector
+  sin nada más.
 
-  Fuera de alcance por decisión, no por falta de tiempo: **sin recientes,
-  sin favoritos, sin búsqueda global dentro de la hoja y sin ningún cambio
-  de backend.**
+  Fuera de alcance por decisión, no por falta de tiempo: **sin recientes, sin
+  favoritos, sin búsqueda global dentro de la hoja y sin ningún cambio de
+  backend.**
 
-  Esto no exige un ADR nuevo: no toca el modelo de F12/ADR-005 ni el
-  contrato de F12/ADR-002. Es una decisión de producto sobre una pantalla,
-  y su sitio es éste.
+  Evidencia: `tests/lib/friend-picker.test.ts` y
+  `tests/infra/transfer-friends-picker-surface.test.ts`.
+
+- **La transferencia Personal RECIBIDA cuenta en «Ingresos» (decidido el
+  2026-09-22; `20261001120000`, en la misma rama que E.E, pendiente de
+  validación).** Decisión de producto sobre un agregado, no un ADR: _an
+  accepted incoming Personal transfer contributes to the recipient's Income
+  aggregate, without becoming a duplicate income operation_.
+
+  - **Dónde vive**: en la capa autoritativa. El total de la tarjeta sale de
+    `api.personal_statistics`, así que la regla es UN sumando más en
+    `income_total` y no una suma en Inicio — un parche en el cliente habría
+    dejado la cifra dependiendo de qué página se hubiera cargado.
+  - **Qué NO cambia**: la operación sigue siendo un `internal_transfer` con
+    una versión, dos efectos de SALDO y **ninguno económico**;
+    `api.personal_operation` sigue sin listar la clase; `expense_total` y
+    las categorías quedan intactas. **Enviar no es gasto**: esa decisión no se
+    ha tomado.
+  - **Por qué no puede duplicar**: el otro sumando de `income_total` es la
+    dimensión ECONÓMICA de ingreso, y un `internal_transfer` no produce
+    ninguna. Los dos sumandos son disjuntos por construcción, no por un
+    filtro.
+  - **Sólo `internal_transfer`.** Un `settlement_by_transfer` (F12/ADR-003)
+    también deja efectos de clase `transfer` en los dos Personales y **no
+    cuenta**: es el pago de una deuda de grupo, y F01/ADR-001 lo fija —una
+    liquidación no es renta—. Por eso el ayudante filtra por CLASE DE
+    OPERACIÓN y no por clase contable, y el check lo mide con un
+    `settlement_by_transfer` real.
+  - **Sólo el lado recibido** (`balance_amount > 0`): lo enviado no entra en
+    los Ingresos del emisor y tampoco resta de ningún sitio.
+  - **La fecha es `effective_date`**, la misma con la que el agregado ya
+    acota su intervalo y la misma que publica `api.my_transfers`;
+    `record_internal_transfer` la escribe como `current_date` en la
+    transacción de la aceptación. No se inventa ninguna.
+  - **La moneda no abre nada**: `sec.assert_no_conversion` rehúsa la
+    aceptación salvo que la divisa sea la base de los DOS Personales, así que
+    lo recibido ya está en la base de quien recibe. No hay FX que decidir.
+  - **Y el desglose explica su total**: la lista de Ingresos pasa a incluir
+    esas mismas transferencias (`IncomeGroup`), con la misma fila que
+    Movimientos recientes y sin crear una segunda. Es la corrección que
+    Gastos ya necesitó.
+  - Evidencia: `supabase/checks/income-received-transfers.sql` (A–G, en CI) y
+    `tests/infra/income-received-transfers-surface.test.ts`.
+
+  **Compatibilidad con F11.C, y por qué la migración lleva otro número.**
+  PR #82 integró `20261001120000_fx_personal_reads.sql` mientras esta rama
+  estaba abierta, con el MISMO identificador que llevaba entonces la de
+  Income y —lo que de verdad importa— haciendo `create or replace` de la
+  MISMA función. La segunda en aplicarse pisa entera a la primera, así que
+  esta migración se renumeró a `20261002120000` y su
+  `api.personal_statistics` se **reconstruyó sobre la definición de F11.C**:
+  cinco líneas añadidas, cero quitadas. Conserva el §3 de F11.C —el desglose
+  por categoría en la magnitud ASENTADA (`- balance_amount`) en vez de la
+  declarada— y su semántica FX; añade sólo el sumando de `income_total`. Lo
+  guardan un test que compara el cuerpo carácter a carácter con el de F11.C
+  y el hecho de que `supabase/checks/fx-personal-reads.sql` —el check propio
+  de F11.C— pasa **después** de esta migración.
+
+  **Riesgo conocido y aceptado**: con lo enviado fuera del agregado, prestar
+  25 y que te los devuelvan deja +25 en «Ingresos» y nada en «Gastos», de
+  modo que quien presta y cobra parece haber ganado dinero. Es la asimetría
+  que la decisión introduce a propósito (§3 del encargo); revisarla exige
+  decidir qué hace lo enviado.
 
 ## Decisiones de otras fases que esta fase aplica
 

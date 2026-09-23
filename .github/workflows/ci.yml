@@ -402,6 +402,20 @@ jobs:
       - name: Transfer proposal checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/transfer-proposals.sql
 
+      # An accepted Personal transfer RECEIVED contributes to the recipient's
+      # Income aggregate without becoming a second income operation (F12.E,
+      # 20261001120000): the mandatory case (100 → pending 100 → accepted
+      # 125 with one operation), the states that do not count (pending,
+      # declined, cancelled, expired), direction (what was SENT never enters
+      # the sender's Income and does not become an expense), no double
+      # counting (the economic dimension is unchanged, the balance rises
+      # once), the CLASS filter (a received settlement_by_transfer does NOT
+      # count: a settlement is not income, F01/ADR-001), the interval, and
+      # the reduced helper (definer, no public EXECUTE, no USAGE on sec for
+      # authenticated, own scope only).
+      - name: Income includes received transfers
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/income-received-transfers.sql
+
       # Payment requests by link (F12/ADR-004, F12.B2, 20260927120000):
       # structure and owners (provisioner for the request, writer for the
       # accounting), the client without token_hash/created_by/paid_by, create
