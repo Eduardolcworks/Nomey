@@ -195,7 +195,11 @@ begin
    where n.nspname in ('api', 'sec') and p.proname not like 'fx\_%'
      and (p.prosrc like '%fx\_resolve%' or p.prosrc like '%fx\_convert%' or p.prosrc like '%fx\_derive%'
           or p.prosrc like '%fx\_personal\_rate%');
-  if v_t is distinct from 'api.record_personal_expense(jsonb),api.record_personal_income(jsonb)' then
+  -- Tres desde F11.D: el gasto de grupo convierte, y sus dos ayudantes del
+  -- reparto y de la congelacion viven en `sec`.
+  if v_t is distinct from 'api.record_group_expense(jsonb),api.record_personal_expense(jsonb),'
+                          'api.record_personal_income(jsonb),'
+                          'sec.persist_group_conversions(uuid,uuid,date,uuid,uuid[],uuid)' then
     fallos := array_append(fallos, 'A5b funciones que convierten: ' || coalesce(v_t, 'ninguna'));
   end if;
   if not has_table_privilege('nomey_writer', 'core.frozen_conversion', 'insert')

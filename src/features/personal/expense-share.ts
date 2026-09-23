@@ -36,6 +36,19 @@ export type ExpenseShare = {
   readonly currency_code: string;
   readonly currency_scale: number;
   readonly operation_created_at: string;
+  /**
+   * LAS TRES CIFRAS DE UNA CUOTA NO VAN EN LA MISMA MONEDA (F11/ADR-003).
+   *
+   *   `total_amount`     el total DECLARADO, en `original_currency_definition_id`
+   *   `share_amount`     mi cuota en la moneda del GRUPO, la de `currency_code`
+   *   `personal_amount`  esa misma cuota en la base de MI Modo Personal
+   *
+   * La tercera es la que suman mis estadísticas. Sin conversión las tres
+   * monedas coinciden y nada cambia.
+   */
+  readonly original_currency_definition_id: string;
+  readonly personal_amount: string;
+  readonly personal_currency_definition_id: string;
 };
 
 /**

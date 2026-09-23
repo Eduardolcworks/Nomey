@@ -55,6 +55,13 @@ export type GroupMovementRowProps = {
   readonly participants: ReadonlyMap<string, string>;
   /** La divisa base del grupo. Las dos cifras van en ella. */
   readonly currency: CurrencyDefinition;
+  /**
+   * La moneda DECLARADA del gasto, cuando no es la del grupo (F11/ADR-003).
+   * El total va en ella; la cuota y el resto, en la del grupo. Sin conversion
+   * o sin poder resolverla, se usa la del grupo, que es correcta para todo lo
+   * demas.
+   */
+  readonly declaredCurrency?: CurrencyDefinition | null;
   readonly expanded: boolean;
   readonly onToggle: () => void;
   readonly onEdit: () => void;
@@ -88,6 +95,7 @@ export function GroupMovementRow({
   categories,
   participants,
   currency,
+  declaredCurrency,
   expanded,
   onToggle,
   onEdit,
@@ -114,7 +122,7 @@ export function GroupMovementRow({
   const tint =
     category !== undefined && categoryLabel !== null ? categoryColour(category.id) : null;
 
-  const total = money(BigInt(operation.totalMinor), currency);
+  const total = money(BigInt(operation.totalMinor), declaredCurrency ?? currency);
   const share =
     operation.yourShareMinor === null ? null : money(BigInt(operation.yourShareMinor), currency);
 

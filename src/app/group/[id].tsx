@@ -31,6 +31,7 @@ import {
   sameFilters,
   subscribeGroupRecorded,
   useAnnulExpense,
+  useCurrencies,
   useGroupMovements,
   useGroupNotices,
   useGroupParticipants,
@@ -251,6 +252,26 @@ export default function GroupScreen() {
    */
   const [openRow, setOpenRow] = useState<string | null>(null);
   const writer = useAnnulExpense();
+
+  /*
+   * EL CATALOGO MONETARIO, para etiquetar el total de un gasto DECLARADO en
+   * otra moneda (F11/ADR-003). Sin conversion no se usa: la moneda declarada
+   * es la del grupo y `declaredFor` devuelve null.
+   */
+  const currencies = useCurrencies(true);
+  const declaredFor = (declaredId: string | null) => {
+    if (group === undefined || declaredId === null || declaredId === group.currencyDefinitionId) {
+      return null;
+    }
+    const option =
+      currencies.status === 'ready'
+        ? currencies.options.find((one) => one.id === declaredId)
+        : undefined;
+    // Sin resolverla no se inventa: se cae a la del grupo, como la fila hace.
+    return option === undefined
+      ? null
+      : currencyDefinition({ id: option.id, code: option.code, scale: option.scale });
+  };
 
   /*
    * Y SE CIERRA CUANDO SE ESCRIBE EN EL GRUPO. El desplegable enseña el detalle
@@ -960,6 +981,7 @@ export default function GroupScreen() {
                                 <GroupMovementRow
                                   key={entry.operation.operationId}
                                   operation={entry.operation}
+                                  declaredCurrency={declaredFor(entry.operation.originalCurrencyId)}
                                   categories={categoryIndex}
                                   participants={participantNames}
                                   expanded={openRow === entry.operation.operationId}

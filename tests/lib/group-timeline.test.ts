@@ -20,6 +20,7 @@ function expense(
     versionId: `${id}-v`,
     concept: id,
     categoryId: null,
+    originalCurrencyId: null,
     effectiveDate: date,
     effectiveTime: time,
     totalMinor: minor,

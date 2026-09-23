@@ -49,6 +49,10 @@ function share(overrides: Partial<ExpenseShare> = {}): ExpenseShare {
     scope_id: 'group-1',
     group_display_name: 'Brasil',
     group_emoji: '🫠',
+    // Sin conversion, las tres monedas de una cuota coinciden (F11/ADR-003).
+    original_currency_definition_id: overrides.currency_definition_id ?? 'eur',
+    personal_currency_definition_id: overrides.currency_definition_id ?? 'eur',
+    personal_amount: overrides.share_amount ?? '0',
     concept: 'Taxi',
     category_id: 'cat-travel',
     effective_date: '2026-09-11',

@@ -8,6 +8,7 @@ import { ThemedText } from '@/ui/components';
 import { Radius, Spacing, useTheme } from '@/ui/theme';
 
 import type { ExpenseShare } from './expense-share';
+import type { CurrencyInfo } from './personal-service';
 
 /**
  * MI CUOTA DE UN GASTO COMPARTIDO, en el desplegable de Gastos.
@@ -30,11 +31,19 @@ import type { ExpenseShare } from './expense-share';
 export function ShareRow({
   share,
   categories,
+  currencies,
   expanded,
   onToggle,
 }: {
   readonly share: ExpenseShare;
   readonly categories: ReadonlyMap<string, CategoryRow>;
+  /**
+   * Código y escala de cada definición monetaria. **Obligatoria**: desde F11.D
+   * el total declarado y mi cuota pueden ir en monedas distintas de la del
+   * grupo, y formatearlas con una sola volvería a convertir 150.000 yenes en
+   * 1.500,00 € sin que nada fallara.
+   */
+  readonly currencies: ReadonlyMap<string, CurrencyInfo>;
   readonly expanded: boolean;
   readonly onToggle: () => void;
 }) {
@@ -47,9 +56,43 @@ export function ShareRow({
     code: share.currency_code,
     scale: share.currency_scale,
   });
-  // Un gasto se pinta en negativo con su signo, como en Movimientos recientes.
-  const quota = format.money(money(-BigInt(share.share_amount), currency), { sign: 'always' });
-  const total = format.money(money(BigInt(share.total_amount), currency));
+
+  /*
+   * MI CUOTA ES LA PERSONAL, en la base de mi Modo Personal: es la cifra que
+   * suman los totales de esta misma pantalla, y sumar la del grupo sobre ellos
+   * sería mezclar monedas. Sin conversión las dos coinciden.
+   *
+   * El TOTAL del gasto va en la moneda DECLARADA. Si alguna de las dos no se
+   * puede resolver no se inventa: se cae a la del grupo, que es correcta para
+   * su propia cifra.
+   */
+  const mine = currencies.get(share.personal_currency_definition_id);
+  const declared = currencies.get(share.original_currency_definition_id);
+  const quota = format.money(
+    money(
+      -BigInt(share.personal_amount),
+      mine === undefined
+        ? currency
+        : currencyDefinition({
+            id: share.personal_currency_definition_id,
+            code: mine.code,
+            scale: mine.scale,
+          }),
+    ),
+    { sign: 'always' },
+  );
+  const total = format.money(
+    money(
+      BigInt(share.total_amount),
+      declared === undefined
+        ? currency
+        : currencyDefinition({
+            id: share.original_currency_definition_id,
+            code: declared.code,
+            scale: declared.scale,
+          }),
+    ),
+  );
 
   const title = share.group_display_name ?? t('home.sharedGroupUnknown');
   const category = share.category_id === null ? undefined : categories.get(share.category_id);

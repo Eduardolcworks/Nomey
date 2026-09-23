@@ -464,18 +464,32 @@ begin
     when others then fallos := array_append(fallos, format('C9: sqlstate inesperado %s', sqlstate));
   end;
 
-  -- C10 · `exact_amounts` con declarado DISTINTO del resuelto. Es un invariante
-  -- LOCAL —el dominio devuelve los declarados tal cual— y por eso no se reserva
-  -- al writer.
-  begin
-    insert into core.split_participant
-      (operation_version_id, scope_id, participant_id, ordinal, split_method,
-       declared_amount, resolved_amount)
-    values (V3,S1,PX,32,'exact_amounts',5000,4000);
-    fallos := array_append(fallos, 'C10: se acepto `exact_amounts` con declarado distinto del resuelto');
-  exception when check_violation then null;
-    when others then fallos := array_append(fallos, format('C10: sqlstate inesperado %s', sqlstate));
-  end;
+  -- C10 · `exact_amounts` con declarado DISTINTO del resuelto SIGUE siendo un
+  -- invariante, pero desde F11.D (20261003120000) YA NO ES LOCAL: bajo
+  -- conversion lo declarado va en la moneda original y lo resuelto en la del
+  -- grupo, y una fila no puede saber si su version convirtio (F11/ADR-003 §2).
+  --
+  -- La garantia NO desaparece: se traslada a un CONSTRAINT TRIGGER DIFERIDO,
+  -- que corre al confirmar y si puede mirar la conversion de la version. Aqui
+  -- se comprueba que esa sede existe y que es diferida; su COMPORTAMIENTO
+  -- —rechaza sin conversion, admite con ella— se mide en fx-group-expense.sql,
+  -- que construye versiones reales, y alli se falsifica.
+  if not exists (
+    select 1 from pg_trigger t
+     where t.tgrelid = 'core.split_participant'::regclass
+       and t.tgname = 'split_participant_exactos_coinciden_sin_conversion'
+       and t.tgconstraint <> 0 and t.tgdeferrable and t.tginitdeferred) then
+    fallos := array_append(fallos,
+      'C10: no hay constraint trigger diferido que exija resuelto = declarado sin conversion');
+  end if;
+  -- Y el check local ya no existe: si volviera, rechazaria un reparto exacto
+  -- convertido, que es legitimo.
+  if exists (select 1 from pg_constraint
+              where conrelid = 'core.split_participant'::regclass
+                and conname = 'split_participant_exactos_coinciden') then
+    fallos := array_append(fallos,
+      'C10b: el check local volvio, y rechazaria un reparto exacto convertido');
+  end if;
 
   -- C11 · `equal` con peso o importe declarado.
   begin
@@ -881,28 +895,10 @@ declare
   S2  constant uuid := '52000000-0000-4000-8000-000000000000';
   v_ok boolean;
 begin
-  --------------------------------- exact_amounts: declarado = resuelto -------
-  set constraints all immediate;
-  alter table core.split_participant drop constraint split_participant_exactos_coinciden;
-  v_ok := false;
-  begin
-    insert into core.split_participant
-      (operation_version_id, scope_id, participant_id, ordinal, split_method,
-       declared_amount, resolved_amount)
-    values (V3,S1,P4,80,'exact_amounts',5000,4000);
-    v_ok := true;
-  exception when others then null;
-  end;
-  if not v_ok then
-    fallos := array_append(fallos,
-      'G1: sin el check, `exact_amounts` con declarado distinto del resuelto SIGUE rechazandose; C10 no estaba probando ese check');
-  end if;
-  delete from core.split_participant
-   where operation_version_id = V3 and scope_id = S1 and participant_id = P4;
-  set constraints all immediate;
-  alter table core.split_participant
-    add constraint split_participant_exactos_coinciden
-    check (split_method <> 'exact_amounts' or resolved_amount = declared_amount);
+  -- G1 vivia aqui y falsificaba el check local de `exact_amounts`. Ese check
+  -- ya no existe (C10), y su sustituto diferido no se puede falsificar con una
+  -- fila suelta: necesita una version real con —y sin— conversion. La
+  -- falsificacion equivalente esta en fx-group-expense.sql.
 
   ------------------------------------ participante del ambito del reparto ----
   set constraints all immediate;

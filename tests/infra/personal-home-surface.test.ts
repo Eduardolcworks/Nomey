@@ -2381,7 +2381,14 @@ describe('el círculo de la fila lleva el color de su categoría', () => {
      * en silencio si alguien añadiera un tercero copiando el de antes.
      */
     const veces = (texto: string) => HOME_CODE.split(texto).length - 1;
-    expect(veces('currencies={home.currencies}')).toBe(2);
+    /*
+     * TRES desde F11.D: los dos montajes de `MovementRow` y el de `ShareRow`,
+     * que desde F11/ADR-003 tambien necesita el catalogo — su total va en la
+     * moneda declarada y su cuota en la base del Personal, que pueden no ser
+     * la del grupo. La conversion congelada, en cambio, sigue siendo de las
+     * operaciones personales: dos.
+     */
+    expect(veces('currencies={home.currencies}')).toBe(3);
     expect(veces('conversion={home.conversions.get(operation.operation_id)}')).toBe(2);
     expect(HOME_CODE).not.toContain('categoryColour(');
   });

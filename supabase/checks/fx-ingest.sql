@@ -240,7 +240,7 @@ begin
   select string_agg(p.proname, ',' order by p.proname collate "C") into v_t
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.prosrc like '%fx\_%';
-  if v_t is distinct from 'record_personal_expense,record_personal_income' then
+  if v_t is distinct from 'record_group_expense,record_personal_expense,record_personal_income' then
     fallos := array_append(fallos, 'A5b funciones de api que tocan FX: ' || coalesce(v_t, 'ninguna'));
   end if;
   select count(*) into v_n
