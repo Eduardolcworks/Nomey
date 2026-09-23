@@ -11,6 +11,7 @@ import {
   todayInDeviceCalendar,
   usePersonalScope,
 } from '@/features/personal';
+import { FriendPicker } from '@/features/friends';
 import { isGuest, useSession } from '@/features/session';
 import { useAddBackdrop } from '@/features/shell';
 import { TransferForm } from '@/features/transfers';
@@ -148,6 +149,29 @@ export default function AddScreen() {
                 // Inicio es «Crea tu cuenta» para un invitado (F10.A3).
                 router.dismissTo('/');
               }}
+              /*
+               * EL SELECTOR DE AMIGOS LO COMPONE ESTA RUTA (F12.E.E), por el
+               * mismo motivo por el que compone el segmento entero: los
+               * amigos viven en `features/friends` y `features/transfers` no
+               * puede importarlos. El formulario decide cuándo enseñarlo; la
+               * ruta, qué es.
+               *
+               * Un invitado no lo ve: `TransferForm` vuelve antes con «crea
+               * tu cuenta», y el actor vacío no leería nada de todos modos.
+               */
+              friendPicker={({ onSelect, onClose }) => (
+                <FriendPicker
+                  actorId={actorId}
+                  onSelect={(choice) => {
+                    onSelect({ handle: choice.handle, publicName: choice.publicName });
+                  }}
+                  onClose={onClose}
+                  onSeeFriends={() => {
+                    // Sin amigos que elegir, el sitio donde se consiguen.
+                    router.replace('/friends');
+                  }}
+                />
+              )}
             />
           )}
         />

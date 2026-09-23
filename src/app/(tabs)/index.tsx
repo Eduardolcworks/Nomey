@@ -41,6 +41,7 @@ import {
 import { GuestSignUp } from '@/features/auth';
 import { isGuest, useSession } from '@/features/session';
 import {
+  type ActivityEntry,
   interleaveActivity,
   subscribeTransfersChanged,
   type TransferMovement,
@@ -454,6 +455,43 @@ export default function HomeScreen() {
    */
   const income = projected.operations.filter((op) => movementKind(op.operation_class) === 'income');
   /*
+   * ═══════ Y EL DESPLEGABLE DE INGRESOS TAMBIÉN EXPLICA EL SUYO ═══════
+   *
+   * Desde F12.E el total de Ingresos incluye las transferencias Personal
+   * RECIBIDAS y aceptadas (`sec.my_received_transfers`, sumadas en
+   * `api.personal_statistics`). Si la lista de abajo no las enseñara, la
+   * tarjeta diría 125 y el desglose explicaría 100 — exactamente el defecto
+   * que Gastos ya tuvo y que se corrigió añadiendo su segunda fuente.
+   *
+   * **No es una fila nueva ni una segunda operación**: es la MISMA que
+   * Movimientos recientes ya pinta, leída de `my_transfers`, con la misma
+   * `TransferRow`. Aparece en dos listas, como un ingreso personal aparece
+   * en las dos.
+   *
+   * Sólo las ENTRANTES y sólo las de Personal: una transferencia de grupo
+   * (`group_scope_id`) es el pago de una deuda y no cuenta en Ingresos ni
+   * aquí ni en el servidor. Lo enviado tampoco.
+   */
+  const incomeTransfers = transfers.transfers.filter(
+    (one) => one.direction === 'incoming' && one.groupScopeId === null,
+  );
+  const incomeLines = interleaveActivity(
+    income,
+    incomeTransfers,
+    (operation) => ({
+      effectiveDate: operation.effective_date,
+      effectiveTime: operation.effective_time,
+      createdAt: operation.operation_created_at,
+      id: operation.operation_id,
+    }),
+    (transfer: TransferMovement) => ({
+      ...transferMoment(transfer),
+      createdAt: transfer.operationCreatedAt,
+      id: transfer.operationId,
+    }),
+    projected.operations.length < projected.total,
+  );
+  /*
    * ═══════ EL DESPLEGABLE DE GASTOS EXPLICA SU TOTAL ═══════
    *
    * **La causa de que no cuadrara**: reutilizaba la lectura de Movimientos
@@ -486,7 +524,9 @@ export default function HomeScreen() {
    * atrás en cuanto una de las dos formas cambiara.
    */
   const flowCard = (kind: 'income' | 'expense') => {
-    const rows = kind === 'income' ? income : personalExpenses;
+    // Lo que la tarjeta dice que cuenta: las filas del desglose, que desde
+    // F12.E incluyen las transferencias recibidas del intervalo.
+    const shown = kind === 'income' ? incomeLines.length : expenses.length;
     // `null` cuando no hay estadísticas confirmadas: la tarjeta enseña el
     // marcador, no un cero ni una suma local (F07/ADR-001 §8).
     const total =
@@ -503,18 +543,20 @@ export default function HomeScreen() {
         total={total}
         currencyCode={ready?.currencyCode ?? ''}
         currencyScale={ready?.currencyScale ?? 2}
-        count={kind === 'income' ? rows.length : expenses.length}
+        count={shown}
         expanded={openFlow === kind}
         onToggle={() => setOpenFlow((current) => (current === kind ? null : kind))}>
         {kind === 'income' ? (
-          <MovementGroup
-            operations={rows}
+          <IncomeGroup
+            lines={incomeLines}
+            more={
+              projected.operations.length < projected.total
+                ? { remaining: projected.total - projected.operations.length }
+                : null
+            }
             home={home}
-            openMovement={openMovement}
-            onToggleMovement={toggleMovement}
-            onEdit={editMovement}
-            onDelete={deleteMovement}
-            deleting={annulling.pending}
+            renderOperation={renderOperation}
+            renderTransfer={renderTransfer}
             emptyLabel={t('home.noIncome')}
           />
         ) : (
@@ -846,29 +888,39 @@ function versionOf(operation: ProjectedOperation, home: ReturnType<typeof usePer
     : home.versions.get(operation.previous_version_id);
 }
 
-function MovementGroup({
-  operations,
+/**
+ * EL DESGLOSE DE INGRESOS: los ingresos personales y las transferencias
+ * RECIBIDAS del intervalo, mezclados en el orden de la lista.
+ *
+ * Sustituye al `MovementGroup` que hubo aquí, y el motivo es el mismo que
+ * llevó a `ExpenseGroup`: **el desglose tiene que explicar su total**. Desde
+ * F12.E el total incluye las transferencias recibidas
+ * (`sec.my_received_transfers`, sumadas en `api.personal_statistics`), así
+ * que una lista que sólo enseñara los ingresos personales diría 125 arriba y
+ * 100 abajo.
+ *
+ * **No pinta filas nuevas**: recibe las dos que la pantalla ya construye —la
+ * `MovementRow` de siempre y la `TransferRow` de Movimientos recientes— y
+ * sólo decide el orden. Así la transferencia es visiblemente la MISMA
+ * operación en las dos listas, no una copia con otro aspecto.
+ */
+function IncomeGroup({
+  lines,
+  more,
   home,
-  openMovement,
-  onToggleMovement,
-  onEdit,
-  onDelete,
-  deleting,
+  renderOperation,
+  renderTransfer,
   emptyLabel,
 }: {
-  operations: readonly ProjectedOperation[];
+  lines: readonly ActivityEntry<ProjectedOperation, TransferMovement>[];
+  /** Operaciones del intervalo aún no cargadas, si las hay. */
+  more: { readonly remaining: number } | null;
   home: ReturnType<typeof usePersonalHome>;
-  openMovement: string | null;
-  onToggleMovement: (id: string) => void;
-  /** Corrige esa operación: el writer necesita su id y su versión vigente. */
-  onEdit: (operation: ProjectedOperation) => void;
-  /** La operación entera: el writer necesita su id y su versión vigente. */
-  onDelete: (operation: ProjectedOperation) => void;
-  /** Cuál se está anulando ahora mismo, si alguna. */
-  deleting: string | null;
+  renderOperation: (operation: ProjectedOperation) => React.ReactNode;
+  renderTransfer: (transfer: TransferMovement) => React.ReactNode;
   emptyLabel: string;
 }) {
-  if (operations.length === 0) {
+  if (lines.length === 0) {
     return (
       <ThemedText variant="bodySmall" themeColor="textTertiary" style={styles.empty}>
         {emptyLabel}
@@ -878,27 +930,12 @@ function MovementGroup({
 
   return (
     <View>
-      {operations.map((operation) => (
-        <MovementRow
-          key={operation.render_key}
-          operation={operation}
-          previous={versionOf(operation, home)}
-          categories={home.categories}
-          currencies={home.currencies}
-          conversion={home.conversions.get(operation.operation_id)}
-          currencyCode={operation.currency_code}
-          currencyScale={operation.currency_scale}
-          expanded={openMovement === operation.render_key}
-          onToggle={() => onToggleMovement(operation.render_key)}
-          onEdit={() => {
-            onEdit(operation);
-          }}
-          onDelete={() => {
-            onDelete(operation);
-          }}
-          deleting={deleting === operation.operation_id}
-        />
-      ))}
+      {lines.map((line) =>
+        line.kind === 'transfer' ? renderTransfer(line.transfer) : renderOperation(line.operation),
+      )}
+      {more === null ? null : (
+        <MoreRow remaining={more.remaining} loading={home.loadingMore} onPress={home.loadMore} />
+      )}
     </View>
   );
 }

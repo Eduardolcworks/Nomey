@@ -85,7 +85,13 @@ describe('el desglose', () => {
     expect(HOME).toContain(
       '<MoreRow remaining={more.remaining} loading={home.loadingMore} onPress={home.loadMore} />',
     );
-    expect(HOME.match(/<MovementRow/g)).toHaveLength(3);
+    // DOS montajes desde F12.E, medidos sobre el fuente: `ExpenseGroup` y el
+    // `renderOperation` que comparten Movimientos recientes y el desglose de
+    // Ingresos. El tercero —`MovementGroup`— desapareció al pasar Ingresos a
+    // `IncomeGroup`, que no pinta filas: recibe las que la pantalla ya
+    // construye. Y el de Gastos conserva la conversión de F11.C.
+    expect(HOME.match(/<MovementRow/g)).toHaveLength(2);
+    expect(HOME).toContain('conversion={home.conversions.get(operation.operation_id)}');
   });
 
   it('el total y el diagrama siguen saliendo de las estadísticas, nunca de sumar filas', () => {
