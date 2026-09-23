@@ -224,7 +224,7 @@ begin
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.proname like 'record\_%'
      and p.prosrc like '%sec.assert_no_conversion%';
-  -- SEIS desde F11.D (20261002120000): el gasto de grupo convierte, asi que
+  -- SEIS desde F11.D (20261003120000): el gasto de grupo convierte, asi que
   -- deja la lista. Las otras seis conservan su negativa (F11/ADR-003 §6).
   if v_t is distinct from 'record_adjustment,record_debt_settlement,record_external_transfer,'
                           'record_group_payment,record_internal_transfer,'

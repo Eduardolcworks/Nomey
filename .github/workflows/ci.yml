@@ -526,7 +526,7 @@ jobs:
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/fx-personal-reads.sql
 
       # The group expense in a foreign currency (F11/ADR-003; migration
-      # 20261002120000): the total converted once to the group base and the
+      # 20261003120000): the total converted once to the group base and the
       # split computed AFTER that, each scope converted straight from the
       # original, the per-participant share persisted in the base of their own
       # Personal, and the whole expense refused when any reached currency has

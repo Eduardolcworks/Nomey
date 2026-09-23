@@ -1375,7 +1375,7 @@ de un grupo en JPY pagado por otra persona, `api.personal_statistics` devuelve
 compartida se suma sin filtrar por moneda, y basta con **participar sin pagar**
 en un grupo cuya base difiere de la del Personal: no hace falta ninguna
 conversión. Contradice F02/ADR-001 §3. La deuda de Inicio **no** tiene este
-problema: se niega a sumar monedas distintas. **Resuelto en F11.D** (`20261002120000`, F11/ADR-003): la cuota de cada participante se persiste junto al reparto en la base de SU Modo Personal, y es la que suman sus estadísticas. Antes: F11.C
+problema: se niega a sumar monedas distintas. **Resuelto en F11.D** (`20261003120000`, F11/ADR-003): la cuota de cada participante se persiste junto al reparto en la base de SU Modo Personal, y es la que suman sus estadísticas. Antes: F11.C
 (`20261001120000`) corrigió el desglose de las operaciones personales en moneda
 extranjera y, por decisión explícita, dejó esta cuota exactamente como estaba;
 lo dejó identificado para este bloque. Una cuota anterior a F11.D cuya base

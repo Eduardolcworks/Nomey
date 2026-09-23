@@ -465,7 +465,7 @@ begin
   end;
 
   -- C10 · `exact_amounts` con declarado DISTINTO del resuelto SIGUE siendo un
-  -- invariante, pero desde F11.D (20261002120000) YA NO ES LOCAL: bajo
+  -- invariante, pero desde F11.D (20261003120000) YA NO ES LOCAL: bajo
   -- conversion lo declarado va en la moneda original y lo resuelto en la del
   -- grupo, y una fila no puede saber si su version convirtio (F11/ADR-003 §2).
   --

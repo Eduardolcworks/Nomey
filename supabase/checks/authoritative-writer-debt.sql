@@ -1566,7 +1566,7 @@ begin
   select count(*) into v_efs from core.effect;
 
   -- El Grupo esta en USD y el Modo Personal del pagador en EUR: la conversion
-  -- hace falta en el extremo de caja. DESDE F11.D (20261002120000) esa
+  -- hace falta en el extremo de caja. DESDE F11.D (20261003120000) esa
   -- conversion SI existe, asi que el motivo del rechazo cambia: la moneda de
   -- este fixture no es del catalogo del BCE y no tiene cobertura, que es
   -- exactamente lo que F11/ADR-003 §5 manda responder. Lo que NO cambia, y es

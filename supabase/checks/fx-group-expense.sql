@@ -2,7 +2,7 @@
 -- EL GASTO DE GRUPO EN MONEDA EXTRANJERA · F11/ADR-003 · F11.D
 -- ============================================================================
 --
--- Migracion 20261002120000. Contra el writer REAL y las lecturas reales, con
+-- Migracion 20261003120000. Contra el writer REAL y las lecturas reales, con
 -- identidad simulada, fixtures propias y ROLLBACK.
 --
 -- Los dias fijados que necesita se siembran COMO POSTGRES, dentro de esta

@@ -692,7 +692,7 @@ declare
   v_t text; v_n integer;
 begin
   -- I1 · `api.group_operation` publica la moneda original DESDE F11.D
-  --      (20261002120000): cuando este bloque se escribio todavia no lo hacia,
+  --      (20261003120000): cuando este bloque se escribio todavia no lo hacia,
   --      porque ningun gasto de grupo admitia otra moneda. Su comportamiento
   --      se mide en fx-group-expense.sql; aqui solo se comprueba que la
   --      columna sigue estando, para que nadie la retire sin darse cuenta.
