@@ -100,8 +100,13 @@ describe('el cliente', () => {
     expect(SCREEN).toContain("t('group.retirePairsBody')");
     expect(SCREEN).toContain("void retirement.settle({ scopeId: id ?? '', participantId, pairs })");
     expect(SCREEN).toContain("if (outcome === 'linked')");
-    // La fila PROPIA no tiene menu: la identidad es permanente (F10/ADR-002).
-    expect(SCREEN).toContain('La fila PROPIA no tiene menu');
+    /*
+     * La fila PROPIA sigue sin llevar nada: la identidad es permanente
+     * (F10/ADR-002). Desde F12.E.D el menu puede traer entradas SOCIALES,
+     * pero son disjuntas de estas —`is_linked` decide cual de los dos
+     * conjuntos— y la propia no entra en ninguno.
+     */
+    expect(SCREEN).toContain('return all.length > 0 ? all : undefined;');
     expect(SCREEN).not.toMatch(/claimOf|linkOf|unclaim|unlink/);
   });
 

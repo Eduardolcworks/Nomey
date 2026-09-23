@@ -13,7 +13,7 @@ import { useAccountIdentity } from './use-account-identity';
 import { useAuthSubmit } from './use-auth-submit';
 
 /**
- * `@username` en Perfil, y el lápiz que lo cambia (F12/ADR-001 §9, F12.A3).
+ * `@username` en Perfil (F12/ADR-001 §9, F12.A3).
  *
  * El mismo gesto que el nombre: se edita en su sitio, sin hoja, y el texto se
  * sustituye por un campo del mismo rol tipográfico. Lo que se enseña es lo que
@@ -21,36 +21,54 @@ import { useAuthSubmit } from './use-auth-submit';
  * historial, ni handles retenidos, ni nada interno.
  *
  * El cooldown se enseña, no se esconde: mientras `can_change_at` esté en el
- * futuro, el lápiz no está y debajo del handle se lee «Podrás cambiarlo a
- * partir del …». Si aun así el servidor rehusara con `USERNAME_CHANGE_COOLDOWN`
- * (otro dispositivo cambió entre medias), la frase lleva la fecha que él dice.
+ * futuro, esto no entra en edición aunque el lápiz de la cabecera lo abra, y
+ * debajo del handle se lee «Podrás cambiarlo a partir del …». Si aun así el
+ * servidor rehusara con `USERNAME_CHANGE_COOLDOWN` (otro dispositivo cambió
+ * entre medias), la frase lleva la fecha que él dice.
+ *
+ * **Quién abre es la pantalla, desde F12.E.C.** Tuvo lápiz propio, y con el
+ * del nombre al lado eran dos controles para una misma intención. Lo demás
+ * sigue siendo suyo: el borrador, la validación, el envío y cuándo cierra.
  *
  * Recuperar el handle anterior es escribirlo: el servidor lo reconoce como
  * propio y retenido y lo reactiva; para la app es un cambio más.
  */
-export function UsernameEditor({ identity }: { readonly identity: AccountIdentity }) {
+export function UsernameEditor({
+  identity,
+  editing,
+  onEditingChange,
+}: {
+  readonly identity: AccountIdentity;
+  /**
+   * Lo mismo que en `DisplayNameEditor`: el ÚNICO lápiz de Perfil abre los
+   * dos, y cada uno sigue siendo dueño de su borrador, su validación, su
+   * cooldown y cuándo se cierra.
+   *
+   * **El cooldown no se relaja por esto.** Si el handle no se puede cambiar
+   * todavía, abrir la edición no lo abre: se sigue viendo la fecha, como
+   * antes, y quien decide es `canChangeUsername`.
+   */
+  readonly editing: boolean;
+  readonly onEditingChange: (next: boolean) => void;
+}) {
   const { t } = useTranslation();
   const { date } = useFormat();
   const theme = useTheme();
   const { apply } = useAccountIdentity();
   const { state, submit, clearError, running } = useAuthSubmit();
 
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
+  const [touched, setTouched] = useState<string | null>(null);
   const [cooldownUntil, setCooldownUntil] = useState<string | null>(null);
+  const draft = touched ?? identity.handle ?? '';
 
   const canChange = canChangeUsername(identity, new Date());
   const cooldownDay = (iso: string | null) => (iso === null ? null : calendarDayOf(iso));
   const shownCooldown = cooldownDay(cooldownUntil ?? (canChange ? null : identity.canChangeAt));
 
-  function open() {
-    setDraft(identity.handle ?? '');
-    clearError();
-    setEditing(true);
-  }
   function close() {
     clearError();
-    setEditing(false);
+    setTouched(null);
+    onEditingChange(false);
   }
 
   async function save() {
@@ -64,25 +82,19 @@ export function UsernameEditor({ identity }: { readonly identity: AccountIdentit
       if (outcome.availableAt !== undefined) setCooldownUntil(outcome.availableAt);
       return { ok: false, messageKey: outcome.messageKey } as const;
     });
-    if (result?.ok === true) setEditing(false);
+    if (result?.ok === true) {
+      setTouched(null);
+      onEditingChange(false);
+    }
   }
 
-  if (!editing) {
+  if (!editing || !canChange) {
     return (
       <View style={styles.reading}>
         <View style={styles.row}>
           <ThemedText variant="body" themeColor="textSecondary" numberOfLines={1}>
             {identity.handle === null ? t('identity.noUsername') : `@${identity.handle}`}
           </ThemedText>
-          {canChange ? (
-            <IconButton
-              name={Symbols.edit}
-              label={t('identity.editUsername')}
-              size={16}
-              colour={theme.textSecondary}
-              onPress={open}
-            />
-          ) : null}
         </View>
         {shownCooldown === null ? null : (
           <ThemedText variant="bodySmall" themeColor="textSecondary">
@@ -111,7 +123,7 @@ export function UsernameEditor({ identity }: { readonly identity: AccountIdentit
       <View style={styles.row}>
         <TextInput
           value={draft}
-          onChangeText={setDraft}
+          onChangeText={setTouched}
           editable={!running}
           autoFocus
           selectTextOnFocus
@@ -160,13 +172,20 @@ export function UsernameEditor({ identity }: { readonly identity: AccountIdentit
 }
 
 const styles = StyleSheet.create({
-  reading: { alignItems: 'center', gap: Spacing.xxs },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xxs },
+  // A la izquierda, por el mismo motivo que el editor del nombre: los dos
+  // empiezan en el mismo eje X dentro de la columna de identidad.
+  reading: { alignItems: 'flex-start', gap: Spacing.xxs },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: Spacing.xxs,
+  },
   editing: { alignSelf: 'stretch', gap: Spacing.xs },
   input: {
     flex: 1,
     minHeight: 40,
-    textAlign: 'center',
+    textAlign: 'left',
     paddingHorizontal: Spacing.sm,
     borderBottomWidth: 1,
     borderRadius: Radius.sm,

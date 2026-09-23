@@ -586,7 +586,7 @@ export const esES = {
   'profile.addPhoto': 'Añadir foto de perfil',
   'profile.photoSoonTitle': 'Foto de perfil',
   'profile.photoSoonBody': 'Todavía no puedes subir una foto. Llegará más adelante.',
-  'profile.editName': 'Editar nombre',
+  'profile.editIdentity': 'Editar tus datos',
 
   'identity.gateTitle': 'Elige tu nombre de usuario',
   'identity.gateBody':
@@ -595,7 +595,6 @@ export const esES = {
   'identity.publicName': 'Nombre público',
   'identity.publicNameHint': 'Lo que verán los demás junto a tu usuario.',
   'identity.noUsername': 'Sin nombre de usuario',
-  'identity.editUsername': 'Cambiar nombre de usuario',
   'identity.changeHint': 'El anterior queda guardado 90 días y puedes recuperarlo escribiéndolo.',
   'identity.cooldownUntil': 'Podrás cambiarlo a partir del {date}.',
   'identity.nameSyncPending':
@@ -871,6 +870,9 @@ export const esES = {
   'friends.pending': 'Pendiente',
   'friends.requestSent': 'Solicitud enviada',
   'friends.accept': 'Aceptar',
+  // En el menu de un participante de grupo hace falta el sustantivo: alli no
+  // hay una fila que ya diga de que se acepta (F12.E.D).
+  'friends.acceptRequest': 'Aceptar solicitud',
   'friends.decline': 'Rechazar',
   'friends.cancelRequest': 'Cancelar solicitud',
   'friends.add': 'Añadir amigo',
@@ -879,6 +881,36 @@ export const esES = {
   'friends.empty': 'Aún no tienes amigos en Nomey',
   'friends.loadFailed': 'No se ha podido cargar tu lista de amigos',
   'friends.backToList': 'Volver a Amigos',
+  // El enlace de amistad (F12.E.C): compartir, QR, llegada y respuesta.
+  'friendLink.shareAction': 'Compartir enlace de amistad',
+  'friendLink.qrAction': 'Código QR de amistad',
+  'friendLink.shareMessage': 'Soy @{handle} en Nomey. Añádeme como amigo: {link}',
+  'friendLink.shareFailed': 'No se pudo preparar tu enlace. Inténtalo otra vez',
+  'friendLink.shareOffline': 'Sin conexión: no se puede preparar tu enlace ahora',
+  'friendLink.qrTitle': 'Tu enlace de amistad',
+  'friendLink.qrHint': 'Escanéame para añadirnos en Nomey',
+  'friendLink.qrLabel': 'Código QR del enlace de amistad de {name}',
+  'friendLink.loading': 'Preparando tu enlace…',
+  'friendLink.rotate': 'Regenerar enlace',
+  'friendLink.rotateTitle': '¿Regenerar tu enlace?',
+  'friendLink.rotateBody': 'Al regenerarlo, el enlace y el QR anteriores dejarán de funcionar.',
+  'friendLink.rotateConfirm': 'Regenerar',
+  'friendLink.rotateFailed': 'No se pudo regenerar. El enlace anterior sigue valiendo',
+  'friendLink.rotateLimited': 'Has regenerado tu enlace cinco veces hoy. Espera antes de repetir',
+  'friendLink.scan': 'Escanear QR',
+  'friendLink.scanHint': 'Apunta al código QR de la otra persona.',
+  'friendLink.scanForeign': 'Ese código no es un enlace de amistad de Nomey.',
+  'friendLink.scanPermission': 'Hace falta permiso de cámara para leer el código.',
+  'friendLink.scanDenied': 'Sin permiso de cámara. Puedes abrir el enlace que te envíen.',
+  // Responder a un enlace recibido.
+  'friendLink.requestTitle': 'Enlace de amistad',
+  'friendLink.wantsToAdd': '{name} quiere añadirte como amigo',
+  'friendLink.own': 'Este es tu enlace de amistad',
+  'friendLink.invalid': 'Este enlace de amistad ya no es válido',
+  'friendLink.checking': 'Comprobando el enlace…',
+  'friendLink.checkFailed': 'No se pudo comprobar el enlace. Inténtalo otra vez',
+  'friendLink.accepted': 'Ya sois amigos',
+  'friendLink.declined': 'No has añadido a esta persona',
   // El selector de Amigos de Transferencia (F12.E.E). Filtra EN LOCAL.
   'friends.pickerTitle': 'Elegir amigo',
   'friends.pickerSearch': 'Buscar amigo',

@@ -12,15 +12,17 @@ import {
   useAuthSubmit,
   UsernameEditor,
 } from '@/features/auth';
-import { useMyFriendRequests } from '@/features/friends';
+import { FriendLinkActions, useMyFriendRequests } from '@/features/friends';
 import { isGuest, useSession } from '@/features/session';
 import { PlaceholderScreen } from '@/features/shell';
 import { pluralCategory, useTranslation } from '@/lib/i18n';
 import {
   ActionButton,
+  GlassPressable,
   GlassSurface,
   Icon,
   type IconProps,
+  ROUND_TRIGGER,
   Section,
   ThemedText,
 } from '@/ui/components';
@@ -56,6 +58,7 @@ type Option = {
 export default function ProfileScreen() {
   const { t, locale } = useTranslation();
   const router = useRouter();
+  const theme = useTheme();
   const { state } = useSession();
 
   /*
@@ -102,6 +105,30 @@ export default function ProfileScreen() {
     state.status === 'signed-in' && !isGuest(state),
   );
   const pendingFriends = friendRequests.incoming.length;
+
+  /*
+   * ═══════ UN SOLO LÁPIZ PARA LOS DOS CAMPOS ═══════
+   *
+   * Había dos, uno por editor, y eran dos controles para una misma
+   * intención: «cambiar mis datos». Ahora el lápiz de la cabecera abre los
+   * DOS a la vez y cada editor sigue siendo dueño de lo suyo —su borrador,
+   * su validación, su envío y su cooldown—, así que no se ha movido ni una
+   * regla: lo único que cambió de sitio es quién dice «empieza a editar».
+   *
+   * **Dos banderas y no una**, porque guardar el nombre no tiene por qué
+   * cerrar el `@username` a medio escribir: cada editor se cierra cuando
+   * termina lo suyo. El lápiz vuelve a abrir los dos, que es lo que la
+   * persona pidió al pulsarlo.
+   *
+   * El cooldown manda por encima de esto: si el handle no se puede cambiar
+   * todavía, abrir no lo abre — se sigue viendo la fecha.
+   */
+  const [editingName, setEditingName] = useState(false);
+  const [editingHandle, setEditingHandle] = useState(false);
+  const editIdentity = () => {
+    setEditingName(true);
+    setEditingHandle(true);
+  };
 
   const general: readonly Option[] = [
     { icon: Symbols.language, label: t('profile.languageCurrency') },
@@ -189,14 +216,87 @@ export default function ProfileScreen() {
 
   return (
     <PlaceholderScreen title="nav.profile">
+      {/*
+       * ═══════ LA CABECERA DE IDENTIDAD ═══════
+       *
+       *   ┌──────────────────────────────────────────────┐
+       *   │  ⬤   Eduardo                                 │
+       *   │      @edu13                    [ QR ] [ ↗ ]  │
+       *   └──────────────────────────────────────────────┘
+       *
+       * Una fila: el avatar pegado al borde izquierdo —sólo el relleno de la
+       * pantalla— y, a su derecha y muy cerca, la columna de identidad.
+       * Dentro de ella, el nombre arriba y, en la SEGUNDA línea, el
+       * `@username` con las dos acciones del enlace empujadas al borde
+       * derecho. Antes era una columna centrada, y no había sitio para nada
+       * más: cualquier acción nueva caía debajo, en una fila propia,
+       * leyéndose como un ajuste y no como algo que la identidad ofrece.
+       *
+       * **Las acciones van en la línea del `@username`, no en la del
+       * nombre.** El nombre es lo que se lee primero y no debe compartir
+       * renglón con dos controles; el handle es lo que hace falta para que
+       * alguien te encuentre, y ahí es donde tiene sentido ofrecer cómo
+       * mandárselo.
+       *
+       * **Las acciones NO son filas de la lista.** Enseñar tu QR y mandar tu
+       * enlace son gestos de la identidad, no opciones de Perfil; metidos en
+       * un `OptionRow` habrían quedado al mismo nivel que «Idioma y divisa».
+       *
+       * **Y no sustituyen a «Amigos»**, que sigue en su sección: son el
+       * camino para que alguien te añada, no el sitio donde ves a quién tienes.
+       */}
       <View style={styles.identity}>
         <AccountAvatar name={publicName} />
-        <DisplayNameEditor name={publicName} onSave={savePublicName} notice={nameNotice} />
+
         {/*
+         * EL CENTRO: el nombre arriba, el `@username` debajo, los dos en el
+         * mismo eje X. Cede el ancho que sobre —`flex: 1` con `minWidth: 0`—,
+         * así que con un nombre largo se recorta él y no empuja nada.
+         *
          * Una cuenta normal solo llega a Perfil con identidad lista: sin
          * veredicto del servidor la raiz la retiene antes de las pestañas.
          */}
-        {identity.status === 'ready' ? <UsernameEditor identity={identity.identity} /> : null}
+        <View style={styles.identityWho}>
+          <DisplayNameEditor
+            name={publicName}
+            onSave={savePublicName}
+            notice={nameNotice}
+            editing={editingName}
+            onEditingChange={setEditingName}
+          />
+          {identity.status === 'ready' ? (
+            <UsernameEditor
+              identity={identity.identity}
+              editing={editingHandle}
+              onEditingChange={setEditingHandle}
+            />
+          ) : null}
+        </View>
+
+        {/*
+         * LA DERECHA: el lápiz arriba, QR y Compartir debajo, los tres
+         * pegados al borde. Es una columna con `alignItems: 'flex-end'` y
+         * sin `flex`, así que su ancho es el de los botones y no participa
+         * en el reparto: lo que se estira es el centro.
+         */}
+        <View style={styles.identityActions}>
+          <GlassPressable
+            label={t('profile.editIdentity')}
+            depth="raised"
+            radius={Radius.lg}
+            onPress={editIdentity}>
+            <View style={styles.identityEdit}>
+              <Icon name={Symbols.edit} size={20} colour={theme.textSecondary} />
+            </View>
+          </GlassPressable>
+
+          <FriendLinkActions
+            handle={identity.status === 'ready' ? identity.identity.handle : null}
+            onOpenQr={() => {
+              router.push('/friend-link');
+            }}
+          />
+        </View>
       </View>
 
       <Section title={t('profile.general')}>
@@ -437,11 +537,73 @@ function SoonPill() {
 const styles = StyleSheet.create({
   /** La salida del invitado: un enlace gris, al nivel de «recuperar», nunca un boton. */
   signOut: { textAlign: 'center', paddingVertical: Spacing.sm },
+  /**
+   * LA CABECERA: dos zonas en una fila, no una columna centrada.
+   *
+   * `alignItems: 'center'` alinea verticalmente las dos zonas entre sí —los
+   * dos cuadrados quedan a la altura del avatar y del nombre—, que es otra
+   * cosa que el centrado horizontal que había: quién eres se lee desde la
+   * izquierda, como el resto de la pantalla.
+   */
+  /**
+   * LA CABECERA: tres zonas en una fila.
+   *
+   * El avatar a la izquierda, sin relleno horizontal propio —el de la
+   * pantalla ya lo pone `PlaceholderScreen`—, la identidad en medio y los
+   * botones a la derecha. `alignItems: 'center'` centra el avatar y la
+   * columna de acciones VERTICALMENTE respecto al bloque entero.
+   *
+   * La separación con la identidad es `md` y no `sm`: pegados, el nombre
+   * parecía una etiqueta de la foto en vez de una línea por derecho propio.
+   */
   identity: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    /*
+     * `lg` Y NO `md`: 24 puntos entre la foto y el nombre.
+     *
+     * Con 16 los dos bloques se tocaban y el nombre parecía un pie de la
+     * foto en vez de una línea por derecho propio. El avatar mide 96, así
+     * que necesita más aire a su lado que una fila de lista: la separación
+     * tiene que estar a la escala de lo que separa.
+     */
+    gap: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.sm,
+  },
+  /**
+   * El CENTRO se queda con todo lo que sobra, y `minWidth: 0` es lo que
+   * permite que sus hijos se recorten: sin él, una caja flexible toma como
+   * mínimo el tamaño de su contenido y un nombre largo empujaría la fila
+   * fuera de la pantalla en vez de truncarse.
+   *
+   * `alignItems: 'flex-start'` pone el nombre y el `@username` en el MISMO
+   * eje X, que es lo que hace que se lean como un bloque.
+   */
+  identityWho: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'flex-start',
+    gap: Spacing.xxs,
+  },
+  /**
+   * La DERECHA: el lápiz arriba y las dos acciones del enlace debajo.
+   *
+   * Sin `flex`: su ancho es el de los botones y no participa en el reparto,
+   * así que lo que cede con un nombre largo es el centro y nunca ellos.
+   * `flex-end` los pega al borde y alinea el lápiz con el grupo de abajo en
+   * vez de centrarlo sobre él.
+   */
+  identityActions: {
+    alignItems: 'flex-end',
+    gap: Spacing.xs,
+  },
+  /** El mismo cuadrado que QR y Compartir: una sola medida en la cabecera. */
+  identityEdit: {
+    width: ROUND_TRIGGER,
+    height: ROUND_TRIGGER,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   group: {
     overflow: 'hidden',

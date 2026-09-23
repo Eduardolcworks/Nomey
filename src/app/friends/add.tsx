@@ -1,7 +1,9 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
 import {
+  arriveFriendLink,
   CandidateField,
   CandidateResult,
   FRIEND_FAILURE_KEY,
@@ -14,7 +16,7 @@ import {
 } from '@/features/friends';
 import { PlaceholderScreen } from '@/features/shell';
 import { useTranslation } from '@/lib/i18n';
-import { ThemedText } from '@/ui/components';
+import { ActionButton, QrScanner, ThemedText } from '@/ui/components';
 import { Spacing } from '@/ui/theme';
 
 /**
@@ -50,6 +52,7 @@ export default function AddFriendScreen() {
   const lookup = useLookupCandidate();
   const creation = useCreateFriendRequest();
   const actions = useFriendActions();
+  const [scanning, setScanning] = useState(false);
 
   const busy = creation.creating || actions.busy !== null;
 
@@ -110,6 +113,48 @@ export default function AddFriendScreen() {
           }}
           onCancel={() => {
             settle(actions.cancel, 'cancelled');
+          }}
+        />
+      ) : null}
+
+      {/*
+       * ═══════ EL QR: EL MISMO CAMINO QUE UN ENLACE PULSADO ═══════
+       *
+       * Escanear no resuelve nada aquí: lo leído se deja en
+       * `friend-link-arrival` exactamente como si el enlace se hubiera
+       * pulsado en WhatsApp, y quien lo abre es la pantalla de respuesta con
+       * la sesión y el username delante. Un solo protocolo, un solo camino y
+       * las mismas comprobaciones del servidor.
+       *
+       * Y va aquí, en «Añadir amigo», porque es donde se viene a añadir a
+       * alguien — no en Perfil, que es donde se enseña el QR propio.
+       */}
+      <ActionButton
+        label={t('friendLink.scan')}
+        tone="secondary"
+        material="control"
+        onPress={() => {
+          setScanning(true);
+        }}
+      />
+
+      {scanning ? (
+        <QrScanner
+          labels={{
+            close: t('action.close'),
+            hint: t('friendLink.scanHint'),
+            foreign: t('friendLink.scanForeign'),
+            permission: t('friendLink.scanPermission'),
+            denied: t('friendLink.scanDenied'),
+            deniedAction: t('action.close'),
+          }}
+          onScan={(text) => {
+            if (!arriveFriendLink(text)) return false;
+            setScanning(false);
+            return true;
+          }}
+          onCancel={() => {
+            setScanning(false);
           }}
         />
       ) : null}

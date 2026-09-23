@@ -165,9 +165,11 @@ describe('3 · Perfil: nombre publico y @username, core como autoridad', () => {
     expect(PROFILE).toContain(
       "identity.status === 'ready' ? (identity.identity.publicName ?? displayName) : displayName",
     );
-    expect(PROFILE).toContain(
-      '<DisplayNameEditor name={publicName} onSave={savePublicName} notice={nameNotice} />',
-    );
+    // Los props van en varias líneas desde que la cabecera abre la edición.
+    expect(PROFILE).toContain('<DisplayNameEditor');
+    expect(PROFILE).toContain('name={publicName}');
+    expect(PROFILE).toContain('onSave={savePublicName}');
+    expect(PROFILE).toContain('notice={nameNotice}');
     const update = slice(SERVICE, 'export async function updatePublicName(', '\n}\n');
     expect(update.indexOf("rpcIdentity('set_public_name'")).toBeLessThan(
       update.indexOf('supabase.auth.updateUser({ data: { display_name: publicName } })'),
@@ -180,10 +182,12 @@ describe('3 · Perfil: nombre publico y @username, core como autoridad', () => {
   });
 
   it('el username se cambia con change_username; el lapiz respeta el cooldown y la fecha se enseña', () => {
-    expect(PROFILE).toContain('<UsernameEditor identity={identity.identity} />');
+    expect(PROFILE).toContain('<UsernameEditor');
+    expect(PROFILE).toContain('identity={identity.identity}');
     expect(EDITOR).toContain('await changeUsername(draft)');
     expect(EDITOR).toContain('const canChange = canChangeUsername(identity, new Date());');
-    expect(EDITOR).toContain('{canChange ? (');
+    // El cooldown manda por encima del lápiz: sin poder cambiar, abrir no abre.
+    expect(EDITOR).toContain('if (!editing || !canChange) {');
     expect(EDITOR).toContain("t('identity.cooldownUntil', { date: date(shownCooldown, 'long') })");
     expect(SERVICE).toContain("if (code === 'USERNAME_CHANGE_COOLDOWN') {");
     expect(SERVICE).toContain('detailsOf(error).available_at');
@@ -212,7 +216,6 @@ describe('4 · i18n, exports y backend', () => {
       'identity.publicName',
       'identity.publicNameHint',
       'identity.noUsername',
-      'identity.editUsername',
       'identity.changeHint',
       'identity.cooldownUntil',
       'identity.nameSyncPending',

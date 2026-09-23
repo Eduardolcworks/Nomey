@@ -102,6 +102,11 @@ export const Symbols = {
   friends: { ios: 'person.2.fill', android: 'group' },
   addFriend: { ios: 'person.badge.plus', android: 'person_add' },
   removeFriend: { ios: 'person.badge.minus', android: 'person_remove' },
+  /**
+   * A la espera: la solicitud que ya mandaste y todavia nadie ha contestado
+   * (F12.E.D). Apple tiene `clock`; Material lo llama `schedule`, no `clock`.
+   */
+  pending: { ios: 'clock', android: 'schedule' },
 
   // Perfil y ajustes
   premium: { ios: 'sparkles', android: 'auto_awesome' },

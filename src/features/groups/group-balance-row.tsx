@@ -116,6 +116,24 @@ export function GroupBalanceRow({
     .filter((part) => part !== null)
     .join('. ');
 
+  /**
+   * CON MENÚ O SIN ÉL, y NO es un detalle de presentación: es lo que decide
+   * el TIPO del elemento que envuelve a la identidad.
+   *
+   * Cambiar de `<ActionMenu>{identity}</ActionMenu>` a `identity` suelto
+   * cambia el padre, así que React desmonta el avatar y el nombre y los
+   * vuelve a montar dentro de otra caja: se ve como un parpadeo y un salto
+   * de la identidad. Da igual que `identity` sea el mismo elemento — la
+   * reconciliación va por posición Y tipo, y el tipo del padre cambió.
+   *
+   * **Por eso quien monta esta fila no puede vaciar `menu` de forma
+   * transitoria** —mientras un comando está en vuelo, por ejemplo—: eso no
+   * es «quitar una acción», es remontar la identidad. Si hay que impedir un
+   * segundo toque, se impide en el manejador. Esta distinción sólo aparece
+   * cuando la fila DEJA de poder tener menú de verdad (uno mismo, alguien
+   * sin cuenta con quien no hay nada que hacer), y eso no cambia mientras
+   * se mira la pantalla.
+   */
   const hasMenu = menu !== undefined && menu.length > 0 && onMenuSelect !== undefined;
 
   /*

@@ -1,4 +1,5 @@
 import { RECOVERY_PATH } from '@/features/auth/recovery-link';
+import { FRIEND_PATH } from '@/features/friends/friend-link';
 import { JOIN_PATH } from '@/features/groups/invitation-link';
 
 /**
@@ -46,6 +47,15 @@ export function redirectSystemPath({ path }: { path: string; initial: boolean })
     // Una invitación (F09/ADR-004) tampoco es una ruta: la recoge la hoja de
     // «Únete» a través de `invitation-arrival`, y el token no pisa la navegación.
     if (withoutQuery.endsWith(`/${JOIN_PATH}`)) return null;
+    /*
+     * Y un enlace de amistad (F12/ADR-006) tampoco es una ruta: lo recoge
+     * `friend-link-arrival`, y el token no pisa la navegación. Sin esto el
+     * router intentaría navegar a `/friend`, que no tiene pantalla detrás
+     * —la que responde se llama `friend-request` y se abre cuando la sesión
+     * y el username lo permiten—, y se vería «Unmatched Route» encima de lo
+     * que hubiera.
+     */
+    if (withoutQuery.endsWith(`/${FRIEND_PATH}`)) return null;
   } catch {
     // The type's own note warns that throwing here can crash the app. Anything
     // unparseable is simply not our intent, and the router should carry on.
