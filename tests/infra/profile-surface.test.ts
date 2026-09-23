@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import PROFILE_RAW from '../../src/app/profile.tsx?raw';
 import AVATAR_RAW from '../../src/features/auth/account-avatar.tsx?raw';
 import EDITOR_RAW from '../../src/features/auth/display-name-editor.tsx?raw';
+import HANDLE_EDITOR from '../../src/features/auth/username-editor.tsx?raw';
 import AUTH_SERVICE from '../../src/features/auth/auth-service.ts?raw';
 import HOME from '../../src/app/(tabs)/index.tsx?raw';
 import { initialsFrom } from '../../src/features/auth/display-name';
@@ -77,7 +78,8 @@ describe('la cabecera de identidad', () => {
       "identity.status === 'ready' ? (identity.identity.publicName ?? displayName) : displayName",
     );
     expect(PROFILE).toContain('<AccountAvatar name={publicName} />');
-    expect(PROFILE).toContain('<DisplayNameEditor name={publicName}');
+    expect(PROFILE).toContain('<DisplayNameEditor');
+    expect(PROFILE).toContain('name={publicName}');
   });
 
   it('Perfil no consulta al backend para pintarse', () => {
@@ -125,9 +127,25 @@ describe('editar el nombre', () => {
     expect(EDITOR).not.toContain('presentation');
   });
 
-  it('el lápiz es la affordance y lleva etiqueta accesible', () => {
-    expect(EDITOR).toContain('name={Symbols.edit}');
-    expect(EDITOR).toContain("t('profile.editName')");
+  /**
+   * EL LÁPIZ YA NO ES DEL EDITOR, y sigue siendo la affordance.
+   *
+   * Cada editor tenía el suyo, y en un bloque de identidad de dos líneas
+   * eran dos controles para una sola intención — «cambiar mis datos». La
+   * cabecera tiene UNO, arriba a la derecha, que abre el nombre y el
+   * `@username` a la vez. El editor conserva todo lo demás.
+   */
+  it('el lápiz es UNO, vive en la cabecera y lleva etiqueta accesible', () => {
+    expect(PROFILE).toContain('name={Symbols.edit}');
+    expect(PROFILE).toContain("label={t('profile.editIdentity')}");
+    expect(PROFILE).toContain('onPress={editIdentity}');
+    // Uno, no dos: ninguno de los editores monta el suyo.
+    expect(PROFILE.split('name={Symbols.edit}').length - 1).toBe(1);
+    expect(EDITOR).not.toContain('Symbols.edit');
+    expect(HANDLE_EDITOR).not.toContain('Symbols.edit');
+    // Y abre los dos campos de una sola pulsación.
+    expect(PROFILE).toContain('setEditingName(true);');
+    expect(PROFILE).toContain('setEditingHandle(true);');
   });
 
   it('guardar va detrás del guardián de envío, como el resto de auth', () => {
@@ -142,7 +160,9 @@ describe('editar el nombre', () => {
      * distintos sin saber cuál es el real.
      */
     expect(EDITOR).toMatch(/result\?\.ok === true/);
-    expect(EDITOR).toContain('setEditing(false)');
+    // Cerrar es avisar a quien abrió —la pantalla, que lleva la bandera—,
+    // y el momento es el mismo: después del `ok` del servidor.
+    expect(EDITOR).toContain('onEditingChange(false);');
     // El valor que se pinta en reposo es el de la sesión, no el borrador.
     expect(EDITOR).toMatch(/\{name \?\? t\('account\.noName'\)\}/);
   });
@@ -269,7 +289,7 @@ describe('el catálogo', () => {
       'profile.plansTitle',
       'profile.plansBody',
       'profile.addPhoto',
-      'profile.editName',
+      'profile.editIdentity',
       'action.save',
     ] as const;
 

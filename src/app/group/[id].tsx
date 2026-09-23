@@ -4,7 +4,15 @@ import { Alert, LayoutAnimation, Pressable, ScrollView, StyleSheet, View } from 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { currencyDefinition, money } from '@/domain';
-import { useMyFriendRequests } from '@/features/friends';
+import {
+  FRIEND_MENU_ACTION,
+  friendMenuEntries,
+  FRIEND_FAILURE_KEY,
+  useAddParticipantFriend,
+  useFriendActions,
+  useGroupFriendStatus,
+  useMyFriendRequests,
+} from '@/features/friends';
 import {
   allOf,
   fetchPendingPairs,
@@ -160,6 +168,31 @@ export default function GroupScreen() {
     actorId,
     session.status === 'signed-in' && !session.identity.isAnonymous,
   );
+  /*
+   * ═══════ AMIGOS DESDE LA FILA DEL GRUPO (F12.E.D) ═══════
+   *
+   * El estado social de CADA participante, en una sola llamada al abrir el
+   * grupo. Se lee aquí, en `app/`, y no dentro de `features/groups`: los
+   * grupos y los amigos son dos dominios que no se conocen —la regla de
+   * dependencias prohíbe feature → feature— y quien los junta es la
+   * pantalla, que ya monta las dos cosas.
+   *
+   * El cliente NUNCA traduce un participante a una cuenta: manda el
+   * `participant_id` que ya tenía de la lista y el servidor resuelve a quién
+   * corresponde. Por eso esto se puede ofrecer sin que `api.group_participant`
+   * publique ni un dato nuevo de identidad (F03/ADR-009 §1).
+   *
+   * Un invitado no pregunta: la amistad exige cuenta normal con username
+   * definitivo, así que su mapa sería `unavailable` entero. Es la misma
+   * condición que ya gobierna la campana de arriba.
+   */
+  const social = useGroupFriendStatus(
+    id ?? '',
+    session.status === 'signed-in' && !session.identity.isAnonymous,
+  );
+  const adding = useAddParticipantFriend();
+  const friendActions = useFriendActions();
+
   const bell =
     incidents.unseen > 0 ||
     notices.unread > 0 ||
@@ -566,6 +599,96 @@ export default function GroupScreen() {
       ],
     );
   };
+  /**
+   * ═══════ LO QUE HACE CADA ENTRADA SOCIAL DEL MENÚ (F12.E.D) ═══════
+   *
+   * **Nada se pinta como hecho que el servidor no haya confirmado.** Los
+   * cuatro comandos publican `friendsChanged` al volver, y el mapa se relee
+   * solo; no hay estado optimista en ningún punto, así que una solicitud que
+   * no llegó no deja «Solicitud enviada» en pantalla.
+   *
+   * **El servidor puede contestar otra cosa de la que se pidió, y está bien.**
+   * Pulsar «Añadir amigo» puede volver con `incoming_pending` —la otra
+   * persona ya había pedido en el mismo instante y no se insertó una segunda
+   * fila—, con `friends`, o con `cooldown`. La relectura deja el menú en lo
+   * que el servidor dice; sólo el `cooldown` se cuenta con una frase, porque
+   * es lo único que la persona no puede deducir mirando.
+   *
+   * **Aceptar, rechazar y cancelar NO preguntan aquí**, a diferencia de
+   * Perfil → Amigos: allí la fila es la relación entera y hay sitio para una
+   * confirmación; aquí son entradas de un menú nativo que ya exige un toque
+   * deliberado, y las tres son reversibles —volver a pedir es una solicitud
+   * nueva—. Lo único irreversible de la amistad es eliminarla, y eso
+   * deliberadamente NO está en este menú.
+   */
+  const onFriendAction = (action: string, participantId: string) => {
+    /*
+     * EL GUARDIÁN DEL DOBLE TOQUE VIVE AQUÍ, y no en las entradas del menú.
+     *
+     * Estuvo en el menú —mientras había un comando en vuelo, la fila se
+     * quedaba sin entradas sociales— y eso tenía un efecto que no se veía
+     * leyéndolo: para un participante CON cuenta las entradas de ciclo de
+     * vida están vacías por definición, así que quedarse sin las sociales
+     * dejaba el menú entero en `undefined`. `GroupBalanceRow` decide con eso
+     * si envuelve la identidad en `ActionMenu` o la pinta suelta, y cambiar
+     * de envoltorio cambia el TIPO del elemento padre: React desmonta el
+     * avatar y el nombre y los vuelve a montar dentro de otra caja. Eso era
+     * el «click» — la identidad parpadeando durante todo el viaje de red.
+     *
+     * Guardar aquí no cuesta nada: los dos hooks ya rehúsan un segundo
+     * comando con su propio `inFlight`, y lo único que hace esta línea es
+     * ignorarlo EN SILENCIO en vez de contarlo como un fallo. La identidad
+     * no se entera.
+     */
+    if (adding.busy !== null || friendActions.busy !== null) return;
+
+    const requestId = social.requestOf(participantId);
+    const report = (failure: string | null) => {
+      if (failure === null) return;
+      Alert.alert(
+        t('friends.actionFailedTitle'),
+        t(FRIEND_FAILURE_KEY[failure as keyof typeof FRIEND_FAILURE_KEY]),
+        [{ text: t('action.close') }],
+      );
+    };
+
+    if (action === FRIEND_MENU_ACTION.add) {
+      void adding.add(participantId).then((outcome) => {
+        if (outcome.kind === 'failed') {
+          report(outcome.failure);
+          return;
+        }
+        // El único estado que hay que contar: los demás se ven en el menú.
+        if (outcome.answer.state === 'cooldown') {
+          Alert.alert(t('friends.cooldown'), undefined, [{ text: t('action.understood') }]);
+        }
+      });
+      return;
+    }
+    // Las tres transiciones trabajan por request_id, que es lo que el mapa
+    // publica de una pendiente. Sin él no hay nada que contestar: el menú se
+    // quedó viejo y la relectura lo pondrá al día.
+    if (requestId === null) {
+      social.refresh();
+      return;
+    }
+    if (action === FRIEND_MENU_ACTION.accept) {
+      void friendActions.accept(requestId).then((outcome) => {
+        report(outcome.kind === 'failed' ? outcome.failure : null);
+      });
+    }
+    if (action === FRIEND_MENU_ACTION.decline) {
+      void friendActions.decline(requestId).then((outcome) => {
+        report(outcome.kind === 'failed' ? outcome.failure : null);
+      });
+    }
+    if (action === FRIEND_MENU_ACTION.cancel) {
+      void friendActions.cancel(requestId).then((outcome) => {
+        report(outcome.kind === 'failed' ? outcome.failure : null);
+      });
+    }
+  };
+
   /**
    * ELIMINAR, con la confirmación de Inicio y su misma disciplina.
    *
@@ -1068,53 +1191,92 @@ export default function GroupScreen() {
                               inactive={inactive}
                               linked={linkedOf.get(balance.participantId) === true}
                               /*
-                               * El menú al tocar: sobre un participante sin
-                               * cuenta y activo («Eliminar»/«Retirar», por la
-                               * lectura real), y sobre la fila PROPIA cuando el
-                               * vínculo procede de una reclamación («Me
-                               * equivoqué», F09/ADR-006). Inactivos y las cuentas de
-                               * otros no lo llevan.
+                               * EL MENÚ AL TOCAR, y son DOS conjuntos disjuntos
+                               * por construcción, no dos menús:
+                               *
+                               *   · el CICLO DE VIDA —«Asociar a mi cuenta»,
+                               *     «Eliminar»/«Retirar»— sobre un participante
+                               *     SIN cuenta y activo, por la lectura real del
+                               *     servidor;
+                               *   · lo SOCIAL (F12.E.D) sobre uno CON cuenta que
+                               *     no soy yo: «Añadir amigo», «Solicitud
+                               *     enviada» + «Cancelar», «Aceptar solicitud» +
+                               *     «Rechazar», o «Amigos».
+                               *
+                               * `is_linked` decide cuál de los dos, así que
+                               * ninguna fila puede llevar los dos a la vez y
+                               * concatenarlos no mezcla nada. La fila PROPIA no
+                               * lleva ninguno: la identidad en el grupo es
+                               * permanente (F10/ADR-002), salir es «Salir del
+                               * grupo», y el servidor contesta `self`.
+                               *
+                               * Sin entradas, `undefined`: la identidad no
+                               * responde al toque, exactamente como antes.
                                */
-                              menu={
-                                linkedOf.get(balance.participantId) === false &&
-                                !inactive &&
-                                !retirement.settling
-                                  ? [
-                                      /*
-                                       * «Asociar a mi cuenta» sólo con identidad
-                                       * propia en el grupo (F09/ADR-009): sin ella no
-                                       * hay a qué asociar, y el servidor lo rehúsa.
-                                       */
-                                      ...((movements.balances ?? []).some((one) => one.isSelf) &&
-                                      !associating.busy
-                                        ? [
-                                            {
-                                              id: 'associate',
-                                              title: t('group.associate'),
-                                              icon: Symbols.person,
-                                            },
-                                          ]
-                                        : []),
-                                      {
-                                        id: 'retire',
-                                        title: t(
-                                          historyOf.get(balance.participantId) === true
-                                            ? 'group.retireParticipant'
-                                            : 'group.removeParticipant',
-                                        ),
-                                        icon: Symbols.delete,
-                                        destructive: true,
-                                      },
-                                    ]
-                                  : /*
-                                     * La fila PROPIA no tiene menu: la identidad en el grupo es
-                                     * permanente (F10/ADR-002) y salir es «Salir del grupo».
-                                     */
-                                    undefined
-                              }
+                              menu={(() => {
+                                const lifecycle =
+                                  linkedOf.get(balance.participantId) === false &&
+                                  !inactive &&
+                                  !retirement.settling
+                                    ? [
+                                        /*
+                                         * «Asociar a mi cuenta» sólo con identidad
+                                         * propia en el grupo (F09/ADR-009): sin ella no
+                                         * hay a qué asociar, y el servidor lo rehúsa.
+                                         */
+                                        ...((movements.balances ?? []).some((one) => one.isSelf) &&
+                                        !associating.busy
+                                          ? [
+                                              {
+                                                id: 'associate',
+                                                title: t('group.associate'),
+                                                icon: Symbols.person,
+                                              },
+                                            ]
+                                          : []),
+                                        {
+                                          id: 'retire',
+                                          title: t(
+                                            historyOf.get(balance.participantId) === true
+                                              ? 'group.retireParticipant'
+                                              : 'group.removeParticipant',
+                                          ),
+                                          icon: Symbols.delete,
+                                          destructive: true,
+                                        },
+                                      ]
+                                    : [];
+                                /*
+                                 * LAS ENTRADAS SOCIALES NO SE VACÍAN NUNCA
+                                 * MIENTRAS SE ESPERA. Un comando en vuelo no
+                                 * cambia lo que la fila ofrece: lo cambia el
+                                 * servidor cuando contesta. Vaciarlas dejaba
+                                 * el menú en `undefined` —un participante con
+                                 * cuenta no tiene entradas de ciclo de vida—,
+                                 * y eso desmonta la identidad (ver el
+                                 * guardián en `onFriendAction`).
+                                 *
+                                 * Los cuatro estados accionables devuelven al
+                                 * menos una entrada, así que NINGUNA
+                                 * transición social puede vaciar el menú:
+                                 * `self` y `unavailable` son los únicos
+                                 * vacíos, y de ésos no se sale pulsando.
+                                 */
+                                const socialEntries = friendMenuEntries(
+                                  social.stateOf(balance.participantId),
+                                ).map((entry) => ({
+                                  id: entry.id,
+                                  title: t(entry.labelKey),
+                                  icon: Symbols[entry.iconKey],
+                                  destructive: entry.destructive,
+                                }));
+                                const all = [...lifecycle, ...socialEntries];
+                                return all.length > 0 ? all : undefined;
+                              })()}
                               onMenuSelect={(action) => {
                                 if (action === 'associate') {
                                   askAssociate(balance.participantId, balance.displayName);
+                                  return;
                                 }
                                 if (action === 'retire') {
                                   askRetire(
@@ -1122,7 +1284,9 @@ export default function GroupScreen() {
                                     balance.displayName,
                                     historyOf.get(balance.participantId) === true,
                                   );
+                                  return;
                                 }
+                                onFriendAction(action, balance.participantId);
                               }}
                             />
                           );

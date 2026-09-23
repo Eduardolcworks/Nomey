@@ -10,7 +10,7 @@ import { normaliseDisplayName } from './credentials';
 import { useAuthSubmit } from './use-auth-submit';
 
 /**
- * The name, and the pencil that changes it.
+ * The name, and the field that changes it.
  *
  * **Edited in place rather than in a sheet.** It is one short field with no
  * validation branching and nothing destructive behind it; a sheet would be a
@@ -18,10 +18,12 @@ import { useAuthSubmit } from './use-auth-submit';
  * text swaps for an input at the same typographic role so nothing under it
  * jumps when the mode changes.
  *
- * The pencil sits immediately after the name inside the same target rather
- * than pinned to the far right of the row. At the edge it reads as an action
- * on the whole block - which, on a screen whose block also contains a photo,
- * is genuinely ambiguous about what would be edited.
+ * **The pencil is no longer this component's**, since F12.E.C. It sat right
+ * after the name, the username editor had one of its own, and two pencils in
+ * a two-line identity block were two controls for one intention - "change my
+ * details". Profile's header now has a single one that opens both. What is
+ * still this component's is everything else: the draft, the validation, the
+ * write and when it closes.
  *
  * **The write is not optimistic**, and that matters more here than it looks.
  * The screen shows what the session says, the session says what the server
@@ -46,51 +48,66 @@ export function DisplayNameEditor({
   name,
   onSave = updateDisplayName,
   notice,
+  editing,
+  onEditingChange,
 }: {
   name: string | null;
   /** The write. Resolves to an `AuthResult`; the editor closes only on `ok`. */
   onSave?: (draft: string) => Promise<AuthResult>;
   readonly notice?: string;
+  /**
+   * SI ESTÁ EN EDICIÓN, Y LO DECIDE QUIEN LO MONTA.
+   *
+   * Tuvo su propio estado y su propio lápiz. Desde F12.E.C la cabecera de
+   * Perfil tiene UN solo lápiz para los dos campos —el nombre y el
+   * `@username`—, así que quien abre la edición es la pantalla; este
+   * componente sigue siendo el dueño de todo lo demás: el borrador, la
+   * validación, el envío y cuándo se cierra.
+   *
+   * El borrador **se deriva** del nombre mientras nadie haya escrito
+   * (`draft === null`), así que abrir no necesita sembrar nada desde un
+   * efecto —que es lo que `react-hooks/set-state-in-effect` prohíbe— y la
+   * primera pulsación ya encuentra el valor correcto.
+   */
+  readonly editing: boolean;
+  readonly onEditingChange: (next: boolean) => void;
 }) {
   const { t } = useTranslation();
   const theme = useTheme();
   const { state, submit, clearError, running } = useAuthSubmit();
 
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
-
-  function open() {
-    setDraft(name ?? '');
-    clearError();
-    setEditing(true);
-  }
+  const [touched, setTouched] = useState<string | null>(null);
+  const draft = touched ?? name ?? '';
 
   function close() {
     clearError();
-    setEditing(false);
+    setTouched(null);
+    onEditingChange(false);
   }
 
   async function save() {
     const result = await submit(() => onSave(draft));
     // `undefined` means the guard skipped a second submission; the first is
     // still running and owns the outcome.
-    if (result?.ok === true) setEditing(false);
+    if (result?.ok === true) {
+      setTouched(null);
+      onEditingChange(false);
+    }
   }
 
   if (!editing) {
     return (
       <View style={styles.block}>
         <View style={styles.reading}>
+          {/*
+           * Sin lápiz propio: lo sustituye el ÚNICO de la cabecera de Perfil,
+           * que abre este editor y el del `@username` a la vez. Dos lápices
+           * en un bloque de identidad de dos líneas eran dos controles para
+           * una misma intención — «cambiar mis datos».
+           */}
           <ThemedText variant="title" numberOfLines={1} style={styles.name}>
             {name ?? t('account.noName')}
           </ThemedText>
-          <IconButton
-            name={Symbols.edit}
-            label={t('profile.editName')}
-            size={16}
-            colour={theme.textSecondary}
-            onPress={open}
-          />
         </View>
         {notice === undefined ? null : (
           <ThemedText variant="bodySmall" themeColor="textSecondary" style={styles.notice}>
@@ -111,7 +128,7 @@ export function DisplayNameEditor({
       <View style={styles.row}>
         <TextInput
           value={draft}
-          onChangeText={setDraft}
+          onChangeText={setTouched}
           editable={!running}
           autoFocus
           selectTextOnFocus
@@ -160,12 +177,19 @@ export function DisplayNameEditor({
 }
 
 const styles = StyleSheet.create({
-  block: { alignItems: 'center', gap: Spacing.xxs },
-  notice: { textAlign: 'center' },
+  /*
+   * A LA IZQUIERDA, no centrado. La cabecera de Perfil pasó de una columna
+   * centrada a una fila —avatar a la izquierda, identidad a su derecha— y un
+   * nombre centrado dentro de su columna se habría despegado del eje del
+   * `@username` de debajo, que es justo lo que el bloque de identidad tiene
+   * que compartir. Perfil es el único consumidor de este editor.
+   */
+  block: { alignItems: 'flex-start', gap: Spacing.xxs },
+  notice: { textAlign: 'left' },
   reading: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: Spacing.xxs,
     // Keeps the two modes the same height, so swapping does not shift the
     // sections below.
@@ -173,7 +197,7 @@ const styles = StyleSheet.create({
   },
   name: {
     flexShrink: 1,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   editing: {
     alignSelf: 'stretch',
@@ -188,7 +212,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     minHeight: 44,
-    textAlign: 'center',
+    textAlign: 'left',
     paddingHorizontal: Spacing.sm,
     borderBottomWidth: 1,
     borderRadius: Radius.sm,

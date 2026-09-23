@@ -13,7 +13,10 @@
 > En una línea: **lo que deja de ser vigente se sustituye o se borra, nunca se
 > apila debajo de lo nuevo.**
 
-Actualizado el **2026-09-20**, al **cerrar F12.B** (backend de
+Actualizado el **2026-09-23**, al **implementar F12.E.C y F12.E.D** (enlace
+de amistad con su QR, y amistad desde un participante de grupo: las dos en
+la misma rama y el mismo PR por decisión de producto, VALIDADAS a mano y
+pendientes de mergear). Antes, al **cerrar F12.B** (backend de
 transferencias: B1 propuestas Personal e `internal_transfer`, B2 solicitudes
 de pago mediante enlace, B3 propuestas de grupo y `settlement_by_transfer`;
 las tres clases de F12 tienen escritor; **F12.C en curso**: C1, las
@@ -21,9 +24,9 @@ transferencias Personal en el cliente, hecha el 2026-09-20; C2, la solicitud
 de pago en el cliente, **rechazada por producto** el 2026-09-20 —el backend
 B2 queda, sin pantalla—; sigue C3. **F12.E (Amigos) abierto el 2026-09-22**:
 F12/ADR-005 y ADR-006 propuestos, backend E.A integrado, interfaz base E.B
-integrada el 2026-09-22; selector de Amigos en Transferencias, E.E,
-implementado en rama, validado a mano y pendiente de mergear; reconciliado
-con F11.C tras su integración).
+integrada el 2026-09-22, selector de Amigos en Transferencias (E.E)
+integrado el 2026-09-22, y **E.C + E.D implementadas en rama** el
+2026-09-23; reconciliado con F11.C y con F11.D tras sus integraciones).
 La **Fase 10** cerró el
 2026-09-16 y la **Fase 9** el 2026-09-14. **F11.A** está cerrada (decisiones
 de multimoneda, F11/ADR-001) y de **F11.B** están integrados el dominio, el
@@ -192,14 +195,29 @@ simétrica con dos voluntades y enlace personal (F12/ADR-005, ADR-006,
 propuestos); E.A (backend, `20260930120000`) integrado; **E.B (Perfil →
 Amigos, lista, alta por `@username` exacto, Notificaciones y campana)
 INTEGRADA el 2026-09-22 (PR #81)**; **E.E (selector de Amigos en
-Transferencias) implementado en rama y VALIDADO a mano en iPhone el
-2026-09-22 — pendiente de mergear, y Amigos NO está completo**; en esa misma rama, la
-decisión de producto de que **una transferencia Personal RECIBIDA y aceptada
-cuenta en el agregado de «Ingresos» de quien la recibe** sin ser una segunda
-operación (`20261001120000`: un sumando más en `api.personal_statistics`, sólo
+Transferencias) INTEGRADA el 2026-09-22 (PR #83)**, junto con la decisión de
+producto de que **una transferencia Personal RECIBIDA y aceptada cuenta en el
+agregado de «Ingresos» de quien la recibe** sin ser una segunda operación
+(`20261002120000`: un sumando más en `api.personal_statistics`, sólo
 `internal_transfer` y sólo el lado recibido; una liquidación de grupo NO cuenta,
-y enviar sigue sin ser gasto); E.C (enlace + QR +
-Compartir) y E.D (alta desde un participante de grupo) siguen PENDIENTES. F12.D sigue siendo el cierre.** La identidad pública existe de
+y enviar sigue sin ser gasto). **E.C (enlace de amistad: Compartir, QR,
+regenerar, llegada y respuesta, con la nueva cabecera de Perfil) y E.D
+(amistad desde un participante de grupo, `20261004120000`) están
+IMPLEMENTADAS y VALIDADAS A MANO, y pendientes de mergear: comparten rama y
+PR por decisión de producto.** Con ellas va el arreglo de estabilidad visual
+de la fila de Saldos: un comando de amistad en vuelo ya no vacía el menú,
+porque vaciarlo cambiaba el envoltorio de la identidad y React remontaba el
+avatar y el nombre; el guardián del doble toque vive ahora en el manejador.
+**Con esto Amigos queda funcionalmente completo en rama** —A, B, C, D y E—,
+y sólo se dará por cerrado al mergear. **Deuda separada, fuera de esa PR**:
+las acciones de ciclo de vida de esa misma fila —«Asociar a mi cuenta» y
+«Eliminar»/«Retirar»— comparten el patrón de remontaje transitorio que se
+corrigió para lo social, y no se tocaron. E.D no añade ni una relación, ni una columna, ni un código de
+error: `api.create_friend_request_to_participant` y
+`api.group_friend_status` entran por el MISMO núcleo que la puerta de
+`@username` (`sec.create_friend_request_core`), y `api.group_participant`
+no publica ni un dato nuevo de identidad. **Amigos NO está cerrado** hasta
+ese merge y esa validación. F12.D sigue siendo el cierre.** La identidad pública existe de
 extremo a extremo —backend (A1), alta y Auth (A2) y cliente (A3)—; las tres
 clases de transferencia tienen su backend (B1, B2, B3) y la transferencia
 Personal tiene ya su pantalla (C1: `features/transfers`, sin cola F7, sin

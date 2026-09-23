@@ -435,7 +435,16 @@ describe('las superficies de Perfil', () => {
     const fuente = code('features/auth/account-avatar.tsx');
     expect(fuente).toContain('<ControlMaterial radius={Radius.full} fill={!pressed} />');
     expect(fuente).toContain("boxShadow: emphasisDepth(pressed ? 'pressed' : 'raised')");
-    expect(fuente).toContain('borderColor: controlEdge(theme.border)');
+    /*
+     * EL BORDE DEL AVATAR ES UNA EXCEPCIÓN NOMBRADA, no el del material.
+     * Con `controlEdge(theme.border)` a un pelo de grosor sobre un relleno
+     * casi negro, el círculo desaparecía y sólo se leían las iniciales
+     * flotando. Relleno gris de tarjeta y borde de acento a dos puntos: es
+     * el único amarillo de Perfil, y lo que rodea se lo gana.
+     */
+    expect(fuente).toContain('backgroundColor: pressed ? theme.surface : theme.surfaceRaised');
+    expect(fuente).toContain('borderColor: theme.accent');
+    expect(fuente).toContain('borderWidth: 2');
     // Nadie volvió a pedir la mitad interior del token en este control.
     expect(fuente).not.toContain('surfaceDepth(');
   });

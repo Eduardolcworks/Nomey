@@ -444,6 +444,24 @@ jobs:
       - name: Friends checks
         run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/friends.sql
 
+      # Friendship from a group participant (F12.E.D, 20261004120000):
+      # catalogue (both api functions definers owned by the provisioner with
+      # EXECUTE only for authenticated; sec.participant_account a definer of
+      # the WRITER that authenticated cannot execute; no USAGE on sec; no new
+      # relation, column or origin), THE PRIVACY PIN (api.group_participant
+      # publishes exactly the F10 column list and no account identity; the
+      # status function returns three columns and only one text; is_member
+      # untouched; the provisioner read policy on participant_user_link still
+      # self-only), ONE core (the lock, the caps and the insert live only in
+      # sec.create_friend_request_core and the resolver throttle only in the
+      # handle door), the six states end to end, a departed participant still
+      # friendable, a participant of ANOTHER group and a nonexistent id
+      # indistinguishable, a non-member reading zero rows, the shared counter
+      # across both doors, and friendship creating no operation, effect, scope
+      # or membership.
+      - name: Group friends checks
+        run: docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 < supabase/checks/group-friends.sql
+
       # Group transfer proposals and the two-will settlement_by_transfer
       # (F12/ADR-003, F12.B3, 20260928120000): structure and owners (the three
       # commands and the accounting under the writer, the shared budget under
@@ -653,6 +671,17 @@ jobs:
       # owner accepts it. Fixture only.
       - name: Friend request races (real sessions)
         run: bash scripts/friend-request-race-evidence.sh
+
+      # The SECOND door of the same table, as real sessions (F12.E.D): a
+      # crossed request by @handle vs by participant (the second waits on the
+      # SAME pair lock and gets incoming_pending with the first id), create by
+      # participant vs accepting the incoming one in both orders, two distinct
+      # command keys at once leaving one row, the group lifecycle around a
+      # creation (the target leaving keeps it possible, the actor leaving
+      # closes that door with NOT_AUTHORIZED and leaks nothing), and the
+      # hourly cap counted ONCE across both doors. Fixture only; removed.
+      - name: Group friend races (real sessions)
+        run: bash scripts/group-friend-race-evidence.sh
 
       # Group transfer proposals as real sessions (F12/ADR-003 §9, §13;
       # F12.B3): accept vs leave_group in both orders (range 1 serializes

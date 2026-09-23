@@ -172,7 +172,7 @@ export {
   redeemedInvitation,
   takeInvitation,
 } from './invitation-arrival';
-export { useInvitationLink, useOpenPendingInvitation } from './use-invitation-link';
+export { useOpenPendingInvitation } from './use-invitation-link';
 export { type InvitationPreview } from './invitation-service';
 export { PREVIEW_DEBOUNCE_MS, useInvitationPreview, useRedeemInvitation } from './use-join-group';
 export {

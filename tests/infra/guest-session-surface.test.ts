@@ -53,7 +53,12 @@ const profileGuest = () =>
   slice(
     PROFILE,
     'if (isGuest(state)) {',
-    '  return (\n    <PlaceholderScreen title="nav.profile">\n      <View style={styles.identity}>',
+    /*
+     * El corte es el `return` de la rama de CUENTA NORMAL, que desde F12.E.C
+     * abre con el comentario de la cabecera de identidad en vez de con la
+     * vista: lo que se acota sigue siendo exactamente la rama del invitado.
+     */
+    '  return (\n    <PlaceholderScreen title="nav.profile">\n      {/*',
   );
 
 describe('11 · signed-out: Entrar sigue igual, con «Entrar como invitado» y el nombre', () => {

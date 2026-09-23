@@ -9,14 +9,14 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTranslation } from '@/lib/i18n';
-import { GlassSurface, Icon, ThemedText } from '@/ui/components';
+import { GlassSurface, Icon, QrScanner, ThemedText } from '@/ui/components';
 import { Motion, Radius, Spacing, Symbols, Typography, useTheme } from '@/ui/theme';
 import { SLIDE_IN, timing } from '@/ui/theme/motion-runtime';
 
 import { DESCRIPTION_LINES, GROUP_ACTIONS, groupActionHandler, sheetHeight } from './group-actions';
 import { rememberRedeemedInvitation, takeInvitation } from './invitation-arrival';
+import { readInvitation } from './invitation-link';
 import { JoinEntry, WhoAreYou } from './join-panel';
-import { QrScanner } from './qr-scanner';
 import { useInvitationPreview, useRedeemInvitation } from './use-join-group';
 
 /**
@@ -455,7 +455,24 @@ export function GroupActionSheet({
 
       {scanning ? (
         <QrScanner
-          onToken={scanned}
+          labels={{
+            close: t('action.close'),
+            hint: t('groups.scanHint'),
+            foreign: t('groups.scanForeign'),
+            permission: t('groups.scanPermission'),
+            denied: t('groups.scanDenied'),
+            deniedAction: t('groups.scanUseLink'),
+          }}
+          /*
+           * La lectura del QR de una invitación es de esta feature, no del
+           * escáner: él entrega la cadena y aquí se decide si es nuestra.
+           */
+          onScan={(text) => {
+            const token = readInvitation(text);
+            if (token === null) return false;
+            scanned(token);
+            return true;
+          }}
           onCancel={() => {
             setScanning(false);
           }}

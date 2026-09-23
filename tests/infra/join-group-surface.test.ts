@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
+/**
+ * El fuente sin comentarios. Lo que estas guardas persiguen es lo que se
+ * EJECUTA: una explicación que nombre `readInvitation` para decir dónde ha
+ * dejado de estar no es una llamada.
+ */
+const sinProsa = (source: string) =>
+  source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
 import ROUTE from '../../src/app/group-action.tsx?raw';
 import SHEET from '../../src/features/groups/group-action-sheet.tsx?raw';
 import PANEL from '../../src/features/groups/join-panel.tsx?raw';
-import SCANNER from '../../src/features/groups/qr-scanner.tsx?raw';
+import SCANNER from '../../src/ui/components/qr-scanner.tsx?raw';
+import ACTION_SHEET_SCAN from '../../src/features/groups/group-action-sheet.tsx?raw';
 import HOOK from '../../src/features/groups/use-join-group.ts?raw';
 import SERVICE from '../../src/features/groups/invitation-service.ts?raw';
 import LINK from '../../src/features/groups/invitation-link.ts?raw';
@@ -93,11 +102,23 @@ describe('QR y enlace: el mismo flujo', () => {
     expect(SHEET).toContain('{scanning ? (\n        <QrScanner');
     expect(SCANNER).toContain('if (handled.current) return;');
     expect(SCANNER).toContain('active={!done}');
-    expect(SCANNER).toContain('const token = readInvitation(result.data);');
+    /*
+     * DESDE F12.E.C EL ESCÁNER NO SABE QUÉ LEE. Se mudó a `ui/` porque tiene
+     * dos consumidores —la invitación y el enlace de amistad— que viven en
+     * features que no pueden importarse entre sí, y entrega la cadena cruda:
+     * `readInvitation` bajó al sitio de llamada, que es quien sabe qué busca.
+     * Lo que este bloque vigila ahora es que ninguna de las dos mitades se
+     * pierda por el camino.
+     */
+    expect(SCANNER).toContain('if (!onScan(result.data)) {');
+    expect(sinProsa(SCANNER)).not.toMatch(/readInvitation|readFriendLink/);
+    expect(ACTION_SHEET_SCAN).toContain('const token = readInvitation(text);');
+    expect(ACTION_SHEET_SCAN).toContain('scanned(token);');
     expect(SCANNER).not.toMatch(/Linking\.openURL|WebBrowser/);
-    // Denegado: se vuelve, y queda la alternativa del enlace.
-    expect(SCANNER).toContain("t('groups.scanDenied')");
-    expect(SCANNER).toContain("label={t('groups.scanUseLink')}");
+    // Denegado: se vuelve, y queda la alternativa del enlace. Los textos los
+    // pone quien lo abre: `ui/` no puede leer el catálogo.
+    expect(ACTION_SHEET_SCAN).toContain("denied: t('groups.scanDenied')");
+    expect(ACTION_SHEET_SCAN).toContain("deniedAction: t('groups.scanUseLink')");
     // Configuración nativa: cámara sí, micrófono no.
     expect(CONFIG).toContain("'expo-camera'");
     expect(CONFIG).toContain('microphonePermission: false');
@@ -161,10 +182,20 @@ describe('el enlace pulsado', () => {
     const TABS = (await import('../../src/app/(tabs)/_layout.tsx?raw')).default;
     const INTENT = (await import('../../src/app/+native-intent.tsx?raw')).default;
     const ARRIVAL = (await import('../../src/features/groups/use-invitation-link.ts?raw')).default;
-    expect(ROOT).toContain('useInvitationLink();');
+    const LISTENER = (await import('../../src/lib/linking/incoming-links.ts?raw')).default;
+    /*
+     * Desde F12.E.C el oyente es UNO y vive en `lib/linking`: dos features
+     * con enlace propio habrían puesto dos, cada uno consultando
+     * `getInitialURL()` por su cuenta. La invitación sigue siendo el primer
+     * sumidero y nada de lo suyo cambia.
+     */
+    expect(ROOT).toContain('useIncomingLinks(LINK_SINKS);');
+    expect(ROOT).toContain('const LINK_SINKS = [arriveInvitation, arriveFriendLink] as const;');
     expect(TABS).toContain('useOpenPendingInvitation(isSignedIn(state));');
-    expect(ARRIVAL).toContain('Linking.getInitialURL()');
-    expect(ARRIVAL).toContain("Linking.addEventListener('url'");
+    expect(LISTENER).toContain('Linking.getInitialURL()');
+    expect(LISTENER).toContain("Linking.addEventListener('url'");
+    // Y la feature ya no monta ninguno: sólo recoge lo que le dejan.
+    expect(sinProsa(ARRIVAL)).not.toMatch(/Linking.(getInitialURL|addEventListener)/);
     // Sin ruta y sin token en parámetros: la intención nativa no navega a /join.
     expect(INTENT).toContain('if (withoutQuery.endsWith(`/${JOIN_PATH}`)) return null;');
     expect(ARRIVAL).toContain("router.push('/group-action');");

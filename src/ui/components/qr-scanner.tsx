@@ -3,38 +3,63 @@ import { useEffect, useRef, useState } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useTranslation } from '@/lib/i18n';
-import { ActionButton, IconButton, ThemedText } from '@/ui/components';
 import { Spacing, Symbols, useTheme } from '@/ui/theme';
 
-import { readInvitation } from './invitation-link';
+import { ActionButton } from './action-button';
+import { IconButton } from './icon-button';
+import { ThemedText } from './themed-text';
 
 /**
- * EL ESCÁNER DE QR DE UNA INVITACIÓN. F09/ADR-004.
+ * EL ESCÁNER DE QR. Una cámara, un código, y **ninguna idea de qué significa**.
  *
- * `expo-camera` es la única API de lectura de códigos que Expo Go SDK 57 trae;
- * aquí se usa para **una sola cosa**: leer un QR. No graba imagen, vídeo ni
- * audio (`mute`, sin micrófono en la configuración nativa), pide el permiso
- * de cámara **sólo al abrirse** —no al abrir la ventana de unirse— y libera la
- * cámara al cerrarse: el `Modal` desmonta la vista y `active` se apaga antes.
+ * `expo-camera` es la única API de lectura de códigos que Expo Go SDK 57
+ * trae; aquí se usa para **una sola cosa**: leer un QR. No graba imagen,
+ * vídeo ni audio (`mute`, sin micrófono en la configuración nativa), pide el
+ * permiso de cámara **sólo al abrirse** y libera la cámara al cerrarse: el
+ * `Modal` desmonta la vista y `active` se apaga antes.
  *
  * **Una lectura, una vez.** El sensor repite el mismo código muchas veces por
- * segundo; `handled` deja pasar la primera y apaga el escáner. Lo leído pasa
- * por `readInvitation`: un QR ajeno a Nomey no abre nada ni intenta unir — se
- * dice que no es una invitación y se puede seguir apuntando.
+ * segundo; `handled` deja pasar la primera y apaga el escáner.
  *
- * Denegar el permiso o cancelar devuelve a la ventana, que conserva la
- * alternativa de pegar el enlace.
+ * ═══════════ POR QUÉ VIVE AQUÍ Y NO EN UNA FEATURE ═══════════
+ *
+ * Nació en `features/groups` leyendo invitaciones, y llamaba a
+ * `readInvitation` por dentro. Desde F12.E.C tiene DOS consumidores reales
+ * —la invitación a un grupo y el enlace de amistad—, que viven en features
+ * distintas y no pueden importarse entre sí. Duplicar la cámara, el permiso y
+ * su ciclo de vida para leer la misma clase de código habría sido dos copias
+ * que se separan al primer retoque.
+ *
+ * Así que el escáner **entrega la cadena cruda** y quien lo abre decide si la
+ * reconoce: `onScan` devuelve `true` cuando lo leído es suyo —y entonces el
+ * escáner se apaga— y `false` cuando no, y se sigue apuntando con el aviso de
+ * «esto no es nuestro». Aquí dentro no hay ni un `readInvitation` ni un
+ * `readFriendLink`, y no puede haberlos: `ui/` no importa features.
+ *
+ * Por lo mismo **los textos llegan traducidos**, como en `DateSheet`: `ui/`
+ * tampoco puede leer el catálogo, y quien lo monta sí sabe qué está buscando.
  */
 export function QrScanner({
-  onToken,
+  labels,
+  onScan,
   onCancel,
 }: {
-  /** Un token de invitación leído del QR. Se llama una sola vez por apertura. */
-  readonly onToken: (token: string) => void;
+  /** Ya traducidos: este control no conoce el catálogo. */
+  readonly labels: {
+    readonly close: string;
+    readonly hint: string;
+    readonly foreign: string;
+    readonly permission: string;
+    readonly denied: string;
+    readonly deniedAction: string;
+  };
+  /**
+   * Lo leído, crudo. `true` = reconocido (el escáner se apaga y no vuelve a
+   * disparar); `false` = ajeno, se avisa y se sigue apuntando.
+   */
+  readonly onScan: (text: string) => boolean;
   readonly onCancel: () => void;
 }) {
-  const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
@@ -64,15 +89,13 @@ export function QrScanner({
             barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
             onBarcodeScanned={(result) => {
               if (handled.current) return;
-              const token = readInvitation(result.data);
-              if (token === null) {
-                // Un QR que no es de Nomey: se dice, y se sigue apuntando.
+              if (!onScan(result.data)) {
+                // Un QR que no es de quien lo abrió: se dice, y se sigue apuntando.
                 setForeign(true);
                 return;
               }
               handled.current = true;
               setDone(true);
-              onToken(token);
             }}
           />
         ) : null}
@@ -80,7 +103,7 @@ export function QrScanner({
         <View style={[styles.top, { paddingTop: insets.top + Spacing.sm }]}>
           <IconButton
             name={Symbols.close}
-            label={t('action.close')}
+            label={labels.close}
             colour={theme.text}
             onPress={onCancel}
           />
@@ -89,15 +112,15 @@ export function QrScanner({
         <View style={[styles.bottom, { paddingBottom: insets.bottom + Spacing.lg }]}>
           <ThemedText variant="body" themeColor="text" style={styles.hint}>
             {denied
-              ? t('groups.scanDenied')
+              ? labels.denied
               : permission?.granted === true
                 ? foreign
-                  ? t('groups.scanForeign')
-                  : t('groups.scanHint')
-                : t('groups.scanPermission')}
+                  ? labels.foreign
+                  : labels.hint
+                : labels.permission}
           </ThemedText>
           {denied ? (
-            <ActionButton label={t('groups.scanUseLink')} onPress={onCancel} tone="primary" />
+            <ActionButton label={labels.deniedAction} onPress={onCancel} tone="primary" />
           ) : null}
         </View>
       </View>

@@ -15,11 +15,12 @@ import {
   useRecoveryLink,
   wakeIdentity,
 } from '@/features/auth';
-import { wakeFriends } from '@/features/friends';
-import { groupCommandHandlers, sendGroupCreate, useInvitationLink } from '@/features/groups';
+import { arriveFriendLink, wakeFriends } from '@/features/friends';
+import { arriveInvitation, groupCommandHandlers, sendGroupCreate } from '@/features/groups';
 import { personalCommandHandlers, sendPersonalEntry } from '@/features/personal';
 import { wakeTransfers } from '@/features/transfers';
 import { useQueueRuntime, AddBackdropProvider, ScopeProvider } from '@/features/shell';
+import { useIncomingLinks } from '@/lib/linking';
 import { type CommandHandlers, wakeQueue } from '@/lib/offline';
 import {
   identityKey,
@@ -227,6 +228,19 @@ function ScopeBinding({ children }: { children: ReactNode }) {
  * no cambiaría nada —el worker se crea una sola vez— pero invitaría a pensar
  * que sí.
  */
+/**
+ * QUIÉN RECONOCE CADA CLASE DE ENLACE ENTRANTE.
+ *
+ * La misma razón que `COMMAND_HANDLERS`: esta capa es la única que puede
+ * conocerlos a la vez. `lib/linking` no puede importar una feature, y las
+ * features no se importan entre sí. Cada sumidero mira la URL, reconoce la
+ * suya o la ignora, y ninguno navega.
+ *
+ * Fuera del componente porque es una constante: recrearla en cada render
+ * re-suscribiría el oyente sin que nada hubiera cambiado.
+ */
+const LINK_SINKS = [arriveInvitation, arriveFriendLink] as const;
+
 const COMMAND_HANDLERS: CommandHandlers = {
   ...personalCommandHandlers(sendPersonalEntry),
   ...groupCommandHandlers(sendGroupCreate),
@@ -311,11 +325,17 @@ function RootNavigator() {
    */
   useRecoveryLink({ sessionStatus: state.status });
   /*
-   * Y el enlace de invitación (F09/ADR-004), con el mismo criterio: un solo
-   * oyente, por encima de las ramas, que sólo deja el token esperando. Quién
-   * lo usa —la hoja de «Únete»— y cuándo —con sesión— lo deciden las pestañas.
+   * Y LOS ENLACES DE PRODUCTO, con el mismo criterio: UN solo oyente, por
+   * encima de las ramas, que sólo deja el token esperando. Quién lo usa y
+   * cuándo lo deciden las pantallas, con la sesión y la identidad delante.
+   *
+   * Desde F12.E.C son dos clases —la invitación a un grupo (F09/ADR-004) y
+   * el enlace de amistad (F12/ADR-006)—, y cada una vive en su feature. Con
+   * un oyente por feature, cada una habría consultado `getInitialURL()` por
+   * su cuenta y el orden entre ellas habría sido el de montaje. El oyente
+   * está en infraestructura y reparte; las features sólo reconocen lo suyo.
    */
-  useInvitationLink();
+  useIncomingLinks(LINK_SINKS);
 
   /*
    * The recovery surface wins over both ordinary branches while it is active.
@@ -575,6 +595,19 @@ function RootNavigator() {
           <Stack.Protected guard={isSignedIn(state) && !recovering && !gate && !isGuest(state)}>
             <Stack.Screen name="friends/index" />
             <Stack.Screen name="friends/add" />
+            {/*
+             * El enlace de amistad (F12.E.C), tras la MISMA puerta: mi QR
+             * exige tener enlace —y `api.my_friend_link` lo rehúsa sin
+             * username—, y responder a uno ajeno exige poder resolverlo.
+             *
+             * **Un enlace recibido antes de eso NO se pierde**: el token
+             * espera en `friend-link-arrival` mientras la persona entra,
+             * convierte su cuenta de invitada o elige username, y la pantalla
+             * se abre cuando la guarda lo permite. Lo que no ocurre es
+             * preguntarle al servidor antes de tiempo.
+             */}
+            <Stack.Screen name="friend-link" />
+            <Stack.Screen name="friend-request" />
           </Stack.Protected>
 
           {/*

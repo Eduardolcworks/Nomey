@@ -8,18 +8,53 @@
  * exact `@username`, and the incoming requests in Notificaciones with their
  * share of the bell.
  *
- * **What is deliberately NOT here**: the friendship link, its QR and its
- * arrival (E.C), anything about groups or participants (E.D), and the
- * recipient picker of Transfers (E.E). `api.my_friend_link`,
- * `api.rotate_friend_link`, `api.preview_friend_link` and
- * `api.respond_friend_link` exist in the backend since E.A and are not
- * called from anywhere yet.
+ * Since then it also carries the friendship link with its QR, its arrival
+ * and its answer (E.C), the recipient picker of Transfers (E.E) and, from
+ * E.D, the social state of a group's participants: asking someone for their
+ * friendship from inside a group, without ever learning their `@username`.
+ *
+ * **The group is composed in `app/`, not imported here.** `features/groups`
+ * and `features/friends` never reach for each other —the dependency rule
+ * forbids feature → feature— so the group screen reads this map and hands
+ * `GroupBalanceRow` menu entries it already knew how to take.
  *
  * Nothing in here goes through the F7 queue, and nothing in here is
  * persisted.
  */
 export { CandidateField } from './candidate-field';
 export { FriendPicker } from './friend-picker';
+export { FRIEND_PATH, friendLink, readFriendLink } from './friend-link';
+export {
+  arriveFriendLink,
+  peekFriendLink,
+  resetFriendLinkArrival,
+  subscribeFriendLink,
+  takeFriendLink,
+} from './friend-link-arrival';
+export { FRIEND_ACTION_SIZE, FriendLinkActions } from './friend-link-actions';
+export { FriendLinkRequestWindow } from './friend-link-request-window';
+export {
+  FRIEND_LINK_RELATIONS,
+  type FriendLinkPreview,
+  type FriendLinkRelation,
+  type FriendLinkResponse,
+  isAnswerable,
+  type MyFriendLink,
+  PREVIEW_NOTICE,
+} from './friend-link-state';
+export { FriendLinkWindow } from './friend-link-window';
+export { useOpenPendingFriendLink } from './use-open-friend-link';
+export {
+  type FriendLinkResponder,
+  type FriendLinkView,
+  useFriendLinkResponse,
+} from './use-friend-link-response';
+export {
+  friendLinkHere,
+  type MyFriendLinkControl,
+  type MyFriendLinkState,
+  useMyFriendLink,
+} from './use-my-friend-link';
 export {
   FRIEND_ROW_HEIGHT,
   friendListHeight,
@@ -89,3 +124,23 @@ export {
 export { type CandidateLookup, useLookupCandidate } from './use-lookup-candidate';
 export { type MyFriendRequests, useMyFriendRequests } from './use-my-friend-requests';
 export { type MyFriends, useMyFriends } from './use-my-friends';
+export {
+  GROUP_FRIEND_STATES,
+  type GroupFriendState,
+  type GroupFriendStatus,
+  hasFriendAction,
+  parseGroupFriendRow,
+} from './group-friend';
+export {
+  FRIEND_MENU_ACTION,
+  type FriendMenuActionId,
+  type FriendMenuEntry,
+  friendMenuEntries,
+} from './group-friend-actions';
+export {
+  type AddParticipantFriend,
+  type AddParticipantFriendOutcome,
+  type ParticipantFriendAnswer,
+  useAddParticipantFriend,
+} from './use-add-participant-friend';
+export { type GroupFriendMap, useGroupFriendStatus } from './use-group-friend-status';

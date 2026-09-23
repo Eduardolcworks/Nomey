@@ -1,34 +1,22 @@
-import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 
-import { arriveInvitation, peekInvitation, subscribeInvitation } from './invitation-arrival';
+import { peekInvitation, subscribeInvitation } from './invitation-arrival';
 
-/**
- * ESCUCHA LOS ENLACES DE INVITACIÓN. Va en la raíz —como el de recuperación—
- * para no perder llegadas mientras la rama de sesión cambia: el enlace puede
- * llegar con la app fría (`getInitialURL`), en la pantalla de entrar, o con la
- * app abierta (`url`). Sólo deja el token en `invitation-arrival`; no navega.
+/*
+ * ═══════ EL OYENTE DE ENLACES YA NO VIVE AQUÍ ═══════
+ *
+ * Lo montaba este módulo (`useInvitationLink`) mientras la invitación era el
+ * único enlace de producto. Desde F12.E.C hay dos —la invitación y el enlace
+ * de amistad—, en features que no pueden importarse entre sí, así que cada
+ * una habría montado el suyo: dos `Linking.addEventListener`, dos
+ * `getInitialURL()` y un orden entre ellos decidido por el montaje.
+ *
+ * El oyente es ahora UNO y vive en `lib/linking`; la raíz le entrega los
+ * sumideros. Aquí queda lo de esta feature: `arriveInvitation` reconoce lo
+ * suyo (`invitation-arrival`) y este hook abre la hoja cuando toca. Nada de
+ * lo que la invitación hacía cambió de comportamiento.
  */
-export function useInvitationLink(): void {
-  useEffect(() => {
-    let active = true;
-    void Linking.getInitialURL()
-      .then((url) => {
-        if (active) arriveInvitation(url);
-      })
-      .catch(() => {
-        // Sin URL de arranque, o el sistema no la dio: no hay invitación.
-      });
-    const subscription = Linking.addEventListener('url', (event) => {
-      if (active) arriveInvitation(event.url);
-    });
-    return () => {
-      active = false;
-      subscription.remove();
-    };
-  }, []);
-}
 
 /**
  * ABRE «ÚNETE» CUANDO HAY UNA INVITACIÓN ESPERANDO Y YA HAY SESIÓN. Vive en el
