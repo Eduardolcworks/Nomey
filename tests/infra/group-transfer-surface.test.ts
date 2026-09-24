@@ -24,6 +24,7 @@ import OPERATION from '../../supabase/migrations/20261006120000_group_transfer_o
 import CANDIDATES from '../../supabase/migrations/20261007120000_group_transfer_candidates.sql?raw';
 import CHECK from '../../supabase/checks/group-transfer-client.sql?raw';
 import CI from '../../.github/workflows/ci.yml?raw';
+import HTTP_GUARD from '../../scripts/http-boundary-check.sh?raw';
 import TYPES from '../../src/types/database.ts?raw';
 import ES from '../../src/lib/i18n/messages/es-ES.ts?raw';
 import EN from '../../src/lib/i18n/messages/en.ts?raw';
@@ -631,6 +632,49 @@ describe('10 · lo que NO cambió', () => {
     // Y la superficie retirada ya no está.
     expect(TYPES).not.toContain('group_transfer_context');
     expect(TYPES).not.toContain('my_group_transfer_proposals');
+  });
+
+  /**
+   * ═══════ LA FRONTERA HTTP CONOCE LAS DIEZ CLASES, POR SU NOMBRE ═══════
+   *
+   * `http-boundary-check.sh` comprueba qué `api.record_*` están concedidas a
+   * `authenticated`. Contaba, y contar tenía dos defectos: cada clase nueva
+   * lo rompía —éste lo encontró CI, no el repo— y, peor, un `record_`
+   * inesperado podía SUSTITUIR a uno esperado conservando el número.
+   *
+   * Ahora compara el conjunto entero contra una allowlist. Esto fija que siga
+   * siendo una lista y no vuelva a ser un recuento.
+   */
+  it('el guardia de la frontera compara la LISTA de writers, no cuántos hay', () => {
+    const WRITERS = [
+      'record_adjustment',
+      'record_debt_settlement',
+      'record_external_transfer',
+      'record_group_expense',
+      'record_group_payment',
+      'record_group_transfer',
+      'record_internal_transfer',
+      'record_personal_expense',
+      'record_personal_income',
+      'record_settlement_by_transfer',
+    ];
+    // La allowlist entera, en el orden en que la base la devuelve.
+    expect(HTTP_GUARD).toContain(`readonly WRITERS_ESPERADOS="${WRITERS.join(' ')}"`);
+    // Se compara la lista, no un número.
+    expect(HTTP_GUARD).toContain('[ "${rol}" = "${WRITERS_ESPERADOS}" ]');
+    expect(HTTP_GUARD).toContain('order by routine_name collate "C"');
+    // Y la forma vieja —contar y esperar nueve— ya no existe.
+    expect(HTTP_GUARD).not.toMatch(/= "9"|deben ser 9/);
+    /*
+     * LO QUE ESTO GARANTIZA: un `record_` inesperado no puede ocupar el sitio
+     * de uno esperado. Con un recuento, cambiar `record_group_transfer` por
+     * `record_cualquier_cosa` seguía dando diez; contra la allowlist, la
+     * comparación de cadenas falla por los dos lados a la vez —falta el
+     * esperado y sobra el intruso—.
+     */
+    expect(WRITERS).toHaveLength(10);
+    expect(WRITERS).toContain('record_group_transfer');
+    expect([...WRITERS].sort()).toEqual(WRITERS);
   });
 
   it('el preview muestra el antes y el después, siempre los dos', () => {
