@@ -21,6 +21,7 @@ export type { MenuOption, OptionMenuProps } from './option-menu-props';
 export { OptionPills, type OptionPill, type OptionPillsProps } from './option-pills';
 export { Section, type SectionProps } from './section';
 export { QrCode } from './qr-code';
+export { QrScanner } from './qr-scanner';
 export { runs as qrRuns, type Run as QrRun } from './qr-matrix';
 export { SheetWindow, type SheetWindowProps } from './sheet-window';
 export { SwipeToDelete, type SwipeToDeleteProps } from './swipe-to-delete';

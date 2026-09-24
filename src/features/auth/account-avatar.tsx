@@ -2,7 +2,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { useTranslation } from '@/lib/i18n';
 import { ControlMaterial, Icon, ThemedText } from '@/ui/components';
-import { controlEdge, emphasisDepth, Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
+import { emphasisDepth, Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
 import { initialsFrom } from './display-name';
 
@@ -58,8 +58,24 @@ export function AccountAvatar({ name }: { name: string | null }) {
       style={({ pressed }) => [
         styles.avatar,
         {
-          backgroundColor: pressed ? theme.surface : theme.surfaceSunken,
-          borderColor: controlEdge(theme.border),
+          /*
+           * EL GRIS DE LAS TARJETAS Y UN BORDE AMARILLO QUE SE VEA.
+           *
+           * Llevaba `surfaceSunken` —#080808, casi el negro del fondo— con un
+           * borde de un pelo del color del material: sobre la pantalla el
+           * círculo desaparecía y lo único que se leía eran las iniciales
+           * flotando. Ahora el relleno es `surfaceRaised`, el mismo gris con
+           * el que se pinta cualquier tarjeta de Nomey, así que la foto es un
+           * objeto y no un hueco.
+           *
+           * Y el borde es el acento, a dos puntos. Es una excepción nombrada
+           * al reparto del amarillo —que es del `+` flotante— y se la gana lo
+           * que rodea: la identidad de la cuenta es lo que esta pantalla es.
+           * A un pelo de grosor no se veía; a dos se lee sin competir con
+           * nada, porque no hay más amarillo en Perfil.
+           */
+          backgroundColor: pressed ? theme.surface : theme.surfaceRaised,
+          borderColor: theme.accent,
           boxShadow: emphasisDepth(pressed ? 'pressed' : 'raised'),
         },
       ]}>
@@ -105,7 +121,8 @@ const styles = StyleSheet.create({
     width: SIZE,
     height: SIZE,
     borderRadius: Radius.full,
-    borderWidth: StyleSheet.hairlineWidth,
+    // Dos puntos, no un pelo: un borde de acento que no se ve no es un borde.
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },

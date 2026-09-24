@@ -23,9 +23,10 @@ en iPhone el 2026-09-20; **C2 —la solicitud de pago en el cliente— rechazada
 por decisión de producto el 2026-09-20** (ver abajo: el backend B2 queda, la
 UI no); **F12.E (Amigos) abierto el 2026-09-22** con dos ADR propuestos
 (ADR-005, ADR-006), su backend (E.A, `20260930120000`) y su interfaz base
-(E.B) integrados, y el selector de Amigos de Transferencias **implementado,
-validado a mano en iPhone y pendiente de mergear** (E.E);
-después C3, el resto de E (E.C, E.D) y F12.D, que sigue siendo el cierre de la fase
+(E.B) y el selector de Amigos de Transferencias (E.E) integrados, y el
+enlace de amistad —compartir, QR y llegada— **implementado en rama y
+pendiente de validación** (E.C);
+después C3, E.D y F12.D, que sigue siendo el cierre de la fase
 aunque E se ejecute antes. El detalle está en
 [el roadmap](../../product/roadmap.md).
 
@@ -669,8 +670,7 @@ DECLINED | CANCELLED | EXPIRED · 409` en los demás, `NOT_AUTHORIZED` para
   `tests/infra/transfer-friends-picker-surface.test.ts`.
 
 - **La transferencia Personal RECIBIDA cuenta en «Ingresos» (decidido el
-  2026-09-22; `20261001120000`, en la misma rama que E.E, pendiente de
-  validación).** Decisión de producto sobre un agregado, no un ADR: _an
+  2026-09-22; `20261002120000`, integrada con E.E en el PR #83).** Decisión de producto sobre un agregado, no un ADR: _an
   accepted incoming Personal transfer contributes to the recipient's Income
   aggregate, without becoming a duplicate income operation_.
 
@@ -722,6 +722,164 @@ DECLINED | CANCELLED | EXPIRED · 409` en los demás, `NOT_AUTHORIZED` para
   guardan un test que compara el cuerpo carácter a carácter con el de F11.C
   y el hecho de que `supabase/checks/fx-personal-reads.sql` —el check propio
   de F11.C— pasa **después** de esta migración.
+
+- **F12.E.C — el enlace de amistad: compartir, QR y llegada (rama
+  `feat/phase-12-ec-friend-link`, 2026-09-23; **implementado y PENDIENTE de
+  validación manual**, sin merge).** Consume el backend de E.A
+  (F12/ADR-006) sin añadir ni cambiar ninguna decisión ni ninguna migración.
+  Lo que fija la implementación:
+
+  - **Perfil cambia de cabecera**: identidad a la IZQUIERDA —avatar, nombre y
+    `@username`, con sus editores y su cooldown intactos— y a la derecha dos
+    cuadrados del mismo tamaño y radio (`FRIEND_ACTION_SIZE = 60`): QR y
+    Compartir. **No son filas de ajustes** —eso los habría puesto al nivel de
+    «Idioma y divisa»— y **no sustituyen la entrada «Amigos»**, que sigue en
+    su sección.
+  - **Compartir no abre pantalla**: revalida el enlace y abre `Share.share`.
+    Y lo revalida SIEMPRE, aunque ya lo tuviera, porque el token es rotable
+    desde otro aparato: repartir uno cacheado podría repartir un enlace
+    muerto sin que nada fallara aquí.
+  - **El QR codifica EXACTAMENTE el mismo enlace.** Un solo token, un solo
+    protocolo: `Linking.createURL('friend', { queryParams: { t } })` →
+    `nomey-dev://friend?t=…`. No hay un «token de QR» aparte.
+  - **El `@username` NO viaja en el enlace**, y por eso cambiarlo no lo
+    rompe: el token nombra a la CUENTA y la identidad se resuelve en cada
+    preview (`uid → actual`). Rotar sí lo cambia, y el anterior deja de
+    valer en el mismo instante.
+  - **Regenerar pide confirmación y no es optimista**: si el servidor no
+    confirma, el QR que se ve sigue siendo el de antes. Cinco al día
+    (`FRIEND_LINK_ROTATION_LIMITED`).
+  - **La llegada reutiliza el patrón de las invitaciones**, y el oyente pasó
+    a ser UNO solo en `lib/linking`: con dos features con enlace propio,
+    cada una habría montado el suyo y consultado `getInitialURL()` por su
+    cuenta. `+native-intent` calla `/friend` como ya callaba `/join`.
+  - **No se pregunta al servidor antes de poder responder.** Sin sesión, como
+    invitado y sin username definitivo el token ESPERA en memoria:
+    `api.preview_friend_link` contestaría antes de mirarlo, así que el
+    enlace no es una API pública de resolución de identidad — y el cliente
+    no la convierte en una.
+  - **Los tres estados contestables se ven igual** (`ok`,
+    `incoming_pending`, `mutual_pending`): la diferencia es contabilidad
+    del servidor (`accepted_via_link`) y `respond_friend_link` reutiliza la
+    solicitud que haya sin duplicar nunca. **Rechazar sin solicitud previa no
+    crea una para poder rechazarla** (`dismissed`). Un enlace `invalid` no
+    revela de quién era.
+  - **El escáner de QR se mudó a `ui/`** y dejó de saber qué lee: tiene dos
+    consumidores en features que no pueden importarse, así que entrega la
+    cadena cruda y cada uno la reconoce. La invitación de grupo no cambia de
+    comportamiento.
+  - Evidencia: `tests/lib/friend-link.test.ts` y
+    `tests/infra/friend-link-surface.test.ts`.
+
+- **F12/ADR-005 §3–§7 — amistad desde un participante de grupo (F12.E.D,
+  2026-09-23, migración `20261004120000`).** Para hacerte amigo de alguien
+  con quien ya compartes un grupo había que salir del grupo, ir a
+  Perfil → Amigos y escribir su `@username` de memoria. Ahora el menú de la
+  fila de Saldos lo ofrece. **No es una segunda clase de solicitud**: es una
+  segunda PUERTA a la misma, y lo que la hace la misma es que las dos
+  terminan en un núcleo compartido.
+  - **Un solo núcleo autoritativo**, `sec.create_friend_request_core`:
+    cerrojo de pareja, caducidad, relación, cruzadas, cooldown, topes por
+    emisor e insert. `api.create_friend_request` se **recreó** para
+    llamarlo —mismo contrato público, misma firma, mismos estados, mismos
+    códigos— y `api.create_friend_request_to_participant` llama al mismo.
+    Copiar el cuerpo habría dado dos caminos que escriben en la misma tabla
+    con las mismas reglas escritas dos veces: el día que una cambiara, la
+    otra no fallaría, sólo aplicaría otra regla según por dónde entres. El
+    check §C lo comprueba sobre el cuerpo VIVO de las tres funciones: el
+    cerrojo, los topes y el `insert` sólo existen en el núcleo.
+  - **Lo que cada puerta hace por su cuenta**, y no es arbitrario. La de
+    `@handle` conserva el freno del resolver (20 / 10 min, un apunte) y
+    contesta `not_found` como ESTADO. La de participante **no consume ese
+    freno** —no resuelve ningún username: el cliente manda un
+    `participant_id` que ya tenía de su pantalla— y contesta
+    `NOT_AUTHORIZED · 403` a un participante que no es de un grupo suyo: un
+    handle inexistente no es culpa de quien pide, pero un id ajeno es un
+    intento de usar algo que no es suyo, y un 200 silencioso dejaría al
+    cliente creyendo que mandó algo. `origin` queda en `group`, que el
+    CHECK de F12.E.A ya admitía y nadie escribía todavía.
+  - **Participante → cuenta se resuelve UNA vez, en el servidor, y el uid
+    no sale de la base.** `sec.participant_account` es definer del WRITER
+    —como `sec.has_personal_scope` (F12.B1)— porque el provisioner sólo ve
+    su PROPIO vínculo y ampliar esa policy daría a todas sus funciones la
+    lectura de los vínculos ajenos; el writer ya leía esa tabla entera
+    desde `20260825152805` para derivar el ámbito de caja del pagador. La
+    barrera es la pertenencia del ACTOR al ámbito, leída dentro con
+    `sec.request_actor_id()`. `NULL` es indistinguible entre «no eres
+    miembro», «no existe», «no es de un grupo» y «no tiene cuenta».
+    `authenticated` no tiene USAGE sobre `sec`, así que el cliente no llega
+    —medido: el primer intento del check falló con «permission denied for
+    schema core» al leer los nombres, que es exactamente la garantía—.
+  - **`api.group_participant` NO publica ni un dato nuevo.** Ni uid, ni
+    correo, ni `@handle`, ni el nombre público de la cuenta: el nombre que
+    se ve sigue siendo `participant.display_name`, que es del grupo
+    (F03/ADR-009 §1). El check §B fija su lista de columnas EXACTA y que
+    ninguna vista `api.group*` publique identidad de cuenta.
+  - **El estado social es POR ÁMBITO, no por participante.** La pantalla
+    pinta la lista entera y necesita saber qué ofrecer antes de que se abra
+    un menú; una función por participante serían N llamadas y la barrera
+    —ser miembro— es la misma para todas. `api.group_friend_status(scope)`
+    devuelve fila para todos, con `none | outgoing_pending |
+incoming_pending | friends | self | unavailable` y el `request_id` de
+    las pendientes. Un no miembro lee CERO filas, no un error.
+  - **`cooldown` se contesta como `none` en el mapa.** Es un hecho del
+    pasado del actor —le rechazaron hace menos de siete días— y enseñarlo
+    en la lista sería recordárselo cada vez que abre el grupo. Si vuelve a
+    pulsar, el comando sí lo dice con su frase neutra.
+  - **Quien salió del grupo sigue siendo amistable**: su vínculo queda
+    histórico (F10/ADR-003) y la amistad es entre CUENTAS. Lo que NO hace
+    esto es volver visible a nadie: `api.group_balance` no lista a quien
+    salió, así que **hoy no hay fila que tocar** en Saldos. El backend lo
+    permite y está medido; el día que el grupo publique esa fila en algún
+    sitio, funcionará sin tocar una línea de aquí. Al revés no: **quien
+    salió pierde esa puerta** (el resolutor exige ser miembro ACTUAL) y
+    sigue teniendo la de `@username`.
+  - **La amistad no amplía nada, y el grupo tampoco.** `sec.is_member` no
+    se tocó, ninguna policy se relajó y ninguna función económica consulta
+    `core.friendship`. Medido: ser amigo no crea operación, efecto, ámbito
+    ni membresía, y no abre ningún grupo.
+  - **En el cliente, quien junta los dos dominios es la pantalla.**
+    `features/groups` y `features/friends` no se importan —la regla de
+    dependencias lo prohíbe—, así que `app/group/[id].tsx` lee el mapa y le
+    pasa a `GroupBalanceRow` entradas del contrato de menú que ya sabía
+    tomar. Los dos conjuntos de entradas son **disjuntos por
+    construcción**: el ciclo de vida (Asociar, Retirar) exige
+    `is_linked === false` y lo social sólo aparece sobre alguien con
+    cuenta. **«Eliminar amigo» no está en este menú** a propósito: deshacer
+    una amistad se hace en Perfil → Amigos, y aquí quedaría a un toque de
+    «Aceptar».
+  - **«Solicitud enviada» y «Amigos» son informativas y no hacen nada al
+    pulsarlas.** Es una concesión consciente: `ActionMenu` no tiene ni
+    títulos ni entradas deshabilitadas, y lo que hay que poder hacer al
+    tocar a alguien del grupo es SABER en qué punto estáis. La alternativa
+    —no abrir menú— deja a la persona sin forma de comprobar si llegó a
+    mandar la solicitud.
+  - Evidencia: `supabase/checks/group-friends.sql` (A–H),
+    `scripts/group-friend-race-evidence.sh` (las dos puertas comparten
+    cerrojo y contador; el ciclo de vida no filtra nada) y
+    `tests/infra/group-friends-surface.test.ts`.
+  - **La identidad de la fila no se mueve mientras cambia el estado**
+    (arreglado antes de cerrar la PR, 2026-09-23). El guardián del doble
+    toque estaba en las ENTRADAS del menú: mientras un comando estaba en
+    vuelo se vaciaban las sociales, y como un participante con cuenta no
+    tiene entradas de ciclo de vida, el menú entero quedaba en `undefined`.
+    `GroupBalanceRow` decide con eso si envuelve la identidad en
+    `ActionMenu` o la pinta suelta, así que cambiaba el TIPO del elemento
+    padre y React desmontaba el avatar y el nombre para volver a montarlos
+    en otra caja: eso era el parpadeo. **No era press feedback, ni un
+    cambio de `key`, ni una sustitución por un estado de carga.** El
+    guardián se mudó al manejador —los dos hooks ya rehusaban un segundo
+    comando con su `inFlight`— y las entradas dejaron de vaciarse. Lo que
+    lo sostiene, y está fijado en test: los cuatro estados accionables
+    devuelven al menos una entrada, así que ninguna transición social puede
+    vaciar el menú.
+  - **Deuda separada, fuera del alcance de esta PR**: «Asociar a mi cuenta»
+    y «Eliminar»/«Retirar» comparten ese patrón de remontaje transitorio
+    (`associating.busy`, `retirement.settling`). Es anterior a F12.E y no
+    se tocó; el aviso queda escrito junto a `hasMenu` en
+    `group-balance-row.tsx`, que es donde volvería a romperse.
+  - **Amigos queda funcionalmente completo en rama** —E.A, E.B, E.C, E.D y
+    E.E—, VALIDADO a mano, y **no se da por cerrado hasta el merge**.
 
   **Riesgo conocido y aceptado**: con lo enviado fuera del agregado, prestar
   25 y que te los devuelvan deja +25 en «Ingresos» y nada en «Gastos», de

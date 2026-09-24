@@ -5,7 +5,7 @@ import { Easing, StyleSheet, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useMyFriendRequests } from '@/features/friends';
+import { useMyFriendRequests, useOpenPendingFriendLink } from '@/features/friends';
 import { useGroupNotices, useOpenPendingInvitation } from '@/features/groups';
 import { useIncidents } from '@/features/personal';
 import { isGuest, isSignedIn, useSession } from '@/features/session';
@@ -204,6 +204,14 @@ export default function TabsLayout() {
     friends.incoming.length > 0;
   /* Una invitación llegada por enlace se retoma aquí, ya con sesión (F09/ADR-004). */
   useOpenPendingInvitation(isSignedIn(state));
+  /*
+   * Y un enlace de amistad (F12/ADR-006), con una puerta MÁS ESTRECHA: sólo
+   * una cuenta normal puede resolverlo, así que un invitado no lo abre — el
+   * token sigue esperando mientras convierte su cuenta. Que este layout esté
+   * montado ya garantiza sesión y username definitivo (la raíz retiene el
+   * gate antes de las pestañas).
+   */
+  useOpenPendingFriendLink(isSignedIn(state) && !isGuest(state));
 
   return (
     <>

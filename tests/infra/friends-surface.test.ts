@@ -89,11 +89,12 @@ describe('el contrato de E.A, tal y como la migración lo dejó', () => {
   });
 
   /**
-   * F12.E.C todavía no existe. Las cuatro funciones del enlace están en la
-   * base desde E.A y **nadie las llama**: ni enlace, ni QR, ni Share, ni
-   * ruta de llegada.
+   * F12.E.C YA EXISTE. Las cuatro funciones del enlace se usan, y lo que se
+   * vigila ahora es que cada una se use donde toca —el servicio, que es el
+   * único fichero de la feature que habla con Supabase— y que el enlace y el
+   * QR sean EL MISMO token.
    */
-  it('nada del enlace de amistad se usa todavía', () => {
+  it('el enlace de amistad usa las cuatro funciones, y sólo desde el servicio', () => {
     for (const fn of [
       'my_friend_link',
       'rotate_friend_link',
@@ -101,9 +102,12 @@ describe('el contrato de E.A, tal y como la migración lo dejó', () => {
       'respond_friend_link',
     ]) {
       expect(MIGRATION, fn).toContain(`create function api.${fn}`);
+      expect(SERVICE, fn).toContain(`supabase.rpc('${fn}'`);
     }
-    const client = [SERVICE, LIST, ADD, LAYOUT, PROFILE, NOTIFICATIONS].join('\n');
-    expect(client).not.toMatch(/friend_link|friendLink|Share\.share|QrCode|friend-link/);
+    // Las pantallas no llaman a Supabase: pasan por el servicio.
+    for (const source of [LIST, ADD]) {
+      expect(strip(source)).not.toMatch(/supabase\.|\brpc\(/);
+    }
   });
 });
 

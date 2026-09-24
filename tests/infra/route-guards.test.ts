@@ -128,11 +128,23 @@ describe('guardas de ruta del layout raíz', () => {
       );
       expect(sessionBlocks).toHaveLength(3);
       const friendsBlock = sessionBlocks.find((block) => block.guard.includes('!isGuest(state)'));
-      expect(friendsBlock?.screens).toEqual(['friends/index', 'friends/add']);
+      /*
+       * Cuatro desde F12.E.C: la lista, el alta, MI enlace (QR y regenerar) y
+       * la respuesta a uno ajeno. Las cuatro detrás de la misma puerta, y por
+       * el mismo motivo: `sec.assert_friend_actor` rehúsa una sesión anónima
+       * y una cuenta sin username definitivo antes de mirar nada.
+       */
+      expect(friendsBlock?.screens).toEqual([
+        'friends/index',
+        'friends/add',
+        'friend-link',
+        'friend-request',
+      ]);
       expect(friendsBlock?.guard).toContain('!gate');
       expect(friendsBlock?.guard).toContain('!recovering');
-      // Y no hay ruta del enlace de amistad todavía: eso es F12.E.C.
-      expect(registered.some((name) => /friend-link/.test(name))).toBe(false);
+      // El enlace de amistad SÍ tiene ruta desde F12.E.C, y va en ese bloque.
+      expect(registered).toContain('friend-link');
+      expect(registered).toContain('friend-request');
       expect(blocks.some((block) => /unavailable/.test(block.guard))).toBe(false);
       expect(registered).not.toContain('identity-unavailable');
     });

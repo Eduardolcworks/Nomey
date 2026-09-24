@@ -15,6 +15,7 @@ import TYPES from '../../src/types/database.ts?raw';
 import CI from '../../.github/workflows/ci.yml?raw';
 import LINK_CHECK from '../../supabase/checks/link-instance.sql?raw';
 import GUARD from '../../supabase/checks/group-identity-lock.sql?raw';
+import ACTIONS from '../../src/features/friends/group-friend-actions.ts?raw';
 import LOCK_RACE from '../../scripts/identity-lock-race-evidence.sh?raw';
 import HTTP from '../../scripts/http-boundary-check.sh?raw';
 import MIGRATION from '../../supabase/migrations/20260917120000_permanent_identity.sql?raw';
@@ -65,8 +66,17 @@ describe('el cliente y los tipos no conocen ninguna baja', () => {
       );
     }
     expect(TYPES).not.toMatch(/unlink_participant|unclaim_participant/);
-    // La fila propia de Saldos no tiene menu; las ajenas conservan el suyo.
-    expect(SCREEN).toContain('La fila PROPIA no tiene menu');
+    /*
+     * La fila propia de Saldos no ofrece nada, ni de ciclo de vida ni
+     * social: no entra en la rama de `is_linked === false`, y el servidor
+     * contesta `self` para ella, que `friendMenuEntries` deja sin entradas.
+     * Sin entradas, el menu es `undefined` y la identidad no responde al
+     * toque — que es lo que hacia antes de que F12.E.D anadiera lo social.
+     */
+    expect(SCREEN).toContain('linkedOf.get(balance.participantId) === false &&');
+    expect(SCREEN).toContain('return all.length > 0 ? all : undefined;');
+    expect(ACTIONS).toContain("    case 'self':");
+    expect(ACTIONS).toMatch(/case 'self':\s*case 'unavailable':\s*return \[\];/);
     expect(SCREEN).toContain("id: 'associate',");
     expect(SCREEN).toContain("id: 'retire',");
     // La campana: los seis kinds de F9, y nada mas.

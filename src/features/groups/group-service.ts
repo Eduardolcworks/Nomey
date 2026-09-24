@@ -458,7 +458,7 @@ export type GroupOperationConversion = {
 /**
  * Las conversiones congeladas de los gastos de un grupo, en UNA llamada.
  *
- * **Sale de la función lectora y de ninguna otra parte** (`20261004120000`):
+ * **Sale de la función lectora y de ninguna otra parte** (`20261005120000`):
  * el cliente no tiene acceso a `core.frozen_conversion`, y la función autoriza
  * en su cuerpo por membresía actual. Devuelve sólo los gastos que convirtieron
  * —los demás no tienen fila— y **nunca resuelve un tipo para leer**: lo que

@@ -1123,6 +1123,10 @@ export type Database = {
       };
       create_custom_category: { Args: { payload: Json }; Returns: Json };
       create_friend_request: { Args: { payload: Json }; Returns: Json };
+      create_friend_request_to_participant: {
+        Args: { payload: Json };
+        Returns: Json;
+      };
       create_group: { Args: { payload: Json }; Returns: Json };
       create_group_invitation: { Args: { payload: Json }; Returns: Json };
       create_group_transfer_proposal: { Args: { payload: Json }; Returns: Json };
@@ -1135,6 +1139,14 @@ export type Database = {
       };
       decline_transfer_proposal: { Args: { payload: Json }; Returns: Json };
       ensure_personal_scope: { Args: { payload: Json }; Returns: Json };
+      group_friend_status: {
+        Args: { p_scope: string };
+        Returns: {
+          participant_id: string;
+          request_id: string;
+          state: string;
+        }[];
+      };
       group_operation_conversion: {
         Args: { p_operation_ids?: string[] };
         Returns: {

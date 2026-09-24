@@ -2,7 +2,7 @@
 -- LA CONVERSION CONGELADA DE UN GASTO DE GRUPO, LEIDA · F11/ADR-003 · F11 UI
 -- ============================================================================
 --
--- Migracion 20261004120000. Contra el writer REAL de F11.D y la funcion lectora
+-- Migracion 20261005120000. Contra el writer REAL de F11.D y la funcion lectora
 -- real, con identidad simulada, fixtures propias y ROLLBACK.
 --
 -- Los dias fijados se siembran COMO POSTGRES, dentro de esta transaccion y en
