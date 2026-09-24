@@ -17,37 +17,13 @@ export type { GroupCreatePayload };
  */
 
 /** Una definición monetaria del catálogo, tal y como la publica `api`. */
-export type CurrencyOption = {
-  readonly id: string;
-  readonly code: string;
-  /** Los decimales de ESTA definición. Nunca se presupone 2 (F02/ADR-001). */
-  readonly scale: number;
-};
-
 /**
- * El catálogo de divisas soportadas.
- *
- * **Es `api.currency_definition`**, la vista `security_invoker` que el propio
- * provisioning del Modo Personal publicó y que `authenticated` puede leer. Son
- * las veinte que la migración siembra, así que se traen enteras: paginarlas
- * costaría más de lo que ahorra.
- *
- * Las tres columnas salen anulables del generador de tipos porque una vista no
- * declara `not null`; las filas incompletas se descartan aquí, que es donde se
- * sabe que una divisa sin código no es elegible.
+ * El catálogo de divisas, que desde F11 vive en `lib/currency`: lo necesitan
+ * también el alta de un movimiento personal y el control de moneda de
+ * `AmountSheet`, y una feature no puede leer de otra. Se reexporta con el
+ * mismo nombre para no mover a sus consumidores.
  */
-export async function fetchCurrencies(): Promise<readonly CurrencyOption[]> {
-  const { data, error } = await supabase.from('currency_definition').select('id,code,scale');
-  if (error !== null) throw error;
-
-  const rows = (data ?? []).flatMap((row) =>
-    row.id === null || row.code === null || row.scale === null
-      ? []
-      : [{ id: row.id, code: row.code, scale: row.scale }],
-  );
-
-  return rows.slice().sort((a, b) => a.code.localeCompare(b.code));
-}
+export { type CurrencyOption, fetchCurrencies } from '@/lib/currency';
 
 /**
  * LO QUE DEVUELVE `api.create_group`, sin interpretar.
@@ -454,6 +430,52 @@ export type GroupSplitRow = {
   readonly declaredAmount: string | null;
   readonly resolvedMinor: string;
 };
+
+/**
+ * LA CONVERSIÓN CONGELADA DE UN GASTO DE GRUPO (F11/ADR-003).
+ *
+ * El coeficiente llega como TEXTO y se queda como texto: es un entero exacto
+ * de hasta doce decimales de escala, y pasarlo por `number` lo degradaría
+ * igual que a un importe (F03/ADR-005 §1, F03/ADR-012). Lo formatea
+ * `lib/format`, que sabe colocar la coma sin construir un número.
+ */
+export type GroupOperationConversion = {
+  readonly operation_id: string;
+  readonly source_currency_definition_id: string;
+  readonly target_currency_definition_id: string;
+  readonly rate_coefficient: string;
+  readonly rate_scale: number;
+  readonly resolved_for_date: string;
+  readonly source_id: string;
+  readonly origin_reference_date: string;
+  readonly target_reference_date: string;
+  /** El total DECLARADO, en unidades mínimas de la moneda de origen. */
+  readonly original_amount: string;
+  /** El total que de verdad se repartió, en la base del grupo. */
+  readonly converted_amount: string;
+};
+
+/**
+ * Las conversiones congeladas de los gastos de un grupo, en UNA llamada.
+ *
+ * **Sale de la función lectora y de ninguna otra parte** (`20261005120000`):
+ * el cliente no tiene acceso a `core.frozen_conversion`, y la función autoriza
+ * en su cuerpo por membresía actual. Devuelve sólo los gastos que convirtieron
+ * —los demás no tienen fila— y **nunca resuelve un tipo para leer**: lo que
+ * llega es lo que quedó congelado al registrar (F11/ADR-001 §9).
+ */
+export async function fetchGroupConversions(
+  operationIds: readonly string[],
+): Promise<readonly GroupOperationConversion[]> {
+  if (operationIds.length === 0) return [];
+
+  const { data, error } = await supabase.rpc('group_operation_conversion', {
+    p_operation_ids: operationIds as string[],
+  });
+  if (error !== null) throw error;
+
+  return (data ?? []) as unknown as GroupOperationConversion[];
+}
 
 /** El reparto declarado de UNA versión, ya ordenado por su ordinal. */
 export async function fetchGroupSplit(versionId: string): Promise<readonly GroupSplitRow[]> {

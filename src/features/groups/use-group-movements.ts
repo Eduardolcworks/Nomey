@@ -4,10 +4,25 @@ import type { SessionStatus } from '@/lib/offline';
 
 import { subscribeGroupRecorded } from './group-events';
 import type { MovementFilters } from './movement-filters';
-import type { GroupBalanceRow, GroupOperation, GroupOrder, GroupTotals } from './group-service';
-import { fetchGroupBalances, fetchGroupOperations, fetchGroupSummary } from './group-service';
+import type {
+  GroupBalanceRow,
+  GroupOperation,
+  GroupOperationConversion,
+  GroupOrder,
+  GroupTotals,
+} from './group-service';
+import {
+  fetchGroupBalances,
+  fetchGroupConversions,
+  fetchGroupOperations,
+  fetchGroupSummary,
+} from './group-service';
+
 import { fetchGroupPayments, fetchReopenedPairs, type GroupPayment } from './payment-service';
 import type { ReopenedPair } from './suggested-payments';
+
+/** Estable: una lista sin conversiones no remonta a quien la lee. */
+const EMPTY_CONVERSIONS: ReadonlyMap<string, GroupOperationConversion> = new Map();
 
 /**
  * LOS GASTOS DE UN GRUPO Y SUS TRES CIFRAS, LEÍDOS DEL SERVIDOR.
@@ -77,6 +92,15 @@ export type GroupMovementsState = {
    * necesita para proponerlos, y los dos describen el mismo instante.
    */
   readonly reopened: readonly ReopenedPair[] | null;
+  /**
+   * LAS CONVERSIONES CONGELADAS de los gastos de esta página, por operación.
+   *
+   * Vacío cuando ninguno convirtió, que es lo normal. Va con la misma lectura
+   * que la lista para no mezclar dos instantes del mismo grupo: si una
+   * corrección cambia la moneda entre las dos consultas, la fila y su tipo
+   * describirían versiones distintas.
+   */
+  readonly conversions: ReadonlyMap<string, GroupOperationConversion>;
   /** La consulta falló. La lista de antes, si la había, sigue valiendo. */
   readonly failed: boolean;
   /** Volver a intentarlo. Es lo que ofrece el estado de error, no un botón mudo. */
@@ -94,6 +118,8 @@ export function useGroupMovements(
   const [balances, setBalances] = useState<readonly GroupBalanceRow[] | null>(null);
   const [payments, setPayments] = useState<readonly GroupPayment[] | null>(null);
   const [reopened, setReopened] = useState<readonly ReopenedPair[] | null>(null);
+  const [conversions, setConversions] =
+    useState<ReadonlyMap<string, GroupOperationConversion>>(EMPTY_CONVERSIONS);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [tick, setTick] = useState(0);
@@ -146,7 +172,28 @@ export function useGroupMovements(
           fetchGroupPayments(scopeId),
           fetchReopenedPairs(scopeId),
         ]);
+        /*
+         * Las conversiones de ESTA página, después de saber cuáles son sus
+         * filas. Se piden para todas: la fila no publica la moneda base del
+         * grupo, así que desde aquí no se puede saber cuáles convirtieron, y
+         * la función devuelve sólo las que tienen conversión —ninguna, en un
+         * grupo sin moneda extranjera—.
+         */
+        const frozen = await fetchGroupConversions(rows.map((row) => row.operationId)).catch(
+          /*
+           * **Su fallo no se lleva por delante la lista.** Es la ÚNICA lectura
+           * de esta pantalla que puede fallar sola sin dejar nada mal contado:
+           * sin ella no se enseña el tipo de cambio, y ninguna cifra cambia —
+           * el convertido que se pinta sale de aquí, así que sin esto no se
+           * pinta ninguno en vez de pintar uno equivocado.
+           *
+           * Y desacopla el orden de despliegue: un servidor sin la migración
+           * de esta lectura deja la pantalla funcionando igual que antes.
+           */
+          () => [],
+        );
         if (!alive) return;
+        setConversions(new Map(frozen.map((one) => [one.operation_id, one])));
         setOperations(rows);
         setBalances(positions);
         setPayments(transfers);
@@ -186,5 +233,5 @@ export function useGroupMovements(
     };
   }, [scopeId, status, order, tick, minMinor, maxMinor, categoryId, payerId]);
 
-  return { operations, totals, balances, payments, reopened, loading, failed, retry };
+  return { operations, totals, balances, payments, reopened, conversions, loading, failed, retry };
 }

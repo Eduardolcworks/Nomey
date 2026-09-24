@@ -23,9 +23,22 @@ import type { QueueStore } from '@/lib/offline/queue-store';
 
 export type EntryScope = {
   readonly scopeId: string;
+  /** La moneda DECLARADA: desde F11 puede no ser la base del ámbito. */
   readonly currencyDefinitionId: string;
   readonly currencyCode: string;
   readonly currencyScale: number;
+  /**
+   * La base del ámbito, SÓLO cuando la moneda declarada no lo es (F11/ADR-001
+   * §10). Viaja hasta el payload como `expected_base_currency_definition_id`:
+   * es lo que el servidor compara bajo el cerrojo contra la base vigente antes
+   * de resolver ningún tipo, y sin ella tomaría la moneda declarada como base
+   * asumida y rechazaría el alta.
+   *
+   * **No se guarda en la entrada de la cola**: lo que se congela es el payload
+   * ya construido (F07/ADR-001 §7), y la moneda de la entrada —la que la
+   * proyección usa para pintar y para decidir si agrega— es la DECLARADA.
+   */
+  readonly baseCurrencyDefinitionId?: string;
 };
 
 /** Por qué no quedó persistida. */

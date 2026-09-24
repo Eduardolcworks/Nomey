@@ -789,7 +789,22 @@ export type GroupExpensePayload = {
   readonly operation_id?: string;
   readonly expected_version_id?: string;
   readonly scope_id: string;
+  /** La moneda DECLARADA del gasto: desde F11.D puede no ser la del grupo. */
   readonly currency_definition_id: string;
+  /**
+   * LA BASE QUE SE ASUMIÓ AL CAPTURAR (F11/ADR-001 §10), y sólo cuando la
+   * moneda del gasto NO es la base del grupo.
+   *
+   * Sin ella el servidor tomaría la moneda declarada como base asumida y
+   * rechazaría el gasto con `CURRENCY_CONVERSION_UNSUPPORTED`. Con ella
+   * compara bajo el cerrojo contra la base vigente del grupo y decide él si
+   * hereda el tipo congelado o resuelve uno nuevo.
+   *
+   * **Ausente cuando el gasto va en la moneda del grupo**, a propósito: ese
+   * payload es exactamente el de antes de F11, así que su intención canónica
+   * —y con ella su idempotencia— no cambia.
+   */
+  readonly expected_base_currency_definition_id?: string;
   readonly total: string;
   readonly effective_date: string;
   /** `HH:MM`, o `null` para conservar la ausencia de un gasto histórico. */
@@ -816,8 +831,15 @@ export function buildGroupExpensePayload(
   draft: SharedExpenseDraft,
   scope: {
     readonly scopeId: string;
+    /** La moneda DECLARADA del gasto, que es en la que está escrito el importe. */
     readonly currencyDefinitionId: string;
     readonly scale: number;
+    /**
+     * La base del GRUPO, cuando la moneda declarada no lo es. El reparto sigue
+     * calculándose en la moneda declarada —F11/ADR-003: lo declarado se valida
+     * donde se escribió— y quien convierte y reparte después es el servidor.
+     */
+    readonly baseCurrencyDefinitionId?: string;
   },
   clientOperationId: string,
   /** Qué operación y versión se corrigen. Ausente en un alta. */
@@ -843,6 +865,10 @@ export function buildGroupExpensePayload(
         }),
     scope_id: scope.scopeId,
     currency_definition_id: scope.currencyDefinitionId,
+    ...(scope.baseCurrencyDefinitionId === undefined ||
+    scope.baseCurrencyDefinitionId === scope.currencyDefinitionId
+      ? {}
+      : { expected_base_currency_definition_id: scope.baseCurrencyDefinitionId }),
     total: total.toString(),
     effective_date: draft.date,
     effective_time: draft.time,

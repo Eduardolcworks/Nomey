@@ -1,5 +1,6 @@
 export { CategoryTrigger } from './category-trigger';
 export { ControlMaterial, type ControlMaterialProps } from './control-material';
+export { CurrencyList, type CurrencyListOption } from './currency-list';
 export { DateSheet } from './date-sheet';
 export { DepthLayer, type DepthLayerProps } from './depth-layer';
 export { ActionButton, type ActionButtonProps } from './action-button';

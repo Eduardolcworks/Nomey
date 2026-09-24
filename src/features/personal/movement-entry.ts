@@ -206,6 +206,66 @@ export type EntryPayload = {
   readonly expected_base_currency_definition_id?: string;
 };
 
+/**
+ * UN ÁMBITO TAL Y COMO LO NECESITA EL PAYLOAD: dónde cae el movimiento y en
+ * qué moneda está escrito, con la base asumida cuando no son la misma.
+ *
+ * Es la forma que `MovementFormScope` tiene; vive aquí porque `scopeInCurrency`
+ * y `buildPayload` son lo único que la interpreta, y aquí no hay React.
+ */
+export type PayloadScope = {
+  readonly scopeId: string;
+  readonly currencyDefinitionId: string;
+  readonly currencyCode: string;
+  readonly currencyScale: number;
+  readonly baseCurrencyDefinitionId?: string;
+};
+
+/**
+ * EL ÁMBITO EXPRESADO EN LA MONEDA ELEGIDA.
+ *
+ * **Sin elección devuelve el ámbito tal cual**, y ése es el caso que importa
+ * en las dos pantallas: en un alta lo que llega es el Personal con su moneda
+ * base, y al corregir es la operación con su moneda DECLARADA — que hay que
+ * conservar mientras nadie elija otra (F11/ADR-001 §9).
+ *
+ * **Elegir la base devuelve un ámbito SIN base asumida**, no uno con las dos
+ * iguales: el payload de un movimiento en la moneda del Personal queda
+ * exactamente como antes de F11, sin `expected_base_currency_definition_id`,
+ * así que su intención canónica —y con ella su idempotencia— no cambia.
+ */
+export function scopeInCurrency<
+  T extends {
+    readonly scopeId: string;
+    readonly currencyDefinitionId: string;
+    readonly currencyCode: string;
+    readonly currencyScale: number;
+    readonly baseCurrencyDefinitionId?: string;
+  },
+>(
+  scope: T,
+  chosen: { readonly id: string; readonly code: string; readonly scale: number } | null,
+): PayloadScope {
+  if (chosen === null) return scope;
+
+  const base = scope.baseCurrencyDefinitionId ?? scope.currencyDefinitionId;
+  if (chosen.id === base) {
+    return {
+      scopeId: scope.scopeId,
+      currencyDefinitionId: base,
+      currencyCode: chosen.code,
+      currencyScale: chosen.scale,
+    };
+  }
+  return {
+    scopeId: scope.scopeId,
+    currencyDefinitionId: chosen.id,
+    currencyCode: chosen.code,
+    currencyScale: chosen.scale,
+    baseCurrencyDefinitionId: base,
+  };
+}
+
 /** La versión que se está corrigiendo. Ausente en un alta. */
 export type EntryTarget = {
   readonly operationId: string;

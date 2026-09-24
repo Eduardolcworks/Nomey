@@ -346,6 +346,15 @@ export const esES = {
   'group.expenseCategoryShared': 'Un gasto compartido sólo admite categorías de Nomey: elige otra.',
   'group.expenseCategoryUnusable': 'Esa categoría no se puede usar. Elige otra.',
   'group.expenseCurrency': 'Ese gasto necesitaría cambiar de divisa, y todavía no se puede.',
+  'group.expenseFxNotCovered': 'No hay tipo de cambio publicado para esa moneda en esa fecha.',
+  'group.expenseFxOutOfRange': 'El importe convertido se sale del rango admitido.',
+  'group.expenseFxPending':
+    'El tipo de cambio de ese día aún no está publicado. Inténtalo más tarde.',
+  /* La moneda del GASTO, que puede no ser la del grupo (F11/ADR-003). */
+  'group.expenseCurrencyPicked': 'Moneda del gasto: {code}',
+  'group.expenseConverted': 'Se convertirá a {code} al guardarlo',
+  'group.expenseCurrencyUnavailable':
+    'No se han podido cargar las monedas. Este gasto irá en la del grupo.',
   'group.expensePayerUnknown': 'Elige quién pagó.',
   'group.expenseAmountMissing': 'Escribe el importe.',
   'group.expenseAmountInvalid': 'Ese importe no vale.',
@@ -711,6 +720,13 @@ export const esES = {
   'home.detailRateSource': 'Fuente',
   'home.rateSourceEcb': 'Banco Central Europeo, referencia del {date}',
   'home.rateSourceOther': 'Referencia del {date}',
+  /*
+   * F11 UI: la conversión que TODAVÍA no existe. Nunca se enseña un importe
+   * convertido junto a esto — precisamente porque no lo hay.
+   */
+  'home.conversionPending': 'Conversión pendiente',
+  'home.conversionPendingHint':
+    'El tipo de ese día aún no está publicado. Se convertirá en cuanto lo esté.',
   'home.sharedGroupUnknown': 'Gasto compartido',
   /* Mi cuota, desplegada en Gastos: concepto, quién pagó, cuánto en total. */
   'home.detailConcept': 'Concepto',
@@ -761,6 +777,18 @@ export const esES = {
   'entry.amountInvalid': 'Esa cantidad no es válida para esta moneda',
   'entry.currencyLabel': 'Moneda: {code}',
   'entry.currencyFixed': 'De momento se usa la moneda de tu Modo Personal',
+  /* Se ofrecía elegir y el catálogo no llegó: se dice, y el movimiento va en
+   * la moneda del ámbito, que es la correcta mientras no se elija otra. */
+  'entry.currencyUnavailable':
+    'No se han podido cargar las monedas. Este movimiento irá en la de tu Modo Personal.',
+  /*
+   * F11 UI: los rechazos de cambio, dichos por su causa. El código de la
+   * frontera es contrato; esto es lo que la persona puede hacer con él.
+   */
+  'entry.fxNotCovered': 'No hay tipo de cambio publicado para esa moneda en esa fecha',
+  'entry.fxOutOfRange': 'El importe convertido se sale del rango admitido',
+  'entry.fxPending':
+    'El tipo de cambio de ese día aún no está publicado. Se guardará en cuanto lo esté.',
   'entry.conceptLabel': 'Concepto',
   'entry.conceptPlaceholder': 'Concepto',
   'entry.conceptHint': 'Escribe un concepto',

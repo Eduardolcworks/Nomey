@@ -7,6 +7,25 @@ import { newClientOperationId } from '@/lib/id';
 export type RecordStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
 /**
+ * El código de frontera del último fallo, cuando lo hubo.
+ *
+ * **Se conserva, y desde F11 hace falta.** Antes bastaba con «no se guardó»
+ * porque todos los rechazos de esta pantalla se leían igual; ahora no: sin
+ * cobertura de cambio para esa moneda y esa fecha
+ * (`FX_CURRENCY_NOT_COVERED`) o con un convertido fuera de rango
+ * (`FX_CONVERSION_OUT_OF_RANGE`) lo que hay que hacer es distinto, y decir
+ * «no se pudo guardar» dejaba a la persona reintentando lo mismo.
+ *
+ * Sigue sin pintarse el código: lo que viaja es el contrato, y quien lo
+ * traduce es la pantalla.
+ */
+function boundaryCode(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null) return null;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' && code !== '' ? code : null;
+}
+
+/**
  * CORREGIR un movimiento, una vez, aunque se pulse dos veces.
  *
  * **Desde F7.D esto ya no da de alta.** El alta sale por la cola
@@ -41,6 +60,7 @@ export function useRecordMovement(
   } | null,
 ) {
   const [status, setStatus] = useState<RecordStatus>('idle');
+  const [code, setCode] = useState<string | null>(null);
   const keys = useRef(new Map<string, string>());
   const inFlight = useRef(false);
 
@@ -64,6 +84,16 @@ export function useRecordMovement(
         target.expectedVersionId,
         draft.kind,
         draft.amount.trim(),
+        /*
+         * **LA MONEDA ENTRA EN LA HUELLA** (F11). Corregir 20 EUR a 20 USD es
+         * otro comando aunque la cifra no se mueva: si un primer intento llegó
+         * a escribirse y la respuesta se perdió, reutilizar su clave para una
+         * moneda distinta devolvería `IDEMPOTENCY_KEY_REUSED · 409` y la
+         * corrección se habría perdido. La base asumida no entra porque se
+         * deriva de ésta y del ámbito: no hay dos intenciones que compartan
+         * moneda y difieran en ella.
+         */
+        scope.currencyDefinitionId,
         draft.concept.trim(),
         draft.categoryId ?? '',
         draft.date,
@@ -83,16 +113,18 @@ export function useRecordMovement(
       }
 
       setStatus('saving');
+      setCode(null);
       try {
         await (draft.kind === 'income'
           ? recordPersonalIncome(payload)
           : recordPersonalExpense(payload));
         setStatus('saved');
         return true;
-      } catch {
-        // El motivo no se pinta: los códigos de la frontera son de contrato, no
-        // de interfaz. Aquí basta con no dar por guardado lo que no lo está.
+      } catch (error) {
+        // El código NO se pinta: es contrato, no interfaz. Se conserva para que
+        // la pantalla pueda decir POR QUÉ y no sólo que no se guardó.
         setStatus('failed');
+        setCode(boundaryCode(error));
         return false;
       } finally {
         inFlight.current = false;
@@ -101,5 +133,5 @@ export function useRecordMovement(
     [scope],
   );
 
-  return { status, save };
+  return { status, code, save };
 }

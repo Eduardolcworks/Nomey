@@ -1147,6 +1147,24 @@ export type Database = {
           state: string;
         }[];
       };
+      group_operation_conversion: {
+        Args: { p_operation_ids?: string[] };
+        Returns: {
+          converted_amount: string;
+          operation_id: string;
+          operation_version_id: string;
+          origin_reference_date: string;
+          original_amount: string;
+          rate_coefficient: string;
+          rate_scale: number;
+          resolved_for_date: string;
+          scope_id: string;
+          source_currency_definition_id: string;
+          source_id: string;
+          target_currency_definition_id: string;
+          target_reference_date: string;
+        }[];
+      };
       group_reopened_pair: {
         Args: { p_scope: string };
         Returns: {

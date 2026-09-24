@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { type CurrencyDefinition, money } from '@/domain';
+import { type CurrencyDefinition, currencyDefinition, money } from '@/domain';
 import { type CategoryCatalogue, sharedCategories } from '@/lib/categories';
+import { useCurrencies } from '@/lib/currency';
 import {
   type CalendarDate,
   clockTimeOf,
@@ -57,6 +58,14 @@ const REJECTION_KEY: Readonly<Record<string, MessageKey>> = {
   VERSION_CONFLICT: 'group.expenseConflict',
   OPERATION_ANNULLED: 'group.expenseConflict',
   CURRENCY_CONVERSION_UNSUPPORTED: 'group.expenseCurrency',
+  /*
+   * F11: los tres rechazos de cambio, cada uno por su causa. Un gasto de grupo
+   * no pasa por la cola durable, así que `FX_RATE_NOT_YET_AVAILABLE` tampoco
+   * espera aquí a nada: se dice que el tipo de ese día aún no está publicado.
+   */
+  FX_CURRENCY_NOT_COVERED: 'group.expenseFxNotCovered',
+  FX_CONVERSION_OUT_OF_RANGE: 'group.expenseFxOutOfRange',
+  FX_RATE_NOT_YET_AVAILABLE: 'group.expenseFxPending',
 };
 
 /** Por qué no se puede guardar todavía, dicho en el idioma de quien mira. */
@@ -120,6 +129,7 @@ export function SharedExpenseForm({
   categories,
   scopeId,
   currencyDefinitionId,
+  declaredCurrency,
   onRecorded,
   initial,
   correction,
@@ -148,6 +158,16 @@ export function SharedExpenseForm({
   /** El ámbito, para poder construir el payload de la frontera. */
   readonly scopeId: string;
   readonly currencyDefinitionId: string;
+  /**
+   * LA MONEDA DECLARADA de la operación que se corrige, ya resuelta, cuando no
+   * es la del grupo (F11/ADR-003).
+   *
+   * Ausente en un alta y en una corrección en la moneda del grupo. La resuelve
+   * la ruta contra el catálogo: sin su ESCALA no se puede ni leer el importe
+   * guardado ni volver a escribirlo, y suponer dos decimales convertiría
+   * 150 000 yenes en 1 500,00 de algo.
+   */
+  readonly declaredCurrency?: CurrencyDefinition;
   /** Qué hacer cuando el servidor confirma la escritura. */
   readonly onRecorded: () => void;
   /**
@@ -272,9 +292,36 @@ export function SharedExpenseForm({
   const categoryShareable =
     current.categoryId === null || shareable.some((row) => row.id === current.categoryId);
 
-  const outcome = computeSplit(current, currency, categories.unavailable, categoryShareable);
+  /*
+   * ═══════════ LA MONEDA DEL GASTO, QUE PUEDE NO SER LA DEL GRUPO ═══════════
+   *
+   * **Todo el reparto se calcula en ella, y eso es F11/ADR-003 y no una
+   * comodidad**: lo declarado se valida en la moneda en la que la persona lo
+   * escribió, y quien convierte el total y reparte después —una sola vez, y
+   * siempre desde el importe original— es el servidor. Repartir aquí en la
+   * moneda del grupo exigiría convertir en el cliente, que F11/ADR-001 §7
+   * prohíbe.
+   *
+   * Arranca en la declarada de la operación que se corrige, si la hubo, y si no
+   * en la del grupo. El catálogo sólo hace falta para CAMBIARLA.
+   */
+  const catalogue = useCurrencies(true);
+  const options = catalogue.status === 'ready' ? catalogue.options : null;
+  const [chosenId, setChosenId] = useState<string | null>(declaredCurrency?.id ?? null);
+  const chosenOption = options?.find((one) => one.id === chosenId) ?? null;
 
-  const scale = currency.scale;
+  const declared: CurrencyDefinition =
+    chosenOption !== null
+      ? currencyDefinition({
+          id: chosenOption.id,
+          code: chosenOption.code,
+          scale: chosenOption.scale,
+        })
+      : (declaredCurrency ?? currency);
+
+  const outcome = computeSplit(current, declared, categories.unavailable, categoryShareable);
+
+  const scale = declared.scale;
   const zero = format.number(0, { minimumFractionDigits: scale, maximumFractionDigits: scale });
   const cut = zero.search(/[^0-9]/);
 
@@ -353,7 +400,7 @@ export function SharedExpenseForm({
               participants={shown}
               draft={current}
               quotas={outcome.quotas}
-              currency={currency}
+              currency={declared}
               onToggle={(participantId) => {
                 setDraft((previous) =>
                   toggleParticipant({ ...previous, selected }, participantId, order),
@@ -391,10 +438,10 @@ export function SharedExpenseForm({
               <ThemedText variant="caption" themeColor="negative" style={styles.note}>
                 {outcome.difference > 0n
                   ? t('group.splitRemaining', {
-                      amount: format.money(money(outcome.difference, currency)),
+                      amount: format.money(money(outcome.difference, declared)),
                     })
                   : t('group.splitOver', {
-                      amount: format.money(money(-outcome.difference, currency)),
+                      amount: format.money(money(-outcome.difference, declared)),
                     })}
               </ThemedText>
             ) : null}
@@ -403,12 +450,32 @@ export function SharedExpenseForm({
         entry={entry}
         onChangeEntry={setEntry}
         amountLabel={t('entry.amountLabel')}
-        currency={{ code: currency.code, scale: currency.scale }}
-        currencySymbol={currencySymbol(format.locale, currency.code, currency.scale)}
+        currency={{ code: declared.code, scale: declared.scale }}
+        currencySymbol={currencySymbol(format.locale, declared.code, declared.scale)}
         decimalSeparator={cut === -1 ? '' : zero.slice(cut, cut + 1)}
-        currencyLabel={t('entry.currencyLabel', { code: currency.code })}
-        currencyNote={t('entry.currencyFixed')}
-        hint={outcome.blocker === null ? null : t(BLOCKER_KEY[outcome.blocker])}
+        currencyLabel={t('group.expenseCurrencyPicked', { code: declared.code })}
+        /* Sólo se ve si el catálogo no llegó: entonces no hay nada que elegir y
+         * el gasto va en la del grupo, que es lo correcto. */
+        currencyNote={t('group.expenseCurrencyUnavailable')}
+        /*
+         * El catálogo ENTERO, tenga o no cobertura de cambio esa moneda: qué
+         * pares se pueden convertir un día dado lo decide la frontera
+         * (F11/ADR-001 §6), y filtrarlo aquí sería fabricar esa regla en el
+         * cliente.
+         */
+        currencyOptions={options}
+        currencySelectedId={declared.id}
+        onSelectCurrency={(option) => {
+          setChosenId(option.id);
+        }}
+        hint={
+          outcome.blocker !== null
+            ? t(BLOCKER_KEY[outcome.blocker])
+            : declared.id === currency.id
+              ? null
+              : /* Que se sepa ANTES de guardar que esto no queda en yenes. */
+                t('group.expenseConverted', { code: currency.code })
+        }
         /*
          * El motivo del RECHAZO, en castellano y sin cerrar la ventana: los
          * códigos de la frontera son contrato, no interfaz. Lo escrito sigue ahí
@@ -441,7 +508,12 @@ export function SharedExpenseForm({
             .record((clientOperationId) =>
               buildGroupExpensePayload(
                 current,
-                { scopeId, currencyDefinitionId, scale: currency.scale },
+                {
+                  scopeId,
+                  currencyDefinitionId: declared.id,
+                  scale: declared.scale,
+                  baseCurrencyDefinitionId: currencyDefinitionId,
+                },
                 clientOperationId,
                 correction,
               ),

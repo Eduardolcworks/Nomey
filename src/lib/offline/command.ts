@@ -54,6 +54,16 @@ export type PersonalEntryPayload = {
   readonly category_id?: string;
   readonly operation_id?: string;
   readonly expected_version_id?: string;
+  /**
+   * LA BASE QUE SE ASUMIÓ AL CAPTURAR (F11/ADR-001 §10), sólo cuando la moneda
+   * declarada no es la base del ámbito.
+   *
+   * Es lo que permite encolar un movimiento en moneda extranjera: sin ella el
+   * servidor tomaría la moneda declarada como base asumida y lo rechazaría. Y
+   * es también lo que distingue, al proyectar, una entrada que ESPERA
+   * conversión de una atrapada por un cambio de base (F07/ADR-001 §14).
+   */
+  readonly expected_base_currency_definition_id?: string;
 };
 
 /**
@@ -202,6 +212,7 @@ const PERSONAL_UUID_FIELDS = [
   'category_id',
   'operation_id',
   'expected_version_id',
+  'expected_base_currency_definition_id',
 ] as const;
 
 const GROUP_UUID_FIELDS = [
@@ -263,7 +274,18 @@ export function payloadDefect(
     ...shape.forbidden,
     ...(commandType === 'group.create'
       ? []
-      : (['category_id', 'operation_id', 'expected_version_id'] as const)),
+      : ([
+          'category_id',
+          'operation_id',
+          'expected_version_id',
+          /*
+           * F11: admisible en las dos clases personales, y en ninguna
+           * obligatoria. Un movimiento en la moneda del ámbito no la lleva —su
+           * payload es exactamente el de antes— y uno en otra moneda sí. Sin
+           * esta línea la cola rechazaba el alta entera con `unknownField`.
+           */
+          'expected_base_currency_definition_id',
+        ] as const)),
   ]);
 
   for (const field of shape.required) {

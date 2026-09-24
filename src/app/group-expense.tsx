@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import {
   publishGroupRecorded,
@@ -9,6 +9,8 @@ import {
 } from '@/features/groups';
 import { todayInDeviceCalendar, useEntryCategories } from '@/features/personal';
 import { useSession } from '@/features/session';
+import { currencyDefinition } from '@/domain';
+import { indexCurrencies, useCurrencies } from '@/lib/currency';
 import { clockTimeOf } from '@/lib/format';
 import { useAddBackdrop } from '@/features/shell';
 
@@ -69,6 +71,23 @@ export default function GroupExpenseScreen() {
   const group = groups.find((one) => one.scopeId === groupId);
 
   /*
+   * EL CATÁLOGO DE DIVISAS, que esta ruta necesita para DOS cosas distintas
+   * (F11): el selector de la moneda del gasto lo pide el formulario por su
+   * cuenta, y aquí se usa para resolver la moneda DECLARADA de la operación
+   * que se corrige —con su escala— antes de reconstruir su borrador.
+   */
+  const catalogue = useCurrencies(true);
+  /*
+   * **Memorizados los dos**, y no por rendimiento: `useExpenseDraft` los lleva
+   * en las dependencias de su efecto, así que un objeto nuevo en cada render
+   * volvería a consultar el servidor en bucle.
+   */
+  const currencies = useMemo(
+    () => (catalogue.status === 'ready' ? indexCurrencies(catalogue.options) : null),
+    [catalogue],
+  );
+
+  /*
    * Sin grupo no se inventa uno ni se abre una ventana vacía: se deshace la
    * ruta. Pasa si el enlace llega de fuera o si la cuenta cambió.
    *
@@ -91,11 +110,25 @@ export default function GroupExpenseScreen() {
    * lo declarado, no las cuotas resueltas— y con ellos viaja la versión que se
    * corrige, que es el CAS del guardado.
    */
+  const baseId = group?.currencyDefinitionId;
+  const baseCode = group?.currencyCode;
+  const baseScale = group?.currencyScale;
+  const base = useMemo(
+    () =>
+      currencyDefinition({
+        id: baseId ?? 'pendiente',
+        code: baseCode ?? 'EUR',
+        scale: baseScale ?? 2,
+      }),
+    [baseId, baseCode, baseScale],
+  );
+
   const editing = useExpenseDraft(
     group?.scopeId ?? '',
     operationId ?? null,
     session.status,
-    group?.currencyScale ?? 2,
+    base,
+    currencies,
   );
 
   if (group === undefined) return null;
@@ -120,6 +153,16 @@ export default function GroupExpenseScreen() {
       now={clockTimeOf(new Date())}
       categories={categories}
       initial={editing.draft ?? undefined}
+      /*
+       * La moneda en la que está escrito el borrador. Sólo viaja cuando NO es
+       * la del grupo: un gasto sin convertir abre exactamente como antes.
+       */
+      declaredCurrency={
+        editing.declaredCurrency !== null &&
+        editing.declaredCurrency.id !== group.currencyDefinitionId
+          ? editing.declaredCurrency
+          : undefined
+      }
       correction={
         editing.operation === null
           ? undefined

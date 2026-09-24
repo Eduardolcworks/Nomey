@@ -1105,6 +1105,12 @@ export default function GroupScreen() {
                                   key={entry.operation.operationId}
                                   operation={entry.operation}
                                   declaredCurrency={declaredFor(entry.operation.originalCurrencyId)}
+                                  /* El tipo congelado, para poder decir de dónde
+                                   * sale el convertido (F11). Ausente si el
+                                   * gasto no convirtió. */
+                                  conversion={movements.conversions.get(
+                                    entry.operation.operationId,
+                                  )}
                                   categories={categoryIndex}
                                   participants={participantNames}
                                   expanded={openRow === entry.operation.operationId}

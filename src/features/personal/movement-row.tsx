@@ -69,6 +69,16 @@ export type MovementRowProps = {
    * disponible. Eliminar un movimiento no es motivo para tapar la pantalla.
    */
   readonly deleting?: boolean;
+  /**
+   * ESTA FILA ESPERA UNA CONVERSIÓN QUE TODAVÍA NO EXISTE (F11).
+   *
+   * Sólo puede ser cierto en una fila local: la declaró la persona en otra
+   * moneda y el servidor todavía no le ha resuelto el tipo. Con ella se enseña
+   * «Conversión pendiente» donde iría el convertido, y **no se enseña ninguna
+   * cifra aproximada**: el tipo sólo lo resuelve el servidor, así que aquí no
+   * hay ninguna con la que llenar ese hueco.
+   */
+  readonly conversionPending?: boolean;
 };
 
 /**
@@ -104,6 +114,7 @@ export function MovementRow({
   onEdit,
   onDelete,
   deleting,
+  conversionPending = false,
 }: MovementRowProps) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -321,14 +332,16 @@ export function MovementRow({
           accessibilityRole="button"
           accessibilityState={{ expanded, disabled: deleting === true }}
           accessibilityLabel={
-            original === null
-              ? `${title}. ${format.money(amount, { sign: 'always' })}`
-              : `${title}. ${format.money(original, { sign: 'always' })}. ${t(
-                  'home.convertedAmount',
-                  {
-                    amount: format.money(amount, { sign: 'always' }),
-                  },
-                )}`
+            conversionPending
+              ? `${title}. ${format.money(principal, { sign: 'always' })}. ${t('home.conversionPending')}`
+              : original === null
+                ? `${title}. ${format.money(amount, { sign: 'always' })}`
+                : `${title}. ${format.money(original, { sign: 'always' })}. ${t(
+                    'home.convertedAmount',
+                    {
+                      amount: format.money(amount, { sign: 'always' }),
+                    },
+                  )}`
           }
           accessibilityHint={t(expanded ? 'home.movementCollapse' : 'home.movementExpand')}
           /*
@@ -417,7 +430,11 @@ export function MovementRow({
              * Disponible. «≈» porque es la magnitud en otra moneda, no porque
              * sea aproximado: la cifra es exacta, la asentada.
              */}
-            {original === null ? null : (
+            {conversionPending ? (
+              <ThemedText variant="caption" themeColor="textTertiary" numberOfLines={1}>
+                {t('home.conversionPending')}
+              </ThemedText>
+            ) : original === null ? null : (
               <ThemedText variant="caption" themeColor="textTertiary" numberOfLines={1}>
                 {t('home.convertedAmount', { amount: format.money(amount, { sign: 'always' }) })}
               </ThemedText>
@@ -480,7 +497,15 @@ export function MovementRow({
              * leer**: si el tipo de hoy fuera otro, esta fila seguiría diciendo el
              * que se usó, que es el único que explica su importe.
              */}
-            {original === null ? null : (
+            {conversionPending ? (
+              /*
+               * NI TIPO NI FUENTE, porque no los hay todavía: lo único honesto
+               * que se puede decir es que falta por convertir y por qué.
+               */
+              <Detail label={t('home.conversionPending')} value={t('home.conversionPendingHint')} />
+            ) : null}
+
+            {original === null || conversionPending ? null : (
               <>
                 <Detail
                   label={t('home.detailConverted', { code: currencyCode })}

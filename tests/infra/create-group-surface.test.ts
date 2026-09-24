@@ -9,6 +9,7 @@ import WINDOW from '../../src/features/groups/group-window.tsx?raw';
 import PICKER from '../../src/features/groups/emoji-picker.tsx?raw';
 import CURRENCY from '../../src/features/groups/currency-field.tsx?raw';
 import SERVICE from '../../src/features/groups/group-service.ts?raw';
+import CATALOGO from '../../src/lib/currency/catalogue.ts?raw';
 import CATALOGUE from '../../src/features/groups/emoji-catalogue.ts?raw';
 import ADD from '../../src/app/add.tsx?raw';
 import ES from '../../src/lib/i18n/messages/es-ES.ts?raw';
@@ -107,7 +108,14 @@ describe('la creación es real, y sale por la barrera durable', () => {
      * tocar tablas directamente: eso es lo que dejaría medio grupo creado —o un
      * gasto sin sus efectos— si algo fallara a mitad.
      */
-    expect(SERVICE).toContain("from('currency_definition')");
+    /*
+     * El catálogo de divisas BAJÓ a `lib/currency` en F11: lo necesitan
+     * también el alta de un movimiento personal y el control de moneda de
+     * `AmountSheet`, y una feature no puede leer de otra. Sigue siendo la
+     * misma vista de `api` y el mismo `select`; lo que cambió es dónde vive.
+     */
+    expect(CATALOGO).toContain("from('currency_definition')");
+    expect(SERVICE).toContain("from '@/lib/currency'");
     expect(SERVICE).toContain("supabase.rpc('create_group'");
     expect(SERVICE).toContain("supabase.rpc('record_group_expense'");
     /* Anular es la MISMA función que usa el Modo Personal: no elige la clase,
@@ -116,7 +124,14 @@ describe('la creación es real, y sale por la barrera durable', () => {
     expect(SERVICE).toContain("supabase.rpc('annul_operation'");
     // Y editar el perfil, directo a la frontera: F07/ADR-001 no cubre ediciones.
     expect(SERVICE).toContain("supabase.rpc('update_group_profile'");
-    expect(SERVICE.match(/supabase\.rpc\(/g) ?? []).toHaveLength(4);
+    /*
+     * Y la QUINTA, de F11: la conversión congelada de un gasto se lee por su
+     * función lectora —`SECURITY DEFINER` que autoriza por membresía— y nunca
+     * consultando `core.frozen_conversion`, a la que el cliente no tiene ni
+     * debe tener acceso.
+     */
+    expect(SERVICE).toContain("supabase.rpc('group_operation_conversion'");
+    expect(SERVICE.match(/supabase\.rpc\(/g) ?? []).toHaveLength(5);
     expect(SERVICE).not.toContain('.insert(');
     expect(SERVICE).not.toContain('.update(');
     expect(SERVICE).not.toContain('.upsert(');
@@ -262,7 +277,15 @@ describe('la divisa', () => {
   });
 
   it('y se puede cambiar antes de crear el grupo', () => {
-    expect(CURRENCY).toContain('onSelect(option)');
+    /*
+     * El desplegable es ahora `CurrencyList`, en `ui/`: lo comparte con el
+     * control de moneda de `AmountSheet`, que es por donde F11 elige la moneda
+     * de una operación. Elegir sigue llamando a `onSelect` con la opción
+     * RESUELTA del catálogo —la lista no conoce la escala, y crear el grupo la
+     * necesita (F02/ADR-001 §3)—.
+     */
+    expect(CURRENCY).toContain('<CurrencyList');
+    expect(CURRENCY).toContain('onSelect(full)');
     // La elegida se guarda RESUELTA, no como un id que luego habría que volver
     // a buscar en un catálogo que sin red no llega.
     expect(FORM).toContain('setChosenCurrency(option)');
