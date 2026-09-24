@@ -813,7 +813,13 @@ begin
 
   perform pg_temp.actor(r.edu);
   -- UNA fila por operacion vigente, con su numero de receptores.
-  select string_agg(sender_display_name || ':' || total_amount || ':' || receiver_count::text, ' ' order by total_amount)
+  --
+  -- ORDENADO POR LOS DOS CAMPOS. Dos de estas operaciones valen 10,00 —la del
+  -- fantasma y la de dos receptores—, asi que 'order by total_amount' a secas
+  -- dejaba su orden al criterio del planificador: verde en local y rojo en CI,
+  -- que es la peor clase de prueba. El desempate es el numero de receptores.
+  select string_agg(sender_display_name || ':' || total_amount || ':' || receiver_count::text, ' '
+                    order by total_amount, receiver_count)
     into v from api.group_transfer_operation where group_scope_id = r.g;
   perform pg_temp.espera('M · una fila por operacion, con su reparto contado', v,
     'Edu:1000:1 Edu:1000:2 Edu:2500:1 Edu:3000:1 Aitor:5000:1');
