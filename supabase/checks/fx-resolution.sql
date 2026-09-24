@@ -181,14 +181,17 @@ begin
     fallos := array_append(fallos, 'A4 policies del writer: ' || coalesce(v_t, 'ninguna'));
   end if;
 
-  -- A5 · 9 record_*, y el resolver y la conversion solo los usan los dos
+  -- A5 · 10 record_*, y el resolver y la conversion solo los usan los dos
   --      writers personales de F11.B (20260929120000): ninguna otra clase
   --      convierte. frozen_conversion se escribe solo con la segunda barrera, y
   --      la procedencia vive en su propia tabla.
+  -- F12/ADR-007 (F12.C3): DIEZ desde que la transferencia de grupo de una
+  -- voluntad se separó de `settlement_by_transfer` en su propia clase. La
+  -- undécima tendrá que justificarse igual que se justificó ésta.
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.proname like 'record\_%';
-  if v_n <> 9 then
-    fallos := array_append(fallos, format('A5 hay %s funciones api.record_*', v_n));
+  if v_n <> 10 then
+    fallos := array_append(fallos, format('A5 hay %s funciones api.record_* y deberian ser 10', v_n));
   end if;
   select string_agg(p.oid::regprocedure::text, ',' order by p.oid::regprocedure::text collate "C") into v_t
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
