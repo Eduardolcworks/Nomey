@@ -546,7 +546,7 @@ boundary) closed on 2026-08-27, Phase 5 (identity and session) on 2026-08-28,
 Phase 6 (Modo Personal) on 2026-09-03, Phase 7 (quick entry, offline and sync)
 on 2026-09-04, Phase 9 (groups, shared expenses and debts) on 2026-09-14 —
 validated on an iPhone (Expo Go) and the Android emulator — and Phase 10
-(identity lifecycle) on 2026-09-16, validated on an iPhone. **52 of the 53
+(identity lifecycle) on 2026-09-16, validated on an iPhone. **53 of the 54
 ADRs of phases F00–F12 are accepted** (F00/ADR-001 is still Proposed; see
 `docs/adr/README.md`); F02/ADR-001 met its E11 gate against a real local
 Supabase stack.
@@ -627,54 +627,64 @@ Transferencia → @username` creates a **directed proposal** (non-accounting
   `api.my_transfer_proposals` and `api.my_transfers` (identity via
   `sec.my_transfer_counterparts()`; `personal_operation` does not list the
   class yet). Precisions in `docs/adr/F12/README.md`.
-- **Transfer inside a group** ([F12/ADR-003](docs/adr/F12/ADR-003-group-transfers.md)):
-  `Grupo → + → Transferencia → participante` (active, linked, same group)
-  proposes; acceptance creates a `settlement_by_transfer`: `transfer ∓N` in
-  both Personals plus `settlement −N` on the pair **for the full amount,
-  crossing zero** (78 owed + 80 sent → the creditor now owes 2). This
-  supersedes `data-model.md` §3's overpayment rule **only** for this
-  two-will class; `group_payment` («Saldado») and `record_debt_settlement`
-  keep their cap. Leaving the group invalidates a **pending** proposal
-  (derived from `core.group_departure` inside the window, `leave_group`
-  untouched, never a terminal one, never revived by rejoining). Offered only
-  from `+`, never from Pagos sugeridos. **Implemented in F12.B3
-  (`20260928120000`, 2026-09-20):** `core.group_transfer_proposal` (target
-  fixed at creation from the participant's link) and `core.transfer_part`
-  extended with `group_scope_id` + both participants (all-or-nothing; B1/B2
-  rows stay NULL); the three commands and the writer are owned by
-  `nomey_writer`. `api.create_group_transfer_proposal` takes
-  `receiver_participant_id` (active, linked, eligible today, same group; no
-  @handle in groups), requires a definitive username on BOTH sides, derives
-  the currency from the group base, caps 3 pending per pair and shares the
-  10 / 60 min budget with the Personal proposals under the SAME advisory
-  lock (`sec.assert_proposal_budget`, now a provisioner definer counting
-  both relations; exact and mixed — measured); `cancel_` /
-  `decline_group_transfer_proposal` are idempotent by state. The departure
-  cancellation is DERIVED (no persisted mark; `created_at < left_at <
-expires_at`; precedence accepted → declined → cancelled·creator →
-  cancelled·departure → expired → pending) and every transition takes the
-  group's range-1 lock — the one `leave_group` takes first — before reading
-  it, so a mark can only be written with no departure in the window;
-  `PROPOSAL_CANCELLED · 409` carries `details.reason`. The state leaves
-  through `sec.group_transfer_proposal_state`, a writer definer with
-  INTERNAL authorization (actor from `sec.request_actor_id()`; a row only
-  for the creator or the target; foreign and nonexistent indistinguishable;
-  only `state` and `cancel_reason`) — and `authenticated` has no USAGE on
-  `sec`, so it is reachable only through `api.group_transfer_proposals`.
-  `api.record_settlement_by_transfer` was recreated with payload
-  `{client_operation_id, command_contract_version, proposal_id}` (F3 fields
-  `PAYLOAD_INVALID`, `operation_id`/`expected_version_id`
-  `TRANSFER_NOT_EDITABLE` before the key), only the target accepts, lock
-  order key → row → range 1 → scopes ascending, three effects for the full
-  amount crossing zero (measured: 78 owed + 80 sent → the creditor owes 2),
-  `created_by` = the receiver, direction from the parts never from
-  `created_by`; `SETTLEMENT_EXCEEDS_DEBT` stops applying ONLY to this
-  class — `group_payment` and `record_debt_settlement` keep their cap
-  (measured), and the delta guard still refuses annulling a later settlement
-  that would reopen a crossed pair negative. Read through
-  `api.group_transfer_proposals`, `api.group_transfers` and
-  `api.my_transfers` (two new columns at the end); `api.group_operation`
-  untouched. Precisions in `docs/adr/F12/README.md`.
+- **Transfer inside a group is ONE will** ([F12/ADR-007](docs/adr/F12/ADR-007-one-will-group-transfers.md),
+  which supersedes the PRODUCT contract of [F12/ADR-003](docs/adr/F12/ADR-003-group-transfers.md)
+  and keeps its implementation dormant). The two-will contract was retired
+  during manual validation, and the symptom was concrete: in a group with a
+  **ghost participant**, the recipient list did not show them at all — because
+  receiving demanded a linked account, a username, a Personal scope and
+  matching currencies, since somebody had to ACCEPT and had to be CREDITED.
+  A group with a ghost is the normal case (F03/ADR-009).
+  **Now:** the actor DECLARES «I transferred X to these people of the group»
+  and the effect happens on the server’s confirmation. No proposal, no
+  acceptance, no decline, no expiry. It is an operation of the GROUP LEDGER,
+  its own `operation_class = 'group_transfer'` — not `settlement_by_transfer`,
+  whose irreversibility is written on the class itself with a reason that no
+  longer applies, and not `group_payment`, which means «declared payment capped
+  by the debt».
+  **The authoritative receiver is the PARTICIPANT, never an account.** The
+  conditions are those of naming somebody in a new group entry — in scope,
+  eligible today, not retired, not a merge source, not oneself — and **none
+  else**: no account, no link, no username, no Personal, no friendship, no FX
+  of anybody’s Personal.
+  **Cash is the SENDER’S only:** one balance effect for the full total in the
+  sender’s Personal if they have one, and **nothing** in any receiver’s — that
+  is the whole difference from `settlement_by_transfer`, where both parties had
+  consented. The debit is cash, not consumption: no economic dimension, so it
+  raises neither «Gastos» nor «Ingresos».
+  **Multi-recipient is ATOMIC:** one intention, one operation, N `settlement`
+  effects and N rows of `core.group_transfer_allocation`; if one receiver fails,
+  none is written. The **split is the server’s**, with
+  `sec.allocate_by_largest_remainder` and weights of one — the canonical rule of
+  F01/ADR-001 §5 — over the canonical order `(participant.created_at, id)`, the
+  same order `api.group_transfer_candidates` returns, so the client’s preview
+  shows the spare minor unit on the person who actually receives it. Below one
+  minor unit per recipient: `TRANSFER_AMOUNT_TOO_SMALL`, before writing.
+  The algebra of F12/ADR-003 §9–§11 stands: full amount, **no cap**, crossing
+  zero (78 owed + 80 sent → the creditor now owes 2). `SETTLEMENT_EXCEEDS_DEBT`
+  does not apply to this class on write; `group_payment` and
+  `record_debt_settlement` keep their cap.
+  **The effective date and time come from the ACTOR’S DEVICE**, in the payload,
+  exactly like a shared expense and a declared payment. Inheriting the server
+  clock from B3 wrote a transfer made at 19:40 in Madrid as 17:40 — the
+  database runs in UTC — and buried it in the history under what had been
+  recorded earlier that afternoon. Measured on real rows.
+  **Not correctable, but ANNULLABLE** — the opposite of B3, for the reason B3
+  gave: what made that one irreversible was that TWO parties consented.
+  Annulment writes a version with no effects (F06/ADR-006) and the
+  over-settlement guard walks **every** pair of the version; authorization is
+  the membership of each scope the version reaches, which in practice means
+  only the sender.
+  **No pendings anywhere:** no Notifications section, no bell source, no
+  `AppState` wake. History is one row per operation
+  (`api.group_transfer_operation` + `api.group_transfer_allocation`);
+  `api.group_operation` was not touched.
+  **All of B3 is kept and dormant** (`20260928120000`: the proposal table,
+  `core.transfer_part`, the three commands, `record_settlement_by_transfer`,
+  its two views, its check and its nine races — green without a contract
+  change), backend-only like B2’s payment requests. **Implemented in F12.C3
+  (`20261006120000` and `20261007120000`, 2026-09-24)**, pending manual
+  validation and merge.
 - **Payment requests by link** ([F12/ADR-004](docs/adr/F12/ADR-004-payment-request-links.md)):
   a **bearer capability** (opaque token, hash only, invitation pattern) with
   fixed amount and currency, concept on the request, **single use**, 7 days,

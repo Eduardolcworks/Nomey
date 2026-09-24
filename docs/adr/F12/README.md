@@ -53,14 +53,15 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 
 ## ADR de esta fase
 
-| ADR                                                        | Título                                                                                                                                                                                                                                                                        | Estado    | Fecha      | Bloque                                                         |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------- | -------------------------------------------------------------- |
-| [F12/ADR-001](ADR-001-username-public-account-identity.md) | Username: la identidad pública de una cuenta (precisa F03/ADR-003 en el rol `supabase_auth_admin`). **Implementado en F12.A (A1 `20260921120000`, A2 `20260924120000`, A3 cliente; 2026-09-19)**                                                                              | Aceptado  | 2026-09-17 | F12.A0                                                         |
-| [F12/ADR-002](ADR-002-two-will-user-transfers.md)          | Transferencias entre usuarios con dos voluntades (precisa F01/ADR-001 §10 e invariante 14; supera el contrato de F3 de `record_internal_transfer`). **Implementado en F12.B1 (`20260926120000`, 2026-09-19)**                                                                 | Aceptado  | 2026-09-17 | F12.A0                                                         |
-| [F12/ADR-003](ADR-003-group-transfers.md)                  | Transferencias dentro de un Grupo: propuesta + aceptación → `settlement_by_transfer`, deuda algebraica (supera de forma acotada `data-model.md` §3 y el contrato de F3 de `record_settlement_by_transfer`)                                                                    | Aceptado  | 2026-09-17 | F12.A0 · implementado en F12.B3 (`20260928120000`, 2026-09-20) |
-| [F12/ADR-004](ADR-004-payment-request-links.md)            | Solicitudes de pago mediante enlace: capability al portador, un solo uso, 7 días → `internal_transfer` del pagador al solicitante. **Implementado en F12.B2 (`20260927120000`, 2026-09-20)**                                                                                  | Aceptado  | 2026-09-17 | F12.A0                                                         |
-| [F12/ADR-005](ADR-005-friendship-model.md)                 | Amigos: amistad simétrica con dos voluntades (relación canónica `(user_low, user_high)`, solicitud con terminales persistidas, cruzadas sin duplicado, cooldown direccional tras rechazo, topes exactos, sin acceso financiero). **Backend en F12.E.A (`20260930120000`)**    | Propuesto | 2026-09-22 | F12.E                                                          |
-| [F12/ADR-006](ADR-006-friend-link.md)                      | El enlace personal de amistad: un código público, opaco y revocable por cuenta (no una credencial), preview sólo para cuentas elegibles, respuesta que reutiliza la solicitud pendiente y `accepted_via_link` en el caso recíproco. **Backend en F12.E.A (`20260930120000`)** | Propuesto | 2026-09-22 | F12.E                                                          |
+| ADR                                                        | Título                                                                                                                                                                                                                                                                                                                                                                   | Estado    | Fecha      | Bloque                                                         |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ---------- | -------------------------------------------------------------- |
+| [F12/ADR-001](ADR-001-username-public-account-identity.md) | Username: la identidad pública de una cuenta (precisa F03/ADR-003 en el rol `supabase_auth_admin`). **Implementado en F12.A (A1 `20260921120000`, A2 `20260924120000`, A3 cliente; 2026-09-19)**                                                                                                                                                                         | Aceptado  | 2026-09-17 | F12.A0                                                         |
+| [F12/ADR-002](ADR-002-two-will-user-transfers.md)          | Transferencias entre usuarios con dos voluntades (precisa F01/ADR-001 §10 e invariante 14; supera el contrato de F3 de `record_internal_transfer`). **Implementado en F12.B1 (`20260926120000`, 2026-09-19)**                                                                                                                                                            | Aceptado  | 2026-09-17 | F12.A0                                                         |
+| [F12/ADR-003](ADR-003-group-transfers.md)                  | Transferencias dentro de un Grupo: propuesta + aceptación → `settlement_by_transfer`, deuda algebraica (supera de forma acotada `data-model.md` §3 y el contrato de F3 de `record_settlement_by_transfer`). **Su CONTRATO DE PRODUCTO lo supera F12/ADR-007; su implementación se conserva dormida**                                                                     | Aceptado  | 2026-09-17 | F12.A0 · implementado en F12.B3 (`20260928120000`, 2026-09-20) |
+| [F12/ADR-004](ADR-004-payment-request-links.md)            | Solicitudes de pago mediante enlace: capability al portador, un solo uso, 7 días → `internal_transfer` del pagador al solicitante. **Implementado en F12.B2 (`20260927120000`, 2026-09-20)**                                                                                                                                                                             | Aceptado  | 2026-09-17 | F12.A0                                                         |
+| [F12/ADR-005](ADR-005-friendship-model.md)                 | Amigos: amistad simétrica con dos voluntades (relación canónica `(user_low, user_high)`, solicitud con terminales persistidas, cruzadas sin duplicado, cooldown direccional tras rechazo, topes exactos, sin acceso financiero). **Backend en F12.E.A (`20260930120000`)**                                                                                               | Propuesto | 2026-09-22 | F12.E                                                          |
+| [F12/ADR-006](ADR-006-friend-link.md)                      | El enlace personal de amistad: un código público, opaco y revocable por cuenta (no una credencial), preview sólo para cuentas elegibles, respuesta que reutiliza la solicitud pendiente y `accepted_via_link` en el caso recíproco. **Backend en F12.E.A (`20260930120000`)**                                                                                            | Propuesto | 2026-09-22 | F12.E                                                          |
+| [F12/ADR-007](ADR-007-one-will-group-transfers.md)         | La transferencia de grupo es una declaración de UNA voluntad: clase propia `group_transfer`, receptor por participante (fantasmas incluidos), caja sólo del emisor, multi-destinatario atómico, reparto autoritativo del servidor, anulable. **Supera el contrato de producto de F12/ADR-003; implementado en F12.C3 (`20261006120000` y `20261007120000`, 2026-09-24)** | Aceptado  | 2026-09-24 | F12.C3                                                         |
 
 Qué contrato cubre cada uno, en una línea:
 
@@ -886,6 +887,82 @@ incoming_pending | friends | self | unavailable` y el `request_id` de
   modo que quien presta y cobra parece haber ganado dinero. Es la asimetría
   que la decisión introduce a propósito (§3 del encargo); revisarla exige
   decidir qué hace lo enviado.
+
+- **F12/ADR-007 — la transferencia de grupo, de UNA voluntad (F12.C3,
+  2026-09-24, migraciones `20261006120000` y `20261007120000`).** B3 dejó el
+  circuito de propuestas entero y sin pantalla. Al construirla y validarla a
+  mano apareció que ese contrato **no era el producto**, y el síntoma fue
+  concreto: en un grupo con un participante fantasma, `+ → ⇄ Transferencia`
+  **no lo enseñaba**, y sin nadie a quien marcar el botón no llegaba a
+  activarse por mucho importe que se escribiera. No era un fallo de la
+  pantalla: recibir exigía cuenta vinculada, username, Personal y monedas
+  compatibles **porque alguien tenía que aceptar y había que abonarle su
+  Personal**. Y un grupo con un fantasma es el caso normal.
+  - **Clase propia, `group_transfer`.** No se reutilizó
+    `settlement_by_transfer` porque su irreversibilidad está escrita SOBRE LA
+    CLASE —en `sec.persist_version` y en `api.annul_operation`— con un
+    argumento que aquí no aplica («las dos partes consintieron ESE hecho»);
+    reutilizarla habría obligado a relajar esa guarda también para las
+    transferencias Personal. Ni `group_payment`, que significa «pago acotado
+    por la deuda». `operation_class` es vocabulario abierto: la clase nueva no
+    tocó el esquema del ledger.
+  - **El receptor es el PARTICIPANTE.** Las condiciones son las de nombrar a
+    alguien en un alta del grupo —del ámbito, elegible hoy, no retirado, no
+    fusionado, no uno mismo— más estar presente ahora, y **ninguna más**: ni
+    cuenta, ni vínculo, ni username, ni Personal, ni amistad, ni FX de ningún
+    Personal ajeno. Un fantasma recibe como cualquiera, y no se le inventa un
+    Personal.
+  - **La caja es SÓLO la del emisor**, un efecto por el total y sólo si tiene
+    Personal (la misma tolerancia que `20260913130000` dio a los pagos).
+    NINGÚN efecto en el Personal de ningún receptor: es la diferencia entera
+    con `settlement_by_transfer`, donde las dos partes habían consentido. Y es
+    CAJA, no consumo: no aumenta «Gastos» de nadie ni «Ingresos» de nadie.
+  - **Multi-destinatario ATÓMICO**: una intención, una operación, N efectos de
+    `settlement` y N filas de `core.group_transfer_allocation`. Si un receptor
+    falla no se escribe ninguno, así que no hay envío parcial que contar.
+  - **El reparto lo hace el SERVIDOR** con `sec.allocate_by_largest_remainder`
+    y pesos a uno: la regla canónica de F01/ADR-001 §5, con vectores. El
+    cliente calcula el mismo reparto sólo para la vista previa, y coinciden
+    porque el ORDEN es el mismo — `(created_at, id)`, la entrada al grupo, que
+    es lo que `api.group_transfer_candidates` entrega. Si el total en unidades
+    menores no llega a los destinatarios, `TRANSFER_AMOUNT_TOO_SMALL` antes de
+    escribir.
+  - **La fecha y la hora son las del APARATO**, como en el gasto y en el pago:
+    viajan en el payload. Heredarlas del reloj del servidor —que corre en UTC—
+    escribía una transferencia de las 19:40 como las 17:40 y la enterraba en
+    Movimientos por debajo de lo registrado antes esa tarde. Medido sobre
+    datos reales.
+  - **No se corrige, SÍ se anula**, al revés que B3 y por el motivo que B3
+    daba. Anular escribe una versión sin efectos (F06/ADR-006) y la guarda de
+    sobreliquidación recorre TODOS los pares: si deshacer dejaría cualquiera
+    en negativo, no se anula ninguno. Quién puede es la autorización que ya
+    existía —membresía de cada ámbito alcanzado—, y como la versión toca el
+    Personal del emisor, en la práctica sólo él.
+  - **Ni pendientes, ni Notificaciones, ni campana**: no hay propuesta, así que
+    no hay nada que atender. La campana pierde una fuente y el `AppState` una
+    salida. Lo registrado se ve al releer el grupo, por `groupRecorded`.
+  - **El histórico, una fila por operación** (`api.group_transfer_operation`)
+    con su reparto aparte (`api.group_transfer_allocation`). Una anulada
+    desaparece sin ninguna cláusula que lo diga: su versión vigente no tiene
+    reparto. `api.group_operation` no se tocó.
+  - **TODO B3 SE CONSERVA Y DUERME**: la tabla de propuestas,
+    `core.transfer_part`, los tres comandos, `record_settlement_by_transfer`,
+    sus dos vistas, su check y sus nueve carreras — verdes sin cambiar de
+    contrato. Backend sin superficie cliente, igual que B2.
+  - **Tres entradas de UI descartadas por el camino**, antes de este cambio:
+    «Pagar a {nombre}» en un pago sugerido y «Transferir» en el menú de un
+    participante (duplicaban «Saldado», y una transferencia no nace de una
+    deuda); un menú nativo en el `+` (partía en dos una elección que la ventana
+    ya ofrecía); y elegir destinatario ANTES del importe (cambiaba el alto de
+    la hoja y limitaba a una sola persona). Lo que quedó: la ventana del `+`,
+    su selector de clase de siempre, y dentro importe, concepto y lista con
+    ticks desde el principio, nadie preseleccionado y multiselección.
+  - Evidencia: `supabase/checks/group-transfer-client.sql` (A–M),
+    `tests/infra/group-transfer-surface.test.ts`,
+    `tests/domain/split-evenly.test.ts`, y
+    `supabase/checks/group-transfer-proposals.sql` +
+    `scripts/group-transfer-race-evidence.sh` intactos.
+  - **C3 NO está cerrada**: falta la validación manual y el merge.
 
 ## Decisiones de otras fases que esta fase aplica
 

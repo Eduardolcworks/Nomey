@@ -33,9 +33,14 @@ describe('el indicador', () => {
     // amistad ENTRANTE y pendiente. Tampoco tiene marca de visto y tampoco se
     // inventa: entrar no la apaga; aceptarla, rechazarla o que la otra parte
     // la cancele, sí. Las SALIENTES no encienden nada, y una amistad tampoco.
+    //
+    // Y las TRANSFERENCIAS DE GRUPO no encienden nada, desde que F12/ADR-007
+    // las hizo de una voluntad: registrarlas no deja nada pendiente que
+    // alguien tenga que atender, así que no hay a qué llamar.
     expect(TABS).toContain(
       'const bell =\n    incidents.unseen > 0 ||\n    notices.unread > 0 ||\n    proposals.incoming.length > 0 ||\n    declined.unseen.length > 0 ||\n    friends.incoming.length > 0;',
     );
+    expect(TABS).not.toMatch(/groupTransfer/i);
     expect(TABS).toContain('<AppTopBar alerts={bell} />');
     expect(TABS).not.toContain('incidents.unresolved > 0');
     // Visto y resuelto son dos cosas: la incidencia sigue con sus botones.

@@ -171,9 +171,16 @@ describe('el pago en el grupo y en Personal', () => {
     // Sin bloque aparte ni rótulo: «Saldado» se ordena entre los gastos por
     // fecha y hora reales (mergeTimeline), y sigue fuera de los filtros.
     expect(SCREEN).not.toContain("t('group.paymentsTitle')");
-    expect(SCREEN).toContain(
-      'mergeTimeline(movements.operations, movements.payments ?? [], order)',
-    );
+    /*
+     * LAS TRES FUENTES, en UNA sola llamada: gastos, pagos y —desde F12.C3—
+     * transferencias. Se afirma argumento a argumento para que añadir una
+     * cuarta fuente tenga que pasar por aquí, en vez de colarse por un
+     * `toContain` que sólo mire el nombre de la función.
+     */
+    expect(SCREEN).toContain('mergeTimeline(');
+    expect(SCREEN).toContain('movements.operations,');
+    expect(SCREEN).toContain('movements.payments ?? [],');
+    expect(SCREEN).toContain('movements.transfers ?? [],');
     expect(SCREEN).toContain("entry.kind === 'payment' ? (");
   });
 

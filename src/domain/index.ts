@@ -46,6 +46,7 @@ export { selectDayRate } from './fx/day-rate';
 export type { Share, SplitInput, SplitMethod } from './split/split';
 export { sharesTotal, splitExpense } from './split/split';
 export { allocateByLargestRemainder } from './split/largest-remainder';
+export { splitEvenly, tooSmallToSplit } from './split/even';
 
 export type { AccountingClass, DebtImpact, EconomicImpact, Effect } from './effects/effect';
 export {

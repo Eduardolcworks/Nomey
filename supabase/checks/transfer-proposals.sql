@@ -335,7 +335,10 @@ begin
   end if;
   -- la superficie de escritura sigue siendo enumerable: NUEVE record_*
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'api' and p.proname like 'record\_%';
-  if v_n <> 9 then raise exception 'A: hay % api.record_* y deben seguir siendo 9', v_n; end if;
+  -- F12/ADR-007 (F12.C3): DIEZ desde que la transferencia de grupo de una
+  -- voluntad se separó de `settlement_by_transfer` en su propia clase. La
+  -- undécima tendrá que justificarse igual que se justificó ésta.
+  if v_n <> 10 then raise exception 'A: hay % api.record_* y deben seguir siendo 10', v_n; end if;
   raise notice 'OK · A5 · policies created_by = actor intactas; vistas invoker sin created_by, sin uid ni ambito ajeno; nueve record_*';
 end
 $a$;

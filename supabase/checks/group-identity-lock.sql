@@ -18,10 +18,11 @@
 -- Solo lectura. Termina en rollback por convencion.
 begin;
 
-create temp table fn (name text, body text);
+create temp table fn (name text, body text, volatilidad "char");
 insert into fn
 select n.nspname || '.' || p.proname,
-       regexp_replace(pg_get_functiondef(p.oid), '--[^\n]*', '', 'g')
+       regexp_replace(pg_get_functiondef(p.oid), '--[^\n]*', '', 'g'),
+       p.provolatile
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
  where n.nspname in ('api', 'sec') and p.prokind = 'f';
 
@@ -42,7 +43,7 @@ begin
 end $$;
 
 do $a$
-declare r record; v_n integer; v_rel text;
+declare r record; v_n integer; v_puros integer := 0; v_rel text;
 begin
   -- A · el cerrojo es de TRANSACCION y por ambito: no de sesion, no global.
   select body into r from fn where name = 'sec.lock_participant_claims';
@@ -117,18 +118,32 @@ begin
   raise notice 'OK · D · las filas de ambito siempre antes que la fila de la operacion';
 
   -- E · NADIE resuelve un Personal por vinculo sin el cerrojo delante. Es la
-  --     guarda que vigila a F11: un writer nuevo o recreado que llame a
-  --     sec.participant_personal_scope sin tomar antes el cerrojo falla aqui.
+  --     guarda que vigila a F11 y a F12: un writer nuevo o recreado que llame
+  --     a sec.participant_personal_scope sin tomar antes el cerrojo falla aqui.
+  --
+  --     Y se comprueba SEGUN QUIEN PUEDE TOMARLO. Un helper puro —`stable`,
+  --     como sec.group_transfer_currencies_match— no puede: tomar un cerrojo
+  --     es volatil, y exigirselo seria pedirle que dejara de ser puro. Lo que
+  --     se le exige entonces es mas fuerte, no menos: que TODOS sus llamadores
+  --     tengan el cerrojo tomado antes de invocarlo. Un llamador nuevo que se
+  --     lo salte falla aqui igual, y ademas por su nombre.
   v_n := 0;
-  for r in select name, body from fn
+  for r in select name, body, volatilidad from fn
             where body like '%sec.participant_personal_scope(%'
               and name <> 'sec.participant_personal_scope'
   loop
     v_n := v_n + 1;
-    perform pg_temp.antes(r.name, 'sec.lock_participant_claims(', 'sec.participant_personal_scope(');
+    if r.volatilidad = 'v' then
+      perform pg_temp.antes(r.name, 'sec.lock_participant_claims(', 'sec.participant_personal_scope(');
+    else
+      v_puros := v_puros + 1;
+      for v_rel in select name from fn where body like '%' || r.name || '(%' and name <> r.name loop
+        perform pg_temp.antes(v_rel, 'sec.lock_participant_claims(', r.name || '(');
+      end loop;
+    end if;
   end loop;
   if v_n < 2 then raise exception 'E: se esperaban al menos dos resolutores de Personal por vinculo, hay %', v_n; end if;
-  raise notice 'OK · E · % funciones resuelven un Personal por vinculo, todas bajo el cerrojo', v_n;
+  raise notice 'OK · E · % funciones resuelven un Personal por vinculo (% de ellas puras, con sus llamadores comprobados), todas bajo el cerrojo', v_n, v_puros;
 
   -- F · el aislamiento del provisioner se conserva: reclamar y salir toman
   --     SOLO el cerrojo; ninguna fila de ambito (E6 de group-provisioning: el

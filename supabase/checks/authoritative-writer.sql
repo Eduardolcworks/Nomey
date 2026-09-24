@@ -27,11 +27,14 @@ begin
   -- (F6.B) y NUEVE con el pago de grupo (ADR-038, F9). La cifra se
   -- actualiza aqui a proposito en vez de relajar la comprobacion a «al menos»:
   -- lo que este test protege es que la superficie sea ENUMERABLE.
+  -- F12/ADR-007 (F12.C3): DIEZ desde que la transferencia de grupo de una
+  -- voluntad se separó de `settlement_by_transfer` en su propia clase. La
+  -- undécima tendrá que justificarse igual que se justificó ésta.
   select count(*) into v_n
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.proname like 'record\_%';
-  if v_n <> 9 then
-    fallos := array_append(fallos, format('A1: hay %s funciones api.record_* y deberian ser 9', v_n));
+  if v_n <> 10 then
+    fallos := array_append(fallos, format('A1: hay %s funciones api.record_* y deberian ser 10', v_n));
   end if;
 
   -- A2 · atributos exigidos por ADR-009 §4 y §5, una por una.

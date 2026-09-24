@@ -405,9 +405,21 @@ begin
   if v_t <> 'operation_id,scope_id,currency_definition_id,balance_amount,direction,amount,effective_date,effective_time,concept,counterpart_handle,counterpart_public_name,proposal_id,operation_created_at,payment_request_id,group_scope_id,group_transfer_proposal_id' then
     raise exception 'A: columnas de api.my_transfers: %', v_t;
   end if;
-  select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'api' and p.proname like 'record\_%';
-  if v_n <> 9 then raise exception 'A: hay % api.record_* y deben seguir siendo 9', v_n; end if;
-  raise notice 'OK · A5 · policies created_by = actor intactas; vistas invoker sin uid, con sus columnas (my_transfers amplia AL FINAL); nueve record_*';
+  -- LA LISTA EXACTA, no un recuento: B3 no añadio ninguna clase, y lo que
+  -- prueba eso es QUIENES son, no cuantos. F12.C3 (`20261006120000`) si añadio
+  -- una —`record_group_transfer`, la transferencia de grupo de UNA voluntad—,
+  -- que es una clase nueva y deliberada; figura aqui por su nombre para que
+  -- la siguiente no pueda colarse.
+  select string_agg(p.proname, ' ' order by p.proname) into v_t
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'api' and p.proname like 'record\_%';
+  if v_t <> 'record_adjustment record_debt_settlement record_external_transfer'
+         || ' record_group_expense record_group_payment record_group_transfer'
+         || ' record_internal_transfer record_personal_expense record_personal_income'
+         || ' record_settlement_by_transfer' then
+    raise exception 'A: los api.record_* son: %', v_t;
+  end if;
+  raise notice 'OK · A5 · policies created_by = actor intactas; vistas invoker sin uid, con sus columnas (my_transfers amplia AL FINAL); los diez record_* por su nombre';
 end
 $a$;
 
@@ -731,16 +743,44 @@ begin
   perform pg_temp.espera('E3 saldo A negativo', (pg_temp.saldo(pa) < 0)::text, 'true');
   raise notice 'OK · E3 · el algebra: 20 + 5 → 15; 15 + 30 → inversa 15; inversa + 10 → 25; 0 + N → inversa N; sin validacion de fondos';
 
-  -- E4 · bases distintas → CURRENCY_CONVERSION_UNSUPPORTED sin escribir (el Personal del receptor cambia de base como fixture: sin efectos no hay)
-  --      Se usa un grupo nuevo en USD con Aitor y Edu: la base del grupo no es la de sus Personales.
+  -- E4 · BASES DISTINTAS, y desde F12.C3 en DOS momentos.
+  --
+  --      Un grupo nuevo en USD con Aitor y Edu: la base del grupo no es la de
+  --      sus Personales, asi que nadie podria materializar la transferencia.
+  --
+  --      Hasta F12.C3 eso solo se descubria AL ACEPTAR: se podia crear una
+  --      propuesta imposible y el 422 le llegaba al receptor por algo que el
+  --      emisor no habia podido ver. La guarda temprana de 20261006120000 lo
+  --      rehusa ya al crear, con el MISMO codigo.
   perform pg_temp.grupo('b3a00000-0000-4000-8000-000000000800', 'b3b00000-0000-4000-8000-000000000801', 'b3b00000-0000-4000-8000-000000000802', 'b3b00000-0000-4000-8000-000000000803');
   update core.scope set base_currency_definition_id = (select usd from fx) where id = 'b3a00000-0000-4000-8000-000000000800';
-  perform pg_temp.espera('E4 crear en el grupo USD', pg_temp.crear(aitor, pg_temp.k(212), 'b3a00000-0000-4000-8000-000000000800', 'b3b00000-0000-4000-8000-000000000802', '100'), 'ok');
   v_before := pg_temp.ops();
-  perform pg_temp.espera('E4 aceptar', pg_temp.aceptar(edu, pg_temp.k(213), pg_temp.pid(pg_temp.k(212))), 'CURRENCY_CONVERSION_UNSUPPORTED');
+  perform pg_temp.espera('E4 crear en el grupo USD ya no se puede',
+    pg_temp.crear(aitor, pg_temp.k(212), 'b3a00000-0000-4000-8000-000000000800', 'b3b00000-0000-4000-8000-000000000802', '100'),
+    'CURRENCY_CONVERSION_UNSUPPORTED');
+  if exists (select 1 from core.group_transfer_proposal where client_command_id = pg_temp.k(212)) then
+    raise exception 'E4 la guarda temprana dejo una fila de propuesta';
+  end if;
+
+  --      Y LA GUARDA DE ACEPTAR SIGUE AHI, que es la que protege el dinero.
+  --      Una pendiente creada ANTES de que la guarda existiera no se borra ni
+  --      caduca sola: se siembra una a mano —como la habria dejado el codigo
+  --      anterior— y se comprueba que aceptar responde el error autoritativo,
+  --      no escribe nada, y la deja pendiente para que cualquiera de las dos
+  --      partes la retire.
+  insert into core.group_transfer_proposal
+    (id, created_by, target_user_id, group_scope_id, sender_participant_id, receiver_participant_id,
+     amount, currency_definition_id, client_command_id)
+  values ('b3c00000-0000-4000-8000-000000000804', aitor, edu,
+          'b3a00000-0000-4000-8000-000000000800',
+          'b3b00000-0000-4000-8000-000000000801', 'b3b00000-0000-4000-8000-000000000802',
+          100, (select usd from fx), pg_temp.k(214));
+  perform pg_temp.espera('E4 aceptar una vieja e incompatible',
+    pg_temp.aceptar(edu, pg_temp.k(213), 'b3c00000-0000-4000-8000-000000000804'),
+    'CURRENCY_CONVERSION_UNSUPPORTED');
   perform pg_temp.espera('E4 sin escribir', (pg_temp.ops() - v_before)::text, '0');
-  perform pg_temp.espera('E4 sigue pending', pg_temp.estado(pg_temp.pid(pg_temp.k(212))), 'pending');
-  raise notice 'OK · E4 · base del grupo distinta de la de los Personales → CURRENCY_CONVERSION_UNSUPPORTED sin escribir';
+  perform pg_temp.espera('E4 sigue pending', pg_temp.estado('b3c00000-0000-4000-8000-000000000804'), 'pending');
+  raise notice 'OK · E4 · bases distintas: crear lo rehusa ya (F12.C3) sin dejar fila, y aceptar una anterior sigue rehusando sin escribir';
 end
 $e$;
 

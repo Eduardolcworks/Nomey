@@ -73,7 +73,13 @@ describe('la ventana es la de Inicio, no una copia', () => {
   it('y el modo liquidación no reutiliza el formulario de gasto', () => {
     const rama = code(FORM).slice(code(FORM).indexOf("if (kind === 'transfer')"));
     const hasta = rama.slice(0, rama.indexOf('return (\n    <>'));
-    expect(hasta).toContain('<EmptyState');
+    /*
+     * Desde F12.C3 el segundo modo ya no es un cartel: lleva el circuito
+     * de dos voluntades. Lo que NO ha cambiado, y es lo que este caso
+     * existe para fijar, es que **no reutiliza el formulario del gasto**:
+     * una transferencia tiene emisor y receptor, no pagador ni reparto.
+     */
+    expect(hasta).toContain('<GroupTransferMode');
     expect(hasta).not.toContain('<AmountSheet');
     expect(hasta).not.toContain('SharedExpenseFields');
     expect(hasta).not.toContain('SplitParticipantsCard');

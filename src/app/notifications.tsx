@@ -73,6 +73,12 @@ export default function NotificationsScreen() {
    * de la membresía: sin ella no habría llegado.
    */
   const notices = useGroupNotices(actorId);
+  /*
+   * LAS TRANSFERENCIAS DE GRUPO NO LLEGAN AQUÍ. Desde F12/ADR-007 son de UNA
+   * voluntad y se registran al momento: no hay propuesta que aceptar, ni
+   * rechazar, ni cancelar, así que no hay nada pendiente que listar. Lo que
+   * alguien haya transferido se ve en el histórico de su grupo.
+   */
 
   /*
    * ═══════ EL CENTRO DE PENDIENTES DE LAS TRANSFERENCIAS (F12/ADR-002 §9) ═══════

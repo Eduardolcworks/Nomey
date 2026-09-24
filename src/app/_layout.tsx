@@ -135,6 +135,11 @@ function wakeOnForeground(): void {
   wakeIdentity();
   wakeTransfers();
   wakeFriends();
+  /*
+   * Las transferencias de GRUPO no despiertan aquí: desde F12/ADR-007 no hay
+   * propuestas que puedan moverse mientras la app no mira. La pantalla del
+   * grupo se relee sola cuando algo económico se escribe.
+   */
 }
 
 /**

@@ -19,6 +19,8 @@ import {
   FilterPanel,
   type GroupOperation,
   GroupBalanceRow,
+  GroupTransferRow,
+  type GroupTransferOperation,
   type GroupOrder,
   GroupIdentityBar,
   type GroupPayment,
@@ -193,6 +195,12 @@ export default function GroupScreen() {
   const adding = useAddParticipantFriend();
   const friendActions = useFriendActions();
 
+  /*
+   * LAS TRANSFERENCIAS DE GRUPO NO PENDEN DE NADIE (F12/ADR-007): son de UNA
+   * voluntad y se registran al momento, así que no hay lista de propuestas
+   * que leer ni nada que esta pantalla tenga que pedirle a nadie. Las
+   * registradas llegan con el histórico, por `useGroupMovements`.
+   */
   const bell =
     incidents.unseen > 0 ||
     notices.unread > 0 ||
@@ -377,8 +385,13 @@ export default function GroupScreen() {
     () =>
       movements.operations === null
         ? []
-        : mergeTimeline(movements.operations, movements.payments ?? [], order),
-    [movements.operations, movements.payments, order],
+        : mergeTimeline(
+            movements.operations,
+            movements.payments ?? [],
+            order,
+            movements.transfers ?? [],
+          ),
+    [movements.operations, movements.payments, movements.transfers, order],
   );
 
   /*
@@ -689,6 +702,48 @@ export default function GroupScreen() {
     }
   };
 
+  /**
+   * ELIMINAR UNA TRANSFERENCIA DE GRUPO: la misma anulación autoritativa que
+   * un gasto o un pago (F06/ADR-006), con la misma confirmación previa.
+   *
+   * **Se puede porque es de UNA voluntad.** Lo que hacía irreversible a la
+   * transferencia de B3 era que dos personas habían consentido ESE hecho;
+   * aquí sólo consintió quien la registró, y deshacer su propia declaración
+   * no altera la de nadie. Anular escribe una versión SIN efectos: la deuda
+   * del grupo y su Disponible vuelven a como estaban, los dos a la vez.
+   *
+   * **El servidor puede rehusar, y se dice por qué.** Si entre medias alguien
+   * saldó lo que esta transferencia dejó pendiente, deshacerla dejaría ese
+   * par en negativo y la frontera lo rehúsa — comprobando TODOS los pares de
+   * la operación, no sólo uno.
+   */
+  const askDeleteTransfer = (transfer: GroupTransferOperation) => {
+    Alert.alert(t('group.deleteTransfer'), t('group.deleteTransferBody'), [
+      { text: t('action.cancel'), style: 'cancel' },
+      {
+        text: t('action.delete'),
+        style: 'destructive',
+        onPress: () => {
+          void writer.annul(transfer).then((done: boolean) => {
+            if (done) {
+              publishGroupRecorded(id ?? '');
+              setOpenRow(null);
+              return;
+            }
+            Alert.alert(
+              t('group.deleteFailedTitle'),
+              writer.code === 'SETTLEMENT_EXCEEDS_DEBT'
+                ? t('group.deleteSettled')
+                : writer.code === 'NOT_AUTHORIZED'
+                  ? t('group.deleteTransferNotSender')
+                  : t('group.deleteFailedBody'),
+              [{ text: t('action.close') }],
+            );
+          });
+        },
+      },
+    ]);
+  };
   /**
    * ELIMINAR, con la confirmación de Inicio y su misma disciplina.
    *
@@ -1100,6 +1155,38 @@ export default function GroupScreen() {
                                     scale: group.currencyScale,
                                   })}
                                 />
+                              ) : entry.kind === 'transfer' ? (
+                                /*
+                                 * LA TERCERA CLASE DEL HISTÓRICO (F12/ADR-007),
+                                 * en la MISMA lista y con el mismo orden: no es
+                                 * una sección aparte. Se despliega para
+                                 * eliminar —es de UNA voluntad, así que se
+                                 * anula— pero no se edita.
+                                 */
+                                <GroupTransferRow
+                                  key={entry.transfer.operationId}
+                                  transfer={entry.transfer}
+                                  expanded={openRow === entry.transfer.operationId}
+                                  deleting={writer.pending === entry.transfer.operationId}
+                                  onToggle={() => {
+                                    LayoutAnimation.configureNext(
+                                      LayoutAnimation.Presets.easeInEaseOut,
+                                    );
+                                    setOpenRow((open) =>
+                                      open === entry.transfer.operationId
+                                        ? null
+                                        : entry.transfer.operationId,
+                                    );
+                                  }}
+                                  onDelete={() => {
+                                    askDeleteTransfer(entry.transfer);
+                                  }}
+                                  currency={currencyDefinition({
+                                    id: group.currencyDefinitionId,
+                                    code: group.currencyCode,
+                                    scale: group.currencyScale,
+                                  })}
+                                />
                               ) : (
                                 <GroupMovementRow
                                   key={entry.operation.operationId}
@@ -1343,6 +1430,15 @@ export default function GroupScreen() {
                    *
                    * El material es el del dock y sin su halo, que es lo que ya estaba
                    * validado; lo que cambia es que ahora recibe el toque y se anuncia.
+                   */}
+                  {/*
+                   * EL `+` ABRE LA VENTANA DE CREACIÓN DEL GRUPO, y F12.C3 no
+                   * lo cambió: lo que cambió es que dentro de esa ventana el
+                   * selector de clase que ya existía —el gasto y las dos
+                   * flechas— tiene por fin vivo su segundo modo.
+                   *
+                   * Un menú aquí habría partido en dos una elección que la
+                   * ventana ya sabía ofrecer.
                    */}
                   <Pressable
                     accessibilityRole="button"

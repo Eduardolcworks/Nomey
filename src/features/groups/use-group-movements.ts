@@ -19,6 +19,8 @@ import {
 } from './group-service';
 
 import { fetchGroupPayments, fetchReopenedPairs, type GroupPayment } from './payment-service';
+import type { GroupTransferOperation } from './group-transfer';
+import { fetchGroupTransfers } from './group-transfer-service';
 import type { ReopenedPair } from './suggested-payments';
 
 /** Estable: una lista sin conversiones no remonta a quien la lee. */
@@ -87,6 +89,12 @@ export type GroupMovementsState = {
    */
   readonly payments: readonly GroupPayment[] | null;
   /**
+   * Las transferencias de dos voluntades ya ACEPTADAS (F12.C3). Tercera
+   * fuente del mismo histórico: se mezcla con gastos y pagos en una sola
+   * lista ordenada, no en una sección aparte.
+   */
+  readonly transfers: readonly GroupTransferOperation[] | null;
+  /**
    * Los pares REABIERTOS con quien salió que la parte activa puede saldar
    * (F09/ADR-007 C6, excepción 2). Van con los saldos: Pagos sugeridos los
    * necesita para proponerlos, y los dos describen el mismo instante.
@@ -117,6 +125,7 @@ export function useGroupMovements(
   const [totals, setTotals] = useState<GroupTotals | null>(null);
   const [balances, setBalances] = useState<readonly GroupBalanceRow[] | null>(null);
   const [payments, setPayments] = useState<readonly GroupPayment[] | null>(null);
+  const [transfers, setTransfers] = useState<readonly GroupTransferOperation[] | null>(null);
   const [reopened, setReopened] = useState<readonly ReopenedPair[] | null>(null);
   const [conversions, setConversions] =
     useState<ReadonlyMap<string, GroupOperationConversion>>(EMPTY_CONVERSIONS);
@@ -160,7 +169,7 @@ export function useGroupMovements(
          * un resumen viejo —o al revés— sería mostrar dos verdades del mismo
          * grupo en la misma pantalla.
          */
-        const [rows, summary, positions, transfers, pairs] = await Promise.all([
+        const [rows, summary, positions, declared, pairs, accepted] = await Promise.all([
           fetchGroupOperations(scopeId, order, {
             minMinor,
             maxMinor,
@@ -171,6 +180,13 @@ export function useGroupMovements(
           fetchGroupBalances(scopeId),
           fetchGroupPayments(scopeId),
           fetchReopenedPairs(scopeId),
+          /*
+           * **Su fallo no se lleva por delante la lista**, igual que el de
+           * las conversiones: un servidor sin la migración de C3 deja la
+           * pantalla exactamente como estaba. Lo que no aparece es una
+           * clase de movimiento, no una cifra equivocada.
+           */
+          fetchGroupTransfers(scopeId).catch(() => []),
         ]);
         /*
          * Las conversiones de ESTA página, después de saber cuáles son sus
@@ -196,7 +212,8 @@ export function useGroupMovements(
         setConversions(new Map(frozen.map((one) => [one.operation_id, one])));
         setOperations(rows);
         setBalances(positions);
-        setPayments(transfers);
+        setPayments(declared);
+        setTransfers(accepted);
         setReopened(pairs);
         setTotals(
           /*
@@ -233,5 +250,16 @@ export function useGroupMovements(
     };
   }, [scopeId, status, order, tick, minMinor, maxMinor, categoryId, payerId]);
 
-  return { operations, totals, balances, payments, reopened, conversions, loading, failed, retry };
+  return {
+    operations,
+    totals,
+    balances,
+    payments,
+    transfers,
+    reopened,
+    conversions,
+    loading,
+    failed,
+    retry,
+  };
 }

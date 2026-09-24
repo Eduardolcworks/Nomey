@@ -226,9 +226,12 @@ begin
      and p.prosrc like '%sec.assert_no_conversion%';
   -- SEIS desde F11.D (20261003120000): el gasto de grupo convierte, asi que
   -- deja la lista. Las otras seis conservan su negativa (F11/ADR-003 §6).
+  -- F12/ADR-007: `record_group_transfer` entra en esta lista por derecho —su
+  -- moneda es la base del grupo y no admite otra—, y que aparezca aquí es la
+  -- prueba de que la clase nueva no abrió una conversión por la espalda.
   if v_t is distinct from 'record_adjustment,record_debt_settlement,record_external_transfer,'
-                          'record_group_payment,record_internal_transfer,'
-                          'record_settlement_by_transfer' then
+                          'record_group_payment,record_group_transfer,'
+                          'record_internal_transfer,record_settlement_by_transfer' then
     fallos := array_append(fallos, 'A4 clases con negativa de conversion: ' || coalesce(v_t, 'ninguna'));
   end if;
   select string_agg(p.proname, ',' order by p.proname) into v_t
