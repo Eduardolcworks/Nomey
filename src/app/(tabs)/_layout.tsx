@@ -196,6 +196,12 @@ export default function TabsLayout() {
    * no tiene ninguna y no pregunta.
    */
   const friends = useMyFriendRequests(actorId, isSignedIn(state) && !isGuest(state));
+  /*
+   * LAS TRANSFERENCIAS DE GRUPO NO ENCIENDEN LA CAMPANA, y es una
+   * consecuencia del contrato: desde F12/ADR-007 son de UNA voluntad y se
+   * registran al momento, así que no hay nada pendiente que nadie tenga que
+   * atender. Lo que haya pasado se ve en el grupo al releerlo.
+   */
   const bell =
     incidents.unseen > 0 ||
     notices.unread > 0 ||

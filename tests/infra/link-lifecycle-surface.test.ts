@@ -262,9 +262,16 @@ describe('el cliente', () => {
     expect(code).not.toMatch(/react|supabase/i);
     expect(TIMELINE).toContain('export function mergeTimeline(');
     expect(TIMELINE).toContain("order === 'dateDesc'");
-    expect(SCREEN).toContain(
-      'mergeTimeline(movements.operations, movements.payments ?? [], order)',
-    );
+    /*
+     * LAS TRES FUENTES, en UNA sola llamada: gastos, pagos y —desde F12.C3—
+     * transferencias. Se afirma argumento a argumento para que añadir una
+     * cuarta fuente tenga que pasar por aquí, en vez de colarse por un
+     * `toContain` que sólo mire el nombre de la función.
+     */
+    expect(SCREEN).toContain('mergeTimeline(');
+    expect(SCREEN).toContain('movements.operations,');
+    expect(SCREEN).toContain('movements.payments ?? [],');
+    expect(SCREEN).toContain('movements.transfers ?? [],');
     expect(ES).not.toContain("'group.paymentsTitle'");
   });
 

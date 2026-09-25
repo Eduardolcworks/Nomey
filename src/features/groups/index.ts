@@ -210,3 +210,35 @@ export {
   type RecordPayment,
   useRecordPayment,
 } from './use-record-payment';
+
+// ─── transferencias de grupo (F12.C3) ────────────────────────────────────────
+//
+// El circuito de dos voluntades de F12/ADR-003: proponer, aceptar, rechazar y
+// cancelar una transferencia entre dos participantes del grupo. Aceptar mueve
+// la caja del EMISOR y salda la deuda del par por el importe completo, sin
+// tope y cruzando cero si toca. Es su propia clase, `group_transfer`: no es
+// un pago declarado (que sí tiene tope) ni una transferencia entre cuentas
+// (que exige dos voluntades). El receptor es el PARTICIPANTE, así que un
+// fantasma recibe como cualquiera, y no se abona nada a su Personal.
+export {
+  absoluteMinor,
+  exceedsDebt,
+  type GroupTransferOperation,
+  type GroupTransferShare,
+  netAfterTransfer,
+  type PairStanding,
+  standingOf,
+  type TransferCandidate,
+  transferableCandidates,
+  TRANSFER_STATES,
+  type TransferState,
+} from './group-transfer';
+export { GroupTransferMode } from './group-transfer-mode';
+export { GroupTransferPreview } from './group-transfer-preview';
+export { GroupTransferRow } from './group-transfer-row';
+export {
+  fetchGroupTransferCandidates,
+  fetchGroupTransfers,
+  type RecordGroupTransferPayload,
+} from './group-transfer-service';
+export { type RecordGroupTransfer, useRecordGroupTransfer } from './use-group-transfers';

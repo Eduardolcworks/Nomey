@@ -142,7 +142,6 @@ export type SharedExpenseBlocker =
    * presencias— llega como RESPUESTA, con su código y su motivo, y no como un
    * bloqueo declarado de antemano: el borrador se conserva y se puede reintentar.
    */
-  | 'transferNoRoute'
   | 'noParticipants'
   | 'payerUnknown'
   | 'amountMissing'

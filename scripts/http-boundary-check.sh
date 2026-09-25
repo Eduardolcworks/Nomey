@@ -403,14 +403,38 @@ SQL
   && ok "la operacion quedo atribuida al sub del JWT, no a un actor simulado" \
   || fallo "la operacion no quedo atribuida al usuario del token"
 
+# EL CONJUNTO, NO EL RECUENTO.
+#
+# Contar tenia dos defectos. El pequeno: cada clase nueva lo rompe y hay que
+# ir a buscarlo —F12.C3 lo encontro por CI, no por aqui—. El grande: un
+# `record_` inesperado podia SUSTITUIR a uno esperado y el numero seguia
+# cuadrando, que es justo lo que un guardia de frontera no puede permitir.
+#
+# Asi que se compara la lista entera, ordenada en la base para que el orden no
+# dependa de nada, contra la allowlist de las diez clases de F03/ADR-006. Es el
+# mismo patron que `group-transfer-proposals.sql` A5.
+readonly WRITERS_ESPERADOS="record_adjustment record_debt_settlement record_external_transfer record_group_expense record_group_payment record_group_transfer record_internal_transfer record_personal_expense record_personal_income record_settlement_by_transfer"
+
 rol=$("${DBQ[@]}" <<'SQL' 2>/dev/null
-select count(*) from information_schema.role_routine_grants
+select string_agg(routine_name, ' ' order by routine_name collate "C")
+  from information_schema.role_routine_grants
  where routine_schema='api' and routine_name like 'record\_%' and grantee='authenticated';
 SQL
 )
-[ "$(tr -d '[:space:]' <<<"${rol}")" = "9" ] \
-  && ok "las nueve funciones estan concedidas a authenticated y a ningun otro rol cliente" \
-  || fallo "los grants de api.record_* a authenticated son $(tr -d '[:space:]' <<<"${rol}") y deben ser 9"
+rol=$(tr -s '[:space:]' ' ' <<<"${rol}" | sed 's/^ *//; s/ *$//')
+[ "${rol}" = "${WRITERS_ESPERADOS}" ] \
+  && ok "los diez writers estan concedidos a authenticated, exactamente esos y a ningun otro rol cliente" \
+  || fallo "los api.record_* concedidos a authenticated no son los esperados.
+          esperados: ${WRITERS_ESPERADOS}
+          obtenidos: ${rol}"
+
+# Y la cardinalidad aparte, para que el mensaje diga CUANTOS hay cuando la
+# lista no cuadra: leer dos listas de diez nombres buscando la diferencia es
+# peor diagnostico que un numero.
+n_writers=$(wc -w <<<"${rol}")
+[ "${n_writers}" = "10" ] \
+  && ok "y son diez, la cardinalidad de F03/ADR-006" \
+  || fallo "hay ${n_writers} api.record_* concedidos a authenticated y deben ser 10"
 
 # ============================================================================
 echo ""

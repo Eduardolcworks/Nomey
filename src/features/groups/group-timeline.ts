@@ -1,4 +1,5 @@
 import type { GroupOperation, GroupOrder } from './group-service';
+import type { GroupTransferOperation } from './group-transfer';
 import type { GroupPayment } from './payment-service';
 
 /**
@@ -21,9 +22,24 @@ import type { GroupPayment } from './payment-service';
  *
  * Hoja PURA —sin React ni Supabase— para que se pruebe con datos de mesa.
  */
+/**
+ * LO QUE PASÓ EN EL GRUPO, sea de la clase que sea.
+ *
+ * Tres fuentes y una sola lista, que es como el histórico funciona desde
+ * F9: el servidor publica cada clase por su vista —los gastos tienen
+ * reparto y pagador, los pagos declarados tienen quién declaró, las
+ * transferencias tienen dos participantes y una propuesta detrás— y quien
+ * las ordena junto es esto. **No son tres secciones**: es un orden.
+ *
+ * Meter `settlement_by_transfer` en `api.group_operation` habría exigido
+ * relajar su `join core.split` —una transferencia no tiene reparto— y
+ * añadir columnas nulas para todo gasto. Aquí no cuesta nada: una clase
+ * más en la unión.
+ */
 export type TimelineEntry =
   | { readonly kind: 'expense'; readonly operation: GroupOperation }
-  | { readonly kind: 'payment'; readonly payment: GroupPayment };
+  | { readonly kind: 'payment'; readonly payment: GroupPayment }
+  | { readonly kind: 'transfer'; readonly transfer: GroupTransferOperation };
 
 type SortKey = {
   readonly date: string;
@@ -42,13 +58,23 @@ function keyOf(entry: TimelineEntry): SortKey {
         createdAt: entry.operation.createdAt,
         id: entry.operation.operationId,
       }
-    : {
-        date: entry.payment.effectiveDate,
-        time: entry.payment.effectiveTime,
-        minor: BigInt(entry.payment.amountMinor),
-        createdAt: entry.payment.createdAt,
-        id: entry.payment.operationId,
-      };
+    : entry.kind === 'payment'
+      ? {
+          date: entry.payment.effectiveDate,
+          time: entry.payment.effectiveTime,
+          minor: BigInt(entry.payment.amountMinor),
+          createdAt: entry.payment.createdAt,
+          id: entry.payment.operationId,
+        }
+      : {
+          // La transferencia ordena igual que las otras dos: fecha y hora
+          // EFECTIVAS —las del servidor al aceptar— y el importe sin signo.
+          date: entry.transfer.effectiveDate,
+          time: entry.transfer.effectiveTime,
+          minor: BigInt(entry.transfer.totalMinor),
+          createdAt: entry.transfer.createdAt,
+          id: entry.transfer.operationId,
+        };
 }
 
 /** `a` antes que `b` en orden ascendente por fecha y hora, sin hora al final. */
@@ -74,10 +100,12 @@ export function mergeTimeline(
   operations: readonly GroupOperation[],
   payments: readonly GroupPayment[],
   order: GroupOrder,
+  transfers: readonly GroupTransferOperation[] = [],
 ): readonly TimelineEntry[] {
   const entries: TimelineEntry[] = [
     ...operations.map((operation): TimelineEntry => ({ kind: 'expense', operation })),
     ...payments.map((payment): TimelineEntry => ({ kind: 'payment', payment })),
+    ...transfers.map((transfer): TimelineEntry => ({ kind: 'transfer', transfer })),
   ];
   const keyed = entries.map((entry) => ({ entry, key: keyOf(entry) }));
   keyed.sort((left, right) => {

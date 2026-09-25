@@ -17,6 +17,7 @@ import {
 } from '@/ui/components';
 import { Radius, Spacing, Symbols, useTheme } from '@/ui/theme';
 
+import { ParticipantTick } from './participant-tick';
 import { eligibleOn, type GroupParticipant } from './participant-service';
 import {
   isFixedAmount,
@@ -264,7 +265,6 @@ function ParticipantRow({
 }) {
   const { t } = useTranslation();
   const format = useFormat();
-  const theme = useTheme();
 
   /*
    * EL PAGADOR NO SE PUEDE EXCLUIR, y la fila lo DICE.
@@ -287,29 +287,17 @@ function ParticipantRow({
       onLayout={(event) => {
         onMeasure(participant.participantId, event.nativeEvent.layout.height);
       }}>
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: selected, disabled: isPayer || !eligible }}
-        accessibilityLabel={label}
-        accessibilityHint={
+      <ParticipantTick
+        checked={selected}
+        disabled={isPayer || !eligible}
+        label={label}
+        hint={
           isPayer ? t('group.splitPayerHint') : !eligible ? t('group.splitInactiveHint') : undefined
         }
-        disabled={isPayer || !eligible}
         onPress={() => {
           onToggle(participant.participantId);
         }}
-        style={styles.tick}>
-        <View
-          style={[
-            styles.box,
-            {
-              borderColor: selected ? theme.accent : theme.border,
-              backgroundColor: selected ? theme.accent : 'transparent',
-            },
-          ]}>
-          {selected ? <Icon name={Symbols.confirm} size={14} colour={theme.onAccent} /> : null}
-        </View>
-      </Pressable>
+      />
 
       <View style={styles.name}>
         <ThemedText
@@ -595,21 +583,6 @@ const styles = StyleSheet.create({
    * 44 es el mínimo de Apple y el cuadro son 22: compactar el dibujo no puede
    * compactar lo que se toca, así que el área la pone la capa pulsable.
    */
-  tick: {
-    minWidth: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: -Spacing.sm,
-  },
-  box: {
-    width: 22,
-    height: 22,
-    borderRadius: Radius.sm,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   /**
    * El nombre cede el sitio, y es el único que lo cede.
    *

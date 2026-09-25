@@ -480,6 +480,23 @@ jobs:
       # (TRANSFER_NOT_EDITABLE, OPERATION_NOT_ANNULLABLE, persist_version
       # backstop), the two group views and my_transfers extended, and the
       # client not reaching core.
+      # The ONE-WILL group transfer (F12.C3, F12/ADR-007, 20261006120000 and
+      # 20261007120000): the writer owned by nomey_writer with the verdict out
+      # of the client and no account identity in the two views; the ghost — the
+      # case that motivated the whole contract change — appearing as a
+      # candidate and RECEIVING, with no account, no username, no Personal and
+      # no link invented for them; one operation with N allocations, N
+      # settlement effects and an exact largest-remainder split over the
+      # canonical order; cash ONLY in the sender’s Personal and nothing in any
+      # receiver’s, neither Income nor Expense; the debt moving immediately and
+      # crossing zero; no proposal and no transfer_part written anywhere;
+      # everything refused before writing (self, foreign, retired, merged,
+      # departed, bad amount, duplicates, correction); and annulment giving
+      # back the N pairs and the sender’s cash at once, with the
+      # over-settlement guard walking EVERY pair before writing.
+      - name: Group transfer client checks
+        run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/group-transfer-client.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
+
       - name: Group transfer proposal checks
         run: cat supabase/checks/lib/group-payment-helpers.sql supabase/checks/group-transfer-proposals.sql | docker exec -i supabase_db_Nomey psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1
 

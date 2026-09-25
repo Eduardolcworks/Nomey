@@ -58,9 +58,11 @@ begin
     from pg_proc p join pg_namespace n on n.oid=p.pronamespace
    where n.nspname='api' and p.proname like 'record\_%'
      and p.prosrc like '%observe_balances%';
-  if v_n <> 8 then
+  -- NUEVE desde F12/ADR-007: `record_group_transfer` mueve la caja del emisor,
+  -- así que observa su saldo bajo el mismo cerrojo que las otras ocho.
+  if v_n <> 9 then
     fallos := array_append(fallos,
-      format('A2: %s funciones observan el saldo y deberian ser 8', v_n));
+      format('A2: %s funciones observan el saldo y deberian ser 9', v_n));
   end if;
   if exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
               where n.nspname='api' and p.proname='record_debt_settlement'
@@ -73,9 +75,9 @@ begin
     from pg_proc p join pg_namespace n on n.oid=p.pronamespace
    where n.nspname='api' and p.proname like 'record\_%'
      and p.prosrc like '%lock_scopes%';
-  if v_n <> 9 then
+  if v_n <> 10 then
     fallos := array_append(fallos,
-      format('A2d: %s funciones bloquean ambitos y deberian ser 9, las 8 de saldo mas la de deuda', v_n));
+      format('A2d: %s funciones bloquean ambitos y deberian ser 10, las 9 de saldo mas la de deuda', v_n));
   end if;
 
   -- A3 · EXACTAMENTE UNA `sec.persist_version`. Si sobreviviera la de diez

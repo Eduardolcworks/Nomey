@@ -714,9 +714,12 @@ begin
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.proname like 'record\_%' and p.prokind = 'f'
      and p.prosrc like '%sec.assert_no_conversion%';
+  -- F12/ADR-007: `record_group_transfer` entra en esta lista por derecho —su
+  -- moneda es la base del grupo y no admite otra—, y que aparezca aquí es la
+  -- prueba de que la clase nueva no abrió una conversión por la espalda.
   if v_t is distinct from 'record_adjustment,record_debt_settlement,record_external_transfer,'
-                          'record_group_payment,record_internal_transfer,'
-                          'record_settlement_by_transfer' then
+                          'record_group_payment,record_group_transfer,'
+                          'record_internal_transfer,record_settlement_by_transfer' then
     fallos := array_append(fallos, 'L1 clases con negativa de conversion: ' || coalesce(v_t, 'ninguna'));
   end if;
 

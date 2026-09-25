@@ -50,6 +50,12 @@ const CONTROLES: readonly (readonly [string, number, string])[] = [
   ['ui/components/glass-pressable.tsx', 1, 'el primitive de los botones de cristal'],
   ['features/personal/movement-fields.tsx', 1, 'la superficie del concepto'],
   /*
+   * El concepto de una transferencia de grupo (F12.C3): la MISMA superficie
+   * que la del alta y la de una transferencia Personal, y renuncia por el
+   * mismo motivo — es un campo de texto, no una ventana.
+   */
+  ['features/groups/group-transfer-mode.tsx', 1, 'el concepto de una transferencia de grupo'],
+  /*
    * El círculo de categoría. Bajó a `ui/` cuando el alta de un gasto compartido
    * necesitó el mismo botón: sólo dependía de `ui/`, así que la mudanza no le
    * cambió ni un token.

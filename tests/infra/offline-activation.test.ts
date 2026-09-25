@@ -104,8 +104,11 @@ describe('un worker, en la raíz, con el listener de AppState que ya existía', 
     expect(LAYOUT).toContain('<SessionProvider onForeground={wakeOnForeground}>');
     expect(LAYOUT).toMatch(
       // F12.C añade la tercera salida del mismo seam —las transferencias— y
-      // F12.E la cuarta: las amistades. Sigue habiendo UN solo listener.
-      /function wakeOnForeground\(\): void \{\s*wakeQueue\(\);\s*wakeIdentity\(\);\s*wakeTransfers\(\);\s*wakeFriends\(\);\s*\}/,
+      // F12.E la cuarta, las amistades. Las transferencias de GRUPO tuvieron
+      // una quinta y la perdieron: desde F12/ADR-007 no hay propuestas que
+      // puedan moverse mientras la app no mira. Lo que esto fija es que haya
+      // UN solo listener, no cuántas salidas tiene.
+      /function wakeOnForeground\(\): void \{\s*wakeQueue\(\);\s*wakeIdentity\(\);\s*wakeTransfers\(\);\s*wakeFriends\(\);[\s\S]*?\}/,
     );
     expect(LAYOUT).not.toMatch(/AppState\.addEventListener/);
     expect(LAYOUT).toContain('useQueueRuntime(');

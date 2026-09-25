@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { type CurrencyDefinition, currencyDefinition, money } from '@/domain';
 import { type CategoryCatalogue, sharedCategories } from '@/lib/categories';
@@ -12,16 +12,11 @@ import {
   useFormat,
 } from '@/lib/format';
 import { type MessageKey, useTranslation } from '@/lib/i18n';
-import {
-  type AmountEntry,
-  AmountSheet,
-  amountValue,
-  EmptyState,
-  ThemedText,
-} from '@/ui/components';
-import { Spacing, Symbols } from '@/ui/theme';
+import { type AmountEntry, AmountSheet, amountValue, ThemedText } from '@/ui/components';
+import { Spacing } from '@/ui/theme';
 
 import { ExpenseKindSelector } from './expense-kind-selector';
+import { GroupTransferMode } from './group-transfer-mode';
 import { activeByDefault, eligibleOn, type GroupParticipant, listed } from './participant-service';
 import { SharedExpenseDate, SharedExpenseFields } from './shared-expense-fields';
 import {
@@ -73,7 +68,6 @@ const BLOCKER_KEY = {
   categoryMissing: 'entry.categoryHint',
   noCategories: 'entry.categoriesOffline',
   categoryNotShared: 'group.expenseCategoryShared',
-  transferNoRoute: 'group.transferNoRoute',
   noParticipants: 'group.expenseNoParticipants',
   payerUnknown: 'group.expensePayerUnknown',
   amountMissing: 'group.expenseAmountMissing',
@@ -342,25 +336,29 @@ export function SharedExpenseForm({
   );
 
   /*
-   * ═══ LIQUIDAR NO ES GASTAR, Y POR ESO NO REUTILIZA ESTE FORMULARIO ═══
+   * ═══ TRANSFERIR NO ES GASTAR, Y POR ESO NO REUTILIZA ESTE FORMULARIO ═══
    *
-   * Una liquidación tiene deudor, acreedor e importe; no tiene pagador ni
-   * reparto. Enseñar aquí el formulario de gasto con otra etiqueta sería
-   * describir mal la operación, y rellenarlo no llevaría a ninguna parte: la
-   * frontera existe —`api.record_debt_settlement`— pero no hay dónde leer las
-   * deudas del grupo ni deudas que leer. Así que el modo dice qué hará y qué le
-   * falta, y no pide nada que no pueda usar.
+   * Una transferencia tiene emisor, receptor e importe; no tiene pagador ni
+   * reparto, y no la escribe quien la propone sino quien la acepta. Enseñar
+   * aquí el formulario de gasto con otra etiqueta describiría mal la
+   * operación.
+   *
+   * **Pero es la MISMA ventana**: el selector de arriba sigue siendo el de
+   * siempre y cambiar de modo no navega a ninguna parte. Hasta F12.C3 este
+   * segmento enseñaba un cartel diciendo que todavía no se podía registrar;
+   * ahora lleva el circuito de dos voluntades de F12/ADR-003 — a quién,
+   * cuánto, y qué le hará eso a la deuda.
    */
   if (kind === 'transfer') {
     return (
-      <View style={styles.transfer}>
-        {heading}
-        <EmptyState
-          symbol={Symbols.transfer}
-          title={t('group.transferTitle')}
-          description={t(BLOCKER_KEY.transferNoRoute)}
-        />
-      </View>
+      <GroupTransferMode
+        scopeId={scopeId}
+        currency={currency}
+        today={today}
+        now={now}
+        header={heading}
+        onRecorded={onRecorded}
+      />
     );
   }
 

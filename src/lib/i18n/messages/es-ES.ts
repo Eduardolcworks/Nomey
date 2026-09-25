@@ -311,9 +311,49 @@ export const esES = {
   'group.payerYou': '{name} (Tú)',
   'group.kindExpense': 'Gasto',
   'group.kindTransfer': 'Transferencia',
-  'group.transferTitle': 'Pagar a alguien del grupo',
-  'group.transferNoRoute':
-    'Una transferencia salda lo que le debes a otra persona del grupo y reduce esa deuda por lo que le pagues. Todavía no se puede registrar: no hay ninguna deuda que saldar ni forma de consultarlas.',
+
+  // ═══════ TRANSFERENCIAS DE GRUPO (F12.C3) ═══════
+  //
+  // Dos palabras para el mismo hecho, y es deliberado: desde un pago
+  // sugerido hay una deuda y se llama «Pagar»; desde la fila de alguien
+  // puede no haberla, y entonces «Transferir» es lo honesto.
+  'group.transferRecipients': 'Destinatarios',
+  'group.transferPickSome': 'Elige a quién quieres transferir',
+  'group.transferTooSmall':
+    'El importe es demasiado pequeño para repartirlo entre los seleccionados.',
+  // Una voluntad: se registra al pulsar, y nadie tiene que aceptar nada.
+  'group.transferImmediate':
+    'Se registrará al momento y la deuda del grupo se ajustará. Nadie tiene que aceptarlo.',
+  'group.transferPickLoading': 'Cargando participantes…',
+  'group.transferPickEmpty': 'Nadie disponible',
+  'group.transferPickEmptyHint':
+    'Ahora mismo no hay nadie en este grupo a quien puedas transferir.',
+  'group.transferPickFailed': 'No se pudo cargar',
+  'group.transferPickFailedHint': 'Inténtalo otra vez en un momento.',
+  'group.transferRecord': 'Registrar transferencia',
+  'group.transferCurrencyFixed': 'Va en la moneda del grupo',
+  'group.transferCurrencyMismatch':
+    'Esta transferencia no está disponible porque la moneda de tu Modo Personal no es la del grupo.',
+  // El antes y el después del par. El importe va SIEMPRE en valor absoluto:
+  // la dirección la dice la frase, nunca un signo ni un color.
+  'group.transferNowYouOwe': 'Ahora le debes {amount} a {name}.',
+  'group.transferNowTheyOwe': 'Ahora {name} te debe {amount}.',
+  'group.transferNowSettled': 'Ahora estáis saldados.',
+  'group.transferAfterYouOwe': 'Le deberás {amount} a {name}.',
+  'group.transferAfterTheyOwe': '{name} te deberá {amount}.',
+  'group.transferAfterSettled': 'Quedaréis saldados.',
+  'group.transferExceeds': 'El importe supera tu deuda actual.',
+  // El histórico: una intención, una fila. Con uno se nombra; con varios se
+  // cuenta, y el reparto va debajo.
+  'group.transferDone': '{sender} transfirió {amount} a {receiver}',
+  'group.transferDoneMany': '{sender} transfirió {amount} a {count} participantes',
+  'group.transferFailed': 'No se pudo registrar. Inténtalo otra vez',
+  'group.transferOffline': 'Sin conexión: no se ha registrado nada',
+  // Anular: la misma disciplina que un gasto o un pago.
+  'group.deleteTransfer': '¿Eliminar la transferencia?',
+  'group.deleteTransferBody':
+    'La deuda del grupo y tu Disponible volverán a como estaban. No se puede deshacer.',
+  'group.deleteTransferNotSender': 'Sólo quien la registró puede eliminarla',
   'group.payerEmpty': 'Quién pagó',
   'group.payerChosen': 'Quién pagó: {name}',
   'group.methodTitle': 'Cómo se reparte',

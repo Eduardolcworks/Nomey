@@ -428,6 +428,11 @@ describe('dentro de un grupo', () => {
 
     // Se anuncia, y enciende el mismo fondo desenfocado que el `+` de Inicio.
     expect(INSIDE).toContain('accessibilityRole="button"');
+    /*
+     * El `+` abre la ventana de creación del grupo, y F12.C3 no lo cambió:
+     * lo que cambió es que dentro de esa ventana el selector de clase que
+     * ya existía tiene por fin vivo su segundo modo.
+     */
     expect(INSIDE).toContain("accessibilityLabel={t('group.expenseTitle')}");
     expect(INSIDE).toContain('backdrop.show()');
 
@@ -534,6 +539,11 @@ describe('dentro de un grupo', () => {
     expect(INSIDE.match(/pathname: '\/group-expense'/g) ?? []).toHaveLength(2);
     expect(INSIDE.match(/pathname: '\/edit-group'/g) ?? []).toHaveLength(1);
     expect(INSIDE.match(/pathname: '\/share-group'/g) ?? []).toHaveLength(1);
+    /*
+     * Y la transferencia NO añade un destino: nace dentro de la MISMA
+     * ventana del gasto, en el segundo modo de su selector (F12.C3).
+     */
+    expect(INSIDE).not.toMatch(/pathname: '\/group-transfer/);
     // Nada deshace la pila entera: esta pantalla no cierra ventanas ajenas.
     expect(INSIDE).not.toContain('dismissAll');
   });
