@@ -643,8 +643,11 @@ begin
   raise notice 'OK · H1 · alta email valida: identidad + reserva provisional (7 dias) del uid del evento + un solo reserved';
 
   -- H2 · rechazos: error exacto y ninguna fila
-  perform pg_temp.espera('H2 sin username', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos"}')), '400 USERNAME_REQUIRED');
-  perform pg_temp.espera('H2 username vacio', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos","requested_username":"   "}')), '400 USERNAME_REQUIRED');
+  --
+  -- SIN USERNAME YA NO SE RECHAZA (F12/ADR-008): el alta por correo pide
+  -- correo y contraseña, el hook la deja pasar y el gate pide nombre y
+  -- username despues de confirmar. Lo que aqui se exige es que ese paso no
+  -- escriba NADA: ni identidad, ni handle, ni diario. Es el caso H2b.
   perform pg_temp.espera('H2 invalido', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos","requested_username":"ab"}')), '400 USERNAME_INVALID');
   perform pg_temp.espera('H2 reservado', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos","requested_username":"nomey_dos"}')), '422 USERNAME_RESERVED');
   perform pg_temp.espera('H2 en uso (reserva viva)', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos","requested_username":"HOOK_UNO"}')), '409 USERNAME_TAKEN');
@@ -655,7 +658,21 @@ begin
   if exists (select 1 from core.account_handle where user_id = u2) or exists (select 1 from core.account_handle where handle = 'hook_dos') then raise exception 'H2: un rechazo dejo handle'; end if;
   if exists (select 1 from core.account_handle_event where user_id = u2 or actor_user_id = u2) then raise exception 'H2: un rechazo dejo diario'; end if;
   if (select count(*) from core.account_identity) <> v_n + 1 then raise exception 'H2: el numero de identidades no es el de H1'; end if;
-  raise notice 'OK · H2 · sin username, vacio, invalido, reservado, en uso (reserva y definitivo), sin nombre: el error exacto y ninguna fila';
+  raise notice 'OK · H2 · invalido, reservado, en uso (reserva y definitivo), sin nombre: el error exacto y ninguna fila';
+
+  -- H2b · alta por correo SIN username: pasa y no escribe nada (F12/ADR-008)
+  --
+  -- Las dos formas de «no lo trae»: la clave ausente y la clave en blanco. Y
+  -- tambien sin nombre, porque el nombre viajaba con el username y ahora
+  -- tampoco viene: un alta de tres campos no manda `user_metadata`.
+  perform pg_temp.espera('H2b sin username', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos"}')), 'ok');
+  perform pg_temp.espera('H2b username vacio', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{"display_name":"Dos","requested_username":"   "}')), 'ok');
+  perform pg_temp.espera('H2b sin metadata alguna', pg_temp.hook(pg_temp.evento(u2, 'email', false, '{}')), 'ok');
+  if exists (select 1 from core.account_identity where user_id = u2) then raise exception 'H2b: un alta sin username dejo identidad'; end if;
+  if exists (select 1 from core.account_handle where user_id = u2) then raise exception 'H2b: un alta sin username dejo handle'; end if;
+  if exists (select 1 from core.account_handle_event where user_id = u2 or actor_user_id = u2) then raise exception 'H2b: un alta sin username dejo diario'; end if;
+  if (select count(*) from core.account_identity) <> v_n + 1 then raise exception 'H2b: el numero de identidades cambio'; end if;
+  raise notice 'OK · H2b · alta por correo sin username: pasa y no escribe ni identidad, ni handle, ni diario';
 
   -- H3 · anonimo y proveedor no-email: {} y nada escrito (aunque traigan username)
   perform pg_temp.espera('H3 anonimo', pg_temp.hook(pg_temp.evento(u3, null, true, '{"display_name":"Anon"}')), 'ok');

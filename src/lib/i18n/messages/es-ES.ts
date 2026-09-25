@@ -457,6 +457,9 @@ export const esES = {
   'auth.showPassword': 'Mostrar contraseña',
   'auth.hidePassword': 'Ocultar contraseña',
   'auth.passwordPlaceholder': 'Tu contraseña',
+  /* F12/ADR-008: el alta pide la contraseña dos veces. Es lo único que el
+   * servidor no puede comprobar, porque nunca ve el segundo campo. */
+  'auth.passwordConfirm': 'Confirmar contraseña',
   'auth.signInAction': 'Entrar',
   'auth.signUpAction': 'Crear cuenta',
   'auth.passwordMinimum': 'Mínimo {count} caracteres',

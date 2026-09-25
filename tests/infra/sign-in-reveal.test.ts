@@ -31,10 +31,19 @@ describe('el ojo está en Entrar y en ningún otro formulario', () => {
     expect(SIGN_IN_SCREEN).toContain('<SignInForm');
   });
 
-  it('lo piden la contraseña de Entrar y la de «Crea tu cuenta» del invitado, y ninguna más', () => {
-    // El alcance se acordó acotado: el alta, la recuperación y la contraseña
-    // nueva se quedan exactamente como estaban. La conversion del invitado
-    // (F10.A3) reutiliza el MISMO patron, sin implementacion propia.
+  it('lo piden Entrar, el alta por correo (sus DOS campos) y «Crea tu cuenta» del invitado, y ninguna más', () => {
+    /*
+     * El alcance se amplió con F12/ADR-008: el alta por correo pasó a pedir
+     * contraseña y confirmación, y la decisión de producto es que **cada campo
+     * tenga su propio ojo** — `AuthField` guarda su estado de revelado, así que
+     * dos campos con `revealable` son dos ojos independientes.
+     *
+     * La recuperación NO cambia: `new-password.tsx` conserva su toggle único
+     * para los dos campos, con el argumento que escribió allí («una
+     * confirmación que puedes leer mientras la original está oculta no es una
+     * confirmación»). Las dos pantallas discrepan a propósito y por eso las dos
+     * quedan afirmadas aquí.
+     */
     expect(SIGN_IN).toMatch(/^\s*revealable$/m);
     expect(GUEST_SIGN_UP).toMatch(/^\s*revealable$/m);
     // Con `revealable`, el campo manda sobre `secureTextEntry`: oculta de partida.
@@ -44,8 +53,12 @@ describe('el ojo está en Entrar y en ningún otro formulario', () => {
     expect(GUEST_SIGN_UP).toContain(
       "hint={t('auth.passwordMinimum', { count: PASSWORD_MIN_LENGTH })}",
     );
+    // El alta: DOS campos con ojo, uno por contraseña, y ningún toggle propio.
+    expect(SIGN_UP.match(/^\s*revealable$/gm) ?? []).toHaveLength(2);
+    expect(SIGN_UP).not.toContain('secureTextEntry');
+    expect(SIGN_UP).not.toMatch(/setRevealed|revealPresentation|Symbols\.(eye|reveal)/);
+
     for (const [name, source] of [
-      ['sign-up', SIGN_UP],
       ['forgot-password', FORGOT],
       ['new-password', NEW_PASSWORD],
     ] as const) {

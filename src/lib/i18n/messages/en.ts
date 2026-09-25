@@ -435,6 +435,7 @@ export const en: Record<MessageKey, string> = {
   'auth.showPassword': 'Show password',
   'auth.hidePassword': 'Hide password',
   'auth.passwordPlaceholder': 'Your password',
+  'auth.passwordConfirm': 'Confirm password',
   'auth.signInAction': 'Sign in',
   'auth.signUpAction': 'Create account',
   'auth.passwordMinimum': 'At least {count} characters',

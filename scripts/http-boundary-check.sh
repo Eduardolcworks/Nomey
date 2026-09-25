@@ -157,14 +157,15 @@ PASS='Nomey-http-check-2026!'
 
 borrar_usuarios() {
   "${DB[@]}" >/dev/null 2>&1 <<SQL
-delete from auth.users where email in ('${EMAIL_A}','${EMAIL_B}','${EMAIL_C}','nomey-http-guest@example.test') or id in ('${GUEST_UID}','${GUEST2_UID}');
+delete from auth.users where email in ('${EMAIL_A}','${EMAIL_B}','${EMAIL_C}','nomey-http-guest@example.test','nomey-http-hook-miss@example.test') or id in ('${GUEST_UID}','${GUEST2_UID}');
 SQL
 }
 
-# Desde F12/ADR-001 §5 (20260924120000) un alta por correo SIN username la
-# rehusa el hook before_user_created: cada alta manda su nombre y su username
-# (`data`, como la app), y el hook reserva el handle 7 dias en la misma
-# transaccion. Los handles son deterministas y distintos por usuario.
+# Un alta por correo CON username reserva el handle 7 dias en la misma
+# transaccion del alta (F12/ADR-001 §5, 20260924120000). Estas altas de fixture
+# lo mandan (`data`) porque necesitan la reserva para lo que miden despues; el
+# alta REAL de la app ya no lo manda (F12/ADR-008) y se mide aparte, en §16.
+# Los handles son deterministas y distintos por usuario.
 alta() { # $1 email, $2 username
   curl -s -X POST "${API}/auth/v1/signup" \
     -H "apikey: ${KEY}" -H 'Content-Type: application/json' \
@@ -1810,7 +1811,20 @@ rechazo16() { # $1 nombre, $2 email, $3 data, $4 status, $5 codigo, $6 handle-qu
   fi
 }
 IDENT_ANTES=$("${DBQ[@]}" -c "select count(*) from core.account_identity;" | tr -d '[:space:]')
-rechazo16 "sin username"   nomey-http-hook-miss@example.test  '{"display_name":"Sin Username"}' 400 USERNAME_REQUIRED ""
+# ALTA SIN USERNAME: pasa, y no escribe nada (F12/ADR-008). Es el alta real
+# de la app desde que el formulario son tres campos. La cuenta SI se crea —por
+# eso este correo entra en `borrar_usuarios`— y lo que se exige es que no
+# aparezca ni identidad, ni handle, ni diario para ese uid.
+RSIN=$(alta16 nomey-http-hook-miss@example.test '{}')
+ESIN=$(estado_de "${RSIN}"); CSIN=$(cuerpo_de "${RSIN}")
+UID_SIN=$(printf '%s' "${CSIN}" | jget id)
+if [ "${ESIN}" = "200" ] && [ -n "${UID_SIN}" ]; then
+  ok "alta sin username: 200 y la cuenta SI se crea (F12/ADR-008)"
+else
+  fallo "alta sin username: se esperaba 200 con usuario y llego ${ESIN} ${CSIN}"
+fi
+v=$("${DBQ[@]}" -c "select (select count(*) from core.account_identity where user_id = '${UID_SIN}') + (select count(*) from core.account_handle where user_id = '${UID_SIN}') + (select count(*) from core.account_handle_event where user_id = '${UID_SIN}' or actor_user_id = '${UID_SIN}');" | tr -d '[:space:]')
+[ "${v}" = "0" ] && ok "alta sin username: ni identidad, ni handle, ni diario" || fallo "alta sin username dejo ${v} filas de identidad"
 rechazo16 "username invalido" nomey-http-hook-inv@example.test '{"display_name":"Inv","requested_username":"ab"}' 400 USERNAME_INVALID ""
 rechazo16 "username reservado" nomey-http-hook-res@example.test '{"display_name":"Res","requested_username":"admin_hook"}' 422 USERNAME_RESERVED admin_hook
 rechazo16 "username en uso (reserva viva de A)" nomey-http-hook-taken@example.test '{"display_name":"Taken","requested_username":"Http_Ana"}' 409 USERNAME_TAKEN ""

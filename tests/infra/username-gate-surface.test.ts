@@ -255,6 +255,9 @@ describe('4 · i18n, exports y backend', () => {
     expect(migrations.filter((f) => /username|account_identity/.test(f))).toEqual([
       '20260921120000_account_identity.sql',
       '20260924120000_username_signup_hook.sql',
+      // F12/ADR-008: el hook deja pasar un alta sin username. No crea ninguna
+      // relación ni toca A1: recrea UNA función y cambia UNA rama.
+      '20261008120000_signup_without_username.sql',
     ]);
   });
 });

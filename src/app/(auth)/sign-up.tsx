@@ -7,58 +7,70 @@ import {
   AuthScreen,
   missingFields,
   normaliseEmail,
+  passwordProblem,
   signUp,
   useAuthSubmit,
-  UsernameField,
-  usernameProblem,
 } from '@/features/auth';
 import { useTranslation } from '@/lib/i18n';
 import { ActionButton, Section, ThemedText } from '@/ui/components';
 import { Spacing } from '@/ui/theme';
 
 /**
- * Creating an account.
+ * Creating an account. **Three fields, and none of them an identity**
+ * (F12/ADR-008).
+ *
+ * Correo · Contraseña · Confirmar contraseña. Name and username used to live
+ * here and now belong to the gate, once the address is confirmed and the
+ * account exists: creating an account and choosing a public identity are two
+ * decisions, and asking for the second before the first exists charged for it
+ * too early. The server allows it since `20261008120000`, where
+ * `sec.before_user_created` stopped refusing an email sign-up with no
+ * `requested_username`.
  *
  * With confirmations mandatory this never produces a session, so unlike
  * sign-in there IS a screen change to make - but it stays inside the public
  * branch: the form gives way to "check your email". The branch swap is still
  * the session provider's job, and it happens later, when the confirmed user
- * signs in.
+ * signs in — and lands on the gate before the tabs.
  *
- * The name is collected here and goes to Auth as `display_name` metadata.
- * Presentation only: it is not an identity, it never appears in RLS, and it
- * never resolves a membership or a scope.
+ * **The confirmation is not a second password policy.** GoTrue owns length,
+ * character classes and everything else, exactly as before. This checks the
+ * one thing the server cannot, because it never receives the second box: that
+ * the two agree. It exists to catch a typo in a value nobody can read back.
  *
- * The username is collected here too and goes as `requested_username`, and
- * that one IS consumed by the server: the sign-up hook reserves it inside
- * GoTrue's transaction or refuses the whole sign-up (F12/ADR-001 §5). The
- * field says the syntax before sending; «ya está en uso» only the server says.
+ * **Two eyes, one per field.** Each `AuthField` with `revealable` holds its
+ * own reveal state, so showing the confirmation does not show the password.
+ * This deliberately differs from `(recovery)/new-password.tsx`, which shares
+ * one toggle: that screen argued a confirmation you can read while the
+ * original is hidden is not a confirmation, and the product decided the
+ * opposite for this one — each field answers for itself.
  */
 export default function SignUpScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { state, submit, clearError, running } = useAuthSubmit();
 
-  const [displayName, setDisplayName] = useState('');
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
   const [incomplete, setIncomplete] = useState(false);
+  const [mismatch, setMismatch] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
-  const usernameField = useRef<TextInput>(null);
-  const emailField = useRef<TextInput>(null);
   const passwordField = useRef<TextInput>(null);
+  const confirmField = useRef<TextInput>(null);
 
   async function onSubmit() {
-    const missing = missingFields({ displayName, username, email, password });
+    const missing = missingFields({ email, password });
     setIncomplete(missing.length > 0);
-    if (missing.length > 0) return;
-    // The field already shows why; nothing invalid or reserved is sent.
-    if (usernameProblem(username) !== null) return;
+    // `empty` is already covered by `missingFields`; what is left for this one
+    // to say is that the two boxes disagree.
+    const problem = missing.length > 0 ? null : passwordProblem(password, confirmation);
+    setMismatch(problem === 'mismatch');
+    if (missing.length > 0 || problem !== null) return;
 
     clearError();
-    const result = await submit(() => signUp({ displayName, username, email, password }));
+    const result = await submit(() => signUp({ email, password }));
     if (result?.ok === true) setSentTo(normaliseEmail(email));
   }
 
@@ -94,7 +106,9 @@ export default function SignUpScreen() {
       ? t(state.messageKey)
       : incomplete
         ? t('auth.missingFields')
-        : undefined;
+        : mismatch
+          ? t('authError.passwordMismatch')
+          : undefined;
 
   return (
     <AuthScreen>
@@ -107,29 +121,6 @@ export default function SignUpScreen() {
 
       <View style={styles.form}>
         <AuthField
-          label={t('auth.name')}
-          placeholder={t('auth.namePlaceholder')}
-          value={displayName}
-          onChangeText={setDisplayName}
-          editable={!running}
-          autoCapitalize="words"
-          autoComplete="name"
-          textContentType="name"
-          returnKeyType="next"
-          onSubmitEditing={() => usernameField.current?.focus()}
-          submitBehavior="submit"
-        />
-        <UsernameField
-          ref={usernameField}
-          value={username}
-          onChangeText={setUsername}
-          editable={!running}
-          returnKeyType="next"
-          onSubmitEditing={() => emailField.current?.focus()}
-          submitBehavior="submit"
-        />
-        <AuthField
-          ref={emailField}
           label={t('auth.email')}
           placeholder={t('auth.emailPlaceholder')}
           value={email}
@@ -151,10 +142,25 @@ export default function SignUpScreen() {
           value={password}
           onChangeText={setPassword}
           editable={!running}
-          secureTextEntry
+          revealable
           autoCapitalize="none"
           // `new-password` so the OS offers to generate and store one rather
           // than autofilling the current one.
+          autoComplete="new-password"
+          textContentType="newPassword"
+          returnKeyType="next"
+          onSubmitEditing={() => confirmField.current?.focus()}
+          submitBehavior="submit"
+        />
+        <AuthField
+          ref={confirmField}
+          label={t('auth.passwordConfirm')}
+          placeholder={t('auth.passwordPlaceholder')}
+          value={confirmation}
+          onChangeText={setConfirmation}
+          editable={!running}
+          revealable
+          autoCapitalize="none"
           autoComplete="new-password"
           textContentType="newPassword"
           returnKeyType="go"
