@@ -449,8 +449,8 @@ export const esES = {
   'auth.name': 'Nombre',
   'auth.namePlaceholder': 'Cómo quieres que te llamemos',
   'auth.username': 'Usuario',
-  'auth.usernamePlaceholder': '@tunombre',
-  'auth.usernameHint': 'Letras, números y _. De 3 a 20. Así te encontrarán.',
+  'auth.usernamePlaceholder': 'tunombre',
+  'auth.usernameHint': 'Sin @. Letras, números y _. De 3 a 20. Así te encontrarán.',
   'auth.email': 'Email',
   'auth.emailPlaceholder': 'tu@email.com',
   'auth.password': 'Contraseña',
@@ -518,6 +518,7 @@ export const esES = {
   'authError.usernameRequired': 'Elige un nombre de usuario.',
   'authError.usernameInvalid':
     'Solo letras minúsculas, números y _, empezando por letra, de 3 a 20 caracteres.',
+  'authError.usernameNoAtSign': 'Escribe el usuario sin @. Por ejemplo: aitor.',
   'authError.usernameReserved': 'Ese nombre de usuario está reservado. Elige otro.',
   'authError.usernameTaken': 'Ese nombre de usuario ya está en uso. Elige otro.',
   'authError.usernameCooldown':

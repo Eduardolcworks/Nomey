@@ -36,7 +36,7 @@ describe('el minimo de contraseña que se dice de antemano', () => {
   it('un alta esta lista con nombre, username valido, email y contraseña al minimo; nada mas se juzga', () => {
     const base = {
       displayName: 'Edu',
-      username: '@Edu_1',
+      username: 'Edu_1',
       email: 'edu@nomey.test',
       password: 'secreto',
     };
@@ -48,6 +48,9 @@ describe('el minimo de contraseña que se dice de antemano', () => {
     expect(registrationReady({ ...base, username: '' })).toBe(false);
     expect(registrationReady({ ...base, username: 'ed' })).toBe(false);
     expect(registrationReady({ ...base, username: 'admin_edu' })).toBe(false);
+    // Y con @ delante tampoco: el formulario no lo acepta aunque el dominio
+    // sepa quitarlo (ver el caso 'at' de abajo).
+    expect(registrationReady({ ...base, username: '@Edu_1' })).toBe(false);
     // Lo que es un email lo decide el servidor: aqui basta con que haya algo.
     expect(registrationReady({ ...base, email: 'sin-arroba' })).toBe(true);
   });
@@ -61,7 +64,27 @@ describe('el username, antes del viaje (F12/ADR-001 §3)', () => {
     expect(usernameProblem('eduardo_álvarez')).toBe('invalid');
     expect(usernameProblem('nomey_pay')).toBe('reserved');
     expect(usernameProblem('help')).toBe('reserved');
-    expect(usernameProblem(' @Eduardo ')).toBeNull();
+    expect(usernameProblem('aitor')).toBeNull();
+  });
+
+  /*
+   * EL @ ES DEL FORMULARIO, NO DEL DOMINIO.
+   *
+   * `normalizeHandle` sigue quitando un `@` inicial —es el contrato compartido
+   * con `sec.assert_handle_valid` y con `tests/vectors/username.json`, y no se
+   * toca—, pero el formulario ya no lo acepta: el campo no lo enseña en
+   * ninguna parte, así que escribirlo es un error de quien escribe. Lo que NO
+   * se hace es quitarlo en silencio.
+   */
+  it('un @ al principio es un problema del formulario, y se dice antes de enviar', () => {
+    expect(usernameProblem('@aitor')).toBe('at');
+    expect(usernameProblem(' @Eduardo ')).toBe('at');
+    expect(usernameProblem('@usuario123')).toBe('at');
+    // Incluso si lo que sigue al @ tampoco valdría: el mensaje es el del @,
+    // que es lo que sobra, y no «solo letras minusculas…».
+    expect(usernameProblem('@ab')).toBe('at');
+    // Y un @ que no va al principio sigue siendo sintaxis invalida de siempre.
+    expect(usernameProblem('ait@r')).toBe('invalid');
   });
 
   it('se envia en su forma almacenada —sin @, en minusculas— y, si no la tiene, tal cual recortado', () => {

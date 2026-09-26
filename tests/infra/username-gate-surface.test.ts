@@ -11,6 +11,12 @@ import GATE from '../../src/features/auth/username-gate.tsx?raw';
 import EDITOR from '../../src/features/auth/username-editor.tsx?raw';
 import NAME_EDITOR from '../../src/features/auth/display-name-editor.tsx?raw';
 import AUTH_INDEX from '../../src/features/auth/index.ts?raw';
+import FIELD from '../../src/features/auth/username-field.tsx?raw';
+import CREDENTIALS from '../../src/features/auth/credentials.ts?raw';
+import RACE from '../../scripts/username-signup-race-evidence.sh?raw';
+import DOMAIN from '../../src/domain/username/handle.ts?raw';
+import AUTH_ERRORS from '../../src/features/auth/auth-errors.ts?raw';
+import WORKFLOW from '../../.github/workflows/ci.yml?raw';
 import ES from '../../src/lib/i18n/messages/es-ES.ts?raw';
 import EN from '../../src/lib/i18n/messages/en.ts?raw';
 
@@ -157,6 +163,84 @@ describe('2b · sin red: la cuenta entra, el gate no se abre, y se vuelve a preg
     expect(ES).not.toMatch(/identity\.unavailable/);
     expect(EN).not.toMatch(/identity\.unavailable/);
     expect(AUTH_INDEX).not.toContain('IdentityUnavailable');
+  });
+});
+
+describe('2c · el username se escribe sin @ (F12, ajuste de producto)', () => {
+  /*
+   * EL @ DESAPARECE DE LA PANTALLA. Ni marcador, ni prefijo, ni adorno: lo
+   * que se teclea es el nombre a secas. Si vuelve el marcador, vuelve la
+   * regla equivocada —que el @ forma parte del nombre— y esta guarda lo dice.
+   */
+  it('ni el campo ni los catalogos ensenan @tunombre', () => {
+    expect(ES).not.toContain('@tunombre');
+    expect(EN).not.toContain('@yourname');
+    expect(ES).toContain("'auth.usernamePlaceholder': 'tunombre'");
+    expect(EN).toContain("'auth.usernamePlaceholder': 'yourname'");
+    // Y el campo no lo pinta por su cuenta en ningun sitio.
+    expect(FIELD).not.toContain("'@'");
+  });
+
+  /*
+   * LA REGLA VIVE EN EL FORMULARIO, NO EN EL DOMINIO. `normalizeHandle` sigue
+   * quitando el @ —contrato compartido con el servidor y con los vectores— y
+   * eso NO se toca: lo que cambia es que el formulario no lo acepta.
+   */
+  it('el dominio sigue quitando el @; quien lo rechaza es usernameProblem', () => {
+    expect(CREDENTIALS).toContain("if (trimmed.startsWith('@')) return 'at';");
+    // El dominio, intacto: sigue normalizando y nadie ha metido ahi la regla.
+    expect(DOMAIN).toContain("if (value.startsWith('@')) value = value.slice(1);");
+    expect(DOMAIN).not.toContain("'at'");
+  });
+
+  it('se comprueba ANTES que la sintaxis, para que el mensaje sea el del @', () => {
+    const fn = CREDENTIALS.slice(
+      CREDENTIALS.indexOf('export function usernameProblem('),
+      CREDENTIALS.indexOf('export const PASSWORD_MIN_LENGTH'),
+    );
+    expect(fn.indexOf("startsWith('@')")).toBeLessThan(fn.indexOf('validateHandle(raw)'));
+  });
+
+  it('y NO se normaliza en silencio: el formulario no le quita el @ a nadie', () => {
+    expect(FIELD).not.toMatch(/replace\(.*@/);
+    expect(GATE).not.toMatch(/replace\(.*@/);
+  });
+
+  it('el campo dice el problema del @ con su mensaje propio, en los dos idiomas', () => {
+    expect(FIELD).toContain("problem === 'at'");
+    expect(FIELD).toContain("t('authError.usernameNoAtSign')");
+    expect(ES).toContain("'authError.usernameNoAtSign'");
+    expect(EN).toContain("'authError.usernameNoAtSign'");
+  });
+
+  /* Y el gate no envia nada mientras el formato no sea valido. */
+  it('el gate no envia con formato invalido: el @ apaga el boton', () => {
+    expect(GATE).toContain('usernameProblem(username) === null');
+    expect(GATE).toContain('if (!ready || running) return;');
+  });
+
+  /*
+   * «YA ESTA EN USO» LO DICE EL SERVIDOR, Y SE DICE CON SU MENSAJE. El gate
+   * pinta `outcome.messageKey`, que para USERNAME_TAKEN es el especifico y no
+   * el generico.
+   */
+  it('un username ocupado llega con su mensaje propio, no con el generico', () => {
+    expect(AUTH_ERRORS).toContain("USERNAME_TAKEN: 'authError.usernameTaken'");
+    expect(ES).toContain("'authError.usernameTaken'");
+    expect(EN).toContain("'authError.usernameTaken'");
+    expect(GATE).toContain('messageKey: outcome.messageKey');
+    // El generico se reserva a lo que esta pantalla no puede explicar.
+    expect(GATE).toContain('if (outcome.required === true)');
+  });
+
+  /*
+   * Y LA CARRERA SIGUE SIENDO DEL SERVIDOR. Nada de esto toca los comandos ni
+   * sus indices: la evidencia de dos altas simultaneas con el mismo handle
+   * sigue existiendo y CI la ejecuta.
+   */
+  it('la carrera por el mismo username sigue medida, y los comandos intactos', () => {
+    expect(RACE).toContain('USERNAME_TAKEN');
+    expect(WORKFLOW).toContain('scripts/username-signup-race-evidence.sh');
   });
 });
 
