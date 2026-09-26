@@ -76,12 +76,36 @@ export function normaliseRegistration(raw: Registration): Registration {
 }
 
 /**
- * What is wrong with a username as typed, or nothing. `empty` is the form's
- * own «rellena el campo»; `invalid` and `reserved` are the shared syntax of
- * F12/ADR-001 §3–§4, said before the round trip. «Taken» is never known here.
+ * What is wrong with a username as typed, or nothing.
+ *
+ * `empty` is the form's own «rellena el campo»; `invalid` and `reserved` are
+ * the shared syntax of F12/ADR-001 §3–§4, said before the round trip. «Taken»
+ * is never known here.
+ *
+ * ═══════════ `at`: UNA REGLA DE FORMULARIO, NO DEL DOMINIO ═══════════
+ *
+ * `normalizeHandle` **quita** un `@` inicial a propósito: es el contrato
+ * COMPARTIDO con el servidor (`sec.assert_handle_valid`) y con
+ * `tests/vectors/username.json`, así que `@aitor` y `aitor` son el mismo
+ * handle para los dos lados. Eso no se toca: cambiarlo rompería la paridad
+ * que F12/ADR-001 §3 y F03/ADR-006 §1 sostienen con vectores compartidos.
+ *
+ * Lo que SÍ se decide aquí es que **el formulario no lo acepta**. El campo ya
+ * no enseña `@` en ninguna parte, así que escribirlo es un error de quien
+ * escribe, y corregirlo es suyo: **no se normaliza en silencio**, porque
+ * convertir `@aitor` en `aitor` sin decirlo enseña una regla equivocada —que
+ * el `@` forma parte del nombre— justo cuando se está eligiendo uno para
+ * siempre.
+ *
+ * Se comprueba ANTES que la sintaxis para que el mensaje sea el específico y
+ * no «solo letras minúsculas…», que no explicaría qué sobra.
  */
-export function usernameProblem(raw: string): UsernameProblem | 'empty' | null {
-  if (raw.trim() === '') return 'empty';
+export type UsernameFormProblem = UsernameProblem | 'empty' | 'at';
+
+export function usernameProblem(raw: string): UsernameFormProblem | null {
+  const trimmed = raw.trim();
+  if (trimmed === '') return 'empty';
+  if (trimmed.startsWith('@')) return 'at';
   const v = validateHandle(raw);
   return v.ok ? null : v.problem;
 }

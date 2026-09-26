@@ -426,8 +426,8 @@ export const en: Record<MessageKey, string> = {
   'auth.signUpSubtitle': 'Start putting your money in order.',
   'auth.name': 'Name',
   'auth.username': 'Username',
-  'auth.usernamePlaceholder': '@yourname',
-  'auth.usernameHint': 'Letters, numbers and _. 3 to 20. This is how people will find you.',
+  'auth.usernamePlaceholder': 'yourname',
+  'auth.usernameHint': 'No @. Letters, numbers and _. 3 to 20. This is how people will find you.',
   'auth.namePlaceholder': 'What should we call you',
   'auth.email': 'Email',
   'auth.emailPlaceholder': 'you@email.com',
@@ -435,6 +435,7 @@ export const en: Record<MessageKey, string> = {
   'auth.showPassword': 'Show password',
   'auth.hidePassword': 'Hide password',
   'auth.passwordPlaceholder': 'Your password',
+  'auth.passwordConfirm': 'Confirm password',
   'auth.signInAction': 'Sign in',
   'auth.signUpAction': 'Create account',
   'auth.passwordMinimum': 'At least {count} characters',
@@ -492,6 +493,7 @@ export const en: Record<MessageKey, string> = {
   'authError.usernameRequired': 'Choose a username.',
   'authError.usernameInvalid':
     'Only lowercase letters, numbers and _, starting with a letter, 3 to 20 characters.',
+  'authError.usernameNoAtSign': 'Type the username without @. For example: aitor.',
   'authError.usernameReserved': 'That username is reserved. Pick another one.',
   'authError.usernameTaken': 'That username is already taken. Pick another one.',
   'authError.usernameCooldown':

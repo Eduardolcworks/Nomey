@@ -112,11 +112,13 @@ export function UsernameEditor({
       ? state.messageKey === 'authError.usernameCooldown' && shownCooldown !== null
         ? t('identity.cooldownUntil', { date: date(shownCooldown, 'long') })
         : t(state.messageKey)
-      : problem === 'invalid'
-        ? t('authError.usernameInvalid')
-        : problem === 'reserved'
-          ? t('authError.usernameReserved')
-          : undefined;
+      : problem === 'at'
+        ? t('authError.usernameNoAtSign')
+        : problem === 'invalid'
+          ? t('authError.usernameInvalid')
+          : problem === 'reserved'
+            ? t('authError.usernameReserved')
+            : undefined;
 
   return (
     <View style={styles.editing}>

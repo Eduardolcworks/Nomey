@@ -46,32 +46,32 @@ export type AuthResult =
   | { readonly ok: false; readonly messageKey: AuthErrorKey };
 
 /**
- * Create an account.
+ * Create an account. **Email and password, and nothing else** (F12/ADR-008).
  *
- * The name goes into `options.data`, which becomes the user's
- * `user_metadata` - presentation only. It is NOT an identity: it never
- * appears in RLS, never resolves a membership or a scope, and never stands in
- * for the JWT's `sub`. `AGENTS.md` and F03/ADR-013 are unambiguous that ownership
- * and membership are the authorities, and a display name is neither.
+ * No `options.data`: neither `display_name` nor `requested_username` travels
+ * here any more. Creating an account and choosing a public identity are two
+ * decisions, and this is the first one; the second is the gate, once the
+ * address is confirmed and the account exists (F12/ADR-001 §7).
  *
- * The username travels the same way, as `requested_username`, and it is NOT
- * presentation: `sec.before_user_created` reads it inside GoTrue's own
- * transaction, validates it, creates the public identity and reserves the
- * handle for seven days — or refuses the whole sign-up, so no account is
- * created without one (F12/ADR-001 §5; migration 20260924120000). The
- * metadata copy is what the hook consumed, nothing reads it afterwards.
+ * **The server was taught to allow it** in the same move: `sec.before_user_created`
+ * used to refuse an email sign-up with no `requested_username`, which meant
+ * GoTrue aborted and no account was created. Since `20261008120000` that
+ * branch returns `{}` and writes no row — no identity, no handle, no journal
+ * entry. The branch that DOES carry a username is untouched.
+ *
+ * What replaces the old invariant: no account **enters** the app without a
+ * name and a username. `needsUsernameGate` mounts the gate instead of the
+ * tabs and `canEnterApp` refuses until the server stops answering
+ * `USERNAME_REQUIRED`. An account with a confirmed address and no
+ * `core.account_identity` is a valid, transitory state.
  *
  * With confirmations mandatory this never returns a session, and that is the
  * point rather than a limitation: the caller shows "check your email".
  */
-export async function signUp(raw: Registration): Promise<AuthResult> {
-  const { email, password, displayName, username } = normaliseRegistration(raw);
+export async function signUp(raw: Credentials): Promise<AuthResult> {
+  const { email, password } = normaliseCredentials(raw);
 
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { display_name: displayName, requested_username: username } },
-  });
+  const { error } = await supabase.auth.signUp({ email, password });
 
   if (error !== null) return { ok: false, messageKey: signUpErrorKey(error) };
   return { ok: true, pendingConfirmation: true };
