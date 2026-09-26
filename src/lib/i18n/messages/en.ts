@@ -719,8 +719,8 @@ export const en: Record<MessageKey, string> = {
   'home.detailRate': 'Exchange rate',
   'home.rateValue': '1 {from} = {rate} {to}',
   'home.detailRateSource': 'Source',
-  'home.rateSourceEcb': 'European Central Bank, reference of {date}',
-  'home.rateSourceOther': 'Reference of {date}',
+  'home.rateSourceEcb': 'European Central Bank',
+  'home.rateSourceOther': 'Exchange rate source',
   'home.conversionPending': 'Conversion pending',
   'home.conversionPendingHint':
     "That day's rate is not published yet. It will be converted as soon as it is.",
@@ -772,6 +772,7 @@ export const en: Record<MessageKey, string> = {
   'entry.amountHint': 'Enter the amount',
   'entry.amountInvalid': 'That amount is not valid for this currency',
   'entry.currencyLabel': 'Currency: {code}',
+  'entry.currencyTitle': 'Currency',
   'entry.currencyFixed': 'For now this uses your Personal mode currency',
   'entry.currencyUnavailable':
     'Currencies could not be loaded. This movement will use your Personal mode currency.',

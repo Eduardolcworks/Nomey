@@ -3,10 +3,12 @@ import { Platform, StyleSheet, View } from 'react-native';
 
 import { AmountField } from './amount-field';
 import type { AmountEntry } from './amount-entry';
-import { CurrencyList, type CurrencyListOption } from './currency-list';
+import { CurrencyTrigger } from './currency-trigger';
+import { OptionMenu } from './option-menu';
+import type { MenuOption } from './option-menu-props';
 import { GlassPressable } from './glass-pressable';
 import { ThemedText } from './themed-text';
-import { Radius, Spacing, useTheme } from '@/ui/theme';
+import { castShadow, Radius, Spacing, useTheme } from '@/ui/theme';
 
 /**
  * EL CTA ES UNA PÍLDORA, y su radio es una cifra REAL, no un número enorme.
@@ -38,6 +40,18 @@ const CTA_RADIUS = Platform.OS === 'android' ? CTA_HEIGHT / 2 : Radius.full;
  * es una vista distinta — no se le anade por si acaso.
  */
 const CTA_CLIP = Platform.OS === 'android';
+
+/**
+ * DÓNDE VIVE LA SOMBRA DEL OBLONGO DE MONEDA cuando abre el menú del sistema.
+ *
+ * En iOS ese oblongo es la etiqueta de un `Menu` de SwiftUI, que se recompone
+ * al cerrarse: una sombra exterior dentro de la etiqueta se queda aplanada
+ * cerca de un segundo (expo/expo#44126, cerrada aguas arriba sin arreglo). Se
+ * saca a una hermana estable, con la otra mitad del mismo token. En Android el
+ * `DropdownMenu` de Compose no tiene ese problema y la sombra se queda dentro,
+ * que es donde sigue la geometría real del oblongo.
+ */
+const SHADOW_OUTSIDE = Platform.OS === 'ios';
 
 /**
  * LA VENTANA EN LA QUE SE ESCRIBE UNA CIFRA, y hay una sola.
@@ -78,6 +92,22 @@ const CTA_CLIP = Platform.OS === 'android';
  * concesión: un componente del sistema de diseño que se traduce a sí mismo deja
  * de ser reutilizable en el momento en que hay dos catálogos.
  */
+/**
+ * UNA DIVISA TAL COMO LA OFRECE EL MENÚ, y las dos cosas que necesita.
+ *
+ * `label` llega **ya compuesta** —`€ EUR`, `US$ USD`, `JPY`— porque el
+ * símbolo lo resuelve el patrón regional, que vive en `lib/format`, y este
+ * componente no lee de `lib/`. Es la misma regla por la que `currencySymbol`
+ * entra ya formateado: un componente del sistema de diseño que se traduce a sí
+ * mismo deja de ser reutilizable.
+ */
+export type CurrencyMenuOption = {
+  readonly id: string;
+  readonly code: string;
+  /** `símbolo siglas`, o sólo las siglas cuando el patrón regional no las distingue. */
+  readonly label: string;
+};
+
 export type AmountSheetProps = {
   /** Encima de la cifra. Hoy, el selector de clase de un movimiento. */
   readonly header?: React.ReactNode;
@@ -134,6 +164,8 @@ export type AmountSheetProps = {
    * un desplegable sería mentir sobre lo que acaba de abrirse.
    */
   readonly currencyNote: string;
+  /** El encabezado del menú del sistema. Ya traducido. */
+  readonly currencyTitle: string;
 
   /**
    * ═══════════ LA MONEDA DE LA OPERACIÓN, CUANDO SE PUEDE ELEGIR ═══════════
@@ -148,10 +180,10 @@ export type AmountSheetProps = {
    * que elegir. Quien la monta decide si eso es «cargando» o «sin catálogo» y
    * lo dice con `currencyNote`.
    */
-  readonly currencyOptions?: readonly CurrencyListOption[] | null;
+  readonly currencyOptions?: readonly CurrencyMenuOption[] | null;
   /** Cuál está elegida, para marcarla en la lista. */
   readonly currencySelectedId?: string | null;
-  readonly onSelectCurrency?: (option: CurrencyListOption) => void;
+  readonly onSelectCurrency?: (option: CurrencyMenuOption) => void;
 
   /** Por qué todavía no se puede guardar. Se lee en gris. */
   readonly hint?: string | null;
@@ -186,6 +218,7 @@ export function AmountSheet({
   decimalSeparator,
   currencyLabel,
   currencyNote,
+  currencyTitle,
   currencyOptions,
   currencySelectedId,
   onSelectCurrency,
@@ -197,20 +230,31 @@ export function AmountSheet({
   onSave,
 }: AmountSheetProps) {
   const [noteShown, setNoteShown] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const scale = currency?.scale ?? 2;
 
   /*
    * **Elegir o mirar, nunca las dos cosas.** Sin catálogo el control conserva
    * exactamente el comportamiento que tenía —enseña la nota— y con catálogo
-   * abre la lista. No hay un tercer estado intermedio que pueda quedarse a
-   * medias.
+   * abre el menú del sistema. No hay un tercer estado intermedio que pueda
+   * quedarse a medias.
    */
   const selectable =
     currencyOptions !== null &&
     currencyOptions !== undefined &&
     currencyOptions.length > 0 &&
     onSelectCurrency !== undefined;
+
+  /*
+   * Las opciones tal y como las quiere el menú del sistema. `label` ya viene
+   * compuesta desde fuera —símbolo y siglas—, así que aquí no se formatea nada:
+   * sólo se marca cuál está elegida, que es lo que el sistema pinta como check
+   * y lo que VoiceOver y TalkBack leen como seleccionada.
+   */
+  const menuOptions: MenuOption[] = (currencyOptions ?? []).map((option) => ({
+    id: option.id,
+    title: option.label,
+    selected: option.id === currencySelectedId,
+  }));
 
   return (
     <View style={styles.sheet}>
@@ -239,31 +283,87 @@ export function AmountSheet({
           reference={reference}
         />
 
-        <GlassPressable
-          label={currencyLabel}
-          expanded={selectable ? pickerOpen : undefined}
+        {selectable ? (
           /*
-           * LA MISMA PROFUNDIDAD QUE LOS OBLONGOS de esta ventana, que es
-           * `well` y no `raised`. Los dos tokens no son variantes del mismo
-           * relieve: la sombra EXTERIOR de `raised` es `offsetY 8 / blur 20 /
-           * negro 0.65` y la de `well` es `offsetY 2 / blur 6 / 0.35` — más
-           * del triple de difuminado y casi el doble de opacidad. Contra un
-           * fondo negro eso es exactamente la mancha que se veía.
+           * ═══════════ EL MENÚ ES EL DEL SISTEMA, no una lista nuestra ═══════════
            *
-           * Sigue habiendo relieve: `well` conserva su sombreado interior y su
-           * sombra exterior corta. No se apaga la profundidad, se iguala.
+           * Antes esto abría un `ScrollView` propio DENTRO de la hoja: veinte
+           * divisas en una ventana de 168 puntos, empujando los campos hacia
+           * abajo mientras estaba abierta. `OptionMenu` monta el control del
+           * sistema —`Menu` de SwiftUI en iOS, `DropdownMenu` de Compose en
+           * Android—, que es el mismo que ya usan la categoría, el pagador y el
+           * método de reparto. No hay un cuarto selector: hay el de siempre con
+           * otras opciones.
+           *
+           * **El oblongo no cambia ni un punto.** `CurrencyTrigger` monta
+           * exactamente el `GlassSurface` que `GlassPressable` montaba en
+           * reposo, con los mismos `depth="well"` y `rim="soft"`.
            */
-          depth="well"
-          rim="soft"
-          radius={Radius.lg}
-          onPress={() => {
-            if (selectable) setPickerOpen((open) => !open);
-            else setNoteShown(true);
-          }}>
           <View style={styles.currency}>
-            <ThemedText variant="title">{currencySymbol}</ThemedText>
+            {/*
+             * SÓLO LA SOMBRA, y sólo en iOS. Hermana estable fuera del
+             * anfitrión de SwiftUI, con la mitad exterior de `Tactile.well`:
+             * dentro de la etiqueta de un `Menu` es lo que se queda aplanado
+             * cerca de un segundo al cerrar (expo/expo#44126). En Android la
+             * sombra se queda donde siempre, dentro del propio oblongo.
+             */}
+            {SHADOW_OUTSIDE ? (
+              <View
+                pointerEvents="none"
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={[
+                  StyleSheet.absoluteFill,
+                  styles.currencyShadow,
+                  { boxShadow: castShadow('well') },
+                ]}
+              />
+            ) : null}
+
+            <OptionMenu
+              title={currencyTitle}
+              options={menuOptions}
+              onSelect={(id) => {
+                const chosen = currencyOptions.find((option) => option.id === id);
+                // El identificador vuelve tal cual se mandó, así que no se
+                // reconstruye por posición: reordenar el catálogo no puede
+                // elegir otra divisa.
+                if (chosen !== undefined) onSelectCurrency(chosen);
+              }}>
+              <View accessibilityRole="button" accessibilityLabel={currencyLabel}>
+                <CurrencyTrigger
+                  symbol={currencySymbol}
+                  size={CURRENCY_SLOT}
+                  castsShadow={!SHADOW_OUTSIDE}
+                />
+              </View>
+            </OptionMenu>
           </View>
-        </GlassPressable>
+        ) : (
+          <GlassPressable
+            label={currencyLabel}
+            /*
+             * LA MISMA PROFUNDIDAD QUE LOS OBLONGOS de esta ventana, que es
+             * `well` y no `raised`. Los dos tokens no son variantes del mismo
+             * relieve: la sombra EXTERIOR de `raised` es `offsetY 8 / blur 20 /
+             * negro 0.65` y la de `well` es `offsetY 2 / blur 6 / 0.35` — más
+             * del triple de difuminado y casi el doble de opacidad. Contra un
+             * fondo negro eso es exactamente la mancha que se veía.
+             *
+             * Sigue habiendo relieve: `well` conserva su sombreado interior y su
+             * sombra exterior corta. No se apaga la profundidad, se iguala.
+             */
+            depth="well"
+            rim="soft"
+            radius={Radius.lg}
+            onPress={() => {
+              setNoteShown(true);
+            }}>
+            <View style={styles.currency}>
+              <ThemedText variant="title">{currencySymbol}</ThemedText>
+            </View>
+          </GlassPressable>
+        )}
 
         {aside === undefined ? null : <View style={styles.aside}>{aside}</View>}
       </View>
@@ -272,17 +372,6 @@ export function AmountSheet({
         <ThemedText variant="caption" themeColor="textTertiary" style={styles.note}>
           {currencyNote}
         </ThemedText>
-      ) : null}
-
-      {selectable && pickerOpen ? (
-        <CurrencyList
-          options={currencyOptions}
-          selectedId={currencySelectedId ?? null}
-          onSelect={(option) => {
-            onSelectCurrency(option);
-            setPickerOpen(false);
-          }}
-        />
       ) : null}
 
       {fields}
@@ -405,6 +494,13 @@ const styles = StyleSheet.create({
     height: CURRENCY_SLOT,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  /**
+   * El radio es el del oblongo: una sombra sigue la forma de su caja, y sin
+   * esto caería cuadrada — que es justo lo que no queremos ver.
+   */
+  currencyShadow: {
+    borderRadius: Radius.lg,
   },
   note: {
     textAlign: 'center',

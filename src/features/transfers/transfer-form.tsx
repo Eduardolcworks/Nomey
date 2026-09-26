@@ -341,6 +341,7 @@ export function TransferForm({
       decimalSeparator={cut === -1 ? '' : zero.slice(cut, cut + 1)}
       currencyLabel={t('entry.currencyLabel', { code: scope?.currencyCode ?? '' })}
       currencyNote={t('entry.currencyFixed')}
+      currencyTitle={t('entry.currencyTitle')}
       hint={
         scope === null ? t('entry.scopePending') : blocker === null ? null : t(BLOCKER_KEY[blocker])
       }

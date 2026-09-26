@@ -1,6 +1,7 @@
 export { CategoryTrigger } from './category-trigger';
 export { ControlMaterial, type ControlMaterialProps } from './control-material';
 export { CurrencyList, type CurrencyListOption } from './currency-list';
+export { CurrencyTrigger } from './currency-trigger';
 export { DateSheet } from './date-sheet';
 export { DepthLayer, type DepthLayerProps } from './depth-layer';
 export { ActionButton, type ActionButtonProps } from './action-button';
@@ -48,7 +49,12 @@ export {
 } from './amount-figure-size';
 export { AmountField } from './amount-field';
 export { AmountPlate, type AmountPlateProps } from './amount-plate';
-export { AmountSheet, type AmountSheetProps, SaveButton } from './amount-sheet';
+export {
+  AmountSheet,
+  type AmountSheetProps,
+  type CurrencyMenuOption,
+  SaveButton,
+} from './amount-sheet';
 export { EmptyState, ErrorState, LoadingState } from './state-view';
 export { ThemedText, type ThemedTextProps } from './themed-text';
 export { ThemedView, type ThemedViewProps } from './themed-view';

@@ -57,10 +57,35 @@ describe('el selector de moneda se reutiliza, no se duplica', () => {
     expect(CAMPO_GRUPO).not.toMatch(/ScrollView/);
   });
 
-  it('el control de moneda de la hoja del importe abre ESA misma lista', () => {
-    expect(HOJA).toMatch(/<CurrencyList/);
+  /*
+   * ═══ Y LA HOJA DEL IMPORTE ABRE EL MENÚ DEL SISTEMA, no una lista propia ═══
+   *
+   * Aquí montaba `CurrencyList` —veinte divisas en un `ScrollView` de 168
+   * puntos, empujando los campos mientras estaba abierto—. Ahora monta
+   * `OptionMenu`, que es el MISMO control que ya usan la categoría, el pagador
+   * y el método de reparto: `Menu` de SwiftUI en iOS y `DropdownMenu` de
+   * Compose en Android. No hay un cuarto selector.
+   */
+  it('el control de moneda de la hoja abre el menú del sistema', () => {
+    expect(HOJA).toMatch(/<OptionMenu/);
     expect(HOJA).toMatch(/currencyOptions/);
     expect(HOJA).toMatch(/onSelectCurrency/);
+    // Si el desplegable propio vuelve a la hoja, hay dos selectores otra vez.
+    expect(HOJA).not.toMatch(/<CurrencyList/);
+    expect(HOJA).not.toMatch(/ScrollView/);
+  });
+
+  it('y el oblongo sigue siendo el mismo, sin relieve reescrito', () => {
+    const TRIGGER = code('ui/components/currency-trigger.tsx');
+    // Los cuatro tokens que `GlassPressable` montaba en reposo, uno por uno.
+    expect(TRIGGER).toMatch(/material="control"/);
+    expect(TRIGGER).toMatch(/level="regular"/);
+    expect(TRIGGER).toMatch(/depth="well"/);
+    expect(TRIGGER).toMatch(/rim="soft"/);
+    expect(TRIGGER).toContain('radius={Radius.lg}');
+    // Sin gesto propio: la pulsación la gobierna el menú que lo aloja.
+    expect(TRIGGER).not.toMatch(/Pressable/);
+    expect(TRIGGER).not.toMatch(/onPress/);
   });
 
   /*
@@ -85,18 +110,57 @@ describe('el catálogo es el del servidor y no se filtra en el cliente', () => {
    * hábil. Ningún filtro por código, ni lista blanca, ni negra.
    */
   it('no hay ninguna lista de códigos escrita a mano en el camino del selector', () => {
-    for (const fuente of [CATALOGO, LISTA, HOJA, FORM_PERSONAL, FORM_GRUPO]) {
+    for (const fuente of [LISTA, HOJA, FORM_PERSONAL, FORM_GRUPO]) {
       expect(fuente).not.toMatch(/\bARS\b/);
       expect(fuente).not.toMatch(/'(EUR|USD|JPY)'/);
     }
   });
 
+  /*
+   * ═══ EL CATÁLOGO SÍ NOMBRA CÓDIGOS, Y SÓLO PARA ORDENAR ═══
+   *
+   * F11/ADR-004 congela el orden en que se OFRECEN las divisas, que es una
+   * decisión de producto y no un filtro. La diferencia importa, y por eso se
+   * guarda: una lista que ordena no puede quitar a nadie. `ARS`, `COP` y
+   * `CLP` están dentro de ella —sin cobertura de cambio hoy— precisamente
+   * porque qué par se convierte un día dado lo decide la frontera.
+   */
+  it('los códigos viven SÓLO en el orden congelado, y ése no filtra nada', () => {
+    const ORDEN = code('lib/currency/order.ts');
+    const abre = ORDEN.indexOf('const CURRENCY_ORDER');
+    const cierra = ORDEN.indexOf('];', abre);
+    expect(abre).toBeGreaterThan(-1);
+
+    // Las tres sin cobertura de cambio están DENTRO de la lista, no fuera.
+    const bloque = ORDEN.slice(abre, cierra);
+    for (const iso of ['ARS', 'COP', 'CLP']) expect(bloque).toContain(iso);
+
+    // Fuera de ese bloque no queda ni un código suelto, ni aquí ni en el
+    // catálogo, que es quien lee del servidor.
+    const resto = ORDEN.slice(0, abre) + ORDEN.slice(cierra);
+    expect(resto).not.toMatch(/'(EUR|USD|JPY|ARS|COP|CLP)'/);
+    expect(CATALOGO).not.toMatch(/'(EUR|USD|JPY|ARS|COP|CLP)'/);
+
+    // Y nada descarta filas por código: lo único descartado es una fila
+    // incompleta, que no es una divisa.
+    expect(ORDEN).not.toContain('.includes(');
+    expect(ORDEN).not.toContain('.filter(');
+    expect(CATALOGO).not.toContain('rows.filter');
+
+    // El módulo del orden no arrastra infraestructura: es dato de producto.
+    expect(ORDEN).not.toMatch(/^import /m);
+  });
+
   it('y el selector ofrece el catálogo tal cual, sin descartar monedas', () => {
+    // Personal pasa por su envoltorio, que compone el rótulo; Grupos monta la
+    // hoja de `ui/` directamente y lo compone allí. Ninguno de los dos quita.
     expect(FORM_PERSONAL).toMatch(/currencyOptions=\{options\}/);
-    expect(FORM_GRUPO).toMatch(/currencyOptions=\{options\}/);
+    expect(FORM_GRUPO).toContain('currencyOptions={labelCurrencies(format.locale, options)}');
     for (const fuente of [FORM_PERSONAL, FORM_GRUPO]) {
       expect(fuente).not.toMatch(/options\.filter/);
     }
+    // Y el envoltorio de Personal tampoco: rotula, no selecciona.
+    expect(code('features/personal/amount-sheet.tsx')).not.toContain('.filter(');
   });
 });
 

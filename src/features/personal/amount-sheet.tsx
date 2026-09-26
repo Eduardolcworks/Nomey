@@ -1,3 +1,4 @@
+import { type CurrencyOption, labelCurrencies } from '@/lib/currency';
 import { currencySymbol, useFormat } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -22,6 +23,8 @@ export { SaveButton } from '@/ui/components';
  *   el separador decimal        `lib/format`, formateando un cero de esa escala
  *   la etiqueta del control     `lib/i18n`
  *   la nota de moneda fija      `lib/i18n`
+ *   el título del menú          `lib/i18n`
+ *   el rótulo de cada divisa    `lib/format`, por patrón regional
  *
  * Las tres pantallas que ya la usaban —«Añadir movimiento», «Editar movimiento»
  * y «Editar disponible»— siguen importando `AmountSheet` de aquí con las mismas
@@ -29,8 +32,22 @@ export { SaveButton } from '@/ui/components';
  */
 export type AmountSheetProps = Omit<
   SharedAmountSheetProps,
-  'currencySymbol' | 'decimalSeparator' | 'currencyLabel' | 'currencyNote'
->;
+  | 'currencySymbol'
+  | 'decimalSeparator'
+  | 'currencyLabel'
+  | 'currencyNote'
+  | 'currencyTitle'
+  | 'currencyOptions'
+> & {
+  /**
+   * EL CATÁLOGO TAL COMO SALE DE `lib/currency`, sin rótulos.
+   *
+   * El rótulo del menú —`€ EUR`— lo compone este envoltorio, que es quien tiene
+   * el patrón regional; la hoja de `ui/` lo recibe ya resuelto, igual que el
+   * símbolo. Quien monta la pantalla no tiene que saber nada de eso.
+   */
+  readonly currencyOptions?: readonly CurrencyOption[] | null;
+};
 
 export function AmountSheet(props: AmountSheetProps) {
   const { t } = useTranslation();
@@ -72,6 +89,8 @@ export function AmountSheet(props: AmountSheetProps) {
       currencyNote={t(
         props.currencyOptions === null ? 'entry.currencyUnavailable' : 'entry.currencyFixed',
       )}
+      currencyTitle={t('entry.currencyTitle')}
+      currencyOptions={labelCurrencies(format.locale, props.currencyOptions)}
     />
   );
 }

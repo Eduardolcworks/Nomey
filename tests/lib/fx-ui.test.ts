@@ -14,6 +14,9 @@ import { projectHome } from '../../src/features/personal/projection';
 import { classifyResponse } from '../../src/lib/offline/response';
 import { payloadDefect } from '../../src/lib/offline/command';
 import type { CalendarDate } from '../../src/lib/format';
+import { compareCurrencies } from '../../src/lib/currency/order';
+import { currencyLabel } from '../../src/lib/currency/label';
+import { formatLocale } from '../../src/lib/i18n/locales';
 
 /**
  * ELEGIR LA MONEDA DE UNA OPERACIÓN, DESDE LA INTERFAZ (F11 UI).
@@ -406,5 +409,123 @@ describe('el importe vacío no produce payload en ninguna moneda', () => {
     expect(buildPayload(vacio, PERSONAL, 'k-1')).toBe(null);
     expect(buildPayload(vacio, scopeInCurrency(PERSONAL, JPY), 'k-1')).toBe(null);
     expect(EMPTY_AMOUNT.whole).toBe('');
+  });
+});
+
+/**
+ * ═══════════ EL ORDEN EN QUE SE OFRECEN LAS DIVISAS (F11/ADR-004) ═══════════
+ *
+ * Un orden de PRODUCTO, congelado. Lo que aquí se guarda no es el gusto de la
+ * lista —eso lo decide el ADR— sino las dos propiedades que impiden que se
+ * convierta en otra cosa: que ordena y **no descarta**, y que sigue siendo un
+ * orden total aunque el catálogo crezca por debajo.
+ */
+describe('el orden congelado del catálogo', () => {
+  const divisa = (code: string, scale = 2) => ({ id: code.toLowerCase(), code, scale });
+  const CATALOGO = [
+    'ARS',
+    'AUD',
+    'BRL',
+    'CAD',
+    'CHF',
+    'CLP',
+    'COP',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'MXN',
+    'NOK',
+    'NZD',
+    'PLN',
+    'RON',
+    'SEK',
+    'USD',
+  ];
+
+  function ordenado(codes: readonly string[]) {
+    return codes
+      .map((c) => divisa(c))
+      .sort(compareCurrencies)
+      .map((d) => d.code);
+  }
+
+  it('las cinco primeras son las decididas, y EUR encabeza', () => {
+    expect(ordenado(CATALOGO).slice(0, 5)).toEqual(['EUR', 'USD', 'GBP', 'JPY', 'CHF']);
+  });
+
+  it('es el orden entero de F11/ADR-004, no sólo su cabeza', () => {
+    expect(ordenado(CATALOGO)).toEqual([
+      'EUR',
+      'USD',
+      'GBP',
+      'JPY',
+      'CHF',
+      'CAD',
+      'AUD',
+      'NZD',
+      'SEK',
+      'NOK',
+      'DKK',
+      'PLN',
+      'MXN',
+      'BRL',
+      'CZK',
+      'HUF',
+      'RON',
+      'ARS',
+      'COP',
+      'CLP',
+    ]);
+  });
+
+  /*
+   * Lo que separa un orden de un filtro. Las tres sin cobertura de cambio
+   * siguen ofreciéndose: quién se convierte un día dado lo decide la frontera
+   * con FX_CURRENCY_NOT_COVERED, no esta lista.
+   */
+  it('ordena y NO descarta: salen las veinte, con ARS, COP y CLP dentro', () => {
+    const salida = ordenado(CATALOGO);
+    expect(salida).toHaveLength(20);
+    for (const iso of ['ARS', 'COP', 'CLP']) expect(salida).toContain(iso);
+  });
+
+  it('una divisa que el orden no conoce cae detrás, y no desaparece', () => {
+    const salida = ordenado([...CATALOGO, 'ZZZ', 'AAA']);
+    expect(salida).toHaveLength(22);
+    // Detrás de todas las conocidas, y entre ellas por código.
+    expect(salida.slice(-2)).toEqual(['AAA', 'ZZZ']);
+  });
+
+  it('y el orden es estable: ordenar dos veces no lo mueve', () => {
+    const una = ordenado(CATALOGO);
+    expect(ordenado(una)).toEqual(una);
+  });
+});
+
+/**
+ * EL RÓTULO DE UNA DIVISA EN EL MENÚ: símbolo y siglas, sin repetirse.
+ *
+ * El símbolo sale del MISMO patrón regional con el que se formatean los
+ * importes de esa divisa (AGENTS.md §6), nunca de un literal.
+ */
+describe('el rótulo de una divisa', () => {
+  const ES_LOCALE = formatLocale('es-ES');
+  const EN_LOCALE = formatLocale('en-US');
+
+  it('compone símbolo y siglas', () => {
+    expect(currencyLabel(ES_LOCALE, { id: 'e', code: 'EUR', scale: 2 })).toBe('€ EUR');
+    expect(currencyLabel(EN_LOCALE, { id: 'u', code: 'USD', scale: 2 })).toBe('$ USD');
+  });
+
+  it('pero no repite las siglas cuando el patrón no distingue símbolo', () => {
+    // En español ICU escribe JPY con su propio código; `JPY JPY` sería ruido.
+    expect(currencyLabel(ES_LOCALE, { id: 'j', code: 'JPY', scale: 0 })).toBe('JPY');
+  });
+
+  it('una divisa que ICU no conoce no revienta la pantalla', () => {
+    expect(currencyLabel(ES_LOCALE, { id: 'z', code: 'ZZZ', scale: 2 })).toBe('ZZZ');
   });
 });

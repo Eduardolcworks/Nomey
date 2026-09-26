@@ -330,6 +330,7 @@ export function GroupTransferMode({
        * y el payload no lleva.
        */
       currencyNote={t('group.transferCurrencyFixed')}
+      currencyTitle={t('entry.currencyTitle')}
       hint={hint}
       error={null}
       saveLabel={t('group.transferRecord')}

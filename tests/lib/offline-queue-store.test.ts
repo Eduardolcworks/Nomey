@@ -442,6 +442,58 @@ describe('orden y estados terminales', () => {
     db.close();
   });
 
+  /*
+   * ═══ LA BARRERA, Y LA ÚNICA CLASE QUE PRUEBA AUSENCIA ═══
+   *
+   * `uncertain` cuenta entradas que PUEDEN estar ya en el servidor. Una que
+   * recibió `FX_RATE_NOT_YET_AVAILABLE` no puede: es un rechazo estructurado de
+   * la frontera, y un rechazo hizo rollback de la transacción del escritor con
+   * la reclamación de la clave dentro (F03/ADR-008 §13). Sin esto, una sola
+   * entrada esperando la fijación del día cegaba el snapshot entero durante
+   * horas y Disponible, Ingresos y Gastos se quedaban en «—» a la vez.
+   */
+  describe('la barrera y la entrada que espera una fijación', () => {
+    async function despachada(state: 'sending' | 'retryable' | 'queued', errorClass?: string) {
+      const { db, store } = await open();
+      const entry = expense(ACTOR_A);
+      await store.enqueue(entry);
+      await store.markDispatched(
+        ACTOR_A,
+        entry.clientOperationId,
+        await store.nextDispatchSeq(ACTOR_A),
+      );
+      await store.markProgress(ACTOR_A, entry.clientOperationId, {
+        state,
+        ...(errorClass === undefined ? {} : { lastErrorClass: errorClass, lastErrorCode: 'X' }),
+      });
+      const barrier = await store.barrier(ACTOR_A);
+      db.close();
+      return barrier.uncertain;
+    }
+
+    it('una entrada despachada Y SIN RESPUESTA sigue siendo incierta', async () => {
+      // Ni respuesta ni clase: la petición pudo llegar y perderse la respuesta.
+      expect(await despachada('sending')).toBe(1);
+      expect(await despachada('retryable')).toBe(1);
+    });
+
+    it('un transporte caído tampoco prueba nada: sigue incierta', async () => {
+      expect(await despachada('retryable', 'transport')).toBe(1);
+    });
+
+    it('PERO una que recibió `fxPending` deja de serlo', async () => {
+      expect(await despachada('retryable', 'fxPending')).toBe(0);
+    });
+
+    it('y vuelve a contar en cuanto hay una petición viva otra vez', async () => {
+      // `sending` es una petición EN VUELO, que sí puede escribir; `queued` es
+      // lo que deja `recoverSending` tras un reinicio, donde la clase heredada
+      // ya no describe el último intento terminado. Conservador donde no se sabe.
+      expect(await despachada('sending', 'fxPending')).toBe(1);
+      expect(await despachada('queued', 'fxPending')).toBe(1);
+    });
+  });
+
   it('resolver una terminal la elimina: no es historial', async () => {
     const { db, store } = await open();
     const entry = expense(ACTOR_A);

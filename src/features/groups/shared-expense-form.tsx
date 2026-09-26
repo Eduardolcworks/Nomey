@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 
 import { type CurrencyDefinition, currencyDefinition, money } from '@/domain';
 import { type CategoryCatalogue, sharedCategories } from '@/lib/categories';
-import { useCurrencies } from '@/lib/currency';
+import { labelCurrencies, useCurrencies } from '@/lib/currency';
 import {
   type CalendarDate,
   clockTimeOf,
@@ -461,7 +461,8 @@ export function SharedExpenseForm({
          * (F11/ADR-001 §6), y filtrarlo aquí sería fabricar esa regla en el
          * cliente.
          */
-        currencyOptions={options}
+        currencyTitle={t('entry.currencyTitle')}
+        currencyOptions={labelCurrencies(format.locale, options)}
         currencySelectedId={declared.id}
         onSelectCurrency={(option) => {
           setChosenId(option.id);

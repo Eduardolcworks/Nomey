@@ -232,10 +232,52 @@ describe('fidelidad frente a ICU', () => {
  * reales que el check de F11.C congela en su escenario.
  */
 describe('formatRate', () => {
-  it('coloca los doce decimales sin redondear ni perder uno', () => {
-    expect(formatRate('5600358423', 12, ES)).toBe('0,005600358423');
-    expect(formatRate('862663906142', 12, ES)).toBe('0,862663906142');
-    expect(formatRate('862663906142', 12, EN)).toBe('0.862663906142');
+  /*
+   * ═══ CUATRO DECIMALES, Y NI UNO MÁS ═══
+   *
+   * El tipo se guarda con doce y todos son reales, pero
+   * `1 USD = 0,876962202929 EUR` no es una cifra que nadie lea. Es PRESENTACIÓN
+   * y nada más: el importe convertido que va encima lo calculó el servidor con
+   * el coeficiente entero, y `core.frozen_conversion` lo conserva exacto. Nada
+   * de lo que se recorta aquí vuelve a entrar en ningún sitio.
+   */
+  it('recorta la fracción a cuatro decimales', () => {
+    expect(formatRate('862663906142', 12, ES)).toBe('0,8627');
+    expect(formatRate('862663906142', 12, EN)).toBe('0.8627');
+    // El tipo real de USD→EUR del 25 de septiembre de 2026.
+    expect(formatRate('876962202929', 12, ES)).toBe('0,877');
+  });
+
+  it('redondea media ARRIBA, y el acarreo sube entero', () => {
+    // Truncar habría dejado todos los tipos leyéndose por lo bajo.
+    expect(formatRate('99996', 5, ES)).toBe('1');
+    expect(formatRate('15', 5, ES)).toBe('0,0002');
+    expect(formatRate('14999', 8, ES)).toBe('0,0001');
+    // Justo en la mitad: arriba.
+    expect(formatRate('5', 5, ES)).toBe('0,0001');
+  });
+
+  it('un tipo que NO es cero nunca se enseña como cero', () => {
+    /*
+     * `0,000049999` recortado a cuatro da `0`, y eso no es una cifra
+     * aproximada: dice que la moneda no vale nada. Ahí se enseña entero. Es el
+     * mismo criterio que rechaza un tipo malformado: antes largo que falso.
+     */
+    expect(formatRate('49999', 9, ES)).toBe('0,000049999');
+    expect(formatRate('1', 12, ES)).toBe('0,000000000001');
+    // Un cero de verdad sí es cero, y no se alarga.
+    expect(formatRate('0', 12, ES)).toBe('0');
+  });
+
+  it('una moneda que vale muy poco se lee basta, y eso se acepta a sabiendas', () => {
+    // 1 COP ≈ 0,00021 EUR. El importe convertido de al lado sigue siendo
+    // exacto: lo que se pierde es la precisión de la COTIZACIÓN, no del dinero.
+    expect(formatRate('210000000', 12, ES)).toBe('0,0002');
+  });
+
+  it('con cuatro decimales o menos no toca nada', () => {
+    expect(formatRate('5600', 4, ES)).toBe('0,56');
+    expect(formatRate('12345', 4, ES)).toBe('1,2345');
   });
 
   it('quita los ceros finales, que no cambian el valor', () => {
@@ -258,7 +300,13 @@ describe('formatRate', () => {
   });
 
   it('coeficiente y escala enormes siguen siendo exactos: nunca pasan por un número', () => {
-    // 2^63 − 1, el mayor bigint que cabe en la columna, a escala 12.
-    expect(formatRate('9223372036854775807', 12, EN)).toBe('9,223,372.036854775807');
+    /*
+     * 2^63 − 1, el mayor bigint que cabe en la columna, a escala 12. La parte
+     * ENTERA se conserva dígito a dígito —es la que dice cuánto vale— y sólo se
+     * recorta la fracción. Con `number` este caso habría devuelto
+     * `9.223.372,0369` mal: 2^63−1 no es representable, y el error entra al
+     * dividir, antes de redondear.
+     */
+    expect(formatRate('9223372036854775807', 12, EN)).toBe('9,223,372.0369');
   });
 });

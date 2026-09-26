@@ -1044,10 +1044,32 @@ describe('la profundidad de los controles de la ventana', () => {
    * relieves donde el sistema define dos.
    */
   it('no hay una sombra escrita a mano en la composición', () => {
-    for (const fuente of [CAMPOS, HOJA, MENU]) {
+    for (const fuente of [CAMPOS, MENU]) {
       expect(fuente).not.toContain('boxShadow');
       expect(fuente).not.toContain('shadowColor');
     }
+  });
+
+  /**
+   * ═══ LA ÚNICA SOMBRA DE LA HOJA ES EL TOKEN, REPARTIDO ═══
+   *
+   * Desde F11 el oblongo de la moneda abre el menú del sistema, y en iOS es la
+   * etiqueta de un `Menu` de SwiftUI: una sombra exterior DENTRO de esa
+   * etiqueta se queda aplanada cerca de un segundo al cerrar (expo/expo#44126).
+   * Se saca a una hermana estable —exactamente lo que ya hacía el círculo de
+   * categoría en iOS— con `castShadow`, que FILTRA el mismo token `Tactile`.
+   *
+   * Así que sigue sin haber una tercera profundidad: hay una mitad del token
+   * de siempre en otro sitio. Lo que esta guarda exige es justo eso — que sea
+   * el token y no una cifra, y que sólo haya una.
+   */
+  it('y la de la hoja es `castShadow`, no una cifra inventada', () => {
+    expect(HOJA).not.toContain('shadowColor');
+    expect(HOJA).not.toContain('shadowOffset');
+    expect(HOJA.match(/boxShadow/g) ?? []).toHaveLength(1);
+    expect(HOJA).toContain("boxShadow: castShadow('well')");
+    // Y sólo cuando el anfitrión de SwiftUI no sabe recomponerla.
+    expect(HOJA).toContain("const SHADOW_OUTSIDE = Platform.OS === 'ios'");
   });
 
   /** Un ingreso sigue sin categoría: el círculo desaparece, no se desactiva. */

@@ -528,7 +528,6 @@ export function MovementRow({
                       conversion.source_id === 'ecb'
                         ? 'home.rateSourceEcb'
                         : 'home.rateSourceOther',
-                      { date: format.date(conversion.origin_reference_date, 'long') },
                     )}
                   />
                 )}
