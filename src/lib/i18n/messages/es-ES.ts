@@ -758,8 +758,8 @@ export const esES = {
   'home.detailRate': 'Tipo de cambio',
   'home.rateValue': '1 {from} = {rate} {to}',
   'home.detailRateSource': 'Fuente',
-  'home.rateSourceEcb': 'Banco Central Europeo, referencia del {date}',
-  'home.rateSourceOther': 'Referencia del {date}',
+  'home.rateSourceEcb': 'Banco Central Europeo',
+  'home.rateSourceOther': 'Fuente de tipos de cambio',
   /*
    * F11 UI: la conversión que TODAVÍA no existe. Nunca se enseña un importe
    * convertido junto a esto — precisamente porque no lo hay.
@@ -816,6 +816,7 @@ export const esES = {
   'entry.amountHint': 'Escribe la cantidad',
   'entry.amountInvalid': 'Esa cantidad no es válida para esta moneda',
   'entry.currencyLabel': 'Moneda: {code}',
+  'entry.currencyTitle': 'Moneda',
   'entry.currencyFixed': 'De momento se usa la moneda de tu Modo Personal',
   /* Se ofrecía elegir y el catálogo no llegó: se dice, y el movimiento va en
    * la moneda del ámbito, que es la correcta mientras no se elija otra. */

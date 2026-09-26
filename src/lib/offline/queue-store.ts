@@ -137,7 +137,13 @@ export type QueueStore = {
    *   uncertain    how many entries are still projected AND may already exist
    *                on the server: dispatched, not yet confirmed, not terminal.
    *                A terminal entry is not projected, so it cannot be counted
-   *                twice and is deliberately not a hazard.
+   *                twice and is deliberately not a hazard. **Neither is one
+   *                whose last finished attempt got a structured refusal from
+   *                the boundary** — today only `fxPending`, and only while it
+   *                sits in `retryable`: an answer means the writer's
+   *                transaction rolled back, key claim included, so nothing was
+   *                written. What proves absence is that there WAS an answer,
+   *                not that the answer was terminal.
    */
   barrier(actorId: string): Promise<QueueBarrier>;
 

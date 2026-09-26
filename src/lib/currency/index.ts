@@ -11,4 +11,6 @@
  * NO baja es la presentación: el desplegable vive en `ui/`.
  */
 export { type CurrencyOption, fetchCurrencies, indexCurrencies } from './catalogue';
+export { compareCurrencies, CURRENCY_ORDER } from './order';
+export { currencyLabel, type LabelledCurrency, labelCurrencies } from './label';
 export { type CurrenciesState, useCurrencies } from './use-currencies';

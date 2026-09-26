@@ -67,6 +67,52 @@ const INSERT = `insert into queue_entry (${COLUMNS})
 const PROJECTED = `('queued', 'sending', 'retryable', 'blocked_session')`;
 
 /**
+ * ═══ LA ÚNICA CLASE QUE PRUEBA QUE EL SERVIDOR NO ESCRIBIÓ NADA ═══
+ *
+ * `uncertain` cuenta entradas que PUEDEN estar ya en el servidor, y de una
+ * despachada eso normalmente no se sabe: la petición pudo llegar y perderse la
+ * respuesta. De `fxPending` sí se sabe. Es un rechazo ESTRUCTURADO de la
+ * frontera —`FX_RATE_NOT_YET_AVAILABLE`, 503 con código— y un rechazo es una
+ * respuesta: la transacción del escritor hizo rollback, incluida la reclamación
+ * de la clave de idempotencia, que se toma dentro (F03/ADR-008 §13). No quedó
+ * fila.
+ *
+ * Es el MISMO argumento que `snapshot-window.ts` ya escribía para los rechazos
+ * terminales —«que, al ser la misma clave, es en sí misma prueba de que nunca
+ * se escribió nada»—. Lo que prueba la ausencia no es que el rechazo sea
+ * terminal: es que HUBO respuesta. `fxPending` es reintentable por cuándo, no
+ * por si llegó.
+ *
+ * **`coalesce` y no una comparación a secas.** Sin él, una entrada sin clase
+ * —cualquiera que nunca haya recibido respuesta, y toda fila heredada de un
+ * esquema anterior— compara `NULL = 'fxPending'`, que en SQL es `NULL`, y
+ * `not NULL` sigue siendo `NULL`: la fila se caía del `where` y dejaba de
+ * contar como incierta, que es exactamente lo contrario de lo que se quiere.
+ * Lo midió `offline-legacy-dispatch` en la primera ejecución.
+ *
+ * **Y sólo en `retryable`.** Ese estado es el que escribe `markProgress` al
+ * recibir la respuesta, así que la clase describe el último intento TERMINADO.
+ * En `sending` hay una petición viva que sí puede escribir, y en `queued` la
+ * hay tras un reinicio (`recoverSending`): ahí la clase heredada no prueba
+ * nada y la entrada vuelve a contar. Conservador donde no se sabe.
+ *
+ * ═══ QUÉ ARREGLA ═══
+ *
+ * Sin esto, una sola entrada en moneda extranjera esperando la fijación del día
+ * dejaba `uncertain` en 1 durante horas —el plazo de `fxPending` es plano y de
+ * una hora, F11/ADR-002— y con ello NINGUNA respuesta del servidor llegaba a
+ * ser base: Inicio pintaba «—» en Disponible, Ingresos y Gastos, que es lo que
+ * hace `projectHome` cuando el snapshot es `null`. Los tres a la vez, y por una
+ * fila que ni siquiera suma.
+ *
+ * Lo que NO cambia: la entrada sigue proyectada, sigue pintándose en la lista y
+ * sigue sin sumar —no comparte definición monetaria con el ámbito—, y sigue
+ * bloqueando «Fijar el Disponible» por `unreconciled`. Nada se da por bueno
+ * antes de tiempo; lo único que deja de hacer es cegar el snapshot.
+ */
+const ANSWERED = 'fxPending';
+
+/**
  * Lo que se comprueba **antes** de escribir, y por qué aquí.
  *
  * Un payload inexacto guardado es un fallo que aparece horas después, sin red
@@ -253,7 +299,9 @@ export function createSqliteQueueStore(db: SqlDatabase): QueueStore {
                   where e.actor_id = ?
                     and e.dispatch_seq is not null
                     and e.confirm_seq is null
-                    and e.state in ${PROJECTED}) as uncertain
+                    and e.state in ${PROJECTED}
+                    and not (e.state = 'retryable'
+                             and coalesce(e.last_error_class, '') = '${ANSWERED}')) as uncertain
            from (select 1) one
            left join reconcile_cursor c on c.actor_id = ?`,
         [actorId, actorId],

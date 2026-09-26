@@ -70,6 +70,26 @@
  * itself proof that nothing was ever written (an earlier write would have come
  * back as `already_processed`).
  *
+ * ═══ AND WHAT SETTLES IT IS AN ANSWER, NOT A TERMINAL STATE ═══
+ *
+ * That last parenthesis is the whole argument, and it does not actually depend
+ * on the rejection being terminal. A structured refusal from the boundary means
+ * the writer's transaction rolled back — the idempotency claim is taken INSIDE
+ * it (F03/ADR-008 §13) — so no row exists, whatever the client does next.
+ *
+ * One retryable class qualifies: `fxPending`. `FX_RATE_NOT_YET_AVAILABLE` is a
+ * 503 the boundary CHOSE to send, and it is retried because of WHEN, not
+ * because it is unknown whether it arrived. So `uncertain` stops counting it
+ * while it sits in `retryable` (`sqlite-queue-store.ts`, where the predicate
+ * and its edges live). A transport failure never qualifies: there is no answer,
+ * and `COMMAND_IN_FLIGHT` explicitly means somebody else may be writing.
+ *
+ * Without this, one entry waiting for a day's fixation — a flat hour per retry,
+ * F11/ADR-002 — kept `uncertain` at 1 for hours, no response ever became a
+ * base, and Inicio showed `—` in the Disponible, Ingresos and Gastos at once.
+ * The entry itself is still projected and still does not sum; it just stops
+ * blinding the snapshot.
+ *
  * ═══ WHY THAT COVERS EVERY ORDER ═══
  *
  * Take any entry E still projected when the response arrives, and any moment at

@@ -62,6 +62,13 @@ const CONTROLES: readonly (readonly [string, number, string])[] = [
    */
   ['ui/components/category-trigger.tsx', 1, 'el círculo de categoría'],
   /*
+   * El oblongo de la moneda, por la MISMA razón y con el mismo montaje: desde
+   * F11 abre el menú del sistema, así que su cristal no puede ser el nativo —
+   * el efecto en vivo no sobrevive a alojarse como etiqueta de un `Menu` de
+   * SwiftUI—. Los tokens son los que `GlassPressable` ya montaba en reposo.
+   */
+  ['ui/components/currency-trigger.tsx', 1, 'el oblongo de la moneda'],
+  /*
    * La pista del selector de clase. Bajó a `ui/` cuando el alta de un gasto
    * compartido necesitó el mismo control con dos opciones en vez de tres: una
    * feature no puede leer de otra. Lo que se quedó arriba son las clases, sus

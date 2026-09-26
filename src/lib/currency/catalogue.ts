@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase';
 
+import { compareCurrencies } from './order';
+
 /** Una definición monetaria del catálogo, tal y como la publica `api`. */
 export type CurrencyOption = {
   readonly id: string;
@@ -36,7 +38,7 @@ export async function fetchCurrencies(): Promise<readonly CurrencyOption[]> {
       : [{ id: row.id, code: row.code, scale: row.scale }],
   );
 
-  return rows.slice().sort((a, b) => a.code.localeCompare(b.code));
+  return rows.slice().sort(compareCurrencies);
 }
 
 /** El catálogo indexado por identidad, para resolver una moneda declarada. */

@@ -17,6 +17,7 @@ elegir un número; no se renumera ni se reutiliza. Convención completa en
 | [F11/ADR-001](ADR-001-fx-rate-resolution.md)                 | Resolución autoritativa del tipo de cambio                     | Aceptado | 2026-09-13 | — (borrador de rama `ADR-032`, nunca integrado) |
 | [F11/ADR-002](ADR-002-per-currency-daily-rate.md)            | Tipo del día por moneda, fijación única y límite de antigüedad | Aceptado | 2026-09-16 | —                                               |
 | [F11/ADR-003](ADR-003-group-expense-conversion-and-split.md) | Conversión y reparto de un gasto de grupo en moneda extranjera | Aceptado | 2026-09-22 | —                                               |
+| [F11/ADR-004](ADR-004-currency-offer-order.md)               | Orden de producto del catálogo de divisas                      | Aceptado | 2026-09-26 | —                                               |
 
 ## Decisiones de otras fases que esta fase aplica
 
